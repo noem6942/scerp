@@ -1,0 +1,37 @@
+# .gitignore
+
+# Python files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environment
+venv/
+env/
+
+# Django specific
+db.sqlite3
+*.log
+staticfiles/
+media/
+
+# Secrets and configuration
+.env
+*.ini
+*.json
+
+# IDE settings
+.vscode/
+.idea/
+
+# Git itself
+.DS_Store
+
+# Ignore .ipynb_checkpoints folder
+.ipynb_checkpoints/
+
+# Ignore all files within any folder named 'fixtures'
+fixtures/**
+
+# Ignore all files within any folder named 'migrations'
+**/migrations/*
