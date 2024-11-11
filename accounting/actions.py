@@ -32,7 +32,7 @@ import json
 
 DONOT_COPY_FIELDS = [
     # General
-    'id', 'created_at', 'created_by_id', 'modified_at', 'modified_by_id',
+    'pk', 'id', 'created_at', 'created_by_id', 'modified_at', 'modified_by_id',
     'version_id', 'protected', 'inactive',
     
     # Accounting
@@ -206,6 +206,18 @@ def coac_positions_create(modeladmin, request, queryset, data):
  
 # AccountPositionCanton (apc)
 def apc_export(request, queryset, type_from, display_type, chart_id):
+    '''two cases:
+    1. Copy bilance to bilance:
+        add chart
+        function = None
+        copy account_number and account_4_plus_2
+        copy display_type
+    2. Copy function to income:
+        add chart 
+        function gets account_number (if existing), otherwise account
+        display_type gets income   
+    '''
+
     # Init
     chart = AccountChartMunicipality.objects.get(id=chart_id)
     count_created = 0
@@ -213,21 +225,28 @@ def apc_export(request, queryset, type_from, display_type, chart_id):
     
     # Copy
     for obj in queryset.all():
-        # Adjust function
+        # Adjust function and accounting numbers
         if type_from == CHART_TYPE.FUNCTIONAL:
+            # Function
             if obj.account_number:
                 function = obj.account_number
             else:
                 function = obj.account
+                
+            # Accounting numbers
+            obj.account_number = ''
+            obj.account_4_plus_2 = ''               
+               
         else:
-            function = None
+            function = None 
     
         # Check existing        
         account_instance = AccountPositionMunicipality.objects.filter(
             chart=chart, 
             function=function,
             account_number=obj.account_number, 
-            account_4_plus_2=obj.account_4_plus_2
+            account_4_plus_2=obj.account_4_plus_2,
+            display_type=display_type
         ).first()
         
         # Create new
@@ -236,23 +255,14 @@ def apc_export(request, queryset, type_from, display_type, chart_id):
         else:
             count_created += 1
             account_instance = AccountPositionMunicipality()
-            account_instance.chart = chart
-            account_instance.display_type = display_type   
+            account_instance.chart = chart 
             account_instance.function = function  
+            account_instance.display_type = display_type  
 
         # Copy values
         for key, value in obj.__dict__.items():
             if key not in DONOT_COPY_FIELDS and key[0] != '_':                
                 setattr(account_instance, key, value)
-
-        # Adjust function
-        if type_from == CHART_TYPE.FUNCTIONAL:
-            account_instance.account_number = ''
-            account_instance.account_4_plus_2 = ''
-            if obj.account_number:
-                account_instance.function = obj.account_number
-            else:
-                account_instance.function = obj.account
 
         # As we create an AbstractTenant instance from a non tenant obj we
         # do the update of tenant and logging ourselves instead of using

@@ -31,6 +31,9 @@ class FiscalPeriodValidate:
 
 
 class AccountPositionAbstractValidate:
+    '''make number, and do validations
+        PATTERN = '{display_type_1}{function_4}{category_1}{account_5_2}'
+    '''
 
     @staticmethod
     def format_number_with_leading_digits(praefix_digits, num, length, comma):
@@ -71,20 +74,16 @@ class AccountPositionAbstractValidate:
             if self.account == '':
                 self.account = 0
 
-        # Number (for accounting in cashCtrl)        
-        # Init
-        pattern = '{type_1}{function_4}{category_1}{account_5_2}'
-
         # Fill in function
         if hasattr(self, 'function') and self.function:
-            function = int(self.function)
+            function_4 = int(self.function)
         else:
-            function = 0
+            function_4 = 0
         
         # Calc prafix, i.e.{type_1}{function_4}
-        type_ = self.chart_of_accounts.type
+        display_type_1 = self.display_type
         praefix = self.format_number_with_leading_digits(
-            type_, function, digits_functional, comma_functional)
+            display_type_1, function_4, digits_functional, comma_functional)
  
         # Add category
         category_1 = '1' if self.is_category else '0'
