@@ -30,6 +30,10 @@ class API_SETUP:
             'verbose_name': _('initialized'),
             'help_text': _('date and time when initialized')
         }
+        custom_fields_setup = {
+            'verbose_name': _('custom_fields_setup'),
+            'help_text': _('numbering of custom_fields, setup automatically')
+        }
 
 
 class CHART_OF_ACCOUNTS:

@@ -1,18 +1,61 @@
 # forms.py
 from django import forms
+from django.conf import settings
 from django.contrib import messages
+from django.db import models
 from django.utils.translation import gettext as _
+from django.core.exceptions import ValidationError
 from django.forms import SelectMultiple
 from django_admin_action_forms import action_with_form, AdminActionForm
 
 from core.safeguards import get_tenant_id_from_session
 from .models import (
+    CostCenter,
     CHART_TYPE, AccountPositionCanton, ChartOfAccountsCanton,
     AccountChartMunicipality
 )
 from .locales import ACCOUNT_CHART_MUNICIPALITY, CHART_OF_ACCOUNTS
+from .widgets import MultiLanguageTextWidget
 
 LABEL_BACK = _("Back")
+
+
+# MultiLanguageFieldForm for CashCtrl
+class MultiLanguageFieldForm(forms.ModelForm):
+    """
+    A generic ModelForm that works with any model with a multi-language field (like `name`).
+    """
+    class Meta:
+        fields = '__all__'
+        widgets = {
+            'name': MultiLanguageTextWidget(),  # Custom widget for the 'name' field
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.language_fields = self.get_language_fields()
+
+    def get_language_fields(self):
+        """
+        Dynamically identify the multi-language fields (e.g., 'name') based on model field names.
+        """
+        return [
+            field.name for field in self._meta.model._meta.fields 
+            if isinstance(field, models.JSONField)]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        # Apply validation to all language fields (e.g., 'name')
+        for field_name in self.language_fields:
+            field_value = cleaned_data.get(field_name, {})
+            
+            if not any(field_value.get(lang_code) for lang_code, _ in settings.LANGUAGES):
+                raise ValidationError(
+                    _(f'At least one language (e.g., "en") must be filled in the {field_name} field.')
+                )
+
+        return cleaned_data   
 
 
 # AccountChartCanton

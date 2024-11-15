@@ -1,15 +1,18 @@
 # from django_admin_action_forms import action_with_form, AdminActionForm
 from django.contrib import admin
+from django.contrib.admin import ModelAdmin
 
 from scerp.admin import (
     admin_site, App, AppConfig, BaseAdmin, display_empty, display_verbose_name,
     display_datetime)
     
 from .models import (
-    APISetup, FiscalPeriod, Currency, ChartOfAccountsCanton, AccountPositionCanton,
-    AccountChartMunicipality, AccountPositionMunicipality,
-    TaxRate
+    APISetup, FiscalPeriod, Currency, ChartOfAccountsCanton,
+    AccountPositionCanton, AccountChartMunicipality, 
+    AccountPositionMunicipality,
+    CostCenter, TaxRate
 )
+from .forms import MultiLanguageFieldForm
 from .locales import (
     APP, FIELDSET, ACCOUNT_POSITION, CHART_OF_ACCOUNTS, 
     ACCOUNT_POSITION_MUNICIPALITY)
@@ -18,6 +21,14 @@ from . import actions as a
 # init admin
 app = App(APP)
 
+
+class CashCtrlMultiLanguageField(ModelAdmin):    
+    '''Abstract class for name, description field '''
+    form = MultiLanguageFieldForm
+
+    def name_as_str(self, obj):
+        return obj.name_as_str
+        
 
 @admin.register(APISetup, site=admin_site) 
 class APISetupAdmin(BaseAdmin):
@@ -47,7 +58,26 @@ class FiscalPeriodAdmin(BaseAdmin):
 class CurrencyAdmin(BaseAdmin):
     has_tenant_field = True
     list_display = ('code', 'is_default')
-    search_fields = ('code',)
+    search_fields = ('code',)        
+
+
+@admin.register(CostCenter, site=admin_site) 
+class CostCenterAdmin(BaseAdmin, CashCtrlMultiLanguageField):    
+    has_tenant_field = True
+
+    list_display = ('name_as_str', 'number')
+    search_fields = ('name', 'number')
+
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'test'),
+            'classes': ('expand',),            
+        }),     
+        ('Details', {
+            'fields': ('number',),
+            'classes': ('expand',),            
+        })
+    )
 
 
 @admin.register(ChartOfAccountsCanton, site=admin_site) 

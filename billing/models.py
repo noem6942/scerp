@@ -48,7 +48,9 @@ class Subscription(TenantAbstract):
     strasse = models.CharField(max_length=255, null=True, blank=True, verbose_name="Strasse")  # Street, currently some addresses for institutions are blank
     plz_ort = models.CharField(max_length=255, verbose_name="Plz Ort")  # Postal Code + City
     
+    tarif = models.IntegerField(null=True, blank=True, verbose_name="Tarif") 
     periode = models.IntegerField(verbose_name="Periode")  # Period    
+    tarif_bez = models.CharField(max_length=255, verbose_name="TarifBez")  # Subscription Number
     basis = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Quantity")  # Base Amount, sometimes None
     ansatz_nr = models.IntegerField(null=True, blank=True, verbose_name="AnsatzNr")  # Approach Number, sometimes blank
     ansatz = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Ansatz")  # Approach

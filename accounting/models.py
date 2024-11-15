@@ -1,8 +1,9 @@
-from django.core.exceptions import ValidationError
+from django.conf import settings
 from django.db import models
 from django.db.models import UniqueConstraint
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import get_language, gettext_lazy as _
+
 
 from core.models import (
     LogAbstract, NotesAbstract, TenantAbstract, CITY_CATEGORY)
@@ -55,6 +56,8 @@ class APISetup(TenantAbstract):
         max_length=100, **API_SETUP.Field.api_key)
     initialized = models.DateTimeField(
         max_length=100, null=True, blank=True, **API_SETUP.Field.initialized)
+    custom_fields_setup = models.JSONField(
+        null=True, blank=True, **API_SETUP.Field.custom_fields_setup)
         
     def __str__(self):
         return self.tenant.name + self.symbols
@@ -81,6 +84,30 @@ class CashCtrl(TenantAbstract):
     c_last_updated = models.DateTimeField(null=True, blank=True)
     c_last_updated_by = models.CharField(
         max_length=100, null=True, blank=True)
+ 
+    class Meta:
+        abstract = True
+ 
+  
+class CashCtrlValues(models.Model): 
+    '''handle <values> fields '''
+    def json_value_as_str(self, dict_):  
+        name = dict_.get(get_language())
+        if name:
+            return name 
+        else:
+            for code, _lang_name in settings.LANGUAGES:
+                if dict_.get(code):
+                    return dict_.get(code)
+        return None
+  
+    @property
+    def name_as_str(self):  
+        return self.json_value_as_str(self.name)
+    
+    @property
+    def description_as_str(self):        
+        return self.json_value_as_str(self.description)    
     
     class Meta:
         abstract = True
@@ -121,20 +148,21 @@ class Location(CashCtrl):
         return f"{self.name} (({self.type}), {self.address})"
 
 
-class CostCenter(CashCtrl):
+class CostCenter(CashCtrl, CashCtrlValues):
     '''CostCenters must only be created and edited in scerp
         most optional fields are null and not displayed
     '''
-    name = models.CharField(max_length=100, help_text="The name of the cost center.")
+    name = models.JSONField(help_text="The name of the cost center. Only one language mandatory")
     number = models.DecimalField(max_digits=20, decimal_places=2)
+    test = models.CharField(max_length=20, null=True)
 
     def __str__(self):
-        return f"{self.name} ({self.number})" if self.number else self.name
+        return f"{self.name_as_str} ({self.number})"
 
     class Meta:
-        verbose_name = "Account Category"
-        verbose_name_plural = "Account Categories"
-        ordering = ['number']
+        verbose_name = "Cost Center"
+        verbose_name_plural = "Cost Centers"
+        ordering = ['name']
 
 
 class FiscalPeriod(CashCtrl, FiscalPeriodValidate):

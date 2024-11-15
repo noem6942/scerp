@@ -1,0 +1,9 @@
+{# admin/multi_language_text_widget.html #}
+<div>
+  {% for lang in widget.languages %}
+  <label for="{{ widget.name }}_{{ lang }}">{{ lang|upper }}:</label>
+  <textarea name="{{ widget.name }}_{{ lang }}" id="{{ widget.name }}_{{ lang }}" rows="4" cols="40">
+    {{ widget.value.get(lang, "") }}
+  </textarea>
+  {% endfor %}
+</div>

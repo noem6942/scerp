@@ -47,7 +47,7 @@ class CounterAdmin(BaseAdmin):
     def display_jg(self, obj):
         return display_empty(obj.jg)
   
-'''  
+
 @admin.register(Subscription, site=admin_site)
 class SubscriptionAdmin(BaseAdmin):
     list_display = ('abo_nr', 'name_vorname', 'tarif', 'tarif_bez', 'ansatz_nr', 'ansatz', 'basis', 'betrag')
@@ -83,4 +83,3 @@ class SubscriptionAdmin(BaseAdmin):
             'classes': ('collapse',),            
         }),
     )
-'''
