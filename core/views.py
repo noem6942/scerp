@@ -1,10 +1,14 @@
+from django.conf import settings
 from django.shortcuts import render, redirect
 
 
 # Views ----------------------------------------------------------------------
 
 def home(request):
-    return render(request, 'core/home.html')
+    template = 'core/home.html'
+    
+    context = {'gui_root': settings.ADMIN_ROOT}
+    return render(request, template, context=context)
 
 
 def select_tenant(request):
