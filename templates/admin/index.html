@@ -3,14 +3,14 @@
 {% load i18n %}
 {% block content %}
 <!-- Custom selection box for tenant selection -->
-{% if tenant_setups|length > 1 %}
+{% if available_tenants|length > 1 %}
 <form method="post" action=".">
     <label>
       {% translate 'Organization' %}:&nbsp;
       {% csrf_token %}    
       <select name="tenant_setup" id="tenant-select">          
           <option>-&nbsp;-&nbsp;-</option>  <!-- Show only if there are more than one tenant -->          
-          {% for setup in tenant_setups %}
+          {% for setup in available_tenants %}
               <option value="{{ setup.id }}" {% if setup.id == selected_tenant_setup_id %}selected{% endif %}>
                 {{ setup.tenant }}
               </option>

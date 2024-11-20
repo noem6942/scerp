@@ -11,6 +11,13 @@ def home(request):
     return render(request, template, context=context)
 
 
+def test(request):
+    template = 'core/test.html'
+    
+    context = {'gui_root': settings.ADMIN_ROOT}
+    return render(request, template, context=context)
+
+
 def select_tenant(request):
     template = 'templates/select_tenant.html'
 

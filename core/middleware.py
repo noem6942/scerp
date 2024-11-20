@@ -4,9 +4,10 @@
 
 '''
 from django.http import HttpResponseForbidden, Http404
+from django.utils.translation import gettext_lazy as _
 
 from .models import Tenant, TenantSetup, UserProfile
-from .safeguards import get_tenant_id_from_session   
+from .safeguards import get_tenant 
 from scerp.urls import GUI_ROOT
 
 
@@ -26,19 +27,6 @@ class TenantMiddleware:
         ):
             return self.get_response(request)  # Allow public access
 
-        # Check admin access
-        # Save tenant
-        try:
-            request.tenant = get_tenant_id_from_session(request)
-            request.tenant_name = tenant.name
-            tenant_setup = TenantSetup.objects.filter(
-                tenant=tenant).first()
-            request.logo = tenant_setup.logo.url
-        except:
-            request.tenant, request.tenant_name = None, None
-
-        return self.get_response(request) 
-
         # Check if the user is authenticated
         if request.user.is_authenticated:
             # Check if the user is a superuser
@@ -50,8 +38,13 @@ class TenantMiddleware:
                 # Attempt to get the user's profile
                 user_profile = request.user.profile
             except UserProfile.DoesNotExist:
-                return HttpResponseForbidden("User profile not found. Contact Admin.")
-
+                return HttpResponseForbidden(
+                    _("User profile not found. Contact Admin."))
+                    
+            # Check if tenant set        
+            _ = get_tenant()
+            
+            '''
             # Set the default tenant to the user's primary tenant
             request.tenant_id = user_profile.primary_tenant.id
 
@@ -64,7 +57,7 @@ class TenantMiddleware:
                 else:
                     # If tenant is valid, set the tenant_id
                     request.tenant_id = tenant_selected_id  # Update the tenant_id to the selected one
-
+            '''
         else:
             return HttpResponseForbidden("User is not authenticated.")
 

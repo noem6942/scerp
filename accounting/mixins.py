@@ -1,4 +1,5 @@
 # accounting/mixins.py
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from decimal import Decimal
@@ -12,6 +13,18 @@ def prepare_cash_ctrl(data):
         'c_last_updated': data.pop('last_updated'),
         'c_last_updated_by': data.pop('updated_by')
     })
+
+
+class CashCtrlNameValidate:
+
+    def clean(self):
+        name = None
+        for language, _name in settings.LANGUAGES:
+            code = language.split('-')[0]            
+            if getattr(self, f'name_{code}', None):                
+                return
+        raise ValidationError(
+            _("Name can't be empty in all languages"))
 
 
 class FiscalPeriodValidate:

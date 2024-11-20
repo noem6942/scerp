@@ -2,6 +2,8 @@
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
 
+from core.safeguards import get_tenant
+
 from scerp.admin import (
     admin_site, App, AppConfig, BaseAdmin, display_empty, display_verbose_name,
     display_datetime)
@@ -12,7 +14,7 @@ from .models import (
     AccountPositionMunicipality,
     CostCenter, TaxRate
 )
-from .forms import MultiLanguageFieldForm
+
 from .locales import (
     APP, FIELDSET, ACCOUNT_POSITION, CHART_OF_ACCOUNTS, 
     ACCOUNT_POSITION_MUNICIPALITY)
@@ -22,13 +24,23 @@ from . import actions as a
 app = App(APP)
 
 
-class CashCtrlMultiLanguageField(ModelAdmin):    
-    '''Abstract class for name, description field '''
-    form = MultiLanguageFieldForm
+class CashCtrlDescription(ModelAdmin):    
+    '''Abstract class for name, description field 
+    '''    
+    @admin.display(
+        description=display_verbose_name(CHART_OF_ACCOUNTS, 'name'))
+    def description(self, obj):
+        return obj.description
 
-    def name_as_str(self, obj):
-        return obj.name_as_str
-        
+
+class CashCtrlName(ModelAdmin):    
+    '''Abstract class for name, description field 
+    '''    
+    @admin.display(
+        description=display_verbose_name(CHART_OF_ACCOUNTS, 'name'))
+    def name(self, obj):
+        return obj.name
+
 
 @admin.register(APISetup, site=admin_site) 
 class APISetupAdmin(BaseAdmin):
@@ -55,23 +67,38 @@ class FiscalPeriodAdmin(BaseAdmin):
     
 
 @admin.register(Currency, site=admin_site) 
-class CurrencyAdmin(BaseAdmin):
+class CurrencyAdmin(BaseAdmin, CashCtrlDescription):
     has_tenant_field = True
     list_display = ('code', 'is_default')
     search_fields = ('code',)        
+    
+    fieldsets = (
+        (None, {
+            'fields': ('description_de', 'code'),
+            'classes': ('expand',),            
+        }),     
+        ('International', {
+            'fields': ('description_fr', 'description_it', 'description_en'),
+            'classes': ('collapse',),            
+        })
+    )    
 
 
 @admin.register(CostCenter, site=admin_site) 
-class CostCenterAdmin(BaseAdmin, CashCtrlMultiLanguageField):    
+class CostCenterAdmin(BaseAdmin, CashCtrlName):    
     has_tenant_field = True
 
-    list_display = ('name_as_str', 'number')
-    search_fields = ('name', 'number')
+    list_display = ['name', 'number'] + ['name_de']
+    search_fields = ['number'] + ['name_de']
 
     fieldsets = (
         (None, {
-            'fields': ('name', 'test'),
+            'fields': ('name_de',),
             'classes': ('expand',),            
+        }),     
+        ('International', {
+            'fields': ('name_fr', 'name_it', 'name_en'),
+            'classes': ('collapse',),            
         }),     
         ('Details', {
             'fields': ('number',),

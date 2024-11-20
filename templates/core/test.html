@@ -1,0 +1,116 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+    <h1>Interactive Table with Price Column</h1>
+    {% verbatim %}
+    <div id="app" class="container mt-3">
+        <p>The table below allows you to add prices and calculates the total dynamically:</p>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Firstname</th>
+                    <th>Lastname</th>
+                    <th>Email</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="(person, index) in people" :key="index">
+                    <td>{{ person.firstname }}</td>
+                    <td>{{ person.lastname }}</td>
+                    <td>{{ person.email }}</td>
+                    <td>
+                        <input type="number" v-model.number="person.price" class="form-control" />
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3"><strong>Total</strong></td>
+                    <td><strong>{{ totalPrice }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        <br><br>
+        <table><thead>
+          <tr>
+            <th>Konto</th>
+            <th>Position</th>
+            <th colspan="2">Budget 2025</th>
+            <th colspan="2">Budget 2024</th>
+            <th colspan="2">Rechnung 2023<br></th>
+          </tr></thead>
+        <tbody>
+          <tr>
+            <td></td>
+            <td>Position</td>
+            <td>Aufwand</td>
+            <td>Ertrag</td>
+            <td>Aufwand</td>
+            <td>Ertrag</td>
+            <td>Aufwand</td>
+            <td>Ertrag</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        </tbody>
+        </table>        
+        
+    </div>
+    {% endverbatim %}
+{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.min.js"></script>
+{% endblock %}
+
+{% block footer %}
+    {{ block.super }}
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    people: [
+                        { firstname: 'John', lastname: 'Doe', email: 'john@example.com', price: 0 },
+                        { firstname: 'Mary', lastname: 'Moe', email: 'mary@example.com', price: 0 },
+                        { firstname: 'July', lastname: 'Dooley', email: 'july@example.com', price: 0 }
+                    ]
+                };
+            },
+            computed: {
+                totalPrice() {
+                    return this.people.reduce((sum, person) => sum + (person.price || 0), 0);
+                }
+            }
+        }).mount('#app');
+    </script>
+{% endblock %}

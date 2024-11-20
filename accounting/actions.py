@@ -6,7 +6,7 @@ from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form, AdminActionForm
 
 from core.models import Tenant
-from core.safeguards import save_logging, get_tenant_from_session
+from core.safeguards import save_logging, get_tenant
 from scerp.actions import action_check_nr_selected
 
 from .api_cash_ctrl import (

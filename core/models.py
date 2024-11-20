@@ -9,7 +9,7 @@ from scerp.locales import CANTON_CHOICES, LANGUAGE_CHOICES
 from .locales import (
     APP, LOG_ABSTRACT, TENANT, TENANT_ABSTRACT, NOTES_ABSTRACT, 
     TENANT_SETUP, USER_PROFILE, PERSON)
-from .mixins import TenantValidate    
+from .mixins import TenantMixin    
 from .models_init import TENANT_SETUP_FORMAT
 
 
@@ -96,7 +96,7 @@ class NotesAbstract(models.Model):
         abstract = True  # This makes it an abstract model
 
 
-class Tenant(LogAbstract, NotesAbstract, TenantValidate):
+class Tenant(LogAbstract, NotesAbstract, TenantMixin):
     '''only admin and trustees are allowed to create Tenants
     '''
     name = models.CharField(
@@ -112,6 +112,12 @@ class Tenant(LogAbstract, NotesAbstract, TenantValidate):
     def clean(self):
         super().clean()  # Call the parent's clean method
         self.clean_related_data()
+ 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None  # Check if this is a new instance
+        super().save(*args, **kwargs)  # Call the real save method
+        if is_new:
+            self.post_save(*args, **kwargs)
  
     class Meta:
         ordering = ['name']

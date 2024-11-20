@@ -3,6 +3,7 @@ from django.db import models
 from django.db.models import UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
+from django.core.exceptions import ValidationError
 
 
 from core.models import (
@@ -14,7 +15,7 @@ from .locales import (
     ACCOUNT_CHART_MUNICIPALITY, ACCOUNT_POSITION_MUNICIPALITY,
 )
 from .mixins import (
-    FiscalPeriodValidate,
+    CashCtrlNameValidate, FiscalPeriodValidate,
     AccountPositionAbstractValidate, AccountPositionMunicipalityValidate)
 
 
@@ -89,29 +90,41 @@ class CashCtrl(TenantAbstract):
         abstract = True
  
   
-class CashCtrlValues(models.Model): 
-    '''handle <values> fields '''
-    def json_value_as_str(self, dict_):  
-        name = dict_.get(get_language())
-        if name:
-            return name 
-        else:
-            for code, _lang_name in settings.LANGUAGES:
-                if dict_.get(code):
-                    return dict_.get(code)
-        return None
-  
+class CashCtrlName(CashCtrl):
+    name_de = models.CharField(max_length=100, blank=True, null=True)
+    name_fr = models.CharField(max_length=100, blank=True, null=True)
+    name_it = models.CharField(max_length=100, blank=True, null=True)
+    name_en = models.CharField(max_length=100, blank=True, null=True)
+
     @property
-    def name_as_str(self):  
-        return self.json_value_as_str(self.name)
-    
-    @property
-    def description_as_str(self):        
-        return self.json_value_as_str(self.description)    
+    def name(self):
+        try:
+            language = get_language().split('-')[0]
+        except:
+            language = 'en'
+        return getattr(self, f'name_{language}')
     
     class Meta:
         abstract = True
-        
+ 
+
+class CashCtrlDescription(CashCtrl): 
+    description_de = models.TextField(blank=True, null=True)
+    description_fr = models.TextField(blank=True, null=True)
+    description_it = models.TextField(blank=True, null=True)
+    description_en = models.TextField(blank=True, null=True)
+
+    @property
+    def description(self):
+        try:
+            language = get_language().split('-')[0]
+        except:
+            language = 'en'
+        return getattr(self, f'description_{language}')
+    
+    class Meta:
+        abstract = True
+ 
         
 class Location(CashCtrl):
     class Type(models.TextChoices):
@@ -148,21 +161,21 @@ class Location(CashCtrl):
         return f"{self.name} (({self.type}), {self.address})"
 
 
-class CostCenter(CashCtrl, CashCtrlValues):
+class CostCenter(CashCtrlNameValidate, CashCtrlName):
     '''CostCenters must only be created and edited in scerp
         most optional fields are null and not displayed
     '''
-    name = models.JSONField(help_text="The name of the cost center. Only one language mandatory")
-    number = models.DecimalField(max_digits=20, decimal_places=2)
-    test = models.CharField(max_length=20, null=True)
+    number = models.DecimalField(max_digits=20, decimal_places=2)    
 
     def __str__(self):
-        return f"{self.name_as_str} ({self.number})"
+        return f"{self.name} ({self.number})"
+    
+    def clean(self):
+        super().clean()
 
     class Meta:
         verbose_name = "Cost Center"
-        verbose_name_plural = "Cost Centers"
-        ordering = ['name']
+        verbose_name_plural = "Cost Centers"        
 
 
 class FiscalPeriod(CashCtrl, FiscalPeriodValidate):
@@ -204,7 +217,7 @@ class FiscalPeriod(CashCtrl, FiscalPeriodValidate):
         ordering = ['-start']    
 
 
-class Currency(CashCtrl):
+class Currency(CashCtrlDescription):
     '''Rates must only be created and edited in scerp
         most optional fields are null and not displayed;
         intially loaded from cashCtrl
@@ -213,7 +226,7 @@ class Currency(CashCtrl):
     is_default = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.name} ({self.number})" if self.number else self.name
+        return self.code
 
     class Meta:
         verbose_name = "Currency"

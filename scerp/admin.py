@@ -10,16 +10,11 @@ from django.utils.formats import date_format
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-
 from .locales import APP
 from core.models import Tenant, TenantSetup, UserProfile
 from core.safeguards import (
-    get_available_tenant_setups,
-    save_session_from_tenant_setup,
-    get_tenant_id_from_session,
-    get_tenant_setup_from_db_and_store,
-    filter_query_for_tenant, 
-    save_logging)
+    get_available_tenants, set_tenant, filter_query_for_tenant, save_logging)
+
 
 GUI_ROOT = settings.ADMIN_ROOT
 
@@ -97,7 +92,9 @@ class Site(AdminSite):
 
         for app in app_list:
             # Create a mapping from order_models for fast index retrieval
-            order_index_map = {model_name: index for index, model_name in enumerate(APP.order_models)}
+            order_index_map = {
+                model_name: index 
+                for index, model_name in enumerate(APP.order_models)}
 
             # Prepare a list to hold ordered and not ordered models
             ordered_models = []
@@ -106,11 +103,14 @@ class Site(AdminSite):
             for model in app['models']:
                 model_name = model['object_name']
 
-                # Check if the model is in the order list and categorize accordingly
+                # Check if the model is in the order list and categorize 
+                # accordingly
                 if model_name in order_index_map:
-                    ordered_models.append((order_index_map[model_name], model))  # Store index and model
+                    # Store index and model
+                    ordered_models.append((order_index_map[model_name], model))
                 else:
-                    not_ordered_models.append(model)  # Store models not in order_models
+                    # Store models not in order_models
+                    not_ordered_models.append(model)  
 
             # Sort ordered models by their indices
             ordered_models.sort(key=lambda x: x[0])  # Sort by index
@@ -122,7 +122,8 @@ class Site(AdminSite):
                     model['name'] = f"{index + 1:02d} {model['name']}"
 
             # Combine the ordered models with the not ordered ones
-            app['models'] = [model for _, model in ordered_models] + not_ordered_models
+            app['models'] = (
+                [model for _, model in ordered_models] + not_ordered_models)
 
         return app_list
 
@@ -130,30 +131,31 @@ class Site(AdminSite):
         # Get all tenants associated with the user
         # We use the TenantSetup object for all tenant information!!
         # We don't allow a user to continue without selecting a tenant
-        available_tenants = get_available_tenant_setups(request)
+        available_tenants = get_available_tenants(request)
 
         # Process
         if available_tenants.count() == 1:
             # no choice, save and go to the organization
-            save_session_from_tenant_setup(request, available_tenants.first())
+            set_tenant(request, available_tenants.first().id)
             
         elif request.method == "POST" and "tenant_setup" in request.POST:
             # a new selection has been posted, handle it
             tenant_setup_id = int(request.POST.get("tenant_setup"))
-            #try:
-            print("*tenant_setup_id", tenant_setup_id, [x.id for x in available_tenants])
-            tenant_setup = available_tenants.filter(id=tenant_setup_id).first()
-            save_session_from_tenant_setup(request, tenant_setup)
+            #try:                        
+            set_tenant(request, tenant_setup_id)
             #    return redirect(request.path_info)  # Redirects to the same page
             #except:
             #    return HttpResponseForbidden(_("User has no access."))
             
         # Pass tenant list and selected tenant info to the template
+        tenant = request.session.get('tenant')        
+        setup_id = int(tenant['setup_id']) if tenant else 0
+         
         extra_context = extra_context or {}
-        extra_context['tenant_setups'] = available_tenants
-        extra_context['selected_tenant_setup_id'] = int(
-            request.session.get('selected_tenant_setup_id', 0))
-
+        extra_context.update({
+            'available_tenants': available_tenants,
+            'selected_tenant_setup_id': setup_id
+        })
         return super().index(request, extra_context=extra_context)
 
 
@@ -256,13 +258,14 @@ class BaseAdmin(ModelAdmin):
         """
         Limit queryset based on user or other criteria.
         """
-        # get request variable        
-        tenant = request.tenant        
-        
         # add security        
         queryset = super().get_queryset(request)
         if getattr(self, 'has_tenant_field', False):
-            queryset = filter_query_for_tenant(request, queryset)        
+            # Filter queryset
+            queryset = filter_query_for_tenant(request, queryset)     
+            
+            # Store the data in obj for later usage
+            self.tenant = request.session.get('tenant', 'en')             
         
         return queryset
         
