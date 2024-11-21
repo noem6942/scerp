@@ -9,9 +9,6 @@ import logging
 from scerp.mixins import dict_camel_to_snake
 from . import api_cash_ctrl as api
 
-from .models import FiscalPeriod, Currency
-
-
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
 
@@ -31,18 +28,6 @@ def cash_ctrl_str_to_date(datetime_str):
 
     # Assign just the date part to the DateField
     return start_datetime.date()
-        
-
-
-
-def prepare_cash_ctrl(data):
-    data.update({
-        'c_id': data.pop('id'),
-        'c_created': data.pop('created'),
-        'c_created_by': data.pop('created_by'),
-        'c_last_updated': data.pop('last_updated'),
-        'c_last_updated_by': data.pop('updated_by')
-    })
 
 
 class CashCtrlNameValidate:
