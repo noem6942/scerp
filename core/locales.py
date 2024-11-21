@@ -2,13 +2,8 @@ from django.utils.translation import gettext_lazy as _
 
 
 class APP:
-    id = 'M01'
     name = 'core'
-    verbose_name = _('Basis')
-    app_separatur = ' '
-    model_separatur = '. '
-    show_app_id = True
-    show_model_id = True
+    verbose_name = _('Admin')
 
 
 # Abastracts
@@ -134,25 +129,6 @@ class TENANT_SETUP:
         users = {
             'verbose_name': _('users'),
             'help_text': _('users for this organization')
-        }
-
-
-class PERSON:
-    verbose_name = _('person')
-    verbose_name_plural =  _('person')
-    
-    class Field:
-        first_name = {
-            'verbose_name': _('First Name'),
-            'help_text': _('Fill out the first name.')
-        }
-        last_name = {
-            'verbose_name': _('Last Name'),
-            'help_text': _('Fill out the last name.')
-        }
-        date_of_birth = {
-            'verbose_name': _('Date of Birth'),
-            'help_text': _('Fill out the date of birth.')
         }
 
 

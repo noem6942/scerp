@@ -7,22 +7,43 @@ class APP:
     title = _('SC-ERP - das Schweizer City ERP')
     welcome = _('Willkommen!')
     
-    # Names of models in sitebar
-    order_models = [
-        # core
-        'Tenant',
-        'TenantSetup',
-        'UserProfile',
-        'Person',
-        
-        # accounting
-        # 'APISetup',
-        'ChartOfAccountsCanton',
-        'AccountPositionCanton',
-        'AccountChartMunicipality',        
-        'AccountPositionMunicipality',
-        
-    ]    
+    # A dictionary to define the order of apps and models
+    APP_MODEL_ORDER = {
+        'auth': {  # App label
+            'symbol': '',
+            'models': {  # Models order
+                'group': '1',
+                'user': '2',
+            }
+        },
+        'core': {
+            'symbol': '@B',
+            'models': {                
+                'Tenant': '1',
+                'TenantSetup': '2',
+                'UserProfile': '4',
+            }
+        },
+        'crm': {
+            'symbol': 'C',
+            'models': {                
+            }
+        },        
+        'accounting': {
+            'symbol': 'A',
+            'models': {
+                'ChartOfAccountsCanton': '1',
+                'AccountPositionCanton': '2',
+                'AccountChartMunicipality': '3',
+                'AccountPositionMunicipality': '4'
+            }
+        },
+        'billing': {
+            'symbol': 'B',
+            'models': {                
+            }
+        },            
+    }
 
 
 CANTON_CHOICES = [

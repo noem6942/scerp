@@ -2,13 +2,8 @@ from django.utils.translation import gettext_lazy as _
 
 
 class APP:
-    id = 'M04'
     name = 'billing'
     verbose_name = _('Billing')
-    app_separatur = ' '
-    model_separatur = '. '
-    show_app_id = True
-    show_model_id = True
 
 
 class COUNTER:    

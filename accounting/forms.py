@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.forms import SelectMultiple
 from django_admin_action_forms import action_with_form, AdminActionForm
 
+from core.safeguards import get_tenant
 from .models import (
     CHART_TYPE, AccountPositionCanton, ChartOfAccountsCanton,
     AccountChartMunicipality
@@ -45,7 +46,7 @@ class AccountChartMunicipalityForm(AdminActionForm):
         charts = AccountChartMunicipality.objects.all()
 
         # Filter tenant
-        tenant = get_tenant_from_session(request, recheck_from_db=True)
+        tenant = get_tenant(request)
         if tenant['id']:
             charts = charts.filter(tenant__id=tenant['id'])
 

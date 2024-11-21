@@ -50,6 +50,7 @@ MAX_ACCOUNT_NR_OVERALL = max(x for x in MAX_ACCOUNT_NR.values())
 # CashCtrl Basics ------------------------------------------------------------
 class APISetup(TenantAbstract):
     '''only restricted to admin!
+        # triggers signals.py after creation!
     '''
     org_name = models.CharField(
         max_length=100, **API_SETUP.Field.org_name)    

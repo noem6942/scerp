@@ -64,15 +64,20 @@ class AppConfig:
 class App(object):
   
     def __init__(self, app_cls):
-        id = app_cls.id  # Fetch the application's ID
-        name = app_cls.name  # Fetch the application's name
+        SEPERATOR = '. '
         
-        verbose_name = app_cls.verbose_name  # Fetch the default verbose name
-        if app_cls.show_app_id:  # Check if the app ID should be shown
-            verbose_name = f"{id}{app_cls.app_separatur}{verbose_name}"  # Modify the verbose name
+        # Get Verbose name
+        app_info = next((
+            app_info for app_label, app_info in APP.APP_MODEL_ORDER.items()
+            if app_label == app_cls.name), None)
+        if app_info:       
+            verbose_name = (
+                f"{app_info['symbol']}{SEPERATOR}{app_cls.verbose_name}")
+        else:
+            verbose_name = app_cls.verbose_name
         
         # Set the modified verbose name in the application config
-        apps.get_app_config(name).verbose_name = verbose_name  
+        apps.get_app_config(app_cls.name).verbose_name = verbose_name
         
         # store props
         AppConfig.app_cls = app_cls
@@ -81,53 +86,68 @@ class App(object):
 class Site(AdminSite):
     site_header = APP.verbose_name  # Default site header
     site_title = APP.title  # Default site title
-    index_title = APP.welcome  # Default index title
+    index_title = APP.welcome  # Default index title    
 
     def get_app_list(self, request):
-        """
-        Override get_app_list to add a numeric prefix to each model's verbose name
-        for displaying in the sidebar.
-        """
-        app_list = super().get_app_list(request)  # Call the original method
+        '''build the side menu left
+        '''
+        # Get the default app list from the superclass
+        app_list = super().get_app_list(request)
 
-        for app in app_list:
-            # Create a mapping from order_models for fast index retrieval
-            order_index_map = {
-                model_name: index 
-                for index, model_name in enumerate(APP.order_models)}
+        # Define a non-visible, late-sorting character for unlisted apps/models
+        DEFAULT_ORDER = '\u00A0'  # Non-visible space character for late-order apps
+        SEPERATOR = '.'
 
-            # Prepare a list to hold ordered and not ordered models
-            ordered_models = []
-            not_ordered_models = []
+        ordered_app_list = []
 
-            for model in app['models']:
-                model_name = model['object_name']
+        # 1. Process apps in APP_MODEL_ORDER (respect the insertion order)
+        for index, (app_label, app_info) in enumerate(
+                APP.APP_MODEL_ORDER.items()):
+            model_order_dict = app_info.get('models', {})
 
-                # Check if the model is in the order list and categorize 
-                # accordingly
-                if model_name in order_index_map:
-                    # Store index and model
-                    ordered_models.append((order_index_map[model_name], model))
-                else:
-                    # Store models not in order_models
-                    not_ordered_models.append(model)  
+            # Find the app in the default app list
+            app = next(
+                (a for a in app_list if a['app_label'] == app_label), None)
 
-            # Sort ordered models by their indices
-            ordered_models.sort(key=lambda x: x[0])  # Sort by index
+            if app:
+                # Sort models based on custom order in the dict
+                app['models'] = sorted(
+                    app['models'],
+                    key=lambda model: model_order_dict.get(
+                        model['object_name'], DEFAULT_ORDER)
+                )
 
-            # Apply prefix to ordered models
-            for index, (_, model) in enumerate(ordered_models):
-                if AppConfig.app_cls.show_model_id:
-                    # Add zero-padding for order
-                    model['name'] = f"{index + 1:02d} {model['name']}"
+                # Add order prefix to model names
+                symbol = app_info.get('symbol', DEFAULT_ORDER)
+                for model in app['models']:
+                    model_order = model_order_dict.get(
+                        model['object_name'], DEFAULT_ORDER)
+                    if model_order != DEFAULT_ORDER:
+                        model['name'] = (
+                            f"{symbol}{SEPERATOR}{model_order} {model['name']}")
 
-            # Combine the ordered models with the not ordered ones
-            app['models'] = (
-                [model for _, model in ordered_models] + not_ordered_models)
+                # Add the app's models to the ordered list
+                # app['order'] = str(index)  # Use the index from enumerate as the order
+                # app['name'] = f"{app['order']} {app['name']}"
+                ordered_app_list.append(app)
 
-        return app_list
+        # 2. Process apps that are NOT in APP_MODEL_ORDER and append them to the end
+        remaining_apps = [
+            app for app in app_list 
+            if app['app_label'] not in APP.APP_MODEL_ORDER]
+
+        for app in remaining_apps:            
+            # app['name'] = f"{DEFAULT_ORDER} {app['name']}"
+            ordered_app_list.append(app)
+
+        # 3. Sort apps by the order (this uses dict insertion order naturally)
+        # ordered_app_list.sort(key=lambda app: app['order'])
+
+        return ordered_app_list
 
     def index(self, request, extra_context=None):
+        '''insert the menu to select the tenant
+        '''
         # Get all tenants associated with the user
         # We use the TenantSetup object for all tenant information!!
         # We don't allow a user to continue without selecting a tenant

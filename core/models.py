@@ -8,7 +8,7 @@ from scerp.locales import CANTON_CHOICES, LANGUAGE_CHOICES
 
 from .locales import (
     APP, LOG_ABSTRACT, TENANT, TENANT_ABSTRACT, NOTES_ABSTRACT, 
-    TENANT_SETUP, USER_PROFILE, PERSON)
+    TENANT_SETUP, USER_PROFILE)
 from .mixins import TenantMixin    
 from .models_init import TENANT_SETUP_FORMAT
 

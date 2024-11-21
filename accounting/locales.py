@@ -2,13 +2,8 @@ from django.utils.translation import gettext_lazy as _
 
 
 class APP:
-    id = 'M02'
     name = 'accounting'
-    verbose_name = _('Accounting')
-    app_separatur = ' '
-    model_separatur = '. '
-    show_app_id = True
-    show_model_id = True
+    verbose_name = _('Accounting')    
 
 
 # CHART_OF_ACCOUNTS dictionary for documentation
