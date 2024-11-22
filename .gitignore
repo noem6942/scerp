@@ -31,7 +31,7 @@ media/
 .ipynb_checkpoints/
 
 # Ignore all files within any folder named 'fixtures'
-**/fixtures/*
+**/fixtures/
 
 # Ignore all files within any folder named 'migrations'
 **/migrations/*
