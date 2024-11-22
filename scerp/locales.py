@@ -28,7 +28,13 @@ class APP:
             'symbol': 'C',
             'models': {                
             }
-        },        
+        }, 
+        'vault': {
+            'symbol': 'V',
+            'models': {  
+                'RegistrationPlanCanton': '1'
+            }
+        },  
         'accounting': {
             'symbol': 'A',
             'models': {

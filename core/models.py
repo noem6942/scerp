@@ -1,5 +1,6 @@
+# core/models.py
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -9,8 +10,7 @@ from scerp.locales import CANTON_CHOICES, LANGUAGE_CHOICES
 from .locales import (
     APP, LOG_ABSTRACT, TENANT, TENANT_ABSTRACT, NOTES_ABSTRACT, 
     TENANT_SETUP, USER_PROFILE)
-from .mixins import TenantMixin    
-from .models_init import TENANT_SETUP_FORMAT
+from .mixins import TenantMixin
 
 
 class CITY_CATEGORY(models.TextChoices):    
@@ -98,6 +98,7 @@ class NotesAbstract(models.Model):
 
 class Tenant(LogAbstract, NotesAbstract, TenantMixin):
     '''only admin and trustees are allowed to create Tenants
+        sends signals after creation!
     '''
     name = models.CharField(
         max_length=100, unique=True, **TENANT.Field.name)
@@ -123,7 +124,7 @@ class Tenant(LogAbstract, NotesAbstract, TenantMixin):
         ordering = ['name']
         verbose_name = TENANT.verbose_name
         verbose_name_plural = TENANT.verbose_name_plural
- 
+        
 
 class UserProfile(LogAbstract, NotesAbstract):
     user = models.OneToOneField(
@@ -142,8 +143,8 @@ class UserProfile(LogAbstract, NotesAbstract):
     class Meta:
         ordering = ['user__last_name', 'user__first_name']
         verbose_name = USER_PROFILE.verbose_name
-        verbose_name_plural = USER_PROFILE.verbose_name_plural
-
+        verbose_name_plural = USER_PROFILE.verbose_name_plural  
+        
 
 class TenantAbstract(LogAbstract, NotesAbstract):
     ''' basic core model; for simplicity why make ALL models shown in the admin
@@ -155,48 +156,7 @@ class TenantAbstract(LogAbstract, NotesAbstract):
 
     class Meta:
         abstract = True 
-        
-"""
-class TenantSetup(TenantAbstract):    
-    '''used for assign technical stuff
-        gets automatically created after a Tenant has been created, 
-        see signals.py
-    '''
-    def init_tenant_setup_format():    
-        return TENANT_SETUP_FORMAT
-        
-    canton = models.CharField(
-        max_length=2, choices=CANTON_CHOICES, null=True, blank=True, 
-        **TENANT_SETUP.Field.canton)
-    language = models.CharField(
-        max_length=2, 
-        choices=LANGUAGE_CHOICES, default='de',
-        verbose_name=('Language'),
-        help_text=('The main language of the person. May be used for documents.')
-    )
-    category = models.CharField(
-        max_length=1, choices=CITY_CATEGORY.choices,
-        null=True, blank=True, **TENANT_SETUP.Field.category)        
-    users = models.ManyToManyField(
-        UserProfile, **TENANT_SETUP.Field.users)
-    logo = models.ImageField(
-        upload_to='profile_photos/', 
-        blank=True, null=True, **TENANT_SETUP.Field.logo)
-    # formats = models.JSONField(
-    #     default=init_tenant_setup_format, blank=True, 
-    #     **TENANT_SETUP.Field.formats)
-    
-    def __str__(self):
-        return self.tenant.name + self.symbols
-    
-    def display_logo(self):
-        return display_photo(self.logo)
-    
-    class Meta:
-        ordering = ['tenant__name']
-        verbose_name = TENANT_SETUP.verbose_name
-        verbose_name_plural = TENANT_SETUP.verbose_name_plural
-"""
+
 
 class TenantSetup(TenantAbstract):    
     '''used for assign technical stuff
@@ -237,3 +197,4 @@ class TenantSetup(TenantAbstract):
         ordering = ['tenant__name']
         verbose_name = TENANT_SETUP.verbose_name
         verbose_name_plural = TENANT_SETUP.verbose_name_plural
+      

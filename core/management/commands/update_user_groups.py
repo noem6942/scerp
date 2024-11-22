@@ -1,23 +1,24 @@
-# core/management/commands/udpate_user_groups.py
+# core/management/commands/process_core.py
 '''usage:
-    python manage.py udpate_user_groups update-or-create
+    python manage.py process_core
 '''
 from django.core.management.base import BaseCommand
 from django.core.management import CommandError
 
-from core.run_user_groups import UserGroup
+from core.process import UserGroup
 
 
 class Command(BaseCommand):
     help = 'Create a user group with specific permissions'
 
     def add_arguments(self, parser):
-        parser.add_argument('action', type=str, help='Specify the action: create')
+        parser.add_argument(
+            'action', type=str, help='Specify the action: create')
 
     def handle(self, *args, **options):
         action = options['action']
 
-        if action == 'update-or-create':
+        if action == 'update-or-create-groups':
             # Confirm action before proceeding
             confirmation = input(
                 f'Are you sure you want to delete existing permissions and '
