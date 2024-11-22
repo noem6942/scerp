@@ -53,7 +53,8 @@ INSTALLED_APPS = [
     'home',
     'accounting',
     'billing',
-    'crm'
+    'crm',
+    'vault'
 ]
 
 MIDDLEWARE = [
