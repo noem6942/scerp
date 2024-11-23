@@ -4,9 +4,35 @@ from django.contrib.auth.models import User
 from django.utils.text import slugify
 
 import re
+from openpyxl import load_workbook
 
 
 # helpers, use this for all models in all apps
+
+# excel functions
+def read_excel_file(file_path, convert_to_str=True):
+    '''read an excel sheet and interprete EVERY cell as string.
+        i.e. empty cell -> ''
+             111.11 -> '111.11'
+             012 -> '012'
+    '''
+    # Load the workbook
+    wb = load_workbook(filename=file_path, data_only=False)  # data_only=False to get formulas too
+    ws = wb.active  # Use the active sheet
+    
+    # Iterate through the rows in the worksheet
+    rows = []
+    for row in ws.iter_rows(values_only=True):
+        # Convert each cell to string while keeping leading zeros
+        if convert_to_str:
+            row = [
+                str(cell).strip() if cell is not None else '' 
+                for cell in row]
+        rows.append(row)
+    
+    return rows
+
+
 def snake_to_camel(snake_str):
     """
     Convert a snake_case string to camelCase.

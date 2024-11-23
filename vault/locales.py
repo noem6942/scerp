@@ -1,3 +1,4 @@
+# vault/locales.py
 from django.utils.translation import gettext_lazy as _
 
 
@@ -137,7 +138,9 @@ class ACCOUNT_POSITION_MUNICIPALITY:
 
 class ACTION:    
     # RegistrationPlanCanton
-    pass
+    canton_positions_check = _('Check Excel for validity')
+    canton_positions_create = _('Create positions from Excel')
+    position_insert = _('Insert copy of record below')
     
 
 class FIELDSET:

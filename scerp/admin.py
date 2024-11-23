@@ -31,6 +31,10 @@ TEXTAREA_DEFAULT = {
 }
 
 
+def verbose_name_field(model, field_name):
+    return model._meta.get_field(field_name).verbose_name
+
+
 def display_datetime(value, default='-'):
     if value is None:
         return default

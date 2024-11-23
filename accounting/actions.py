@@ -3,7 +3,7 @@ from django.contrib import admin, messages
 from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
-from django_admin_action_forms import action_with_form, AdminActionForm
+from django_admin_action_forms import action_with_form
 
 from core.models import Tenant
 from core.safeguards import save_logging, get_tenant
