@@ -1,6 +1,6 @@
 # core/models.py
 from django.db import models
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -180,7 +180,7 @@ class TenantSetup(TenantAbstract):
         null=True, blank=True, **TENANT_SETUP.Field.category)        
     users = models.ManyToManyField(
         UserProfile, **TENANT_SETUP.Field.users)
-    logo = models.ImageField(
+    logo = models.ImageField(  # remove later
         upload_to='profile_photos/', 
         blank=True, null=True, **TENANT_SETUP.Field.logo)
     formats = models.JSONField(
@@ -197,3 +197,43 @@ class TenantSetup(TenantAbstract):
         ordering = ['tenant__name']
         verbose_name = TENANT_SETUP.verbose_name
         verbose_name_plural = TENANT_SETUP.verbose_name_plural
+
+
+class TenantLocation(TenantAbstract):
+    class Type(models.TextChoices):
+        MAIN = "MAIN", _("Company Headquarters")
+        BRANCH = "BRANCH", _("Branch Office")
+        STORAGE = "STORAGE", _("Storage Facility")
+        OTHER = "OTHER", _("Other / Tax")
+
+    # Mandatory field
+    org_name = models.CharField(max_length=250, help_text="A name to describe and identify the location.")
+    type = models.CharField(
+        max_length=50,
+        choices=Type.choices,
+        default=Type.MAIN,
+        help_text="The type of location. Defaults to MAIN."
+    )
+    
+    # Optional fields
+    address = models.TextField(max_length=250, blank=True, null=True, help_text="The address of the location (street, house number, additional info).")
+    zip = models.CharField(max_length=10, blank=True, null=True, help_text="The postal code of the location.")
+    city = models.CharField(max_length=100, blank=True, null=True, help_text="The town / city of the location.")
+    country = models.CharField(max_length=3, default='CHE', help_text="The country of the location, as an ISO 3166-1 alpha-3 code.")
+    
+    # Layout
+    logo = models.ImageField(
+        upload_to='profile_photos/', 
+        blank=True, null=True, **TENANT_SETUP.Field.logo)    
+    logoFileId = models.IntegerField(blank=True, null=True, help_text="File ID for the company logo. Supported types: JPG, GIF, PNG.")        
+    footer = models.TextField(blank=True, null=True, help_text="Footer text for order documents with limited HTML support.")        
+    
+    # Accounting
+    bic = models.CharField(max_length=11, blank=True, null=True, help_text="The BIC (Business Identifier Code) of your bank.")
+    iban = models.CharField(max_length=32, blank=True, null=True, help_text="The IBAN (International Bank Account Number).")
+    qr_first_digits = models.PositiveIntegerField(blank=True, null=True, help_text="The first few digits of the Swiss QR reference. Specific to Switzerland.")
+    qr_iban = models.CharField(max_length=32, blank=True, null=True, help_text="The QR-IBAN, used especially for QR invoices. Specific to Switzerland.")    
+    vat_uid = models.CharField(max_length=32, blank=True, null=True, help_text="The VAT UID of the company.")    
+
+    def __str__(self):
+        return f"{self.org_name} (({self.type}), {self.address})"

@@ -36,7 +36,7 @@ class RegistrationPlanCantonAdmin(BaseAdmin):
             'classes': ('expand',),            
         }),
         (FIELDSET.content, {
-            'fields': ('excel', 'exported_at'),
+            'fields': ('excel', 'exported_at', 'website_url'),
             'classes': ('expand',),            
         }),        
     )

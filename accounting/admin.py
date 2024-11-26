@@ -9,7 +9,7 @@ from scerp.admin import (
     display_datetime)
     
 from .models import (
-    APISetup, FiscalPeriod, Currency, ChartOfAccountsCanton,
+    APISetup, Location, FiscalPeriod, Currency, ChartOfAccountsCanton,
     AccountPositionCanton, AccountChartMunicipality, 
     AccountPositionMunicipality,
     CostCenter, TaxRate
@@ -52,6 +52,20 @@ class APISetupAdmin(BaseAdmin):
     fieldsets = (
         (None, {
             'fields': ('org_name', 'api_key'),
+            'classes': ('expand',),            
+        }),     
+    )
+
+
+@admin.register(Location, site=admin_site) 
+class Location(BaseAdmin):
+    has_tenant_field = True
+    list_display = ('tenant_location',)
+    search_fields = ('tenant_location',)
+    
+    fieldsets = (
+        (None, {
+            'fields': ('tenant_location', ),
             'classes': ('expand',),            
         }),     
     )

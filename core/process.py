@@ -21,6 +21,14 @@ USER_GROUPS = [
     {'name': 'Gemeinderat - Hoch-/Tiefbau', 'permissions': []},
     {'name': 'Gemeinderat - Bildung/Kultur', 'permissions': []},
     
+    # Rollen
+    {'name': 'Gemeinderatspräsident', 'permissions': []},
+    {'name': 'Gemeinderatspräsidentin', 'permissions': []},
+    {'name': 'Gemeinderatsschreiber', 'permissions': []},
+    {'name': 'Gemeinderatsschreiberin', 'permissions': []},
+    {'name': 'Stadtpräsident', 'permissions': []},
+    {'name': 'Stadtpräsidentin', 'permissions': []},    
+    
     # Intern
     {'name': 'Admin', 'permissions': []},
     {

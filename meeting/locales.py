@@ -12,4 +12,4 @@ class ACTION:
 
 class FIELDSET:
     content = _('Content')
-    others = _('Others')
+    closing = _('Closing')

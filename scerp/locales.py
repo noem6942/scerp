@@ -20,7 +20,8 @@ class APP:
             'symbol': '@B',
             'models': {                
                 'Tenant': '1',
-                'TenantSetup': '2',
+                'TenantLocation': '2',
+                'TenantSetup': '3',
                 'UserProfile': '4',
             }
         },
@@ -45,10 +46,11 @@ class APP:
         'accounting': {
             'symbol': 'A',
             'models': {
+                'Location': '0',
                 'ChartOfAccountsCanton': '1',
                 'AccountPositionCanton': '2',
                 'AccountChartMunicipality': '3',
-                'AccountPositionMunicipality': '4'
+                'AccountPositionMunicipality': '4'                
             }
         },
         'billing': {

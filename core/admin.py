@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 
 from django.contrib.auth.models import User, Group
 from scerp.admin import admin_site, App, BaseAdmin
-from .models import Tenant, TenantSetup, UserProfile
+from .models import Tenant, TenantSetup, TenantLocation, UserProfile
 from .locales import APP
 
 # init admin
@@ -56,6 +56,23 @@ class TenantSetupAdmin(BaseAdmin):
     fieldsets = (
         (None, {
             'fields': ('canton', 'category', 'formats', 'logo', 'users'),
+            'classes': ('expand',),            
+        }),
+    )    
+
+
+@admin.register(TenantLocation, site=admin_site) 
+class TenantLocationAdmin(BaseAdmin):    
+    has_tenant_field = True
+    list_display = ('org_name', 'type',)
+    search_fields = ('org_name', 'type',)
+    fieldsets = (
+        (None, {
+            'fields': ('org_name', 'type', 'address', 'zip', 'city', 'country'),
+            'classes': ('expand',),            
+        }),
+        (_('Layout'), {
+            'fields': ('logo', 'logoFileId', 'footer'),
             'classes': ('expand',),            
         }),
     )    

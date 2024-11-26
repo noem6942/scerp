@@ -7,7 +7,7 @@ from django.utils.translation import get_language, gettext_lazy as _
 
 
 from core.models import (
-    LogAbstract, NotesAbstract, TenantAbstract, CITY_CATEGORY)
+    LogAbstract, NotesAbstract, TenantAbstract, TenantLocation, CITY_CATEGORY)
 from scerp.locales import CANTON_CHOICES
 from .locales import (
     APP, API_SETUP, 
@@ -127,39 +127,13 @@ class CashCtrlDescription(CashCtrl):
         abstract = True
  
         
-class Location(CashCtrl):
-    class Type(models.TextChoices):
-        MAIN = "MAIN", _("Company Headquarters")
-        BRANCH = "BRANCH", _("Branch Office")
-        STORAGE = "STORAGE", _("Storage Facility")
-        OTHER = "OTHER", _("Other / Tax")
-
-    # Mandatory field
-    name = models.CharField(max_length=250, help_text="A name to describe and identify the location.")
-
-    # Optional fields
-    address = models.TextField(max_length=250, blank=True, null=True, help_text="The address of the location (street, house number, additional info).")
-    bic = models.CharField(max_length=11, blank=True, null=True, help_text="The BIC (Business Identifier Code) of your bank.")
-    city = models.CharField(max_length=100, blank=True, null=True, help_text="The town / city of the location.")
-    country = models.CharField(max_length=3, blank=True, null=True, help_text="The country of the location, as an ISO 3166-1 alpha-3 code.")
-    footer = models.TextField(blank=True, null=True, help_text="Footer text for order documents with limited HTML support.")
-    iban = models.CharField(max_length=32, blank=True, null=True, help_text="The IBAN (International Bank Account Number).")
-    isInactive = models.BooleanField(default=False, help_text="Marks the location as inactive. Possible values: true, false.")
-    logoFileId = models.IntegerField(blank=True, null=True, help_text="File ID for the company logo. Supported types: JPG, GIF, PNG.")
-    orgName = models.CharField(max_length=250, blank=True, null=True, help_text="The name of the company.")
-    qrFirstDigits = models.PositiveIntegerField(blank=True, null=True, help_text="The first few digits of the Swiss QR reference. Specific to Switzerland.")
-    qrIban = models.CharField(max_length=32, blank=True, null=True, help_text="The QR-IBAN, used especially for QR invoices. Specific to Switzerland.")
-    type = models.CharField(
-        max_length=50,
-        choices=Type.choices,
-        default=Type.MAIN,
-        help_text="The type of location. Defaults to MAIN."
-    )
-    vatUid = models.CharField(max_length=32, blank=True, null=True, help_text="The VAT UID of the company.")
-    zip = models.CharField(max_length=10, blank=True, null=True, help_text="The postal code of the location.")
+class Location(CashCtrl):    
+    tenant_location = models.OneToOneField(
+        TenantLocation, null=True, blank=True, on_delete=models.CASCADE,
+        related_name='%(class)s_location')
 
     def __str__(self):
-        return f"{self.name} (({self.type}), {self.address})"
+        return self.tenant_location.org_name
 
 
 class CostCenter(CashCtrlNameValidate, CashCtrlName):

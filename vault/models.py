@@ -34,6 +34,7 @@ class RegistrationPlanAbstract(models.Model):
         upload_to='uploads/', **REGISTRATION_PLAN.Field.excel)
     exported_at = models.DateTimeField(
         null=True, blank=True, **REGISTRATION_PLAN.Field.exported_at)
+    website_url = models.URLField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.name}, V{self.plan_version}'
