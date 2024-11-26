@@ -28,6 +28,13 @@ class APP:
             'symbol': 'C',
             'models': {                
             }
+        },
+        'meeting': {
+            'symbol': 'M',
+            'models': {   
+                'Meeting': '1',
+                'Agenda': '2'           
+            }
         }, 
         'vault': {
             'symbol': 'V',

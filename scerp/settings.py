@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'accounting',
     'billing',
     'crm',
+    'meeting',
     'vault'
 ]
 

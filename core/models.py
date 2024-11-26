@@ -197,4 +197,3 @@ class TenantSetup(TenantAbstract):
         ordering = ['tenant__name']
         verbose_name = TENANT_SETUP.verbose_name
         verbose_name_plural = TENANT_SETUP.verbose_name_plural
-      

@@ -271,6 +271,8 @@ class Contact(TenantAbstract):
 class Building(AddressAbstract):
     class TypeChoices(models.TextChoices):
         MAIN = 'MAIN', ('Main address')
+        ROOM = 'ROOM', ('Room address')
+    name = models.CharField(max_length=200, blank=True, null=True)
     type = models.CharField(
         max_length=15, 
         choices=TypeChoices.choices,
@@ -278,4 +280,6 @@ class Building(AddressAbstract):
         default=TypeChoices.MAIN,
         help_text=('The type of address. Possible values: Main address, Invoice address, Delivery address, Other.')
     )
-        
+    
+    def __str__(self):
+        return f"{self.name}, {self.address}"
