@@ -10,7 +10,7 @@ class APP:
     # A dictionary to define the order of apps and models
     APP_MODEL_ORDER = {
         'auth': {  # App label
-            'symbol': '',
+            'symbol': '(A)',
             'models': {  # Models order
                 'group': '1',
                 'user': '2',

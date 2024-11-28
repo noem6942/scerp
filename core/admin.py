@@ -2,11 +2,15 @@
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import User, Group
-
 from django.utils.translation import gettext_lazy as _
 
 from scerp.admin import admin_site, BaseAdmin
 from .models import Tenant, TenantSetup, TenantLocation, UserProfile
+
+
+# Register User, Group
+admin_site.register(User, UserAdmin)
+admin_site.register(Group, GroupAdmin)
 
 
 @admin.register(UserProfile, site=admin_site) 
