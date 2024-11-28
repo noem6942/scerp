@@ -1,0 +1,11 @@
+<!-- meeting/agenda.html -->
+{% extends "admin/base_site.html" %}
+{% block content %}
+    
+{{ agenda.agenda.order }} {{ agenda.agenda.name }}<br>  
+  Votes: <br>
+{{ agenda.result.vote }} 
+{{ agenda.result.votes_yes }} {{ agenda.result.votes_no }} 
+{{ agenda.result.votes_abstention }}<br>              
+    
+{% endblock %}

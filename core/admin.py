@@ -5,17 +5,8 @@ from django.contrib.auth.models import User, Group
 
 from django.utils.translation import gettext_lazy as _
 
-from django.contrib.auth.models import User, Group
-from scerp.admin import admin_site, App, BaseAdmin
+from scerp.admin import admin_site, BaseAdmin
 from .models import Tenant, TenantSetup, TenantLocation, UserProfile
-from .locales import APP
-
-# init admin
-app = App(APP)
-
-
-admin_site.register(User, UserAdmin)
-admin_site.register(Group, GroupAdmin)
 
 
 @admin.register(UserProfile, site=admin_site) 

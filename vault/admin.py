@@ -1,22 +1,19 @@
 # vault/admin.py
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
+from django.utils.translation import gettext as _
 
 from core.safeguards import get_tenant
 
 from scerp.admin import (
-    admin_site, App, AppConfig, BaseAdmin, display_empty, display_verbose_name,
+    admin_site, BaseAdmin, display_empty, display_verbose_name,
     display_datetime, verbose_name_field)
     
 from .models import (
     RegistrationPlanCanton, RegistrationPosition,
     LeadAgency, RetentionPeriod, LegalBasis, ArchivalEvaluation)
 
-from .locales import (APP, FIELDSET)
 from . import actions as a
-
-# init admin
-app = App(APP)
 
 
 @admin.register(RegistrationPlanCanton, site=admin_site) 
@@ -35,7 +32,7 @@ class RegistrationPlanCantonAdmin(BaseAdmin):
             'fields': ('name', 'canton', 'category', 'plan_version', 'date'),
             'classes': ('expand',),            
         }),
-        (FIELDSET.content, {
+        (_('content'), {
             'fields': ('excel', 'exported_at', 'website_url'),
             'classes': ('expand',),            
         }),        
@@ -86,7 +83,7 @@ class RegistrationPositionAdmin(BaseAdmin):
                 'number', 'position', 'lead_agency', 'retention_period'),
             'classes': ('expand',),            
         }),
-        (FIELDSET.others, {
+        (_('Others'), {
             'fields': (
                 'legal_basis', 'archival_evaluation', 'remarks', 
                 'is_category'),

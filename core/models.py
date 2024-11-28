@@ -4,12 +4,8 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from scerp.mixins import display_photo
 from scerp.locales import CANTON_CHOICES, LANGUAGE_CHOICES
-
-from .locales import (
-    APP, LOG_ABSTRACT, TENANT, TENANT_ABSTRACT, NOTES_ABSTRACT, 
-    TENANT_SETUP, USER_PROFILE)
+from scerp.mixins import display_photo
 from .mixins import TenantMixin
 
 
@@ -28,15 +24,15 @@ class LogAbstract(models.Model):
     '''used for time stamp handling
     '''
     created_at = models.DateTimeField(
-        auto_now_add=True, **LOG_ABSTRACT.Field.created_at)
+        _('created at'), auto_now_add=True)
     created_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='%(class)s_created',
-        **LOG_ABSTRACT.Field.created_by)
+        User, verbose_name=_('created by'),
+        on_delete=models.CASCADE, related_name='%(class)s_created')
     modified_at = models.DateTimeField(
-        auto_now=True, **LOG_ABSTRACT.Field.modified_at)
+        _('modified at'), auto_now=True)
     modified_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='%(class)s_modified', 
-        **LOG_ABSTRACT.Field.modified_by)
+        User, verbose_name=_('modified by'),
+        on_delete=models.CASCADE, related_name='%(class)s_modified')
               
     class Meta:
         abstract = True  # This makes it an abstract model
@@ -46,18 +42,20 @@ class NotesAbstract(models.Model):
     '''handle notes and attachments
     '''
     notes = models.TextField(
-        null=True, blank=True, **NOTES_ABSTRACT.Field.notes)
+        _('notes'), null=True, blank=True, help_text=_('notes to the record'))
     attachment = models.FileField(
-        upload_to='attachments/', blank=True, null=True, 
-        **NOTES_ABSTRACT.Field.attachment)
+        _('attachment'), upload_to='attachments/', blank=True, null=True, 
+        help_text=_('attachment for evidence'))
     version = models.ForeignKey(
-        'self', on_delete=models.SET_NULL, null=True, blank=True, 
-        related_name='%(class)s_previous_versions',
-        **NOTES_ABSTRACT.Field.version)
+        'self', verbose_name=_('version'), on_delete=models.SET_NULL, 
+        null=True, blank=True, related_name='%(class)s_previous_versions',
+        help_text=_('previous_version'))
     protected = models.BooleanField(
-        default=False, **NOTES_ABSTRACT.Field.protected)     
+        _('protected'), default=False, 
+        help_text=_('item must not be changed anymore'))     
     inactive = models.BooleanField(
-        default=False, **NOTES_ABSTRACT.Field.inactive)
+        _('inactive'), default=False, 
+        help_text=_('item is not active anymore (but not permanently deleted)'),)
     
     @property
     def symbols(self):
@@ -101,11 +99,16 @@ class Tenant(LogAbstract, NotesAbstract, TenantMixin):
         sends signals after creation!
     '''
     name = models.CharField(
-        max_length=100, unique=True, **TENANT.Field.name)
+        _('name'), max_length=100, unique=True)
     code = models.CharField(
-        max_length=32, unique=True, **TENANT.Field.code)
+        _('code'), max_length=32, unique=True, 
+        help_text=_(
+            'code of tenant / client, unique, max 32 characters, '
+            'only small letters, should only contains characters that '
+            'can be displayed in an url)'))
     is_trustee = models.BooleanField(
-        default=False, **TENANT.Field.is_trustee)
+        _('is trustee'), default=False, 
+        help_text=_('Check if this is the trustee account that can created new tenants'))
     
     def __str__(self):
         return self.name + self.symbols
@@ -122,17 +125,17 @@ class Tenant(LogAbstract, NotesAbstract, TenantMixin):
  
     class Meta:
         ordering = ['name']
-        verbose_name = TENANT.verbose_name
-        verbose_name_plural = TENANT.verbose_name_plural
+        verbose_name = _('tenant')
+        verbose_name_plural = _('tenants')
         
 
 class UserProfile(LogAbstract, NotesAbstract):
     user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name='profile',
-        **USER_PROFILE.Field.user)
+        User, verbose_name=_('User'), on_delete=models.CASCADE, 
+        related_name='profile', help_text=_('Registered User'))
     photo = models.ImageField(
-        upload_to='profile_photos/', blank=True, null=True,
-        **USER_PROFILE.Field.photo)
+        _('photo'), upload_to='profile_photos/', blank=True, null=True,
+        help_text=_('Load up your personal photo.'))
  
     def __str__(self):
         return f'{self.user.last_name.upper()}, {self.user.first_name}'
@@ -142,8 +145,8 @@ class UserProfile(LogAbstract, NotesAbstract):
 
     class Meta:
         ordering = ['user__last_name', 'user__first_name']
-        verbose_name = USER_PROFILE.verbose_name
-        verbose_name_plural = USER_PROFILE.verbose_name_plural  
+        verbose_name = _('User')
+        verbose_name_plural =  _('Users')
         
 
 class TenantAbstract(LogAbstract, NotesAbstract):
@@ -151,8 +154,9 @@ class TenantAbstract(LogAbstract, NotesAbstract):
         GUI Tenant Models
     '''
     tenant = models.ForeignKey(
-        Tenant, on_delete=models.CASCADE, related_name='%(class)s_tenant', 
-        **TENANT_ABSTRACT.Field.tenant)
+        Tenant, verbose_name=_('tenant'), on_delete=models.CASCADE, 
+        related_name='%(class)s_tenant', 
+        help_text=_('assignment of tenant / client'))
 
     class Meta:
         abstract = True 
@@ -163,29 +167,30 @@ class TenantSetup(TenantAbstract):
         gets automatically created after a Tenant has been created, 
         see signals.py
     '''
-    def init_tenant_setup_format():    
+    def init_tenant_setup_format():  # move to signal
         return TENANT_SETUP_FORMAT
         
     canton = models.CharField(
-        max_length=2, choices=CANTON_CHOICES, null=True, blank=True, 
-        **TENANT_SETUP.Field.canton)
+         _('canton'), max_length=2, choices=CANTON_CHOICES, 
+         null=True, blank=True)
     language = models.CharField(
-        max_length=2, 
-        choices=LANGUAGE_CHOICES, default='de',
-        verbose_name=('Language'),
-        help_text=('The main language of the person. May be used for documents.')
+        _('Language'), max_length=2, choices=LANGUAGE_CHOICES, default='de',        
+        help_text=_('The main language of the person. May be used for documents.')
     )
     category = models.CharField(
-        max_length=1, choices=CITY_CATEGORY.choices,
-        null=True, blank=True, **TENANT_SETUP.Field.category)        
+         _('category'), max_length=1, choices=CITY_CATEGORY.choices,
+        null=True, blank=True, 
+        help_text=_('category, add new one of no match'))        
     users = models.ManyToManyField(
-        UserProfile, **TENANT_SETUP.Field.users)
+        UserProfile, verbose_name=_('users'), 
+        help_text=_('users for this organization'))
     logo = models.ImageField(  # remove later
-        upload_to='profile_photos/', 
-        blank=True, null=True, **TENANT_SETUP.Field.logo)
+        _('logo'), upload_to='profile_photos/', 
+        blank=True, null=True, 
+        help_text=_('logo used in website'))
     formats = models.JSONField(
-         default=init_tenant_setup_format, null=True, blank=True, 
-         **TENANT_SETUP.Field.formats)
+        _('formats'), default=init_tenant_setup_format, null=True, blank=True, 
+        help_text=_('format definitions'))
     
     def __str__(self):
         return self.tenant.name + self.symbols
@@ -195,8 +200,8 @@ class TenantSetup(TenantAbstract):
     
     class Meta:
         ordering = ['tenant__name']
-        verbose_name = TENANT_SETUP.verbose_name
-        verbose_name_plural = TENANT_SETUP.verbose_name_plural
+        verbose_name = _('tenant setup')
+        verbose_name_plural =  _('tenant setups')
 
 
 class TenantLocation(TenantAbstract):
@@ -223,8 +228,8 @@ class TenantLocation(TenantAbstract):
     
     # Layout
     logo = models.ImageField(
-        upload_to='profile_photos/', 
-        blank=True, null=True, **TENANT_SETUP.Field.logo)    
+        _('logo'), upload_to='profile_photos/', 
+        blank=True, null=True, help_text=_('logo used in website'))    
     logoFileId = models.IntegerField(blank=True, null=True, help_text="File ID for the company logo. Supported types: JPG, GIF, PNG.")        
     footer = models.TextField(blank=True, null=True, help_text="Footer text for order documents with limited HTML support.")        
     

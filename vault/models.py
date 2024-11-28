@@ -9,8 +9,6 @@ from django.utils.translation import get_language, gettext_lazy as _
 from core.models import (
     LogAbstract, NotesAbstract, TenantAbstract, CITY_CATEGORY)
 from scerp.locales import CANTON_CHOICES
-from .locales import (REGISTRATION_PLAN)
-# from .mixins import ()
 
 
 # Registration Plan ----------------------------------------------------------
@@ -19,21 +17,27 @@ class RegistrationPlanAbstract(models.Model):
     Only accessible by admin!
     '''    
     name = models.CharField(
-        max_length=250, **REGISTRATION_PLAN.Field.name)
+        _('Name'),max_length=250, 
+        help_text=_('Enter the name of the registration plan'))
     canton = models.CharField(
-        max_length=2, choices=CANTON_CHOICES, 
-        **REGISTRATION_PLAN.Field.canton)
+        _('Canton'), max_length=2, choices=CANTON_CHOICES, 
+        help_text=_('Select the associated canton for this registration plan.'))
     category = models.CharField(
-        max_length=1, choices=CITY_CATEGORY.choices,
-        null=True, blank=True, **REGISTRATION_PLAN.Field.category)     
+        _('Category'), max_length=1, choices=CITY_CATEGORY.choices,
+        null=True, blank=True, 
+        help_text=_('Choose the category from the available city options.'))     
     plan_version = models.CharField(
-        max_length=100, **REGISTRATION_PLAN.Field.plan_version)
+        _('Plan Version'), max_length=100,
+        help_text=_('Specify the version of the registration plan.'))
     date = models.DateField(
-        **REGISTRATION_PLAN.Field.date)
+        _('Date'), 
+        help_text=_('Enter the date for this registration plan record.'))
     excel = models.FileField(
-        upload_to='uploads/', **REGISTRATION_PLAN.Field.excel)
+        _('Excel File'), upload_to='uploads/', 
+        help_text=_('Upload the Excel file associated with this registration plan.'))
     exported_at = models.DateTimeField(
-        null=True, blank=True, **REGISTRATION_PLAN.Field.exported_at)
+        _('Exported At'), null=True, blank=True, 
+        help_text=_('Record the date and time this plan use to create positions.'))
     website_url = models.URLField(null=True, blank=True)
 
     def __str__(self):
@@ -42,8 +46,8 @@ class RegistrationPlanAbstract(models.Model):
     class Meta:
         abstract = True
         ordering = ['canton', 'name']
-        verbose_name = REGISTRATION_PLAN.verbose_name
-        verbose_name_plural = REGISTRATION_PLAN.verbose_name_plural
+        verbose_name = _('Registration Plan (Canton)')
+        verbose_name_plural = _('Registration Plans (Canton)')
 
 
 class RegistrationPlanCanton(

@@ -101,7 +101,3 @@ LANGUAGE_CHOICES = [
     ('it', _('Italienisch')),
     ('en', _('Englisch')),
 ]
-
-
-class ACTION:
-    pass

@@ -1,11 +1,12 @@
 # from django_admin_action_forms import action_with_form, AdminActionForm
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
+from django.utils.translation import gettext_lazy as _
 
 from core.safeguards import get_tenant
 
 from scerp.admin import (
-    admin_site, App, AppConfig, BaseAdmin, display_empty, display_verbose_name,
+    admin_site, BaseAdmin, display_empty, display_verbose_name,
     display_datetime)
     
 from .models import (
@@ -15,20 +16,15 @@ from .models import (
     CostCenter, TaxRate
 )
 
-from .locales import (
-    APP, FIELDSET, ACCOUNT_POSITION, CHART_OF_ACCOUNTS, 
-    ACCOUNT_POSITION_MUNICIPALITY)
 from . import actions as a
-
-# init admin
-app = App(APP)
+from scerp.admin import verbose_name_field
 
 
 class CashCtrlDescription(ModelAdmin):    
     '''Abstract class for name, description field 
     '''    
     @admin.display(
-        description=display_verbose_name(CHART_OF_ACCOUNTS, 'name'))
+        description=verbose_name_field(ChartOfAccountsCanton, 'name'))
     def description(self, obj):
         return obj.description
 
@@ -37,7 +33,7 @@ class CashCtrlName(ModelAdmin):
     '''Abstract class for name, description field 
     '''    
     @admin.display(
-        description=display_verbose_name(CHART_OF_ACCOUNTS, 'name'))
+        description=verbose_name_field(ChartOfAccountsCanton, 'name'))
     def name(self, obj):
         return obj.name
 
@@ -138,7 +134,7 @@ class ChartOfAccountsCantonAdmin(BaseAdmin):
                        'date'),
             'classes': ('expand',),            
         }),
-        (FIELDSET.content, {
+        (_('Content'), {
             'fields': ('excel', 'exported_at'),
             'classes': ('expand',),            
         }),        
@@ -149,7 +145,7 @@ class ChartOfAccountsCantonAdmin(BaseAdmin):
         return f"Custom: {obj.name}"    
  
     @admin.display(
-        description=display_verbose_name(CHART_OF_ACCOUNTS, 'exported_at'))
+        description=verbose_name_field(ChartOfAccountsCanton, 'exported_at'))
     def display_exported_at(self, obj):
         return display_datetime(obj.exported_at)        
 
@@ -166,7 +162,7 @@ class AccountPositionAbstractAdmin(BaseAdmin):
             'fields': ('account_number', 'account_4_plus_2', 'name', 'notes'),
             'classes': ('expand',),            
         }),
-        (FIELDSET.others, {
+        (_('Others'), {
             'fields': ('number', 'hrm_1', 'description_hrm_1',  
                        'ff', 'is_category'),
             'classes': ('collapse',),            
@@ -206,7 +202,7 @@ class AccountPositionMunicipalityAdmin(AccountPositionAbstractAdmin):
             'fields': ('account_number', 'account_4_plus_2', 'name', 'notes'),
             'classes': ('expand',),            
         }),
-        (FIELDSET.others, {
+        (_('Others'), {
             'fields': ('function', 'number', 'hrm_1', 'description_hrm_1',  
                        'ff', 'is_category'),
             'classes': ('collapse',),            
@@ -215,8 +211,7 @@ class AccountPositionMunicipalityAdmin(AccountPositionAbstractAdmin):
     actions = [a.apm_add_income, a.apm_add_invest, a.position_insert]    
     
     @admin.display(
-        description=(
-            ACCOUNT_POSITION_MUNICIPALITY.Field.function['verbose_name']))
+        description=verbose_name_field(AccountPositionMunicipality, 'function'))
     def display_function(self, obj):
         if obj.account_4_plus_2:
             return ''

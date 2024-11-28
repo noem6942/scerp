@@ -9,11 +9,7 @@ from django.utils.translation import get_language, gettext_lazy as _
 from core.models import (
     LogAbstract, NotesAbstract, TenantAbstract, TenantLocation, CITY_CATEGORY)
 from scerp.locales import CANTON_CHOICES
-from .locales import (
-    APP, API_SETUP, 
-    CHART_OF_ACCOUNTS, ACCOUNT_POSITION, ACCOUNT_POSITION_CANTON, 
-    ACCOUNT_CHART_MUNICIPALITY, ACCOUNT_POSITION_MUNICIPALITY,
-)
+
 from .mixins import (
     CashCtrlNameValidate, FiscalPeriodValidate,
     AccountPositionAbstractValidate, AccountPositionMunicipalityValidate)
@@ -53,13 +49,16 @@ class APISetup(TenantAbstract):
         # triggers signals.py after creation!
     '''
     org_name = models.CharField(
-        max_length=100, **API_SETUP.Field.org_name)    
+        'org_name', max_length=100, 
+        help_text='name of organization as used in cashCtrl domain')    
     api_key = models.CharField(
-        max_length=100, **API_SETUP.Field.api_key)
+        _('api key'), max_length=100, help_text=_('api key'))
     initialized = models.DateTimeField(
-        max_length=100, null=True, blank=True, **API_SETUP.Field.initialized)
+        _('initialized'), max_length=100, null=True, blank=True, 
+        help_text=_('date and time when initialized'))
     custom_fields_setup = models.JSONField(
-        null=True, blank=True, **API_SETUP.Field.custom_fields_setup)
+        _('custom_fields_setup'), null=True, blank=True,
+        help_text=_('numbering of custom_fields, setup automatically'))
         
     def __str__(self):
         return self.tenant.name + self.symbols
@@ -70,8 +69,8 @@ class APISetup(TenantAbstract):
 
     class Meta:
         ordering = ['tenant__name',]
-        verbose_name = API_SETUP.verbose_name
-        verbose_name_plural = API_SETUP.verbose_name_plural
+        verbose_name = _('Api Setup')
+        verbose_name_plural = _('Api Setup')
 
 
 class CashCtrl(TenantAbstract):
@@ -248,66 +247,77 @@ class ChartOfAccountsCanton(LogAbstract, NotesAbstract):
     Only accessible by admin!
     '''    
     name = models.CharField(
-        max_length=250, **CHART_OF_ACCOUNTS.Field.name)
+        _('Name'), max_length=250, 
+        help_text=_('Enter the name of the chart of accounts.'))
     type = models.PositiveSmallIntegerField(
-        choices=CHART_TYPE.choices, **CHART_OF_ACCOUNTS.Field.type) 
+        _('Type'), choices=CHART_TYPE.choices, 
+        help_text=_('Select the type of chart (e.g., Balance, Functional).'))
     canton = models.CharField(
-        max_length=2, choices=CANTON_CHOICES, 
-        **CHART_OF_ACCOUNTS.Field.canton)
+        _('Canton'), max_length=2, choices=CANTON_CHOICES, 
+        help_text=_('Select the associated canton for this chart of accounts.'))
     category = models.CharField(
-        max_length=1, choices=CITY_CATEGORY.choices,
-        null=True, blank=True, **CHART_OF_ACCOUNTS.Field.category)     
+        _('Category'), max_length=1, choices=CITY_CATEGORY.choices,
+        null=True, blank=True, 
+        help_text=_('Choose the category from the available city options.'))     
     chart_version = models.CharField(
-        max_length=100, **CHART_OF_ACCOUNTS.Field.chart_version)
+        _('Chart Version'), max_length=100, 
+        help_text=_('Specify the version of the chart of accounts.'))
     date = models.DateField(
-        **CHART_OF_ACCOUNTS.Field.date)
+        _('Date'), help_text=_('Enter the date for this chart of accounts record.'))
     excel = models.FileField(
-        upload_to='uploads/', **CHART_OF_ACCOUNTS.Field.excel)
+        _('Excel File'), upload_to='uploads/', 
+        help_text=_('Upload the Excel file associated with this chart of accounts.'))
     exported_at = models.DateTimeField(
-        null=True, blank=True, **CHART_OF_ACCOUNTS.Field.exported_at)
+        _('Exported At'), null=True, blank=True,
+        help_text=_('Record the date and time this chart use to create positions.'))
 
     def __str__(self):
         return f'{self.name}, V{self.chart_version}'
 
     class Meta:
         ordering = ['type', 'name']
-        verbose_name = CHART_OF_ACCOUNTS.verbose_name
-        verbose_name_plural = CHART_OF_ACCOUNTS.verbose_name_plural
+        verbose_name = _('Chart of Accounts (Canton)')
+        verbose_name_plural = _('Charts of Accounts (Canton)')
 
 
 # Model definition using ACCOUNT_POSITION for labels and help texts
 class AccountPositionAbstract(models.Model, AccountPositionAbstractValidate):
     chart_of_accounts = models.ForeignKey(
-        ChartOfAccountsCanton, on_delete=models.CASCADE, 
-        related_name='%(class)s_account_position',
-        **ACCOUNT_POSITION.Field.chart_of_accounts)
+        ChartOfAccountsCanton, verbose_name=_('Chart of Accounts'),
+        on_delete=models.CASCADE, related_name='%(class)s_account_position',
+        help_text=_('Link to the relevant chart of accounts'))
         
     # Excel data    
     account_number = models.CharField(        
-        max_length=8, null=True, blank=True, 
-        **ACCOUNT_POSITION.Field.account_number)
+        _('Account Number'), max_length=8, null=True, blank=True, 
+        help_text=_('Unique identifier for the account'))
     account_4_plus_2 = models.CharField(
-        max_length=8, null=True, blank=True, 
-        **ACCOUNT_POSITION.Field.account_4_plus_2)
+         _('Account 4+2'), max_length=8, null=True, blank=True, 
+        help_text=_('Account identifier with 4 main digits and 2 sub-digits'))
     name = models.CharField(
-        max_length=255, **ACCOUNT_POSITION.Field.name)
+        _('Description'), max_length=255, 
+        help_text=_('Description of the account'))
     hrm_1 = models.CharField(
-        max_length=255, null=True, blank=True, **ACCOUNT_POSITION.Field.hrm_1)
+        _('HRM1'),max_length=255, null=True, blank=True, 
+        help_text=_('HRM1 account identifier if applicable'))
     description_hrm_1 = models.CharField(
-        max_length=255, null=True, blank=True,
-        **ACCOUNT_POSITION.Field.description_hrm_1)
+        _('HRM1 Notes'), max_length=255, null=True, blank=True,
+        help_text=_('Notes related to HRM1 account'))
 
     # Calculated data       
     account = models.CharField(        
         # use this for sorting, usually not displayed
-        max_length=8, null=True, blank=True, 
-        **ACCOUNT_POSITION.Field.account)
+        _('account'), max_length=8, null=True, blank=True, 
+        help_text=_('Calculated account for sorting'))
     ff = models.BooleanField(
-        default=False,  **ACCOUNT_POSITION.Field.ff)    
+        _('FF'), default=False,  
+        help_text=_('Flag indicating functional feature status'))    
     is_category = models.BooleanField(
-        default=False,  **ACCOUNT_POSITION.Field.is_category)        
+        _('is category'), default=False, 
+         help_text=_('Flag indicating position is category'))       
     number = models.DecimalField(
-        max_digits=14, decimal_places=2, **ACCOUNT_POSITION.Field.number)
+        _('Number'), max_digits=14, decimal_places=2, 
+        help_text=_('Calculated account number for reference'))
 
     def __str__(self):   
         if self.account_number:
@@ -354,18 +364,20 @@ class AccountPositionCanton(
         ordering = [
             'chart_of_accounts', 'chart_of_accounts__type', 'account',
             'account_4_plus_2']
-        verbose_name = ACCOUNT_POSITION_CANTON.verbose_name
-        verbose_name_plural = ACCOUNT_POSITION_CANTON.verbose_name_plural
+        verbose_name = _('Account Position (Canton)')
+        verbose_name_plural = _('Account Positions (Canton)')
     
 
 class AccountChartMunicipality(TenantAbstract):
     '''Municipality account chart
     '''
     name = models.CharField(
-        max_length=250, **ACCOUNT_CHART_MUNICIPALITY.Field.name)
+        _('name'), max_length=250, 
+        help_text=_('Unique name of accounting chart. Also used for versioning.'))
     period = models.ForeignKey(
-        FiscalPeriod, on_delete=models.PROTECT, related_name='period',
-        **ACCOUNT_CHART_MUNICIPALITY.Field.period)
+        FiscalPeriod, verbose_name=_('period'),
+        on_delete=models.PROTECT, related_name='period',
+        help_text=_('Fiscal period'))
 
     def __str__(self):
         return f'{self.name}, {self.period}'
@@ -376,8 +388,8 @@ class AccountChartMunicipality(TenantAbstract):
             name='unique_tenant_name')
         ]    
         ordering = ['name']
-        verbose_name = ACCOUNT_CHART_MUNICIPALITY.verbose_name
-        verbose_name_plural = ACCOUNT_CHART_MUNICIPALITY.verbose_name_plural
+        verbose_name = _('Account Chart (Municipality)')
+        verbose_name_plural = _('Account Charts (Municipality)')
 
 
 # Account related cashCtrl. Models --------------------------------------------
@@ -413,20 +425,20 @@ class AccountPositionMunicipality(
     '''display_type cannot be functional
     '''    
     display_type = models.PositiveSmallIntegerField(
-        choices=DISPLAY_TYPE.choices,
-        **ACCOUNT_POSITION_MUNICIPALITY.Field.display_type)  
+        _('Chart Type'), choices=DISPLAY_TYPE.choices,
+         help_text=_('Show position in one or more selection. Choices: see Type'))  
     chart = models.ForeignKey(
-        AccountChartMunicipality, on_delete=models.CASCADE,
-        related_name='%(class)s_chart', 
-        **ACCOUNT_POSITION_MUNICIPALITY.Field.chart)      
+        AccountChartMunicipality, verbose_name=_('Chart'),
+        on_delete=models.CASCADE, related_name='%(class)s_chart', 
+        help_text=_('Chart the position belongs to'))      
     function = models.CharField(
-        max_length=8, null=True, blank=True, 
-        **ACCOUNT_POSITION_MUNICIPALITY.Field.function)
+         _('Function'), max_length=8, null=True, blank=True, 
+        help_text=_('Function code related to account type'))
     category = models.ForeignKey(
-        AccountCategory,
+        AccountCategory, verbose_name=_('Function'),
         on_delete=models.SET_NULL, null=True, blank=True,
         related_name='%(class)s_category', 
-        help_text="The category."
+        help_text=_('Function code related to account type')
     )
     
     def __str__(self):
@@ -448,8 +460,8 @@ class AccountPositionMunicipality(
                 name='unique_account_position_municipality_number'
             )]                 
         ordering = ['chart', 'function', 'account']
-        verbose_name = ACCOUNT_POSITION_MUNICIPALITY.verbose_name
-        verbose_name_plural = ACCOUNT_POSITION_MUNICIPALITY.verbose_name_plural
+        verbose_name = ('Account Position (Municipality)')
+        verbose_name_plural = _('Account Positions (Municipality)')
 
     def clean(self):
         super().clean()  # Call the parent's clean method

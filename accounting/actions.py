@@ -19,7 +19,6 @@ from .forms import (
     AccountPositionMunicipalityAddIncomeForm,
     AccountPositionMunicipalityAddInvestForm
 )
-from .locales import ACTION, ACCOUNT_POSITION_MUNICIPALITY
 from .models import (
     CHART_TYPE, DISPLAY_TYPE, FiscalPeriod,
     ChartOfAccountsCanton, AccountPositionCanton,
@@ -44,6 +43,7 @@ DONOT_COPY_FIELDS = [
 
 
 # api
+@admin.action(description=_('1. Init Cash API'))
 def api_init(modeladmin, request, queryset):
     # Check number selected
     if action_check_nr_selected(request, queryset, 1):
@@ -79,10 +79,8 @@ def api_init(modeladmin, request, queryset):
     messages.success(request, "good")
 
 
-api_init.short_description = (ACTION.api_init)
-
 # mixins
-@admin.action(description=ACTION.position_insert)
+@admin.action(description=_('2. Insert copy of record below'))
 def position_insert(self, request, queryset):
     ''' Insert row of a model that has a field position '''
     # Check
@@ -107,7 +105,7 @@ def position_insert(self, request, queryset):
         
         
 # FiscalPeriod        
-@admin.action(description=ACTION.fiscal_period_set_current)
+@admin.action(description=_('3. Set selected period as current'))
 def fiscal_period_set_current(self, request, queryset):
     ''' Insert row of a model that has a field position '''
     # Check
@@ -183,14 +181,14 @@ def coac_positions(modeladmin, request, queryset, overwrite):
             return
 
         
-@admin.action(description=ACTION.coac_positions_check)
+@admin.action(description=_('4. Check Excel file for validity'))
 def coac_positions_check(modeladmin, request, queryset):
     coac_positions(modeladmin, request, queryset, overwrite=False)
 
 
 @action_with_form(
     AccountChartCantonForm,
-    description=ACTION.coac_positions_create
+    description=_('5. Create canton account positions')
 )
 def coac_positions_create(modeladmin, request, queryset, data):
     """Check Excel File of ChartOfAccountsCanton"""
@@ -287,7 +285,7 @@ def apc_export(request, queryset, type_from, display_type, chart_id):
 
 @action_with_form(
     AccountChartMunicipalityBalanceForm,
-    description=ACTION.apc_export_balance)
+    description=_('7. Export selected balance positions to municipality balance'))
 def apc_export_balance(modeladmin, request, queryset, data):
     # type checks are done in the form
     chart_id = data.get('chart')
@@ -298,7 +296,7 @@ def apc_export_balance(modeladmin, request, queryset, data):
 
 @action_with_form(
     AccountChartMunicipalityFunctionForm,
-    description=ACTION.apc_export_function_to_income)
+    description=_('8. Export selected function positions to municipality income'))
 def apc_export_function_to_income(modeladmin, request, queryset, data):
     # type checks are done in the form
     chart_id = data.get('chart')
@@ -309,7 +307,7 @@ def apc_export_function_to_income(modeladmin, request, queryset, data):
 
 @action_with_form(
     AccountChartMunicipalityFunctionForm,
-    description=ACTION.apc_export_function_to_invest)
+    description=_('Export selected function positions to municipality invest'))
 def apc_export_function_to_invest(modeladmin, request, queryset, data):
     # type checks are done in the form
     chart_id = data.get('chart')
@@ -381,7 +379,7 @@ def apm_add(modeladmin, request, queryset, data, display_type):
 
 @action_with_form(
     AccountPositionMunicipalityAddIncomeForm,
-    description=ACTION.apm_add_income
+    description=_('10. Add income positions to function')
 )
 def apm_add_income(modeladmin, request, queryset, data):
     apm_add(modeladmin, request, queryset, data, DISPLAY_TYPE.INCOME)
@@ -389,7 +387,7 @@ def apm_add_income(modeladmin, request, queryset, data):
 
 @action_with_form(
     AccountPositionMunicipalityAddInvestForm,
-    description=ACTION.apm_add_invest
+    description=_('11 Add invest positions to function')
 )
 def apm_add_invest(modeladmin, request, queryset, data):
     apm_add(modeladmin, request, queryset, data, DISPLAY_TYPE.INVEST)

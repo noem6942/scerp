@@ -1,7 +1,7 @@
 # scerp/actions.py
 from django.contrib import admin, messages
 from django.utils.translation import gettext_lazy as _
-from .locales import ACTION
+
 
 # Admin Actions --------------------------------------------------------------
 def action_check_nr_selected(request, queryset, count=None, min_count=None):

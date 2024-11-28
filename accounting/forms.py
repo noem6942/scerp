@@ -11,9 +11,9 @@ from django_admin_action_forms import action_with_form, AdminActionForm
 from core.safeguards import get_tenant
 from .models import (
     CHART_TYPE, AccountPositionCanton, ChartOfAccountsCanton,
-    AccountChartMunicipality
+    AccountChartMunicipality, AccountPositionMunicipality
 )
-from .locales import ACCOUNT_CHART_MUNICIPALITY, CHART_OF_ACCOUNTS
+from scerp.admin import verbose_name_field
 
 LABEL_BACK = _("Back")
 
@@ -32,7 +32,7 @@ class AccountChartCantonForm(AdminActionForm):
 class AccountChartMunicipalityForm(AdminActionForm):
     # Show data
     chart = forms.ChoiceField(
-        label=ACCOUNT_CHART_MUNICIPALITY.verbose_name, 
+        label=verbose_name_field(AccountPositionMunicipality, 'chart'), 
         choices=[], required=True,
         help_text=_("Select the appropriate chart for the municipality."))
 
@@ -104,7 +104,7 @@ class AccountChartMunicipalityFunctionForm(
 class AccountPositionMunicipalityForm(AdminActionForm):
     # Show data
     positions = forms.ModelMultipleChoiceField(
-        label=CHART_OF_ACCOUNTS.verbose_name,
+        label=ChartOfAccountsCanton._meta.verbose_name,
         queryset = AccountPositionCanton.objects.filter(
             is_category=False).order_by('account_4_plus_2'),
         required=True,

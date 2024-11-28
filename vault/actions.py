@@ -5,7 +5,6 @@ from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
 
 from .forms import OverrideConfirmationForm
-from .locales import ACTION
 from .models import (
     RegistrationPlanCanton, RegistrationPosition,
     LeadAgency, RetentionPeriod, LegalBasis, ArchivalEvaluation)
@@ -17,7 +16,7 @@ from scerp.mixins import read_excel_file
 
 
 # mixins
-@admin.action(description=ACTION.position_insert)
+@admin.action(description=_('Position insert'))
 def position_insert(self, request, queryset):
     ''' Insert row of a model that has a field position '''
     pass
@@ -163,7 +162,7 @@ def positions(request, queryset, action):
     messages.success(request, msg)          
 
 
-@admin.action(description=ACTION.canton_positions_check)
+@admin.action(description=_('canton_positions_check'))
 def canton_positions_check(modeladmin, request, queryset):
     action_form = OverrideConfirmationForm
     positions(request, queryset, 'check')
@@ -171,7 +170,7 @@ def canton_positions_check(modeladmin, request, queryset):
 
 @action_with_form(
     OverrideConfirmationForm,
-    description=ACTION.canton_positions_create,
+    description=_('***'),
 )
 def canton_positions_create(modeladmin, request, queryset, data):
     action_form = OverrideConfirmationForm

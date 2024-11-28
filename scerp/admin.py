@@ -8,7 +8,6 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils.formats import date_format
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from .locales import APP
 from core.models import Tenant, TenantSetup, UserProfile
@@ -31,6 +30,7 @@ TEXTAREA_DEFAULT = {
 }
 
 
+# Helpers
 def verbose_name_field(model, field_name):
     return model._meta.get_field(field_name).verbose_name
 
@@ -54,6 +54,7 @@ def display_verbose_name(def_cls, field):
     return getattr(f_cls, field)['verbose_name']
 
 
+# Widgets
 def override_textfields_default(attrs=TEXTAREA_DEFAULT):
     return {
         models.TextField: {'widget': Textarea(attrs=attrs)}
@@ -61,32 +62,6 @@ def override_textfields_default(attrs=TEXTAREA_DEFAULT):
 
 
 # Layout Home
-class AppConfig:
-    app_cls = None
-
-
-class App(object):
-  
-    def __init__(self, app_cls):
-        SEPERATOR = '. '
-        
-        # Get Verbose name
-        app_info = next((
-            app_info for app_label, app_info in APP.APP_MODEL_ORDER.items()
-            if app_label == app_cls.name), None)
-        if app_info:       
-            verbose_name = (
-                f"{app_info['symbol']}{SEPERATOR}{app_cls.verbose_name}")
-        else:
-            verbose_name = app_cls.verbose_name
-        
-        # Set the modified verbose name in the application config
-        apps.get_app_config(app_cls.name).verbose_name = verbose_name
-        
-        # store props
-        AppConfig.app_cls = app_cls
-
-
 class Site(AdminSite):
     site_header = APP.verbose_name  # Default site header
     site_title = APP.title  # Default site title
@@ -100,7 +75,8 @@ class Site(AdminSite):
 
         # Define a non-visible, late-sorting character for unlisted apps/models
         DEFAULT_ORDER = '\u00A0'  # Non-visible space character for late-order apps
-        SEPERATOR = '.'
+        SEPARATOR_APP = '. '
+        SEPARATOR_MODEL = '.'
 
         ordered_app_list = []
 
@@ -114,6 +90,12 @@ class Site(AdminSite):
                 (a for a in app_list if a['app_label'] == app_label), None)
 
             if app:
+                # Add the symbol prefix to the app's verbose name
+                symbol = app_info.get('symbol', DEFAULT_ORDER)
+                app_config = apps.get_app_config(app_label)
+                verbose_name = app_config.verbose_name
+                app['name'] = f"{symbol}{SEPARATOR_APP}{verbose_name}"
+            
                 # Sort models based on custom order in the dict
                 app['models'] = sorted(
                     app['models'],
@@ -121,18 +103,15 @@ class Site(AdminSite):
                         model['object_name'], DEFAULT_ORDER)
                 )
 
-                # Add order prefix to model names
-                symbol = app_info.get('symbol', DEFAULT_ORDER)
+                # Add order prefix to model names                
                 for model in app['models']:
                     model_order = model_order_dict.get(
                         model['object_name'], DEFAULT_ORDER)
                     if model_order != DEFAULT_ORDER:
-                        model['name'] = (
-                            f"{symbol}{SEPERATOR}{model_order} {model['name']}")
+                        name = f"{model_order} {model['name']}"
+                        model['name'] = (f"{symbol}{SEPARATOR_MODEL}{name}")
 
                 # Add the app's models to the ordered list
-                # app['order'] = str(index)  # Use the index from enumerate as the order
-                # app['name'] = f"{app['order']} {app['name']}"
                 ordered_app_list.append(app)
 
         # 2. Process apps that are NOT in APP_MODEL_ORDER and append them to the end

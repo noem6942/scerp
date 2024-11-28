@@ -4,7 +4,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from core.models import TenantAbstract
-from .locales import COUNTER
 
 
 class Counter(TenantAbstract):

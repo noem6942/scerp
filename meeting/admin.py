@@ -5,17 +5,13 @@ from django.utils.translation import gettext_lazy as _
 from crm.models import Building
 from core.safeguards import get_tenant
 from scerp.admin import (
-    admin_site, App, AppConfig, BaseAdmin, display_empty, display_verbose_name,
+    admin_site, BaseAdmin, display_empty, display_verbose_name,
     display_datetime)
 
-from .actions import make_minutes
-from .locales import APP, FIELDSET
+from .actions import show_agenda, make_minutes
 from .models import (
     Meeting, Agenda, Remark, AgendaFile, MeetingFile, AgendaNotes, 
     AgendaResult)
-
-# init admin
-app = App(APP)
 
 
 class RemarkInline(admin.StackedInline):
@@ -108,7 +104,7 @@ class AgendaAdmin(admin.ModelAdmin):
     ordering = ['meeting', 'order']
     inlines = [
         AgendaFileInline, RemarkInline, AgendaNotesInline, AgendaResultInline]
-    actions = [make_minutes]
+    actions = [make_minutes, show_agenda]
 
     fieldsets = (
         (None, {
