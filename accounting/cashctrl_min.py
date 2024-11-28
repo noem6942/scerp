@@ -133,33 +133,28 @@ CUSTOM_FIELD_GROUPS = [
     {'type': FIELD_TYPE.FILE, 'name': NAME_TABS}
 ]
 
+GROUP_NAME = 'sc-erp'
+
 
 CUSTOM_FIELDS = [
-    {'type': FIELD_TYPE.ACCOUNT, 'group_name': 'sc-erp',
+    {'type': FIELD_TYPE.ACCOUNT, 'group_name': GROUP_NAME,
       'field': 'customField{i}', 'name': 'HRM 2', 'data_type': DATA_TYPE.TEXT
     },
-    {'type': FIELD_TYPE.ACCOUNT, 'group_name': 'sc-erp',
+    {'type': FIELD_TYPE.ACCOUNT, 'group_name': GROUP_NAME,
       'field': 'customField{i}', 'name': 'HRM 2 kurz', 'data_type': DATA_TYPE.TEXT
     },
-    {'type': FIELD_TYPE.ACCOUNT, 'group_name': 'sc-erp',
+    {'type': FIELD_TYPE.ACCOUNT, 'group_name': GROUP_NAME,
       'field': 'customField{i}', 'name': 'Budget', 'data_type': DATA_TYPE.NUMBER
     },
-    {'type': FIELD_TYPE.ORDER, 'group_name': 'sc-erp',
+    {'type': FIELD_TYPE.ORDER, 'group_name': GROUP_NAME,
      'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.TEXT,
      'values': ['Gebühren Werke']
     },
-    {'type': FIELD_TYPE.PERSON, 'group_name': 'sc-erp',
+    {'type': FIELD_TYPE.PERSON, 'group_name': GROUP_NAME,
      'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.COMBOBOX,
-     'values': json.dumps(['Abonnent Werke', 'Einwohner']), 'is_multi': True
+     'values': ['Abonnent Werke', 'Einwohner'], 'is_multi': True
     },
-    {'type': FIELD_TYPE.FILE, 'group_name': 'sc-erp',
-     'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.COMBOBOX,
-     'values': json.dumps(['Abonnent Werke', 'Einwohner']), 'is_multi': True
-    }
-]
-
-CUSTOM_FIELDS = [
-    {'type': FIELD_TYPE.PERSON, 'group_name': 'sc-erp',
+    {'type': FIELD_TYPE.FILE, 'group_name': GROUP_NAME,
      'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.COMBOBOX,
      'values': ['Abonnent Werke', 'Einwohner'], 'is_multi': True
     }
@@ -233,6 +228,7 @@ class CashCtrl(object):
             
         return data
 
+    # Xml <-> JSON
     def clean_value(self, value):        
         if type(value) == str and value.startswith('<values>'):
             # XML
@@ -249,7 +245,9 @@ class CashCtrl(object):
         # Return original value
         else:
             return value
-   
+
+
+    # REST API
     def get(self, url, params):
         response = requests.get(url, params=params, auth=self.auth)
         if response.status_code != 200:

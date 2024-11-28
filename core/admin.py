@@ -17,6 +17,7 @@ app = App(APP)
 admin_site.register(User, UserAdmin)
 admin_site.register(Group, GroupAdmin)
 
+
 @admin.register(UserProfile, site=admin_site) 
 class UserProfileAdmin(BaseAdmin):
     list_display = ('user', 'display_photo')  # Add the display_photo method

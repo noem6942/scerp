@@ -8,6 +8,7 @@ from scerp.admin import (
     admin_site, App, AppConfig, BaseAdmin, display_empty, display_verbose_name,
     display_datetime)
 
+from .actions import make_minutes
 from .locales import APP, FIELDSET
 from .models import (
     Meeting, Agenda, Remark, AgendaFile, MeetingFile, AgendaNotes, 
@@ -107,6 +108,7 @@ class AgendaAdmin(admin.ModelAdmin):
     ordering = ['meeting', 'order']
     inlines = [
         AgendaFileInline, RemarkInline, AgendaNotesInline, AgendaResultInline]
+    actions = [make_minutes]
 
     fieldsets = (
         (None, {
@@ -114,10 +116,6 @@ class AgendaAdmin(admin.ModelAdmin):
             'classes': ('expand',),  # This could be collapsed by default
         }),
     )
-
-# Register the admin model
-admin.site.register(Agenda, AgendaAdmin)
-
 
 
 ''' only accessible via Meeting and Agenda 

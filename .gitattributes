@@ -1,0 +1,10 @@
+# Apply LF line endings to all Python and HTML files
+*.py text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+
+# Other text files (like markdown or configuration files) can be handled similarly:
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf

@@ -146,9 +146,10 @@ def positions(request, queryset, action):
                 # Assign value    
                 setattr(position_obj, key, value)
         
-            # Calc is_category
+            # Calc is_category, level
             position_obj.is_category = (
                 True if position.get('lead_agency') else False)
+            position_obj.level = position_obj.number.count('.') + 1
         
             # Save
             if action == 'create':            
