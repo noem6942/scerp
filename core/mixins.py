@@ -14,11 +14,3 @@ class TenantMixin:
         elif self.code != self.code.lower():
             msg = _("Code contains upper letters")
             raise ValidationError(msg)            
-
-    def post_save(self, *args, **kwargs):
-        # Perform the follow-up actions here
-        TenantSetup.objects.get_or_create(
-            tenant=self, 
-            created_by=self.created_by, 
-            modified_by=self.modified_by
-        )

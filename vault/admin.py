@@ -67,20 +67,20 @@ class ArchivalEvaluationAdmin(BaseAdmin):
 @admin.register(RegistrationPosition, site=admin_site) 
 class RegistrationPositionAdmin(BaseAdmin):
     list_display = (
-        'number', 'position', 'display_lead_agency', 
+        'number', 'name', 'display_lead_agency', 
         'display_retention_period', 'remarks')      
-    list_display_links = ('position',)
+    list_display_links = ('name',)
     list_filter = (
         'registration_plan', 'lead_agency', 'retention_period',
         'legal_basis', 'archival_evaluation')
     search_fields = (
-        'number', 'position', 'lead_agency__name', 'retention_period__name',
+        'number', 'name', 'lead_agency__name', 'retention_period__name',
         'legal_basis__name', 'archival_evaluation__name')
     
     fieldsets = (
         (None, {
             'fields': (
-                'number', 'position', 'lead_agency', 'retention_period'),
+                'number', 'name', 'lead_agency', 'retention_period'),
             'classes': ('expand',),            
         }),
         (_('Others'), {

@@ -8,6 +8,7 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils.formats import date_format
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from .locales import APP
 from core.models import Tenant, TenantSetup, UserProfile
@@ -135,6 +136,7 @@ class Site(AdminSite):
         # We use the TenantSetup object for all tenant information!!
         # We don't allow a user to continue without selecting a tenant
         available_tenants = get_available_tenants(request)
+        print("*available_tenants", available_tenants)
 
         # Process
         if available_tenants.count() == 1:
@@ -265,7 +267,12 @@ class BaseAdmin(ModelAdmin):
         queryset = super().get_queryset(request)
         if getattr(self, 'has_tenant_field', False):
             # Filter queryset
-            queryset = filter_query_for_tenant(request, queryset)     
+            try:
+                queryset = filter_query_for_tenant(request, queryset)     
+            except Exception as e:
+                # If an error occurs, capture the exception and return an error message
+                msg = _("Error filtering tenant: {e}").format(e=e)
+                messages.error(request, msg)
             
             # Store the data in obj for later usage
             self.tenant = request.session.get('tenant', 'en')             

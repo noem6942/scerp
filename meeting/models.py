@@ -4,7 +4,7 @@ from django.db import models
 # from core.models import TenantAbstract, to be done later
 from core.models import TenantLocation
 from crm.models import Building
-from vault.models import RegistrationPosition
+#from vault.models import RegistrationPosition
 
 
 class Meeting(models.Model):
@@ -29,11 +29,12 @@ class Meeting(models.Model):
         Group, null=True, blank=True, on_delete=models.SET_NULL, 
         related_name='secretary')        
         
-    # Closing     
+    # Closing   
+    '''    
     vault_position = models.ForeignKey(
         RegistrationPosition, null=True, blank=True, on_delete=models.CASCADE, 
         related_name='meeting')     
-
+    '''
     def __str__(self):
         return self.name
 

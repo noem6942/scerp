@@ -1,9 +1,10 @@
+from django.conf import settings
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 
-from scerp.locales import COUNTRY_CHOICES, LANGUAGE_CHOICES
+from scerp.locales import COUNTRY_CHOICES
 from core.models import TenantAbstract
 
 from django.db import models
@@ -38,6 +39,7 @@ class PersonCategory(TenantAbstract):
 
     def __str__(self):
         return self.name
+
 
 class PersonAccount(TenantAbstract):  
     '''full person profile as exported to Accounting
@@ -123,7 +125,7 @@ class PersonAccount(TenantAbstract):
     )
     language = models.CharField(
         max_length=2, 
-        choices=LANGUAGE_CHOICES, blank=True, null=True,
+        choices=settings.LANGUAGES, blank=True, null=True,
         verbose_name=('Language'),
         help_text=('The main language of the person. May be used for documents.')
     )

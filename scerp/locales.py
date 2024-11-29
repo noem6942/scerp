@@ -93,11 +93,3 @@ CANTON_CHOICES = [
 COUNTRY_CHOICES = [
     ('CH', _('Schweiz'))
 ]
-
-
-LANGUAGE_CHOICES = [
-    ('de', _('Deutsch')),
-    ('fr', _('Französisch')),
-    ('it', _('Italienisch')),
-    ('en', _('Englisch')),
-]
