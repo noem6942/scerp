@@ -17,7 +17,7 @@ class APP:
             }
         },
         'core': {
-            'symbol': '@B',
+            'symbol': '@A',
             'models': {                
                 'Tenant': '1',
                 'TenantLocation': '2',

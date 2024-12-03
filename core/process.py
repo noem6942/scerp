@@ -52,7 +52,17 @@ class UserGroup:
                     )
                 except Permission.DoesNotExist:
                     logger.error(
-                        f"Permission '{perm}' does not exist.")
+                        f"Permission '{perm}' does not exist.")            
+
+            # Get admin group
+            admin_name = next(
+                (x['name'] for x in USER_GROUPS if x['name'] == 'Admin'), None)
+            admin_group = Group.objects.filter(name=admin_name).first()            
+            
+            # Assign all permissions to admin  # TEMP!!!
+            all_permissions = Permission.objects.all()
+            for permission in all_permissions:
+                admin_group.permissions.add(permission)                
 
         logger.info('User group setup complete.')
         return True

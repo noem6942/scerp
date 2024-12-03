@@ -42,7 +42,7 @@ class TenantMiddleware:
                     _("User profile not found. Contact Admin."))
                     
             # Check if tenant set        
-            _ = get_tenant()
+            _ = get_tenant(request)
             
             '''
             # Set the default tenant to the user's primary tenant
