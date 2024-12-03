@@ -332,11 +332,14 @@ print(setting, "\n")
 account = ctrl.list(API.account.value['url'])
 print("*account", len(account), account[-2:], "\n")
 print("*account last key", account[-1].keys(), "\n")
+'''
 
 account_category = ctrl.list(API.account_category.value['url'])
-print(len(account_category), account_category[-2:], "\n")
+top_accounts = [x for x in account_category if x['parent_id'] is None]
+for accounts in top_accounts:
+    print(accounts['id'], accounts['account_class'])
 
-
+'''
 ids = [109, 110]
 response = ctrl.delete(API.account_category.value['url'], *ids)
 print("*response", response)
@@ -405,7 +408,7 @@ account['custom']['values']['customField59'] = 'Test Content A'
 account['target_min'] = 1000.0
 account = ctrl.update(API.account.value['url'], account)
 print("*account", account, "\n")
-'''
+
 
 # Make custom fields
 
@@ -431,3 +434,4 @@ for field in CUSTOM_FIELDS:
 
 files = ctrl.list(API.file.value['url'])
 print("*", files)
+'''

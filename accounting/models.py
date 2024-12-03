@@ -423,6 +423,7 @@ class AccountPositionMunicipality(
         AccountPositionAbstract, CashCtrl,
         AccountPositionMunicipalityValidate):
     '''display_type cannot be functional
+        django is master, don't allow changes in cashctrl
     '''    
     display_type = models.PositiveSmallIntegerField(
         _('Chart Type'), choices=DISPLAY_TYPE.choices,
@@ -440,6 +441,19 @@ class AccountPositionMunicipality(
         related_name='%(class)s_category', 
         help_text=_('Function code related to account type')
     )
+    balance = models.FloatField(
+        _('Balance'), null=True, blank=True, 
+        help_text=_('Balance, calculated'))
+    # custom fields
+    budget = models.FloatField(
+        _('Budget'), null=True, blank=True, 
+        help_text=_('Budget for period given, fill out manually'))
+    previous = models.FloatField(
+        _('Previous Balance'), null=True, blank=True, 
+        help_text=_('Balance of previous period'))
+    explanation = models.TextField(
+        _('Explanation'), null=True, blank=True, 
+        help_text=_('Explanation, esp. deviations to previous period'))
     
     def __str__(self):
         if self.function:
