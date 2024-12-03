@@ -435,3 +435,7 @@ for field in CUSTOM_FIELDS:
 files = ctrl.list(API.file.value['url'])
 print("*", files)
 '''
+
+# init cashctrl
+Aufwand: _Ausgaben
+Ertrag: _Einnahmen
