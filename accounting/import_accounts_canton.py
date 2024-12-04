@@ -1,7 +1,8 @@
-# process_chart_of_accounts.py
+# import_accounts_canton.py
 from django.utils.translation import gettext_lazy as _
 from enum import Enum
 from openpyxl import load_workbook
+
 
 # Definitions
 class TYPE(Enum):
@@ -12,13 +13,13 @@ class TYPE(Enum):
 
 
 HEADERS = [
-    'account_number', 'account_4_plus_2', 'name', 'notes', 
-    'hrm_1', 'description_hrm_1'
+    'account_number', 'account_4_plus_2', 'name', 'description', 
+    '_hrm_1', '_description_hrm_1'
 ]
 
 
 # mixins
-class Account(object):
+class Import(object):
     '''parse account table and do consistency checks
     input variables:
         file_path: excel file
@@ -93,7 +94,7 @@ class Account(object):
         
         # Get accounts
         accounts = []
-        for row_nr, row in enumerate(rows, start=1):
+        for row in rows:
             # Get headers (first non-empty row that contains 'Sachkonto')
             if not headers:
                 if row[0] == 'Sachkonto':
@@ -102,10 +103,20 @@ class Account(object):
 
             # Analyze
             data = dict(zip(headers, row))            
-            data['row_nr'] = row_nr
+            
+            # Eliminate key starting with _
+            data = {k: v for k, v in data.items() if k[0] != '_'}
+            
+            # Get is_category, adjust account_number
+            if data['account_number']:
+                data['is_category'] = True
+                data.pop('account_4_plus_2')
+            elif data['account_4_plus_2']:
+                data['is_category'] = False
+                data['account_number'] = data.pop('account_4_plus_2')
             
             # Account, category 
-            if data['account_number'] or data['account_4_plus_2']:
+            if data['account_number']:
                 accounts.append(data)
 
         return accounts

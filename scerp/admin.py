@@ -7,7 +7,6 @@ from django.forms import Textarea
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils.formats import date_format
-from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from .locales import APP

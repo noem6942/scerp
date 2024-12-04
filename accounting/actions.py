@@ -13,18 +13,18 @@ from .api_cash_ctrl import (
     CustomFieldGroup, CustomField, SequenceNumber, Tax,
     AccountCategory)    
 from .forms import (
-    AccountChartCantonForm, 
-    AccountChartMunicipalityBalanceForm, 
-    AccountChartMunicipalityFunctionForm,
-    AccountPositionMunicipalityAddIncomeForm,
-    AccountPositionMunicipalityAddInvestForm
+    ChartOfAccountsTemplateForm, 
+    ChartOfAccountsBalanceForm, 
+    ChartOfAccountsFunctionForm,
+    AccountPositionAddIncomeForm,
+    AccountPositionAddInvestForm
 )
 from .models import (
-    CHART_TYPE, DISPLAY_TYPE, FiscalPeriod,
-    ChartOfAccountsCanton, AccountPositionCanton,
-    AccountChartMunicipality, AccountPositionMunicipality
+    ACCOUNT_TYPE_TEMPLATE, FiscalPeriod,
+    ChartOfAccountsTemplate, AccountPositionTemplate,
+    ChartOfAccounts, AccountPosition
 )
-from .process_chart_of_accounts import Account
+from .import_accounts_canton import Import
 
 import json
 
@@ -35,52 +35,15 @@ DONOT_COPY_FIELDS = [
     'version_id', 'protected', 'inactive',
     
     # Accounting
-    'chart', 'display_type', 'function',
+    'chart', 'account_type', 'function',
     
     # CashCtrl
     'c_id', 'c_created', 'c_created_by', 'c_last_updated', 'c_last_updated_by'
 ]
 
 
-# api
-@admin.action(description=_('1. Init Cash API'))
-def api_init(modeladmin, request, queryset):
-    # Check number selected
-    if action_check_nr_selected(request, queryset, 1):
-        tenant = queryset.first()
-    else:
-        return False
-
-    # Check API
-    if not tenant.api_key:
-        messages.error(request, _('api key missing'))
-    '''
-    # First test
-    a = CustomFieldGroup(tenant.org_name, tenant.api_key)
-    data = a.list()
-    print("*data", len(data))
-
-    with open("data_cash_ctrl.json", "w") as json_file:
-        json.dump(data, json_file, indent=4)
-
-    '''
-    a = AccountCategory(tenant.org_name, tenant.api_key)
-    filter = json.dumps([{"field": "parentId", "value": "53", "comparison": "eq"}])
-    data = a.list(filter=filter)
-    with open("data_cash_ctrl.json", "w") as json_file:
-        json.dump(data, json_file, indent=4)
-    '''
-    prime_categories = {
-        x['accountClass']: x['id']
-        for x in data if not x['parentId']
-    }
-    '''
-
-    messages.success(request, "good")
-
-
 # mixins
-@admin.action(description=_('2. Insert copy of record below'))
+@admin.action(description=_('> Insert copy of record below'))
 def position_insert(self, request, queryset):
     ''' Insert row of a model that has a field position '''
     # Check
@@ -93,10 +56,10 @@ def position_insert(self, request, queryset):
     obj.pk = None  # Clear the primary key for duplication
     obj.name += ' <copy>'
     try:
-        if obj.account_number:
+        if obj.is_category:
             obj.account_number = str(int(obj.account_number) + 1)
-        elif obj.account_4_plus_2:
-            obj.account_4_plus_2 = str(float(obj.account_4_plus_2) + 0.01)
+        else:
+            obj.account_number = str(float(obj.account_number) + 0.01)
         obj.save()
         messages.success(request, _('Copied record.'))
     except:
@@ -125,13 +88,13 @@ def fiscal_period_set_current(self, request, queryset):
     messages.success(request, msg)   
         
 
-# ChartOfAccountsCanton (coac)
+# ChartOfAccountsTemplate (coac)
 def coac_positions(modeladmin, request, queryset, overwrite):
-    """Check Excel File of ChartOfAccountsCanton"""
+    """Check Excel File of ChartOfAccountsTemplate"""
     for chart in queryset:
         # Load excel
         try:
-            a = Account(chart.excel.path, chart.type, None)
+            a = Import(chart.excel.path, chart.account_type, None)
             accounts = a.get_accounts()
         except ValueError as e:
             # Catching the specific ValueError
@@ -144,8 +107,7 @@ def coac_positions(modeladmin, request, queryset, overwrite):
         # Delete existing
         check_only = True if not overwrite else False
         if overwrite:
-            AccountPositionCanton.objects.filter(
-                chart_of_accounts=chart).delete()
+            AccountPositionTemplate.objects.filter(chart=chart).delete()
             chart.exported_at = None
             chart.save() 
 
@@ -154,7 +116,7 @@ def coac_positions(modeladmin, request, queryset, overwrite):
             with transaction.atomic():
                 for account in accounts:
                     # Save base
-                    account_instance = AccountPositionCanton(chart_of_accounts=chart)
+                    account_instance = AccountPositionTemplate(chart=chart)
                     for key, value in account.items():
                         setattr(account_instance, key, value)
 
@@ -164,15 +126,15 @@ def coac_positions(modeladmin, request, queryset, overwrite):
                     # Try to save (here the validity checks get performed
                     account_instance.save(check_only=check_only)
 
-            # Message
-            msg = _("successfully checked {count} accounts.").format(
-                count=len(accounts))
-            messages.success(request, msg)    
+                # Message
+                msg = _("successfully checked {count} accounts.").format(
+                    count=len(accounts))
+                messages.success(request, msg)    
 
-            # Log
-            if overwrite:
-                chart.exported_at = timezone.now()
-                chart.save()
+                # Log
+                if overwrite:
+                    chart.exported_at = timezone.now()
+                    chart.save()
 
         except Exception as e:
             # If any error occurs, the transaction is rolled back
@@ -181,17 +143,16 @@ def coac_positions(modeladmin, request, queryset, overwrite):
             return
 
         
-@admin.action(description=_('4. Check Excel file for validity'))
+@admin.action(description=_('> Check Excel file for validity'))
 def coac_positions_check(modeladmin, request, queryset):
     coac_positions(modeladmin, request, queryset, overwrite=False)
 
 
 @action_with_form(
-    AccountChartCantonForm,
-    description=_('5. Create canton account positions')
-)
+    ChartOfAccountsTemplateForm,
+    description=_('> Create canton account positions'))
 def coac_positions_create(modeladmin, request, queryset, data):
-    """Check Excel File of ChartOfAccountsCanton"""
+    """Check Excel File of ChartOfAccountsTemplate"""
     # Check number selected
     if action_check_nr_selected(request, queryset, 1):
         chart = queryset.first()
@@ -203,21 +164,21 @@ def coac_positions_create(modeladmin, request, queryset, data):
 
  
 # AccountPositionCanton (apc)
-def apc_export(request, queryset, type_from, display_type, chart_id):
+def apc_export(request, queryset, type_from, account_type, chart_id):
     '''two cases:
-    1. Copy bilance to bilance:
+    1. Copy balance to balance:
         add chart
         function = None
-        copy account_number and account_4_plus_2
-        copy display_type
+        copy account_number
+        copy account_type
     2. Copy function to income:
         add chart 
         function gets account_number (if existing), otherwise account
-        display_type gets income   
+        account_type gets income   
     '''
 
     # Init
-    chart = AccountChartMunicipality.objects.get(id=chart_id)
+    chart = ChartOfAccountsMunicipality.objects.get(id=chart_id)
     count_created = 0
     count_updated = 0
     
@@ -231,9 +192,8 @@ def apc_export(request, queryset, type_from, display_type, chart_id):
             else:
                 function = obj.account
                 
-            # Accounting numbers
-            obj.account_number = ''
-            obj.account_4_plus_2 = ''               
+            # Accounting number
+            obj.account_number = ''           
                
         else:
             function = None 
@@ -243,8 +203,8 @@ def apc_export(request, queryset, type_from, display_type, chart_id):
             chart=chart, 
             function=function,
             account_number=obj.account_number, 
-            account_4_plus_2=obj.account_4_plus_2,
-            display_type=display_type
+            is_category=obj.is_category,
+            account_type=account_type
         ).first()
         
         # Create new
@@ -255,7 +215,8 @@ def apc_export(request, queryset, type_from, display_type, chart_id):
             account_instance = AccountPositionMunicipality()
             account_instance.chart = chart 
             account_instance.function = function  
-            account_instance.display_type = display_type  
+            account_instance=obj.is_category
+            account_instance.account_type = account_type  
 
         # Copy values
         for key, value in obj.__dict__.items():
@@ -284,41 +245,41 @@ def apc_export(request, queryset, type_from, display_type, chart_id):
 
 
 @action_with_form(
-    AccountChartMunicipalityBalanceForm,
-    description=_('7. Export selected balance positions to municipality balance'))
+    ChartOfAccountsBalanceForm,
+    description=_('> Export selected balance positions to municipality balance'))
 def apc_export_balance(modeladmin, request, queryset, data):
     # type checks are done in the form
     chart_id = data.get('chart')
     if chart_id:        
         apc_export(
-            request, queryset, CHART_TYPE.BALANCE, DISPLAY_TYPE.BALANCE, 
+            request, queryset, CHART_TYPE.BALANCE, account_type.BALANCE, 
             chart_id)
 
 @action_with_form(
-    AccountChartMunicipalityFunctionForm,
-    description=_('8. Export selected function positions to municipality income'))
+    ChartOfAccountsFunctionForm,
+    description=_('> Export selected function positions to municipality income'))
 def apc_export_function_to_income(modeladmin, request, queryset, data):
     # type checks are done in the form
     chart_id = data.get('chart')
     if chart_id:
         apc_export(
-            request, queryset, CHART_TYPE.FUNCTIONAL, DISPLAY_TYPE.INCOME, 
+            request, queryset, CHART_TYPE.FUNCTIONAL, account_type.INCOME, 
             chart_id)
 
 @action_with_form(
-    AccountChartMunicipalityFunctionForm,
-    description=_('Export selected function positions to municipality invest'))
+    ChartOfAccountsFunctionForm,
+    description=_('> Export selected function positions to municipality invest'))
 def apc_export_function_to_invest(modeladmin, request, queryset, data):
     # type checks are done in the form
     chart_id = data.get('chart')
     if chart_id:        
         apc_export(
-            request, queryset, CHART_TYPE.FUNCTIONAL, DISPLAY_TYPE.INVEST, 
+            request, queryset, CHART_TYPE.FUNCTIONAL, account_type.INVEST, 
             chart_id)
 
 
 # AccountPositionMunicipality (apm)
-def apm_add(modeladmin, request, queryset, data, display_type):
+def apm_add(modeladmin, request, queryset, data, account_type):
     # Check number selected
     if queryset.count() > 1:
          messages.warning(request, MESSAGE.multiple_functions)
@@ -342,9 +303,10 @@ def apm_add(modeladmin, request, queryset, data, display_type):
             account_instance = AccountPositionMunicipality.objects.filter(
                 chart=chart, 
                 account_number=obj.account_number,
-                account_4_plus_2=obj.account_4_plus_2,
+                is_category=obj.is_category,
                 function=function,
-                display_type=display_type).first()
+                account_type=account_type
+            ).first()
                 
             # Create new 
             if account_instance:
@@ -354,7 +316,7 @@ def apm_add(modeladmin, request, queryset, data, display_type):
                 count_created += 1
                 account_instance = AccountPositionMunicipality()                            
                 account_instance.chart = chart
-                account_instance.display_type = display_type
+                account_instance.account_type = account_type
                 account_instance.function = function
 
             # Copy values
@@ -378,16 +340,16 @@ def apm_add(modeladmin, request, queryset, data, display_type):
 
 
 @action_with_form(
-    AccountPositionMunicipalityAddIncomeForm,
+    AccountPositionAddIncomeForm,
     description=_('10. Add income positions to function')
 )
 def apm_add_income(modeladmin, request, queryset, data):
-    apm_add(modeladmin, request, queryset, data, DISPLAY_TYPE.INCOME)
+    apm_add(modeladmin, request, queryset, data, account_type.INCOME)
 
 
 @action_with_form(
-    AccountPositionMunicipalityAddInvestForm,
+    AccountPositionAddInvestForm,
     description=_('11 Add invest positions to function')
 )
 def apm_add_invest(modeladmin, request, queryset, data):
-    apm_add(modeladmin, request, queryset, data, DISPLAY_TYPE.INVEST)
+    apm_add(modeladmin, request, queryset, data, account_type.INVEST)

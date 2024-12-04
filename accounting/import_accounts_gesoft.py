@@ -44,14 +44,6 @@ class Import(object):
         # `values_only=True` gets only cell values
         self.rows = [row for row in sheet.iter_rows(values_only=True)] 
 
-    @staticmethod
-    def clean_number(value):
-        return value
-    
-    @staticmethod
-    def get_value(*values):
-        return next((x for x in values if x is not None), None)
-
     def get_accounts(self):
         accounts = []
         row_count = len(self.rows)
@@ -159,16 +151,15 @@ class Import(object):
                             continue
                 
                 # Make account
-
                 accounts.append({
                     'function': function,
                     'account_type': self.account_type,
                     'is_category': is_category,
                     'account_number': account_number,
                     'name': name,
-                    'balance': self.clean_number(balance),
-                    'budget': self.clean_number(budget),
-                    'previous': self.clean_number(previous),
+                    'balance': balance,
+                    'budget': budget,
+                    'previous': previous,
                 })   
             
         return accounts

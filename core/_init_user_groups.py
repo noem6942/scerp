@@ -1,8 +1,18 @@
 # core/init_user_groups.py
 
 USER_GROUPS = [
-    # Testing
-    {'name': 'local_user', 'permissions': []},
+    # Intern
+    {'name': 'Admin', 'permissions': []},  # must be first
+    {'name': 'Intern Leitung', 'permissions': []},
+    {'name': 'Intern Kanzlei', 'permissions': []},
+    {'name': 'Intern Einwohnerdienste', 'permissions': []},
+    {'name': 'Intern Personalwesen', 'permissions': []},
+    {'name': 'Intern Gesundheit-/Sozialwesen', 'permissions': []},
+    {'name': 'Intern Finanzen', 'permissions': []},
+    {'name': 'Intern Steuern', 'permissions': []},
+    {'name': 'Intern Liegenschaftsverwaltung', 'permissions': []},
+    {'name': 'Intern Bauwesen', 'permissions': []},
+    {'name': 'Intern Bildung', 'permissions': []},
 
     # Funktionen
     {'name': 'Funktion Zweckverband', 'permissions': []},
@@ -25,18 +35,10 @@ USER_GROUPS = [
     {'name': 'Stadtpräsident', 'permissions': []},
     {'name': 'Stadtpräsidentin', 'permissions': []},
 
-    # Intern
-    {'name': 'Admin', 'permissions': []},
-    {'name': 'Intern Leitung', 'permissions': []},
-    {'name': 'Intern Kanzlei', 'permissions': []},
-    {'name': 'Intern Einwohnerdienste', 'permissions': []},
-    {'name': 'Intern Personalwesen', 'permissions': []},
-    {'name': 'Intern Gesundheit-/Sozialwesen', 'permissions': []},
-    {'name': 'Intern Finanzen', 'permissions': []},
-    {'name': 'Intern Steuern', 'permissions': []},
-    {'name': 'Intern Liegenschaftsverwaltung', 'permissions': []},
-    {'name': 'Intern Bauwesen', 'permissions': []},
-    {'name': 'Intern Bildung', 'permissions': []},]
+    # Testing
+    {'name': 'local_user', 'permissions': []},
+]
+
 '''
     {'name': 'local_admin', 'permissions': [
     'core.add_person',

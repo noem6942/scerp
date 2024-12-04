@@ -17,7 +17,7 @@ class APP:
             }
         },
         'core': {
-            'symbol': '@A',
+            'symbol': '@',
             'models': {                
                 'Tenant': '1',
                 'TenantLocation': '2',
@@ -47,10 +47,10 @@ class APP:
             'symbol': 'A',
             'models': {
                 'Location': '0',
-                'ChartOfAccountsCanton': '1',
-                'AccountPositionCanton': '2',
-                'AccountChartMunicipality': '3',
-                'AccountPositionMunicipality': '4'                
+                'ChartOfAccountsTemplate': '1',
+                'AccountPositionTemplate': '2',
+                'ChartOfAccounts': '3',
+                'AccountPosition': '4'                
             }
         },
         'billing': {

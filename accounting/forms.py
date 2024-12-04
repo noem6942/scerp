@@ -10,16 +10,16 @@ from django_admin_action_forms import action_with_form, AdminActionForm
 
 from core.safeguards import get_tenant
 from .models import (
-    CHART_TYPE, AccountPositionCanton, ChartOfAccountsCanton,
-    AccountChartMunicipality, AccountPositionMunicipality
+    ACCOUNT_TYPE_TEMPLATE, AccountPositionTemplate, ChartOfAccountsTemplate,
+    ChartOfAccounts, AccountPosition
 )
 from scerp.admin import verbose_name_field
 
 LABEL_BACK = _("Back")
 
 
-# AccountChartCanton
-class AccountChartCantonForm(AdminActionForm):
+# ChartOfAccountsCanton
+class ChartOfAccountsTemplateForm(AdminActionForm):
     # Show data
     class Meta:
         list_objects = False
@@ -28,11 +28,11 @@ class AccountChartCantonForm(AdminActionForm):
             "Are you sure you want proceed with this action?")
 
 
-# AccountChartMunicipality
-class AccountChartMunicipalityForm(AdminActionForm):
+# ChartOfAccounts
+class ChartOfAccountsForm(AdminActionForm):
     # Show data
     chart = forms.ChoiceField(
-        label=verbose_name_field(AccountPositionMunicipality, 'chart'), 
+        label=verbose_name_field(AccountPosition, 'chart'), 
         choices=[], required=True,
         help_text=_("Select the appropriate chart for the municipality."))
 
@@ -43,7 +43,7 @@ class AccountChartMunicipalityForm(AdminActionForm):
 
     def assign_charts(self, request):
         # Get charts
-        charts = AccountChartMunicipality.objects.all()
+        charts = ChartOfAccounts.objects.all()
 
         # Filter tenant
         tenant = get_tenant(request)
@@ -86,27 +86,27 @@ class AccountChartMunicipalityForm(AdminActionForm):
         self.Meta.confirm_button_text = None  # default
 
 
-class AccountChartMunicipalityBalanceForm(
-        AccountChartMunicipalityForm):
+class ChartOfAccountsBalanceForm(
+        ChartOfAccountsForm):
     def __post_init__(self, modeladmin, request, queryset):
         self.assign_charts(request)
         self.check_types(request, queryset, CHART_TYPE.BALANCE)
 
 
-class AccountChartMunicipalityFunctionForm(
-        AccountChartMunicipalityForm):
+class ChartOfAccountsFunctionForm(
+        ChartOfAccountsForm):
     def __post_init__(self, modeladmin, request, queryset):
         self.assign_charts(request)
         self.check_types(request, queryset, CHART_TYPE.FUNCTIONAL)
 
 
-# AccountPositionMunicipality
-class AccountPositionMunicipalityForm(AdminActionForm):
+# AccountPosition
+class AccountPositionForm(AdminActionForm):
     # Show data
     positions = forms.ModelMultipleChoiceField(
-        label=ChartOfAccountsCanton._meta.verbose_name,
-        queryset = AccountPositionCanton.objects.filter(
-            is_category=False).order_by('account_4_plus_2'),
+        label=ChartOfAccountsTemplate._meta.verbose_name,
+        queryset = AccountPositionTemplate.objects.filter(
+            is_category=False).order_by('account_number'),
         required=True,
         widget=SelectMultiple(attrs={'size': '20'})  # Adjust number of visible rows
     )
@@ -144,13 +144,13 @@ class AccountPositionMunicipalityForm(AdminActionForm):
         self.fields['positions'].queryset = filter
 
 
-class AccountPositionMunicipalityAddIncomeForm(
-        AccountPositionMunicipalityForm):
+class AccountPositionAddIncomeForm(
+        AccountPositionForm):
     def __post_init__(self, modeladmin, request, queryset):
         super().__post_init__(modeladmin, request, queryset, CHART_TYPE.INCOME)
 
 
-class AccountPositionMunicipalityAddInvestForm(
-        AccountPositionMunicipalityForm):
+class AccountPositionAddInvestForm(
+        AccountPositionForm):
     def __post_init__(self, modeladmin, request, queryset):
         super().__post_init__(modeladmin, request, queryset, CHART_TYPE.INVEST)

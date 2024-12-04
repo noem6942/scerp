@@ -1,6 +1,7 @@
 # from django_admin_action_forms import action_with_form, AdminActionForm
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from core.safeguards import get_tenant
@@ -10,9 +11,8 @@ from scerp.admin import (
     display_datetime)
     
 from .models import (
-    APISetup, Location, FiscalPeriod, Currency, ChartOfAccountsCanton,
-    AccountPositionCanton, AccountChartMunicipality, 
-    AccountPositionMunicipality,
+    APISetup, Location, FiscalPeriod, Currency, ChartOfAccountsTemplate,
+    AccountPositionTemplate, ChartOfAccounts, AccountPosition,
     CostCenter, TaxRate
 )
 
@@ -20,30 +20,11 @@ from . import actions as a
 from scerp.admin import verbose_name_field
 
 
-class CashCtrlDescription(ModelAdmin):    
-    '''Abstract class for name, description field 
-    '''    
-    @admin.display(
-        description=verbose_name_field(ChartOfAccountsCanton, 'name'))
-    def description(self, obj):
-        return obj.description
-
-
-class CashCtrlName(ModelAdmin):    
-    '''Abstract class for name, description field 
-    '''    
-    @admin.display(
-        description=verbose_name_field(ChartOfAccountsCanton, 'name'))
-    def name(self, obj):
-        return obj.name
-
-
 @admin.register(APISetup, site=admin_site) 
 class APISetupAdmin(BaseAdmin):
     has_tenant_field = True
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
-    actions = [a.api_init] 
     
     fieldsets = (
         (None, {
@@ -77,60 +58,50 @@ class FiscalPeriodAdmin(BaseAdmin):
     
 
 @admin.register(Currency, site=admin_site) 
-class CurrencyAdmin(BaseAdmin, CashCtrlDescription):
+class CurrencyAdmin(BaseAdmin):
     has_tenant_field = True
     list_display = ('code', 'is_default')
     search_fields = ('code',)        
     
     fieldsets = (
         (None, {
-            'fields': ('description_de', 'code'),
+            'fields': ('code', 'description'),
             'classes': ('expand',),            
-        }),     
-        ('International', {
-            'fields': ('description_fr', 'description_it', 'description_en'),
-            'classes': ('collapse',),            
-        })
+        }),
     )    
 
 
 @admin.register(CostCenter, site=admin_site) 
-class CostCenterAdmin(BaseAdmin, CashCtrlName):    
+class CostCenterAdmin(BaseAdmin):    
     has_tenant_field = True
 
-    list_display = ['name', 'number'] + ['name_de']
-    search_fields = ['number'] + ['name_de']
+    list_display = ['name', 'number']
+    search_fields = ['number']
 
     fieldsets = (
         (None, {
-            'fields': ('name_de',),
+            'fields': ('name',),
             'classes': ('expand',),            
         }),     
-        ('International', {
-            'fields': ('name_fr', 'name_it', 'name_en'),
-            'classes': ('collapse',),            
-        }),     
-        ('Details', {
+        (_('Details'), {
             'fields': ('number',),
             'classes': ('expand',),            
         })
     )
 
 
-@admin.register(ChartOfAccountsCanton, site=admin_site) 
-class ChartOfAccountsCantonAdmin(BaseAdmin):
+@admin.register(ChartOfAccountsTemplate, site=admin_site) 
+class ChartOfAccountsTemplateAdmin(BaseAdmin):
     has_tenant_field = False
-    list_display = (
-        'name', 'type', 'canton', 'category', 'chart_version', 
-        'display_exported_at')
-    search_fields = ('name', 'type', 'canton', 'category')
-    list_filter = ('type', 'category', 'canton', 'chart_version')    
+    list_display = ('name', 'chart_version', 'link_to_positions')
+    search_fields = ('name', 'account_type', 'canton', 'category')
+    list_filter = ('account_type', 'category', 'canton', 'chart_version')    
     readonly_fields = ('exported_at',)
     actions = [a.coac_positions_check, a.coac_positions_create] 
     
     fieldsets = (
         (None, {
-            'fields': ('name', 'type', 'canton', 'category', 'chart_version', 
+            'fields': ('name', 'account_type', 'canton', 'category', 'chart_version', 
                        'date'),
             'classes': ('expand',),            
         }),
@@ -143,63 +114,81 @@ class ChartOfAccountsCantonAdmin(BaseAdmin):
     def custom_display_name(self, obj):
         # Return the modified display name for other contexts
         return f"Custom: {obj.name}"    
- 
-    @admin.display(
-        description=verbose_name_field(ChartOfAccountsCanton, 'exported_at'))
-    def display_exported_at(self, obj):
-        return display_datetime(obj.exported_at)        
+
+    @admin.display(description=_('Type - display positions'))
+    def link_to_positions(self, obj):
+        url = f"../accountpositiontemplate/?chart__id__exact={obj.id}"
+        name = obj.get_account_type_display()
+        return format_html(f'<a href="{url}">{name}</a>', url)
+
 
 
 class AccountPositionAbstractAdmin(BaseAdmin):
     list_display_links = ('name',)
     search_fields = (
-        'account_number', 'account_4_plus_2', 'name', 'notes')    
-    #readonly_fields = (
-    #    'chart_of_accounts', 'hrm_1', 'hrm_2')    
+        'account_number', 'name', 'notes')    
+    readonly_fields = ('chart', 'number')
     
     fieldsets = (
         (None, {
-            'fields': ('account_number', 'account_4_plus_2', 'name', 'notes'),
+            'fields': ('account_number', 'name', 'description', 'is_category'),
             'classes': ('expand',),            
         }),
         (_('Others'), {
-            'fields': ('number', 'hrm_1', 'description_hrm_1',  
-                       'ff', 'is_category'),
+            'fields': ('number', 'chart'),
             'classes': ('collapse',),            
         }),        
     )
 
+    @admin.display(description=_('Subject Nr.'))
+    def category_number(self, obj):
+        return obj.account_number if obj.is_category else ' '
+
+    @admin.display(description=_('Position Nr.'))
+    def position_number(self, obj):
+        return ' ' if obj.is_category else obj.account_number
+
         
-@admin.register(AccountPositionCanton, site=admin_site) 
-class AccountPositionCantonAdmin(AccountPositionAbstractAdmin):
+@admin.register(AccountPositionTemplate, site=admin_site) 
+class AccountPositionTemplateAdmin(AccountPositionAbstractAdmin):
     has_tenant_field = False       
-    list_display = (
-        'account_number', 'account_4_plus_2', 
-        'name', )    # 'chart_of_accounts', 
+    list_display = ('category_number', 'position_number', 'name', )
     list_filter = (        
-        'chart_of_accounts__type', 'chart_of_accounts__category', 
-        'chart_of_accounts__canton', 'chart_of_accounts__chart_version')    
+        'chart__account_type', 
+        'chart__canton', 'chart__chart_version', 'chart')    
     actions = [a.apc_export_balance, a.apc_export_function_to_income,
                a.apc_export_function_to_invest, a.position_insert]
 
 
-@admin.register(AccountChartMunicipality, site=admin_site) 
-class AccountChartMunicipalityAdmin(BaseAdmin):
+@admin.register(ChartOfAccounts, site=admin_site) 
+class ChartOfAccountsAdmin(BaseAdmin):
     has_tenant_field = True
-    list_display = ('name', 'period')
-    list_filter = ('period',)
-    search_fields = ('name', 'period')
-
-
-@admin.register(AccountPositionMunicipality, site=admin_site) 
-class AccountPositionMunicipalityAdmin(AccountPositionAbstractAdmin):
-    has_tenant_field = True
-    list_display = (
-        'display_function', 'account_number', 'account_4_plus_2', 'name',)    
-    list_filter = ('display_type', 'chart')
+    list_display = ('name', 'chart_version', 'link_to_positions')    
+    search_fields = ('name',)
+    
     fieldsets = (
         (None, {
-            'fields': ('account_number', 'account_4_plus_2', 'name', 'notes'),
+            'fields': ('name', 'chart_version'),
+            'classes': ('expand',),            
+        }),
+    )
+
+    @admin.display(description=_('Type - display positions'))
+    def link_to_positions(self, obj):
+        url = f"../accountposition/?chart__id__exact={obj.id}"
+        name = _('Positions')
+        return format_html(f'<a href="{url}">{name}</a>', url)
+
+
+@admin.register(AccountPosition, site=admin_site) 
+class AccountPositionAdmin(AccountPositionAbstractAdmin):
+    has_tenant_field = True
+    list_display = (
+        'display_function', 'account_number', 'name',)    
+    list_filter = ('account_type', 'chart')
+    fieldsets = (
+        (None, {
+            'fields': ('account_number', 'name', 'notes'),
             'classes': ('expand',),            
         }),
         (_('Others'), {
@@ -211,12 +200,9 @@ class AccountPositionMunicipalityAdmin(AccountPositionAbstractAdmin):
     actions = [a.apm_add_income, a.apm_add_invest, a.position_insert]    
     
     @admin.display(
-        description=verbose_name_field(AccountPositionMunicipality, 'function'))
+        description=verbose_name_field(AccountPosition, 'function'))
     def display_function(self, obj):
-        if obj.account_4_plus_2:
-            return ''
-        else:
-            return display_empty(obj.function)
+        return display_empty(obj.function)
 
 
 @admin.register(TaxRate, site=admin_site) 
