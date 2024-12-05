@@ -1,6 +1,7 @@
 # from django_admin_action_forms import action_with_form, AdminActionForm
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
+from django.utils import formats
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
@@ -8,12 +9,12 @@ from core.safeguards import get_tenant
 
 from scerp.admin import (
     admin_site, BaseAdmin, display_empty, display_verbose_name,
-    display_datetime)
+    display_datetime, display_big_number)
     
 from .models import (
     APISetup, Location, FiscalPeriod, Currency, ChartOfAccountsTemplate,
     AccountPositionTemplate, ChartOfAccounts, AccountPosition,
-    CostCenter, TaxRate
+    CostCenter, TaxRate, ACCOUNT_TYPE
 )
 
 from . import actions as a
@@ -173,18 +174,25 @@ class ChartOfAccountsAdmin(BaseAdmin):
         }),
     )
 
-    @admin.display(description=_('Type - display positions'))
+    @admin.display(description=_('Show positions'))
     def link_to_positions(self, obj):
-        url = f"../accountposition/?chart__id__exact={obj.id}"
-        name = _('Positions')
-        return format_html(f'<a href="{url}">{name}</a>', url)
+        links = []
+        for account_type in ACCOUNT_TYPE:
+            url = (f'../accountposition/?chart__id__exact={obj.id}'
+                   f'&account_type__exact={account_type}')
+            name = account_type.label
+            # Use format_html correctly
+            links.append(format_html('<a href="{}">{}</a>', url, name))
+        # Join the links with commas and return
+        return format_html(', '.join(links))
 
 
 @admin.register(AccountPosition, site=admin_site) 
 class AccountPositionAdmin(AccountPositionAbstractAdmin):
     has_tenant_field = True
     list_display = (
-        'display_function', 'position_number', 'name',)    
+        'display_function', 'position_number', 'name', 'display_balance',
+        'display_budget', 'display_previous')    
     list_filter = ('account_type', 'chart')
     readonly_fields = ('balance', 'budget', 'previous', 'periods')
     fieldsets = (
@@ -204,11 +212,24 @@ class AccountPositionAdmin(AccountPositionAbstractAdmin):
     @admin.display(
         description=verbose_name_field(AccountPosition, 'function'))
     def display_function(self, obj):
-        return display_empty() if obj.account_number else obj.function
+        return obj.account_number if obj.is_category else display_empty() 
 
-    @admin.display(description=_('Position Nr.'))
+    @admin.display(description=_('position nr.'))
     def position_number(self, obj):
-        return obj.account_number if obj.account_number else display_empty()
+        return display_empty() if obj.is_category else obj.account_number
+
+    @admin.display(description=_('balance'))
+    def display_balance(self, obj):
+        balance = 0 if obj.balance is None else obj.balance
+        return display_big_number(balance)
+
+    @admin.display(description=_('budget'))
+    def display_budget(self, obj):
+        return display_big_number(obj.budget)
+
+    @admin.display(description=_('previous'))
+    def display_previous(self, obj):
+        return display_big_number(obj.previous)
 
 
 @admin.register(TaxRate, site=admin_site) 

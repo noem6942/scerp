@@ -335,7 +335,8 @@ class AccountPosition(AccountPositionAbstract, CashCtrl):
 
     # balance
     balance = models.FloatField(
-        _('Balance'), default=0, help_text=_('Balance, calculated'))
+        _('Balance'), null=True, blank=True, 
+        help_text=_('Balance, calculated'))
         
     # custom fields
     budget = models.FloatField(
@@ -359,7 +360,7 @@ class AccountPosition(AccountPositionAbstract, CashCtrl):
         super().clean()  # Call the parent's clean method
         self.clean_related_data(CHART_TYPE)
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs):        
         # Update number
         number = account_position_calc_number(
             self.account_type, self.function, self.account_number, 
@@ -371,16 +372,16 @@ class AccountPosition(AccountPositionAbstract, CashCtrl):
         constraints = [
             models.UniqueConstraint(
                 fields=['chart', 'function', 'account_number', 'account_type'],
-                name='unique_account_position_municipality'
+                name='unique_account_position'
             )]
 
         constraints = [
             models.UniqueConstraint(fields=['chart', 'number'],
-                name='unique_account_position_municipality_number'
+                name='unique_account_position_number'
             )]        
         ordering = ['chart', 'account_type', 'function', 'account_number']
         verbose_name = ('Account Position (Municipality)')
-        verbose_name_plural = _('Account Positions (Municipality)')
+        verbose_name_plural = _('Account Positions')
         
 
 class TaxRate(CashCtrl):

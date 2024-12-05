@@ -40,17 +40,19 @@ class APP:
         'vault': {
             'symbol': 'V',
             'models': {  
-                'RegistrationPlanCanton': '1'
+                'RegistrationPlanCanton': '1',
+                'RegistrationPosition': '2'
             }
         },  
         'accounting': {
             'symbol': 'A',
             'models': {
                 'Location': '0',
-                'ChartOfAccountsTemplate': '1',
-                'AccountPositionTemplate': '2',
-                'ChartOfAccounts': '3',
-                'AccountPosition': '4'                
+                'FiscalPeriod': '1',
+                'ChartOfAccountsTemplate': '10',
+                'AccountPositionTemplate': '11',
+                'ChartOfAccounts': '12',
+                'AccountPosition': '13'                
             }
         },
         'billing': {

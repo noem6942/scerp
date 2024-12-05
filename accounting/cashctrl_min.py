@@ -17,7 +17,9 @@ def camel_to_snake(name):
 def snake_to_camel(snake_str):
     components = snake_str.split('_')
     camel_case_str = ''.join(x.title() for x in components)
-    return camel_case_str[0].lower() + camel_case_str[1:]  # ensure the first letter is lowercase
+    
+    # ensure the first letter is lowercase and return
+    return camel_case_str[0].lower() + camel_case_str[1:]  
 
 
 def create_enum(name, items):
@@ -119,6 +121,16 @@ class FIELD_TYPE(Enum):
 class GENDER(Enum):
     FEMALE = 'FEMALE'
     MALE = 'MALE'
+
+
+class ACCOUNT_CATEGORY_TYPE(Enum):
+    # Used for cashctrl
+    ASSET = 1  # Aktiven 
+    LIABILITY = 2  # Passiven
+    EXPENSE = 3  # Aufwand (INCOME), Ausgaben (INVEST),
+    REVENUE = 4  # Ertrag (INCOME), Einnahmen (INVEST),
+    BALANCE = 5  # 
+
 
 LANGUAGES = ['de', 'fr', 'it', 'en']
 NAME_TAB = 'sc-erp'

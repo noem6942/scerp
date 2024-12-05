@@ -1,14 +1,7 @@
 # import_accounts_gesoft.py
-from enum import Enum
+from .models import ACCOUNT_TYPE
+
 from openpyxl import load_workbook
-
-
-class ACCOUNT_TYPE:
-    # Used for Cantonal Charts
-    BALANCE = 1
-    FUNCTIONAL = 2
-    INCOME = 3
-    INVEST = 5
 
 
 class ACCOUNT_SIDE:
@@ -16,15 +9,6 @@ class ACCOUNT_SIDE:
     EXPENSE = 1
     INCOME = 2 
     CLOSING = 9
-
-
-class ACCOUNT_CATEGORY_TYPE(Enum):
-    # Used for cashctrl
-    ASSET = 1  # Aktiven 
-    LIABILITY = 2  # Passiven
-    EXPENSE = 3  # Aufwand (INCOME), Ausgaben (INVEST),
-    REVENUE = 4  # Ertrag (INCOME), Einnahmen (INVEST),
-    BALANCE = 5  # 
 
 
 class Import(object):
@@ -51,7 +35,8 @@ class Import(object):
             cells = list(row)  # convert tuple to list
             if type(cells[0]) in [int, float]:
                 # Init
-                account_number = cells.pop(0)            
+                account_number = cells.pop(0)
+                account_number_str = str(account_number)
                 name = cells.pop(0)                              
                 is_category = (type(account_number) == int)  # no '.' in value
 
@@ -63,7 +48,7 @@ class Import(object):
 
                 # Check closing
                 if self.account_side == ACCOUNT_SIDE.CLOSING:
-                    if str(account_number)[:2] != '99':
+                    if account_number_str[:2] != '99':
                         continue
                 
                 # Process
@@ -152,10 +137,10 @@ class Import(object):
                 
                 # Make account
                 accounts.append({
-                    'function': function,
+                    'function': str(function),
                     'account_type': self.account_type,
                     'is_category': is_category,
-                    'account_number': account_number,
+                    'account_number': account_number_str,
                     'name': name,
                     'balance': balance,
                     'budget': budget,

@@ -149,6 +149,9 @@ LOCALE_PATHS = [
     BASE_DIR / 'locale',  # Make sure this directory exists
 ]
 
+USE_THOUSAND_SEPARATOR = True
+THOUSAND_SEPARATOR = "'"
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
@@ -192,7 +195,6 @@ LOGGING = {
         },
     },
 }
-
 
 # Ckeditor
 CKEDITOR_UPLOAD_PATH = "uploads/"

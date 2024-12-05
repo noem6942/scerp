@@ -6,6 +6,7 @@ from django.db import models
 from django.forms import Textarea
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
+from django.utils.html import format_html
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
@@ -46,8 +47,18 @@ def display_empty(value=None, default=' '):
     if value is None:
         return default
     else:
-        return str(value)
+        return str(value)    
+
     
+def display_big_number(value):
+    if value is None:
+        return display_empty()
+    else:
+        number_str = "{:,.2f}".format(value).replace(
+            ',', settings.THOUSAND_SEPARATOR)
+        html = '<span style="text-align: right; display: block;">{}</span>'
+        return format_html(html, number_str)
+        
     
 def display_verbose_name(def_cls, field):
     f_cls = getattr(def_cls, 'Field')
@@ -291,9 +302,6 @@ class BaseAdmin(ModelAdmin):
                 # If an error occurs, capture the exception and return an error message
                 msg = _("Error filtering tenant: {e}").format(e=e)
                 messages.error(request, msg)
-            
-            # Store the data in obj for later usage
-            self.tenant = request.session.get('tenant', 'en')             
         
         return queryset
         
