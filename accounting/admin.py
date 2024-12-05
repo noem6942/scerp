@@ -142,11 +142,11 @@ class AccountPositionAbstractAdmin(BaseAdmin):
 
     @admin.display(description=_('Subject Nr.'))
     def category_number(self, obj):
-        return obj.account_number if obj.is_category else ' '
+        return obj.account_number if obj.is_category else display_empty()
 
     @admin.display(description=_('Position Nr.'))
     def position_number(self, obj):
-        return ' ' if obj.is_category else obj.account_number
+        return display_empty() if obj.is_category else obj.account_number
 
         
 @admin.register(AccountPositionTemplate, site=admin_site) 
@@ -184,16 +184,18 @@ class ChartOfAccountsAdmin(BaseAdmin):
 class AccountPositionAdmin(AccountPositionAbstractAdmin):
     has_tenant_field = True
     list_display = (
-        'display_function', 'account_number', 'name',)    
+        'display_function', 'position_number', 'name',)    
     list_filter = ('account_type', 'chart')
+    readonly_fields = ('balance', 'budget', 'previous', 'periods')
     fieldsets = (
         (None, {
-            'fields': ('account_number', 'name', 'notes'),
+            'fields': ('account_type', 'account_number', 'function', 
+                       'is_category', 'name', 'description', 'chart'),
             'classes': ('expand',),            
         }),
-        (_('Others'), {
-            'fields': ('function', 'number', 'hrm_1', 'description_hrm_1',  
-                       'ff', 'is_category'),
+        (_('Edit'), {
+            'fields': ('balance', 'budget', 'previous',  
+                       'explanation', 'periods'),
             'classes': ('collapse',),            
         }),        
     )
@@ -202,7 +204,11 @@ class AccountPositionAdmin(AccountPositionAbstractAdmin):
     @admin.display(
         description=verbose_name_field(AccountPosition, 'function'))
     def display_function(self, obj):
-        return display_empty(obj.function)
+        return display_empty() if obj.account_number else obj.function
+
+    @admin.display(description=_('Position Nr.'))
+    def position_number(self, obj):
+        return obj.account_number if obj.account_number else display_empty()
 
 
 @admin.register(TaxRate, site=admin_site) 

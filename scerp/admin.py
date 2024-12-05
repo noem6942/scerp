@@ -42,7 +42,7 @@ def display_datetime(value, default='-'):
         return date_format(value, format='DATETIME_FORMAT')
 
 
-def display_empty(value, default=''):
+def display_empty(value=None, default=' '):
     if value is None:
         return default
     else:

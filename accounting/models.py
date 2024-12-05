@@ -254,7 +254,7 @@ class ChartOfAccounts(TenantAbstract):
 class AccountPositionAbstract(LogAbstract):    
     # Core data (input)
     account_number = models.CharField(
-        _('Account Number'), max_length=8, null=True, blank=True,
+        _('Account Number'), max_length=8, 
         help_text=_('Typically 4 digits for functions / categories, '
                     '4 + 2 for account positions, 5 + 2 for balance'))
     is_category = models.BooleanField(
@@ -282,7 +282,7 @@ class AccountPositionTemplate(
         AccountPositionAbstract, LogAbstract, NotesAbstract):
     chart = models.ForeignKey(
         ChartOfAccountsTemplate, verbose_name=_('Chart of Accounts'),
-        on_delete=models.CASCADE, related_name='%(class)s_account_position',
+        on_delete=models.CASCADE, related_name='%(class)s_chart',
         help_text=_('Link to the relevant chart of accounts'))     
      
     def save(self, *args, **kwargs):
@@ -326,18 +326,16 @@ class AccountPosition(AccountPositionAbstract, CashCtrl):
          help_text=_('Account Type: balance, income, invent'))
     chart = models.ForeignKey(
         ChartOfAccounts, verbose_name=_('Chart'),
-        on_delete=models.CASCADE, blank=True, null=True,
-        related_name='%(class)s_chart',
+        on_delete=models.CASCADE, related_name='%(class)s_chart',
         help_text=_('Chart the position belongs to if applicable'))
-    period = models.ManyToManyField(
-        FiscalPeriod, verbose_name=_('period'),
+    periods = models.ManyToManyField(
+        FiscalPeriod, verbose_name=_('periods'),
         related_name='%(class)s_period', 
         help_text=_('Fiscal period, automatically updated in Fiscal Period'))
 
     # balance
     balance = models.FloatField(
-        _('Balance'), null=True, blank=True,
-        help_text=_('Balance, calculated'))
+        _('Balance'), default=0, help_text=_('Balance, calculated'))
         
     # custom fields
     budget = models.FloatField(
@@ -366,7 +364,7 @@ class AccountPosition(AccountPositionAbstract, CashCtrl):
         number = account_position_calc_number(
             self.account_type, self.function, self.account_number, 
             self.is_category)
-        self.number = Decimal(number)
+        self.number = Decimal(number)        
         super().save(*args, **kwargs)
 
     class Meta:
@@ -375,10 +373,11 @@ class AccountPosition(AccountPositionAbstract, CashCtrl):
                 fields=['chart', 'function', 'account_number', 'account_type'],
                 name='unique_account_position_municipality'
             )]
+
         constraints = [
             models.UniqueConstraint(fields=['chart', 'number'],
                 name='unique_account_position_municipality_number'
-            )]
+            )]        
         ordering = ['chart', 'account_type', 'function', 'account_number']
         verbose_name = ('Account Position (Municipality)')
         verbose_name_plural = _('Account Positions (Municipality)')

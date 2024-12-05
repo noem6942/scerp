@@ -35,7 +35,7 @@ DONOT_COPY_FIELDS = [
     'version_id', 'protected', 'inactive',
     
     # Accounting
-    'chart', 'account_type', 'function',
+    'chart', 'chart_id', 'account_type', 'function',
     
     # CashCtrl
     'c_id', 'c_created', 'c_created_by', 'c_last_updated', 'c_last_updated_by'
@@ -178,28 +178,21 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
     '''
 
     # Init
-    chart = ChartOfAccountsMunicipality.objects.get(id=chart_id)
+    chart = ChartOfAccounts.objects.get(id=chart_id)
     count_created = 0
     count_updated = 0
     
     # Copy
     for obj in queryset.all():
         # Adjust function and accounting numbers
-        if type_from == CHART_TYPE.FUNCTIONAL:
-            # Function
-            if obj.account_number:
-                function = obj.account_number
-            else:
-                function = obj.account
-                
-            # Accounting number
-            obj.account_number = ''           
-               
+        if type_from == ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL:
+            function = obj.account_number
+            obj.account_number = ''              
         else:
             function = None 
     
-        # Check existing        
-        account_instance = AccountPositionMunicipality.objects.filter(
+        # Check existing    
+        account_instance = AccountPosition.objects.filter(
             chart=chart, 
             function=function,
             account_number=obj.account_number, 
@@ -212,17 +205,17 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
             count_updated += 1
         else:
             count_created += 1
-            account_instance = AccountPositionMunicipality()
+            account_instance = AccountPosition()
             account_instance.chart = chart 
             account_instance.function = function  
-            account_instance=obj.is_category
+            account_instance.is_category=obj.is_category
             account_instance.account_type = account_type  
 
         # Copy values
-        for key, value in obj.__dict__.items():
+        for key, value in obj.__dict__.items():            
             if key not in DONOT_COPY_FIELDS and key[0] != '_':                
                 setattr(account_instance, key, value)
-
+        
         # As we create an AbstractTenant instance from a non tenant obj we
         # do the update of tenant and logging ourselves instead of using
         # save_logging
@@ -240,46 +233,47 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
         messages.success(request, msg)
     if count_created or count_updated:
         msg = _("Go to '{verbose}' to see the results.").format(
-            verbose=ACCOUNT_POSITION_MUNICIPALITY.verbose_name)
+            verbose=AccountPosition._meta.verbose_name)
         messages.success(request, msg)   
 
 
 @action_with_form(
     ChartOfAccountsBalanceForm,
-    description=_('> Export selected balance positions to municipality balance'))
+    description=_('> Export selected balance positions to own balance'))
 def apc_export_balance(modeladmin, request, queryset, data):
     # type checks are done in the form
     chart_id = data.get('chart')
     if chart_id:        
         apc_export(
-            request, queryset, CHART_TYPE.BALANCE, account_type.BALANCE, 
-            chart_id)
+            request, queryset, ACCOUNT_TYPE_TEMPLATE.BALANCE, 
+            ACCOUNT_TYPE_TEMPLATE.BALANCE, chart_id)
 
 @action_with_form(
     ChartOfAccountsFunctionForm,
-    description=_('> Export selected function positions to municipality income'))
+    description=_('> Export selected function positions to own income'))
 def apc_export_function_to_income(modeladmin, request, queryset, data):
     # type checks are done in the form
     chart_id = data.get('chart')
     if chart_id:
         apc_export(
-            request, queryset, CHART_TYPE.FUNCTIONAL, account_type.INCOME, 
-            chart_id)
+            request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL, 
+            ACCOUNT_TYPE_TEMPLATE.INCOME, chart_id)
 
 @action_with_form(
     ChartOfAccountsFunctionForm,
-    description=_('> Export selected function positions to municipality invest'))
+    description=_('> Export selected function positions to own invest'))
 def apc_export_function_to_invest(modeladmin, request, queryset, data):
     # type checks are done in the form
     chart_id = data.get('chart')
     if chart_id:        
         apc_export(
-            request, queryset, CHART_TYPE.FUNCTIONAL, account_type.INVEST, 
-            chart_id)
+            request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL, 
+            ACCOUNT_TYPE_TEMPLATE.INVEST, chart_id)
 
 
-# AccountPositionMunicipality (apm)
+# AccountPosition (apm)
 def apm_add(modeladmin, request, queryset, data, account_type):
+    
     # Check number selected
     if queryset.count() > 1:
          messages.warning(request, MESSAGE.multiple_functions)
@@ -300,7 +294,7 @@ def apm_add(modeladmin, request, queryset, data, account_type):
         for obj in positions:
             # Check if existing
             function = function_obj.function
-            account_instance = AccountPositionMunicipality.objects.filter(
+            account_instance = AccountPosition.objects.filter(
                 chart=chart, 
                 account_number=obj.account_number,
                 is_category=obj.is_category,
@@ -314,7 +308,7 @@ def apm_add(modeladmin, request, queryset, data, account_type):
             else:
                 # We create a new instance
                 count_created += 1
-                account_instance = AccountPositionMunicipality()                            
+                account_instance = AccountPosition()                            
                 account_instance.chart = chart
                 account_instance.account_type = account_type
                 account_instance.function = function
@@ -344,7 +338,7 @@ def apm_add(modeladmin, request, queryset, data, account_type):
     description=_('10. Add income positions to function')
 )
 def apm_add_income(modeladmin, request, queryset, data):
-    apm_add(modeladmin, request, queryset, data, account_type.INCOME)
+    apm_add(modeladmin, request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INCOME)
 
 
 @action_with_form(
@@ -352,4 +346,4 @@ def apm_add_income(modeladmin, request, queryset, data):
     description=_('11 Add invest positions to function')
 )
 def apm_add_invest(modeladmin, request, queryset, data):
-    apm_add(modeladmin, request, queryset, data, account_type.INVEST)
+    apm_add(modeladmin, request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INVEST)

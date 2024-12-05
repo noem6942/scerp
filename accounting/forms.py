@@ -59,7 +59,7 @@ class ChartOfAccountsForm(AdminActionForm):
 
     def check_types(self, request, queryset, type_from):
         # Check mixed types
-        types = set([x.chart_of_accounts.type for x in queryset.all()])
+        types = set([x.chart.account_type for x in queryset.all()])
         if len(types) > 1:
             messages.error(request, _("mixed types are not allowed."))
             self.hide_controls()
@@ -67,7 +67,8 @@ class ChartOfAccountsForm(AdminActionForm):
 
         # Check if mixed types
         for type in types:
-            if type in [CHART_TYPE.INCOME, CHART_TYPE.INVEST]:
+            if type in [ACCOUNT_TYPE_TEMPLATE.INCOME, 
+                        ACCOUNT_TYPE_TEMPLATE.INVEST]:
                 msg = _("Income or invest positions can only be created "
                         "from functionals.")
                 messages.error(request, msg)
@@ -90,14 +91,14 @@ class ChartOfAccountsBalanceForm(
         ChartOfAccountsForm):
     def __post_init__(self, modeladmin, request, queryset):
         self.assign_charts(request)
-        self.check_types(request, queryset, CHART_TYPE.BALANCE)
+        self.check_types(request, queryset, ACCOUNT_TYPE_TEMPLATE.BALANCE)
 
 
 class ChartOfAccountsFunctionForm(
         ChartOfAccountsForm):
     def __post_init__(self, modeladmin, request, queryset):
         self.assign_charts(request)
-        self.check_types(request, queryset, CHART_TYPE.FUNCTIONAL)
+        self.check_types(request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL)
 
 
 # AccountPosition
@@ -120,12 +121,12 @@ class AccountPositionForm(AdminActionForm):
         self.fields.pop('positions', None)
         self.Meta.confirm_button_text = LABEL_BACK
 
-    def __post_init__(self, modeladmin, request, queryset, type):
-        # Check display type
+    def __post_init__(self, modeladmin, request, queryset, account_type):
+        # Check account type
         for function in queryset:
-            if function.display_type != type:
-                msg = _("Postion selected must be type '{type}'.").format(
-                        type=type.label)
+            if function.account_type != account_type:
+                msg = _("Postion selected must be type '{account_type}'.").format(
+                        account_type=account_type.label)
                 self.error(request, msg)
                 return
                 
@@ -140,17 +141,17 @@ class AccountPositionForm(AdminActionForm):
     
         # define choices
         filter = self.fields['positions'].queryset.filter(
-            chart_of_accounts__type=type)
+            chart__account_type=account_type)
         self.fields['positions'].queryset = filter
 
 
-class AccountPositionAddIncomeForm(
-        AccountPositionForm):
+class AccountPositionAddIncomeForm(AccountPositionForm):
     def __post_init__(self, modeladmin, request, queryset):
-        super().__post_init__(modeladmin, request, queryset, CHART_TYPE.INCOME)
+        super().__post_init__(modeladmin, request, queryset,
+        ACCOUNT_TYPE_TEMPLATE.INCOME)
 
 
-class AccountPositionAddInvestForm(
-        AccountPositionForm):
+class AccountPositionAddInvestForm(AccountPositionForm):
     def __post_init__(self, modeladmin, request, queryset):
-        super().__post_init__(modeladmin, request, queryset, CHART_TYPE.INVEST)
+        super().__post_init__(modeladmin, request, queryset, 
+        ACCOUNT_TYPE_TEMPLATE.INVEST)
