@@ -10,14 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 # settings.py
-
-import logging
 import os
-from dotenv import load_dotenv
 from pathlib import Path
 
-# Load env
-load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,13 +23,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY: 
+    # Windows needs to load env in settings
+    from .load_env_windows.py import SECRET_KEY as key
+    SECRET_KEY = key
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG") == "True"  # Convert the string 'True' to a boolean value
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
-
-print("*", SECRET_KEY, DEBUG, ALLOWED_HOSTS)
 
 # Application definition
 # GUI looked at jazzmin, grappelli and baton but all failed
