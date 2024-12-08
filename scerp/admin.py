@@ -169,7 +169,6 @@ class Site(AdminSite):
 
         # Get all tenants associated with the user
         available_tenants = get_available_tenants(request)
-        print("*available_tenants", available_tenants)
 
         # Process the tenant selection
         if available_tenants.count() == 1:

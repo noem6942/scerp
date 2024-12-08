@@ -29,14 +29,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-ORG_CASH_CTRL_DEBUG = os.getenv("ORG_CASH_CTRL_DEBUG")
-API_KEY_CASH_CTRL_DEBUG = os.getenv("API_KEY_CASH_CTRL_DEBUG")
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG")
+DEBUG = os.getenv("DEBUG") == "True"  # Convert the string 'True' to a boolean value
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
+print("*", SECRET_KEY, DEBUG, ALLOWED_HOSTS)
 
 # Application definition
 # GUI looked at jazzmin, grappelli and baton but all failed
@@ -217,3 +215,6 @@ CKEDITOR_CONFIGS = {
 ADMIN_ROOT = 'scerp'
 ADMIN_ACCESS_ALL = True  # Admin can access all clients
 LOGO = '/static/img/default-logo.png'
+
+ORG_CASH_CTRL_DEBUG = os.getenv("ORG_CASH_CTRL_DEBUG")
+API_KEY_CASH_CTRL_DEBUG = os.getenv("API_KEY_CASH_CTRL_DEBUG")
