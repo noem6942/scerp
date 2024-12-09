@@ -1,7 +1,9 @@
 # core.middleware.py
 '''
     this is the central file for handling tenant management
-
+    we use it as we don't want to solely trust on admin.py
+    
+    currently disabled
 '''
 from django.http import HttpResponseForbidden, Http404
 from django.utils.translation import gettext_lazy as _
@@ -44,20 +46,6 @@ class TenantMiddleware:
             # Check if tenant set        
             _ = get_tenant(request)
             
-            '''
-            # Set the default tenant to the user's primary tenant
-            request.tenant_id = user_profile.primary_tenant.id
-
-            # Check tenant_selected
-            tenant_selected_id = request.GET.get('tenant_selected_id')  # Use request.GET to get query parameters
-            if tenant_selected_id:
-                # Validate that the selected tenant is one of the user's additional tenants
-                if not user_profile.additional_tenants.filter(id=tenant_selected_id).exists():                    
-                    return HttpResponseForbidden("You do not have access to this tenant.")
-                else:
-                    # If tenant is valid, set the tenant_id
-                    request.tenant_id = tenant_selected_id  # Update the tenant_id to the selected one
-            '''
         else:
             return HttpResponseForbidden("User is not authenticated.")
 
