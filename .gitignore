@@ -35,3 +35,7 @@ media/
 
 # Ignore all files within any folder named 'migrations'
 **/migrations/*
+
+# Ignore Sphinx build directories
+build/
+docs/build/

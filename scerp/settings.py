@@ -24,8 +24,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY: 
-    # Windows needs to load env in settings
-    from .load_env_windows.py import SECRET_KEY as key
+    # Windows needs to load env in settings    
+    from .load_env_windows import SECRET_KEY as key
     SECRET_KEY = key
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -61,7 +61,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'core.middleware.TenantMiddleware',  # Control tenant    
+    # 'core.middleware.TenantMiddleware',  # Control tenant    
 ]
 
 ROOT_URLCONF = 'scerp.urls'
@@ -162,6 +162,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Media
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Docs
+DOCS_ROOT = os.path.join(BASE_DIR, 'docs/build/html')
+DOCS_SOURCE = os.path.join(BASE_DIR, 'docs/source')
+DOCS_ACCESS = 'public'  # 'staff' or 'public', depending on who should have access
+
 
 # Logging
 LOGGING = {

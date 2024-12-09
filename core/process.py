@@ -1,13 +1,17 @@
 # core/process.py
+from django.conf import settings
 from django.contrib.auth.models import Group, Permission
+from django.utils.text import slugify
 import logging
+import os
 
 from ._init_user_groups import USER_GROUPS
+from ._init_markdown import MODULE_PAGE
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
 
-class UserGroup:
+class UserGroup(object):
     '''
     Manage user groups with specific permissions.
     '''
@@ -63,3 +67,37 @@ class UserGroup:
 
         logger.info('User group setup complete.')
         return True
+
+
+class Documentation(object):
+    '''
+        Manage documentation
+    '''
+    def __init__(self, name):
+        self.name = name
+        
+    def create_markdown(self):
+        """Creates a markdown file with sections for description, features, data, functions, and notes."""
+        # Define the filename
+        name = self.name
+        filename = f"{slugify(name)}.md"        
+
+        # Gather information from the user
+        data = dict(
+            name=name,
+            description=input(f"Enter description for {name}: "),
+            features=input(f"Enter special features for {name}: "),
+            data=input(f"Enter data details for {name}: "),
+            functions=input(f"Enter functions for {name}: "),
+            notes=input(f"Enter notes for {name}: ")
+        )
+
+        # Prepare the content for the Markdown file
+        content = MODULE_PAGE.format(**data)
+
+        # Write the content to the markdown file
+        filepath = os.path.join(settings.DOCS_SOURCE, filename)
+
+        with open(filepath, 'w') as file:
+            file.write(content)
+    
