@@ -164,12 +164,13 @@ class AccountPositionTemplateAdmin(AccountPositionAbstractAdmin):
 @admin.register(ChartOfAccounts, site=admin_site) 
 class ChartOfAccountsAdmin(BaseAdmin):
     has_tenant_field = True
-    list_display = ('name', 'chart_version', 'link_to_positions')    
+    list_display = ('name', 'chart_version', 'period', 'link_to_positions')    
     search_fields = ('name',)
+    readonly_fields = ('period',)
     
     fieldsets = (
         (None, {
-            'fields': ('name', 'chart_version'),
+            'fields': ('name', 'chart_version', 'period'),
             'classes': ('expand',),            
         }),
     )
@@ -193,8 +194,8 @@ class AccountPositionAdmin(AccountPositionAbstractAdmin):
     list_display = (
         'display_function', 'position_number', 'name', 'display_balance',
         'display_budget', 'display_previous')    
-    list_filter = ('account_type', 'chart')
-    readonly_fields = ('balance', 'budget', 'previous', 'periods')
+    list_filter = ('account_type', 'chart', 'responsible')
+    readonly_fields = ('balance', 'budget', 'previous')
     fieldsets = (
         (None, {
             'fields': ('account_type', 'account_number', 'function', 
@@ -203,7 +204,7 @@ class AccountPositionAdmin(AccountPositionAbstractAdmin):
         }),
         (_('Edit'), {
             'fields': ('balance', 'budget', 'previous',  
-                       'explanation', 'periods'),
+                       'explanation', 'responsible'),
             'classes': ('collapse',),            
         }),        
     )

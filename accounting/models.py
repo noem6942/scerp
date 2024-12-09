@@ -1,5 +1,6 @@
 # accounting/models.py
 from django.conf import settings
+from django.contrib.auth.models import Group
 from django.db import models
 from django.db.models import UniqueConstraint
 from django.utils import timezone
@@ -238,8 +239,12 @@ class ChartOfAccounts(TenantAbstract):
         _('Name'), max_length=250,
         help_text=_('Enter the name of the chart of accounts.'))
     chart_version = models.CharField(
-        _('Chart Version'), max_length=100,
+        _('Chart Version'), max_length=100, blank=True, null=True,
         help_text=_('Specify the version of the chart of accounts.'))
+    period = models.ForeignKey(
+        FiscalPeriod, verbose_name=_('period'),
+        on_delete=models.CASCADE, related_name='%(class)s_chart',
+        help_text=_('Fiscal period, automatically updated in Fiscal Period'))      
 
     def __str__(self):
         return f'{self.name}, V{self.chart_version}'
@@ -328,10 +333,10 @@ class AccountPosition(AccountPositionAbstract, CashCtrl):
         ChartOfAccounts, verbose_name=_('Chart'),
         on_delete=models.CASCADE, related_name='%(class)s_chart',
         help_text=_('Chart the position belongs to if applicable'))
-    periods = models.ManyToManyField(
-        FiscalPeriod, verbose_name=_('periods'),
-        related_name='%(class)s_period', 
-        help_text=_('Fiscal period, automatically updated in Fiscal Period'))
+    responsible = models.ForeignKey(
+        Group, verbose_name=_('responsible'), null=True, blank=True,
+        on_delete=models.PROTECT, related_name='%(class)s_responsible',
+        help_text=_('Responsible for budgeting and review'))
 
     # balance
     balance = models.FloatField(
