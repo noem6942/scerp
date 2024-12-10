@@ -24,8 +24,8 @@
 <br>
 {% endif %}
 
-<!-- Existing admin index content -->
-{% if request.session.selected_tenant_setup_id or user.is_superuser %}
+<!-- Tenant set or is_superuser -->
+{% if request.session.tenant.id or user.is_superuser %}
   {{ block.super }}
 {% endif %}
 {% endblock %}
