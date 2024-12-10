@@ -95,6 +95,44 @@ class NotesAbstract(models.Model):
         abstract = True  # This makes it an abstract model
 
 
+class Module(LogAbstract, NotesAbstract, TenantMixin):
+    '''only admin and trustees are allowed to create Tenants
+        sends signals after creation!
+    '''
+    name = models.CharField(
+        _('name'), max_length=100, unique=True)
+    code = models.CharField(
+        _('code'), max_length=32, unique=True,
+        help_text=_(
+            'code of tenant / client, unique, max 32 characters, '
+            'only small letters, should only contains characters that '
+            'can be displayed in an url)'))
+    is_trustee = models.BooleanField(
+        _('is trustee'), default=False,
+        help_text=_('Check if this is the trustee account that can created new tenants'))
+    initial_user_email = models.EmailField(
+        _('Email of initial user'), max_length=254, unique=True,
+        help_text=_('Enter for creating initial user / admin'))
+    initial_user_first_name = models.CharField(
+        _('initial user first name'), max_length=30,
+        help_text=_('Gets entered by system'))        
+    initial_user_last_name = models.CharField(
+        _('initial username last name'), max_length=30,
+        help_text=_('Gets entered by system'))
+
+    def __str__(self):
+        return self.name + self.symbols
+
+    def clean(self):
+        super().clean()  # Call the parent's clean method
+        self.clean_related_data()
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = _('tenant')
+        verbose_name_plural = _('tenants')
+
+
 class Tenant(LogAbstract, NotesAbstract, TenantMixin):
     '''only admin and trustees are allowed to create Tenants
         sends signals after creation!
@@ -171,6 +209,18 @@ class TenantAbstract(LogAbstract, NotesAbstract):
         abstract = True
 
 
+class App(LogAbstract, NotesAbstract):
+    ''' all available Apps
+    '''
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
+
 class TenantSetup(TenantAbstract):
     '''used for assign technical stuff
         gets automatically created after a Tenant has been created,
@@ -187,6 +237,9 @@ class TenantSetup(TenantAbstract):
          _('category'), max_length=1, choices=CITY_CATEGORY.choices,
         null=True, blank=True,
         help_text=_('category, add new one of no match'))
+    apps = models.ManyToManyField(
+        App, verbose_name=_('apps'), related_name='apps',
+        help_text=_('all apps the tenant bought licences for'))
     groups = models.ManyToManyField(
         Group, verbose_name=_('groups'),
         help_text=_('groups used in this organization'))

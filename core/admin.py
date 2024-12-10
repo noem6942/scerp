@@ -65,15 +65,20 @@ class TenantAdmin(BaseAdmin):
 @admin.register(TenantSetup, site=admin_site) 
 class TenantSetupAdmin(BaseAdmin):    
     has_tenant_field = True
-    list_display = ('tenant', 'display_logo',)
+    list_display = ('tenant', 'display_logo', 'display_apps')
     search_fields = ('tenant',)
     fieldsets = (
         (None, {
-            'fields': ('canton', 'category', 'formats', 'logo', 'groups',
-                       'users'),
+            'fields': (
+                'canton', 'category', 'formats', 'logo', 
+                'apps', 'groups', 'users'),
             'classes': ('expand',),            
         }),
     )    
+    
+    @admin.display(description=_('apps'))
+    def display_apps(self, obj):
+        return ', '.join([x.name for x in obj.apps.all()])
     
     @admin.display(description=_('logo'))
     def display_logo(self, obj):

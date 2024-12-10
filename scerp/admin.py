@@ -7,6 +7,7 @@ from django.forms import Textarea
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
@@ -57,11 +58,11 @@ def display_big_number(value):
         number_str = "{:,.2f}".format(value).replace(
             ',', settings.THOUSAND_SEPARATOR)
         html = '<span style="text-align: right; display: block;">{}</span>'
-        return format_html(html, number_str)
+        return format_html(html, number_str)        
         
-        
+
 def display_photo(url_field):
-    if url_field.url:
+    if url_field:
         return mark_safe(f'<img src="{url_field.url}" width="60" height="60" style="object-fit: cover;" />')
     return ''
     

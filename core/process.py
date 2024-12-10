@@ -5,13 +5,30 @@ from django.utils.text import slugify
 import logging
 import os
 
+from scerp.locales import APP
+from scerp.mixins import get_admin 
+
 from ._init_user_groups import USER_GROUPS
 from ._init_markdown import MODULE_PAGE
+from .models import App
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
 
-class UserGroup(object):
+class AppSetup(object):
+
+    def update_or_create(self):                
+        admin = get_admin()
+        for app_name in APP.APP_MODEL_ORDER.keys():
+            if not App.objects.filter(name=app_name):
+                app = App(
+                    name=app_name,
+                    modified_by=admin,
+                    created_by=admin)
+                app.save()            
+
+
+class UserGroupSetup(object):
     '''
     Manage user groups with specific permissions.
     '''
@@ -69,7 +86,7 @@ class UserGroup(object):
         return True
 
 
-class Documentation(object):
+class DocumentationSetup(object):
     '''
         Manage documentation
     '''

@@ -1,20 +1,29 @@
 # core/management/commands/process_core.py
 '''usage:
-    python manage.py process_core
+    python manage.py process_core update-or-create-apps
 '''
 from django.core.management.base import BaseCommand
 from django.core.management import CommandError
 
-from core.process import UserGroup, Documentation
+from core.process import AppSetup, UserGroupSetup, DocumentationSetup
 
 
 class Command(BaseCommand):
     help = 'Create or update user groups, or create a markdown file with specific details'
 
+    # Define an array of possible values for the action
+    ACTION_CHOICES = {
+        'update-or-create-apps': 'Update or create apps',
+        'update-or-create-groups': 'Update or create user groups',
+        'create-markdown': 'Create markdown file',
+    }
+
     def add_arguments(self, parser):
         # Add options for different actions
         parser.add_argument(
-            'action', type=str, help='Specify the action: update-or-create-groups or create-markdown'
+            'action', type=str, 
+            choices=self.ACTION_CHOICES.keys(),
+            help=f'Specify the action: {self.ACTION_CHOICES}'
         )
         parser.add_argument(
             '--name', type=str, help='The name of the item for Markdown creation (required for create-markdown action)'
@@ -23,8 +32,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         action = options['action']
 
-        # Handling the action of creating/updating user groups
-        if action == 'update-or-create-groups':
+        # Handling the action of creating/updating apps
+        if action == 'update-or-create-apps':
+            a = AppSetup()
+            a.update_or_create()
+            self.stdout.write(self.style.SUCCESS('Apps setup complete.'))
+        
+        elif action == 'update-or-create-groups':
             confirmation = input(
                 f'Are you sure you want to delete existing permissions and '
                 f'set new user_groups? (y/N)'
@@ -33,7 +47,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING('Operation canceled.'))
                 return
             
-            g = UserGroup()
+            g = UserGroupSetup()
             if g.update_or_create():
                 self.stdout.write(self.style.SUCCESS(
                     'User group setup complete.'))
@@ -45,7 +59,7 @@ class Command(BaseCommand):
         elif action == 'create-markdown':
             # Ensure the 'name' argument is provided for Markdown file creation
             name = options.get('name')
-            d = Documentation(name)
+            d = DocumentationSetup(name)
             
             if not name:
                 self.stdout.write(self.style.ERROR(
