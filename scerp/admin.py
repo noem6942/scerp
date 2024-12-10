@@ -59,6 +59,12 @@ def display_big_number(value):
         html = '<span style="text-align: right; display: block;">{}</span>'
         return format_html(html, number_str)
         
+        
+def display_photo(url_field):
+    if url_field.url:
+        return mark_safe(f'<img src="{url_field.url}" width="60" height="60" style="object-fit: cover;" />')
+    return ''
+    
     
 def display_verbose_name(def_cls, field):
     f_cls = getattr(def_cls, 'Field')
@@ -76,7 +82,8 @@ class Site(AdminSite):
     site_header = APP.verbose_name  # Default site header
     site_title = APP.title  # Default site title
     index_title = APP.welcome  # Default index title    
-
+    
+    
     def get_app_list(self, request, app_label=None):
         '''Build the side menu left (the app list)'''
 

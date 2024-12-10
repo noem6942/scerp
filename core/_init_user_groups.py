@@ -17,6 +17,9 @@ USER_GROUPS = [
     # Funktionen
     {'name': 'Funktion Zweckverband', 'permissions': []},
 
+    # Bürgerrat
+    {'name': 'Bürgerrat', 'permissions': []},
+
     # Gemeinderat
     {'name': 'Gemeinderat', 'permissions': []},
     {'name': 'Gemeinderat - Präsidiales', 'permissions': []},
@@ -28,12 +31,25 @@ USER_GROUPS = [
     {'name': 'Gemeinderat - Bildung/Kultur', 'permissions': []},
 
     # Rollen
+    {'name': 'Bürgergemeindepräsident', 'permissions': []},    
+    {'name': 'Bürgergemeindepräsidentin', 'permissions': []},   
+    {'name': 'Bürgerratspräsident', 'permissions': []},    
+    {'name': 'Bürgerratspräsidentin', 'permissions': []},  
+    {'name': 'Bürgerschreiber', 'permissions': []},
+    {'name': 'Bürgerschreiberin', 'permissions': []},  
     {'name': 'Gemeinderatspräsident', 'permissions': []},
     {'name': 'Gemeinderatspräsidentin', 'permissions': []},
     {'name': 'Gemeinderatsschreiber', 'permissions': []},
     {'name': 'Gemeinderatsschreiberin', 'permissions': []},
     {'name': 'Stadtpräsident', 'permissions': []},
     {'name': 'Stadtpräsidentin', 'permissions': []},
+    {'name': 'Präsident Wasserkommission', 'permissions': []},
+    {'name': 'Präsidentin Wasserkommission', 'permissions': []},
+    {'name': 'Externer Experte', 'permissions': []},
+    {'name': 'Externer Expertin', 'permissions': []},
+    {'name': 'Extern IT', 'permissions': []},
+    {'name': 'Extern Revision', 'permissions': []},
+    {'name': 'Extern Treuhand', 'permissions': []},
 
     # Testing
     {'name': 'local_user', 'permissions': []},

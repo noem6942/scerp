@@ -72,7 +72,7 @@ def get_available_tenants(request):
 
     try:
         return TenantSetup.objects.filter(users__user=request.user).order_by(
-            'tenant__name')
+            'tenant__name')            
     except ObjectDoesNotExist:
         return False  # Or handle this case accordingly
 

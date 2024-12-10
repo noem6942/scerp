@@ -114,10 +114,10 @@ class Tenant(LogAbstract, NotesAbstract, TenantMixin):
         _('Email of initial user'), max_length=254, unique=True,
         help_text=_('Enter for creating initial user / admin'))
     initial_user_first_name = models.CharField(
-        _('Initial username'), max_length=30,
+        _('initial user first name'), max_length=30,
         help_text=_('Gets entered by system'))        
     initial_user_last_name = models.CharField(
-        _('Initial username'), max_length=30,
+        _('initial username last name'), max_length=30,
         help_text=_('Gets entered by system'))
 
     def __str__(self):

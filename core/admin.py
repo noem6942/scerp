@@ -4,7 +4,7 @@ from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import User, Group
 from django.utils.translation import gettext_lazy as _
 
-from scerp.admin import admin_site, BaseAdmin
+from scerp.admin import admin_site, BaseAdmin, display_photo as display_photo_h
 from ._init_tenant import tenant_create_post_action
 from .models import Tenant, TenantSetup, TenantLocation, UserProfile
 
@@ -16,7 +16,7 @@ admin_site.register(Group, GroupAdmin)
 
 @admin.register(UserProfile, site=admin_site) 
 class UserProfileAdmin(BaseAdmin):
-    list_display = ('user', 'display_photo', 'group_names')  # Add the display_photo method
+    list_display = ('user', 'display_photo', 'group_names')
     search_fields = ('user__username',)    
     fieldsets = (
         (None, {
@@ -24,6 +24,10 @@ class UserProfileAdmin(BaseAdmin):
             'classes': ('expand',),            
         }),
     )  
+
+    @admin.display(description=_('Groups'))
+    def display_photo(self, obj):
+        return display_photo_h(obj.photo)
 
     @admin.display(description=_('Groups'))
     def group_names(self, obj):
@@ -70,6 +74,10 @@ class TenantSetupAdmin(BaseAdmin):
             'classes': ('expand',),            
         }),
     )    
+    
+    @admin.display(description=_('logo'))
+    def display_logo(self, obj):
+        return display_photo_h(obj.logo)    
 
 
 @admin.register(TenantLocation, site=admin_site) 

@@ -75,10 +75,10 @@ class MeetingAdmin(admin.ModelAdmin):
             'fields': ('place', 'president', 'secretary'),
             'classes': ('collapse',),  # This could be collapsed by default
         }),
-        (_('Closing'), {
-            'fields': ('vault_position',),
-            'classes': ('collapse',),  # This could be collapsed by default
-        }),
+        # (_('Closing'), {
+        #     'fields': ('vault_position',),
+        #     'classes': ('collapse',),  # This could be collapsed by default
+        # }),
     )
 
     @admin.display(description='agenda')
