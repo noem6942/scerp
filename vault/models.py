@@ -10,6 +10,10 @@ from django.utils.translation import get_language, gettext_lazy as _
 from core.models import LogAbstract, NotesAbstract, Tenant, CITY_CATEGORY
 from scerp.locales import CANTON_CHOICES
 
+'''
+Note: class setup is complex as we have a first part for general
+    canton plans with no tenants and then the municipital plans with tenant
+'''
 
 # Abstract ----------------------------------------------------------
 class RegistrationPlanAbstract(LogAbstract, NotesAbstract):
@@ -52,12 +56,40 @@ class RegistrationPositionAbstract(LogAbstract, NotesAbstract):
     remarks = models.TextField(
         _("Remarks"),  blank=True, null=True,
         help_text=_("Additional comments or notes."))
+    level = models.PositiveSmallIntegerField(
+        _("level"), blank=True, null=True,
+        help_text=_("Level, gets calculated if None"))
 
     def __str__(self):
         return f"{self.number} - {self.name}"
 
+    def save(self, *args, **kwargs):
+        if self.level is None:
+            self.level = self.number.count('.') + 1
+        super().save(*args, **kwargs)
+
     class Meta:
         abstract = True
+
+
+class LeadAgencyAbstract(LogAbstract, NotesAbstract):
+    ''' Federführung '''
+    name = models.CharField(
+        _("Lead Agency"), max_length=255,
+    help_text=_("Name of the responsible organization or agency "
+                "(e.g., Zweckverband)."))
+    description = models.TextField(
+        _("Description"), blank=True, null=True,
+        help_text=_("Description of the agency's role."))
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        abstract = True
+        verbose_name = _("Lead Agency")
+        verbose_name_plural = _("Lead Agencies")
+        ordering = ['name']
 
 
 class RetentionPeriodAbstract(LogAbstract, NotesAbstract):
@@ -120,18 +152,6 @@ class ArchivalEvaluationAbstract(LogAbstract, NotesAbstract):
         ordering = ['name']
 
 
-class TenantAbstract(models.Model):
-    ''' used for all models that need a tenant
-    '''
-    tenant = models.ForeignKey(
-        Tenant, verbose_name=_('tenant'), on_delete=models.CASCADE,
-        related_name='%(class)s_tenant',
-        help_text=_('assignment of tenant / client'))
-
-    class Meta:
-        abstract = True
-
-
 # Canton --------------------------------------------------------------------
 class RegistrationPlanCanton(RegistrationPlanAbstract):
     canton = models.CharField(
@@ -148,23 +168,8 @@ class RegistrationPlanCanton(RegistrationPlanAbstract):
         verbose_name_plural = _('Registration Plans (Canton)')
 
 
-class LeadAgency(LogAbstract, NotesAbstract):
-    ''' Federführung '''
-    name = models.CharField(
-        _("Lead Agency"), max_length=255,
-    help_text=_("Name of the responsible organization or agency "
-                "(e.g., Zweckverband)."))
-    description = models.TextField(
-        _("Description"), blank=True, null=True,
-        help_text=_("Description of the agency's role."))
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        verbose_name = _("Lead Agency")
-        verbose_name_plural = _("Lead Agencies")
-        ordering = ['name']
+class LeadAgencyCanton(LeadAgencyAbstract):
+    pass
 
 
 class RetentionPeriodCanton(RetentionPeriodAbstract):
@@ -187,37 +192,53 @@ class RegistrationPositionCanton(RegistrationPositionAbstract):
         help_text=_("The registration plan to which this position belongs."),
         related_name="positions")
     lead_agency = models.ForeignKey(
-        LeadAgency, on_delete=models.SET_NULL, blank=True, null=True,
+        LeadAgencyCanton, on_delete=models.CASCADE, blank=True, null=True,
         verbose_name=_("Lead Agency"),
         help_text=_("Responsible lead agency."))
     retention_period = models.ForeignKey(
-        RetentionPeriodCanton, on_delete=models.SET_NULL,
-        blank=True, null=True,
-        verbose_name=_("Retention Period"),
+        RetentionPeriodCanton, on_delete=models.CASCADE,
+        blank=True, null=True, related_name='%(class)s_retention_period',
+        verbose_name=_("Retention Period"), 
         help_text=_("Retention period for the record."))
     legal_basis = models.ForeignKey(
-        LegalBasisCanton, on_delete=models.SET_NULL, blank=True, null=True,
+        LegalBasisCanton, on_delete=models.CASCADE, blank=True, null=True,
         verbose_name=_("Legal Basis"),
         help_text=_("Legal or internal basis for this record."))
     archival_evaluation = models.ForeignKey(
-        ArchivalEvaluationCanton, on_delete=models.SET_NULL,
+        ArchivalEvaluationCanton, on_delete=models.CASCADE,
         blank=True, null=True,
         verbose_name=_("Archival Evaluation"),
         help_text=_("Evaluation regarding archiving the record."))
 
     class Meta:
-        verbose_name = _("Registration Position (Canton)")
-        verbose_name_plural = _("Registration Positions (Canton)")
-        ordering = ['registration_plan', 'name']
+        verbose_name = _("Registration Plan Position (Canton)")
+        verbose_name_plural = _("Registration Plan Positions (Canton)")
+        ordering = ['registration_plan', 'number']
 
 
 # Municipal------------------------------------------------------------------
+class TenantAbstract(models.Model):
+    ''' used for all models that need a tenant
+    '''
+    tenant = models.ForeignKey(
+        Tenant, verbose_name=_('tenant'), on_delete=models.CASCADE,
+        related_name='%(class)s_tenant',
+        help_text=_('assignment of tenant / client'))
+
+    class Meta:
+        abstract = True
+
+
 class RegistrationPlan(TenantAbstract, RegistrationPlanAbstract):
     class Meta:
         ordering = ['name']
         verbose_name = _('Registration Plan')
         verbose_name_plural = _('Registration Plans')
 
+
+class LeadAgency(TenantAbstract, LeadAgencyAbstract):
+    pass
+    
 
 class RetentionPeriod(TenantAbstract, RetentionPeriodAbstract):
     pass
@@ -259,8 +280,8 @@ class RegistrationPosition(TenantAbstract, RegistrationPositionAbstract):
         verbose_name=RegistrationPositionCanton._meta.get_field(
             'retention_period').verbose_name,
         help_text=RegistrationPositionCanton._meta.get_field(
-            'retention_period').help_text,
-        related_name='retention_period'
+            'retention_period').help_text,        
+        related_name='%(class)s_tenant',
     )
     legal_basis = models.ForeignKey(
         LegalBasis, blank=True, null=True,

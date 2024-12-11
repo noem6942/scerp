@@ -41,7 +41,7 @@ class APP:
             'symbol': 'V',
             'models': {  
                 'RegistrationPlanCanton': '1',
-                'RegistrationPosition': '2'
+                'RegistrationPositionCanton': '2'
             }
         },  
         'accounting': {

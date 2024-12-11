@@ -6,8 +6,12 @@ from django_admin_action_forms import action_with_form
 
 from .forms import OverrideConfirmationForm
 from .models import (
-    RegistrationPlanCanton, RegistrationPosition,
-    LeadAgency, RetentionPeriod, LegalBasis, ArchivalEvaluation)
+    RegistrationPlanCanton, RegistrationPositionCanton, RetentionPeriodCanton,
+    LeadAgencyCanton,  RetentionPeriodCanton, LegalBasisCanton, 
+    ArchivalEvaluationCanton,
+    RegistrationPlan, RegistrationPosition, RetentionPeriod,
+    LeadAgency,  RetentionPeriod, LegalBasis, ArchivalEvaluation
+)
     
 from core.safeguards import save_logging    
 from scerp.actions import action_check_nr_selected
@@ -43,7 +47,7 @@ def position_insert(self, request, queryset):
     '''
 
 
-def positions(request, queryset, action):
+def positions(request, queryset, action, is_canton=True):
     # Check number selected
     if action_check_nr_selected(request, queryset, 1):
         plan = queryset.first()
@@ -53,11 +57,10 @@ def positions(request, queryset, action):
     # Load excel
     rows = read_excel_file(plan.excel.path)
 
-    # Init
-    add_tenant = False
+    # Init    
     headers = [
         'number',
-        'position',
+        'name',
         'lead_agency',
         'retention_period',
         'legal_basis',
@@ -65,7 +68,14 @@ def positions(request, queryset, action):
         'remarks'
     ]
     
-    models = {
+    foreign_key_setup_canton = {
+        'lead_agency': LeadAgencyCanton, 
+        'retention_period': RetentionPeriodCanton, 
+        'legal_basis': LegalBasisCanton, 
+        'archival_evaluation': ArchivalEvaluationCanton
+    }    
+    
+    foreign_key_setup_municipal = {
         'lead_agency': LeadAgency, 
         'retention_period': RetentionPeriod, 
         'legal_basis': LegalBasis, 
@@ -115,40 +125,48 @@ def positions(request, queryset, action):
         messages.success(request, msg)                    
         return        
             
+    # Prepare creation        
+    model = RegistrationPositionCanton if is_canton else RegistrationPosition
+    add_tenant = False if is_canton else True
+    foreign_key_setup =  (
+        foreign_key_setup_canton if is_canton else foreign_key_setup_municipal)
+            
     # Delete old
     if action == 'create':
-        RegistrationPosition.objects.filter(registration_plan=plan).delete()
+        model.objects.filter(registration_plan=plan).delete()
     
     # Create positions
     with transaction.atomic():
         for position in positions:
+            # is_category, level
+            is_category = (position['lead_agency'] == '' 
+                           and position['lead_agency'] == '')
+            
             # Create
-            position_obj = RegistrationPosition(registration_plan=plan)
+            position_obj = model(
+                registration_plan=plan,
+                is_category=is_category)
         
             # Get foreign keys
             for key in headers:         
                 value = position.get(key, None)
                                 
-                if key in models.keys() and value is not None:
+                if key in foreign_key_setup and value is not None:
                     # get foreign key
                     if value == '':
                         foreign = None
                     else:
-                        foreign = models[key].objects.filter(
+                        foreign = foreign_key_setup[key].objects.filter(
                             name=value).first()
                         if not foreign:
-                            foreign = models[key](name=value)
+                            foreign = foreign_key_setup[key](name=value)
+                            foreign.retention_period = None                          
                             save_logging(request, foreign, add_tenant)
                             foreign.save()
                     value = foreign                    
                     
                 # Assign value    
                 setattr(position_obj, key, value)
-        
-            # Calc is_category, level
-            position_obj.is_category = (
-                True if position.get('lead_agency') else False)
-            position_obj.level = position_obj.number.count('.') + 1
         
             # Save
             if action == 'create':            
@@ -162,16 +180,13 @@ def positions(request, queryset, action):
     messages.success(request, msg)          
 
 
-@admin.action(description=_('canton_positions_check'))
+@admin.action(description=_('1. canton_positions_check'))
 def canton_positions_check(modeladmin, request, queryset):
     action_form = OverrideConfirmationForm
     positions(request, queryset, 'check')
 
 
-@action_with_form(
-    OverrideConfirmationForm,
-    description=_('***'),
-)
+@action_with_form(OverrideConfirmationForm, description=_('2. make positions'))
 def canton_positions_create(modeladmin, request, queryset, data):
     action_form = OverrideConfirmationForm
     positions(request, queryset, 'create')

@@ -7,11 +7,12 @@ from core.safeguards import get_tenant
 
 from scerp.admin import (
     admin_site, BaseAdmin, display_empty, display_verbose_name,
-    display_datetime, verbose_name_field)
+    display_datetime, verbose_name_field, format_hierarchy)
     
 from .models import (
-    RegistrationPlanCanton, RegistrationPosition,
-    LeadAgency, RetentionPeriod, LegalBasis, ArchivalEvaluation)
+    RegistrationPlanCanton, RegistrationPositionCanton,
+    LeadAgencyCanton, RetentionPeriodCanton, LegalBasisCanton, 
+    ArchivalEvaluationCanton)
 
 from . import actions as a
 
@@ -44,32 +45,32 @@ class RegistrationPlanCantonAdmin(BaseAdmin):
         return display_datetime(obj.exported_at)        
 
 
-@admin.register(LeadAgency, site=admin_site) 
-class LeadAgencyAdmin(BaseAdmin):
+@admin.register(LeadAgencyCanton, site=admin_site) 
+class LeadAgencyCantonAdmin(BaseAdmin):
     list_display = ('name',)     
 
 
-@admin.register(RetentionPeriod, site=admin_site) 
-class RetentionPeriodAdmin(BaseAdmin):
+@admin.register(RetentionPeriodCanton, site=admin_site) 
+class RetentionPeriodCantonAdmin(BaseAdmin):
     list_display = ('name',)          
 
 
-@admin.register(LegalBasis, site=admin_site) 
-class LegalBasisAdmin(BaseAdmin):
+@admin.register(LegalBasisCanton, site=admin_site) 
+class LegalBasisCantonAdmin(BaseAdmin):
     list_display = ('name',)          
 
 
-@admin.register(ArchivalEvaluation, site=admin_site) 
-class ArchivalEvaluationAdmin(BaseAdmin):
+@admin.register(ArchivalEvaluationCanton, site=admin_site) 
+class ArchivalCantonEvaluationAdmin(BaseAdmin):
     list_display = ('name',)          
 
 
-@admin.register(RegistrationPosition, site=admin_site) 
-class RegistrationPositionAdmin(BaseAdmin):
+@admin.register(RegistrationPositionCanton, site=admin_site) 
+class RegistrationPositionCantonAdmin(BaseAdmin):
     list_display = (
-        'number', 'name', 'display_lead_agency', 
-        'display_retention_period', 'remarks')      
-    list_display_links = ('name',)
+        'heading_number', 'position_number', 'hierarchy_name', 'display_lead_agency', 
+        'display_retention_period', 'display_remarks')      
+    list_display_links = ('indent_name',)
     list_filter = (
         'registration_plan', 'lead_agency', 'retention_period',
         'legal_basis', 'archival_evaluation')
@@ -86,17 +87,46 @@ class RegistrationPositionAdmin(BaseAdmin):
         (_('Others'), {
             'fields': (
                 'legal_basis', 'archival_evaluation', 'remarks', 
-                'is_category'),
+                'is_category', 'level'),
             'classes': ('collapse',),            
         }),        
     )
+ 
+    @admin.display(description=_('#cat'))
+    def heading_number(self, obj):     
+        if obj.is_category:
+            return format_hierarchy(obj.level, obj.number)    
+        else:
+            return display_empty()
+ 
+    @admin.display(description=_('#pos'))
+    def position_number(self, obj):     
+        if obj.is_category:
+            return display_empty()
+        else:
+            return obj.number
+ 
+    @admin.display(        
+        description=verbose_name_field(RegistrationPositionCanton, 'name'))
+    def hierarchy_name(self, obj):    
+        if obj.is_category:    
+            return format_hierarchy(obj.level, obj.name)    
+        else:
+            return obj.name
 
     @admin.display(        
-        description=verbose_name_field(RegistrationPosition, 'lead_agency'))
+        description=verbose_name_field(
+            RegistrationPositionCanton, 'lead_agency'))
     def display_lead_agency(self, obj):
         return display_empty(obj.lead_agency)
 
     @admin.display(
-        description=verbose_name_field(RegistrationPosition, 'retention_period'))
+        description=verbose_name_field(
+            RegistrationPositionCanton, 'retention_period'))
     def display_retention_period(self, obj):
         return display_empty(obj.retention_period)
+
+    @admin.display(
+        description=verbose_name_field(RegistrationPositionCanton, 'remarks'))
+    def display_remarks(self, obj):
+        return display_empty(obj.remarks)

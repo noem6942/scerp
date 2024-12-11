@@ -18,6 +18,7 @@ from core.safeguards import (
 
 
 GUI_ROOT = settings.ADMIN_ROOT
+SPACE = '\u00a0'  # invisible space
 
 # helpers
 LOGGING_FIELDS = [
@@ -45,7 +46,7 @@ def display_datetime(value, default='-'):
 
 
 def display_empty(value=None, default=' '):
-    if value is None:
+    if value is None or value == '':
         return default
     else:
         return str(value)    
@@ -59,7 +60,19 @@ def display_big_number(value):
             ',', settings.THOUSAND_SEPARATOR)
         html = '<span style="text-align: right; display: block;">{}</span>'
         return format_html(html, number_str)        
-        
+    
+
+def format_hierarchy(level, name):
+    '''Function to print out hierarchy names nice;
+        add spaces before the string if is_category == False
+    '''        
+    if level == 1:
+        return format_html(f"<b>{name.upper()}</b>")  
+    elif level == 2:
+        return format_html(f"<b>{name}</b>")  
+    else:
+        return format_html(f"<i>{name}</i>")  
+    
 
 def display_photo(url_field):
     if url_field:
