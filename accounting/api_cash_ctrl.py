@@ -1,39 +1,115 @@
-# api_cash_ctrl.py
-import dicttoxml
-from dateutil.parser import parse as parse_datetime
-from enum import Enum
-from xml.etree import ElementTree
+# accounting/api_cash_ctrl.py
 import json
-import logging
+import re
 import requests
-from requests.auth import HTTPBasicAuth
-from time import sleep
-
-# Constants
-BASE_URL = 'https://{org}.cashctrl.com/api/v1'
-ENCODING = 'utf-8'
-LANGUAGES = ['de', 'en', 'fr', 'it']
-LANGUAGE_API = 'en'
-LANGUAGE_DEFAULT = 'de'
-CONVERT_DATETIMES = False
-
-DATE_KEYS = [
-    'created', 'lastUpdated', 'start', 'end', 'date', 'lastEntryDate'
-]
-
-XML_KEYS = [
-    'custom', 'description', 'groupName', 'categoryDisplay', 
-    'titleName'
-]
-
-JSON_KEYS = [
-    'addresses', 'contacts'
-]
-
+import xmltodict
 from enum import Enum
 
 
-class FieldType(Enum):
+DECODE = 'utf-8'
+
+
+# mixins, we change right at down and uploading of data
+def camel_to_snake(name):
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+
+
+def snake_to_camel(snake_str):
+    components = snake_str.split('_')
+    camel_case_str = ''.join(x.title() for x in components)
+
+    # ensure the first letter is lowercase and return
+    return camel_case_str[0].lower() + camel_case_str[1:]
+
+
+def create_enum(name, items):
+    return Enum(name, {item: item for item in items})
+
+
+COUNTRY_CODES = [
+	'AFG', 'ALA', 'ALB', 'DZA', 'ASM', 'AND', 'AGO', 'AIA', 'ATG', 'ARG', 'ARM',
+	'ABW', 'AUS', 'AUT', 'AZE', 'BHS', 'BHR', 'BGD', 'BRB', 'BLR', 'BEL', 'BLZ',
+	'BEN', 'BMU', 'BTN', 'BOL', 'BES', 'BIH', 'BWA', 'BVT', 'BRA', 'IOT', 'BRN',
+	'BGR', 'BFA', 'BDI', 'KHM', 'CMR', 'CAN', 'CPV', 'CYM', 'CAF', 'TCD', 'CHL',
+	'CHN', 'CXR', 'CCK', 'COL', 'COM', 'COG', 'COK', 'CRI', 'CIV', 'HRV', 'CUB',
+	'CUW', 'CYP', 'CZE', 'DNK', 'DJI', 'DOM', 'DMA', 'ECU', 'EGY', 'SLV', 'GNQ',
+	'ERI', 'EST', 'ETH', 'FLK', 'FRO', 'FJI', 'FIN', 'FRA', 'GUF', 'GUY', 'PYF',
+	'GAB', 'GMB', 'GEO', 'DEU', 'GHA', 'GIB', 'GRC', 'GRL', 'GRD', 'GLP', 'GUM',
+	'GTM', 'GGY', 'GNB', 'GIN', 'HTI', 'HMD', 'VAT', 'HND', 'HKG', 'HUN', 'IND',
+	'IDN', 'IRN', 'IRQ', 'IRL', 'IMN', 'ISR', 'ITA', 'JAM', 'JPN', 'JEY', 'JOR',
+	'KAZ', 'KEN', 'KIR', 'PRK', 'KOR', 'KWT', 'KGZ', 'LAO', 'LVA', 'LBN', 'LSO',
+	'LBR', 'LBY', 'LIE', 'LTU', 'LUX', 'MAC', 'MKD', 'MDG', 'MWI', 'MYS', 'MDV',
+	'SOM', 'MLI', 'MLT', 'MHL', 'MTQ', 'MRT', 'MUS', 'MYT', 'MEX', 'FSM', 'MDA',
+	'MCO', 'MNG', 'MNE', 'MSR', 'MAR', 'MOZ', 'MMR', 'NAM', 'NRU', 'NPL', 'NLD',
+	'NCL', 'NZL', 'NIC', 'NGA', 'NER', 'NIU', 'NFK', 'MNP', 'NOR', 'OMN', 'PAK',
+	'PLW', 'PSE', 'PAN', 'PNG', 'PRY', 'PER', 'PHL', 'PCN', 'POL', 'PRT', 'PRI',
+	'QAT', 'REU', 'ROU', 'RUS', 'RWA', 'BLM', 'SHN', 'KNA', 'LCA', 'MAF', 'SPM',
+	'VCT', 'WSM', 'SMR', 'STP', 'SAU', 'SEN', 'SRB', 'SYC', 'SLE', 'SGP', 'SXM',
+	'SVK', 'SVN', 'SLB', 'ZAF', 'SGS', 'SSD', 'ESP', 'LKA', 'SDN', 'SUR', 'SJM',
+	'SWZ', 'SWE', 'CHE', 'SYR', 'TWN', 'TJK', 'TZA', 'THA', 'TLS', 'TGO', 'TKL',
+	'TON', 'TTO', 'TUN', 'TUR', 'TKM', 'TCA', 'TUV', 'UGA', 'UKR', 'ARE', 'GBR',
+	'USA', 'URY', 'UZB', 'VUT', 'VEN', 'VNM', 'VIR', 'VGB', 'WLF', 'YEM', 'ZMB',
+	'ZWE', 'ISL']
+
+
+class ADDRESS_TYPE(Enum):
+    MAIN = 'MAIN'
+    INVOICE = 'INVOICE'
+    DELIVERY = 'DELIVERY'
+    OTHER = 'OTHER'
+
+
+class COUNTRY:
+    pass
+COUNTRY = create_enum('COUNTRY', sorted(COUNTRY_CODES))
+
+
+class DATA_TYPE(Enum):
+    TEXT = 'TEXT'
+    TEXTAREA = 'TEXTAREA'
+    CHECKBOX = 'CHECKBOX'
+    DATE = 'DATE'
+    COMBOBOX = 'COMBOBOX'
+    NUMBER = 'NUMBER'
+    ACCOUNT = 'ACCOUNT'
+    PERSON = 'PERSON'
+
+
+class ELEMENT_TYPE(Enum):
+    JOURNAL = 'JOURNAL'
+    BALANCE = 'BALANCE'
+    PLS = 'PLS'
+    STAGGERED = 'STAGGERED'
+    COST_CENTER_PLS = 'COST_CENTER_PLS'
+    COST_CENTER_BALANCE = 'COST_CENTER_BALANCE'
+    COST_CENTER_ALLOCATION = 'COST_CENTER_ALLOCATION'
+    COST_CENTER_TARGET = 'COST_CENTER_TARGET'
+    COST_CENTER_STATEMENTS = 'COST_CENTER_STATEMENTS'
+    CHART_OF_ACCOUNTS = 'CHART_OF_ACCOUNTS'
+    OPEN_DEBTORS = 'OPEN_DEBTORS'
+    OPEN_CREDITORS = 'OPEN_CREDITORS'
+    ORG_CHART = 'ORG_CHART'
+    SALES_TAX = 'SALES_TAX'
+    TARGET = 'TARGET'
+    RESULT_BY_ARTICLE_PER_PERSON = 'RESULT_BY_ARTICLE_PER_PERSON'
+    EXPENSE_BY_PERSON = 'EXPENSE_BY_PERSON'
+    REVENUE_BY_PERSON = 'REVENUE_BY_PERSON'
+    REVENUE_BY_RESPONSIBLE_PERSON = 'REVENUE_BY_RESPONSIBLE_PERSON'
+    RESULT_BY_ARTICLE = 'RESULT_BY_ARTICLE'
+    STATEMENTS = 'STATEMENTS'
+    BALANCE_LIST = 'BALANCE_LIST'
+    KEY_FIGURES = 'KEY_FIGURES'
+    EXPENSE_BY_PERSON_CHART = 'EXPENSE_BY_PERSON_CHART'
+    REVENUE_BY_PERSON_CHART = 'REVENUE_BY_PERSON_CHART'
+    RESULT_BY_ARTICLE_CHART = 'RESULT_BY_ARTICLE_CHART'
+    BALANCE_PROG_CHART = 'BALANCE_PROG_CHART'
+    BALANCE_SHARE_CHART = 'BALANCE_SHARE_CHART'
+    CASH_FLOW_CHART = 'CASH_FLOW_CHART'
+    TEXT_IMAGE = 'TEXT_IMAGE'
+
+
+class FIELD_TYPE(Enum):
     JOURNAL = 'JOURNAL'
     ACCOUNT = 'ACCOUNT'
     INVENTORY_ARTICLE = 'INVENTORY_ARTICLE'
@@ -41,444 +117,384 @@ class FieldType(Enum):
     ORDER = 'ORDER'
     PERSON = 'PERSON'
     FILE = 'FILE'
-    
-
-# Custom Exception Class
-class APIError(Exception):
-
-    def __init__(
-            self, message, status_code=None, url=None, response_text=None):
-        self.message = message
-        self.status_code = status_code
-        self.url = url
-        self.response_text = response_text
-        super().__init__(self.message)
-
-    def __str__(self):
-        return (f"{self.message} (Status Code: {self.status_code}, "
-                f"URL: {self.url}, Response: {self.response_text})")
-
-class CashCtrl:
-    """
-    An API Wrapper for CashCtrl Service
-    """
-    MAX_TRIES = 5
-    SLEEP_DURATION = 10
-    read_only = False  # Default to allow read and write
-    CUSTOM_XML = []
-    
-    def __init__(self, org, api_key, language=LANGUAGE_DEFAULT):
-        """
-        Initialize CashCtrl API instance.
-
-        Args:
-            org (str): The organization identifier for the CashCtrl API.
-            api_key (str): API key for authentication.
-            language (str): Language for the API requests, defaulting to 'de'.
-        """
-        self.auth = HTTPBasicAuth(api_key, '')
-        self.base = BASE_URL.format(org=org)
-        self.language = language
-        self.custom = self.load_custom_fields()
-
-    # === Utility Methods ===
-        
-    @staticmethod
-    def get_response_get(url, **kwargs):
-        """
-        Performs a GET request and processes the response.
-
-        Args:
-            url (str): The URL for the GET request.
-
-        Returns:
-            dict: The response data if the request is successful.
-
-        Raises:
-            APIError: If the GET request fails.
-        """
-        response = requests.get(url, **kwargs)
-        if response.status_code == 200:
-            content_type = response.headers['Content-Type']
-            if 'json' in content_type:
-                return response.json().get('data')
-            else:
-                print("not implemented yet")
-        else:
-            raise APIError(f"GET request failed for '{url}': {response.status_code} - {response.text}")
-
-    @staticmethod    
-    def get_response_post(url, **kwargs):
-        """
-        Performs a POST request with retry for rate limiting.
-
-        Args:
-            url (str): The URL for the POST request.
-
-        Returns:
-            dict: The response data if the request is successful.
-
-        Raises:
-            APIError: If the POST request fails or rate limits are exceeded.
-        """
-        for attempt in range(CashCtrl.MAX_TRIES):
-            response = requests.post(url, **kwargs)
-
-            if response.status_code == 429:  # Rate limit
-                print("Rate limit reached. Retrying...")
-                sleep(CashCtrl.SLEEP_DURATION)
-                continue
-            elif not response.ok:
-                raise APIError(f"POST request failed for '{url}': {response.status_code} - {response.reason} {response.text}")
-
-            content = response.json()
-            if not content.get('success', False):
-                errors = "; ".join(
-                    f"{err.get('field', 'Unknown')}: {err.get('message', '')}"
-                    for err in content.get('errors', [])
-                )
-                raise APIError(f"POST request error in '{url}': {errors}")
-
-            return content
-
-        raise APIError(f"Maximum retry attempts ({CashCtrl.MAX_TRIES}) reached for POST request to '{url}'.")
 
 
-    @staticmethod
-    def dict_to_xml_values(dictionary):
-        """
-        Converts a dictionary into XML formatted string of <values> elements.
+class GENDER(Enum):
+    FEMALE = 'FEMALE'
+    MALE = 'MALE'
 
-        Args:
-            dictionary (dict): Input dictionary with keys and values for different languages.
-        
-        Returns:
-            str: XML string with <values> tag as the root, or an empty string if input is empty.
-        
-        Example:
-            data_dict = {
-                "de": "cust_color",
-                "en": "cust_color",
-                "fr": "cust_color",
-                "it": "cust_color"
-            }
-            Result: "<values><de>cust_color</de><en>cust_color</en><fr>cust_color</fr><it>cust_color</it></values>"
-        """
-        if not dictionary:
-            return ''
-        
-        try:
-            # Wrapping the dictionary to fit the expected XML structure.
-            data_wrapped = {'values': dictionary}
-            
-            # Convert dictionary to XML bytes without attribute types and custom root.
-            xml_bytes = dicttoxml.dicttoxml(data_wrapped, custom_root='root', attr_type=False)
-            
-            # Parse XML and locate the <values> element for final output.
-            root = ElementTree.fromstring(xml_bytes)
-            values_element = root.find('values')
-            
-            # Convert <values> element back to string and decode it.
-            return ElementTree.tostring(values_element, encoding=ENCODING).decode(ENCODING)
-        
-        except Exception as e:
-            logging.error(f"Failed to convert dictionary to XML: {e}")
-            return ''
 
-    @staticmethod
-    def xml_values_to_dict(xml_str):
-        """
-        Converts an XML string of <values> elements into a dictionary.
+class ACCOUNT_CATEGORY_TYPE(Enum):
+    # Used for cashctrl
+    ASSET = 1  # Aktiven
+    LIABILITY = 2  # Passiven
+    EXPENSE = 3  # Aufwand (INCOME), Ausgaben (INVEST),
+    REVENUE = 4  # Ertrag (INCOME), Einnahmen (INVEST),
+    BALANCE = 5  #
 
-        Args:
-            xml_str (str): XML string with <values> as the root element and children for each key-value pair.
 
-        Returns:
-            dict: Dictionary representation of the XML data, or an empty dictionary if input is empty or parsing fails.
+LANGUAGES = ['de', 'fr', 'it', 'en']
+NAME_TAB = 'sc-erp'
+NAME_TABS = {'values': {lang: NAME_TAB for lang in LANGUAGES}}
 
-        Example:
-            xml_str = "<values><de>cust_color</de><en>cust_color</en><fr>cust_color</fr><it>cust_color</it></values>"
-            Result: {"de": "cust_color", "en": "cust_color", "fr": "cust_color", "it": "cust_color"}
-        """
-        if not xml_str:
-            return {}
+CUSTOM_FIELD_GROUPS = [
+    {'type': FIELD_TYPE.ACCOUNT, 'name': NAME_TABS},
+    {'type': FIELD_TYPE.INVENTORY_ARTICLE, 'name': NAME_TABS},
+    {'type': FIELD_TYPE.INVENTORY_ASSET, 'name': NAME_TABS},
+    {'type': FIELD_TYPE.ORDER, 'name': NAME_TABS},
+    {'type': FIELD_TYPE.PERSON, 'name': NAME_TABS},
+    {'type': FIELD_TYPE.FILE, 'name': NAME_TABS}
+]
 
-        try:
-            # Parse the XML string
-            root = ElementTree.fromstring(xml_str)
-            
-            # Convert XML children to dictionary
-            return {child.tag: child.text for child in root}
-        
-        except ElementTree.ParseError as e:
-            logging.error(f"XML parsing error: {e}")
-            return {}
+GROUP_NAME = 'sc-erp'
 
-    # === Data Processing Methods ===
 
-    def load_custom_fields(self):
-        """Placeholder method to load custom fields."""
-        return []
+CUSTOM_FIELDS = [
+    {'type': FIELD_TYPE.ACCOUNT, 'group_name': GROUP_NAME,
+      'field': 'customField{i}', 'name': 'HRM 2', 'data_type': DATA_TYPE.TEXT
+    },
+    {'type': FIELD_TYPE.ACCOUNT, 'group_name': GROUP_NAME,
+      'field': 'customField{i}', 'name': 'HRM 2 kurz', 'data_type': DATA_TYPE.TEXT
+    },
+    {'type': FIELD_TYPE.ACCOUNT, 'group_name': GROUP_NAME,
+      'field': 'customField{i}', 'name': 'Budget', 'data_type': DATA_TYPE.NUMBER
+    },
+    {'type': FIELD_TYPE.ORDER, 'group_name': GROUP_NAME,
+     'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.TEXT,
+     'values': ['Gebühren Werke']
+    },
+    {'type': FIELD_TYPE.PERSON, 'group_name': GROUP_NAME,
+     'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.COMBOBOX,
+     'values': ['Abonnent Werke', 'Einwohner'], 'is_multi': True
+    },
+    {'type': FIELD_TYPE.FILE, 'group_name': GROUP_NAME,
+     'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.COMBOBOX,
+     'values': ['Abonnent Werke', 'Einwohner'], 'is_multi': True
+    }
+]
 
-    def clean_get(self, data):
-        """
-        Cleans and processes data received via GET requests.
 
-        Args:
-            data (dict): The original data to be cleaned.
+class API(Enum):
+    # Common
+    currency = {'url': 'currency/', 'actions': ['list']}
+    customfield = {'url': 'customfield/', 'actions': ['list', 'create'],
+                   'params': {'type': 'ACCOUNT'}}
+    customfield_group = {'url': 'customfield/group/', 'actions': ['list'],
+                   'params': {'type': 'ACCOUNT'}}
+    rounding = {'url': 'rounding/', 'actions': ['list']}
+    sequencenumber = {'url': 'sequencenumber/', 'actions': ['list']}
+    tax = {'url': 'tax/', 'actions': ['list']}
+    text = {'url': 'text/', 'actions': ['list'],
+                   'params': {'type': 'ORDER_ITEM'}}
 
-        Returns:
-            dict: Cleaned data with XML and datetime conversions applied.
-        """
-        if not data:
-            return data
-        
-        # Convert specified XML fields to dictionaries
-        for xml in XML_KEYS + self.CUSTOM_XML:
-            if xml in data:
-                data[xml] = self.xml_values_to_dict(data[xml])
+    # Meta
+    fiscalperiod = {'url': 'fiscalperiod/', 'actions': ['list']}
+    location = {'url': 'location/', 'actions': ['list']}
+    setting = {'url': 'setting/', 'actions': ['read']}
 
-        # Process custom fields with XML conversions if present
-        if 'customFields' in data:
-            for field in data['customFields']:
-                for xml in XML_KEYS + self.CUSTOM_XML:
-                    if xml in field:
-                        field[xml] = self.xml_values_to_dict(field[xml])
+    # File
+    file = {'url': 'file/', 'actions': ['list']}
+    file_category = {'url': 'file/category/', 'actions': ['list']}
 
-        # Convert date strings to datetime objects
-        if CONVERT_DATETIMES:
-            for key in DATE_KEYS:
-                if key in data and data[key]:
-                    data[key] = parse_datetime(data[key])
+    # Accounts
+    account = {'url': 'account/', 'actions': ['list']}
+    account_category = {'url': 'account/category/', 'actions': ['list']}
+
+    # Inventory
+    article = {'url': 'inventory/article/', 'actions': ['list']}
+    article_category = {'url': 'inventory/article/category/', 'actions': ['list']}
+    asset = {'url': 'inventory/asset/', 'actions': ['list']}
+    asset_category = {'url': 'inventory/asset/category/', 'actions': ['list']}
+    unit = {'url': 'inventory/unit/', 'actions': ['list']}
+
+    # Orders
+    order = {'url': 'order/', 'actions': ['list']}
+    # order_bookentry = {'url': 'order/bookentry/', 'actions': ['list']}  # not working ever used?
+    order_category = {'url': 'order/category/', 'actions': ['list']}
+    document = {'url': 'order/document/', 'actions': ['read']}  # The ID of the order.
+    template = {'url': 'order/template/', 'actions': ['read']}  # The ID of the entry.
+
+    # Person
+    person = {'url': 'person/', 'actions': ['list']}
+    person_category = {'url': 'person/category/', 'actions': ['list']}
+    person_title = {'url': 'person/title/', 'actions': ['list']}
+
+
+class API_PROJECT(Enum):
+    # Report, not implemented yet
+    report = {'url': 'report/', 'actions': ['tree']}
+    element = {'url': 'element/', 'actions': ['tree']}
+    set = {'url': 'set/', 'actions': ['read']}
+
+
+class CashCtrl(object):
+    BASE = "https://{org}.cashctrl.com/api/v1/{url}{action}.json"
+
+    def __init__(self, org, api_key):
+        self.org = org
+        self.auth = (api_key, '')
+
+    def clean_dict(self, dict_):
+        data = {}
+        for key, value in dict_.items():
+            data[camel_to_snake(key)] = self.clean_value(value)
 
         return data
 
-    def clean_post(self, data):
-        """
-        Cleans and prepares data for POST requests.
-
-        Args:
-            data (dict): The original data to be cleaned.
-
-        Returns:
-            dict: Data ready for posting with JSON and datetime conversions applied.
-        """
-        if not data:
-            return data
-
-        # Convert JSON fields to JSON strings
-        for key in JSON_KEYS:
-            if key in data:
-                data[key] = json.dumps(data[key])
-
-        # Convert specified dictionary fields to XML strings
-        for xml in XML_KEYS + self.CUSTOM_XML:
-            if xml in data:
-                data[xml] = self.dict_to_xml_values(data[xml])
-
-        # Format datetime objects as strings
-        if CONVERT_DATETIMES:
-            for key in DATE_KEYS:
-                if key in data and data[key]:
-                    data[key] = data[key].strftime('%Y-%m-%d %H:%M:%S.0')
-
-        return data
-
-    # === API Interface Methods ===
-
-    def get(self, id, **kwargs):
-        """
-        Retrieves data for a specific item by ID.
-
-        Args:
-            id (int): Unique identifier for the item.
-
-        Returns:
-            dict: Cleaned data for the requested item.
-        """
-        kwargs['id'] = id        
-        url = self.url.format(base=self.base, action='read')
-        data = self.get_response_get(url, params=kwargs, auth=self.auth)            
-        return self.clean_get(data)
-
-    def list(self, action='list', **kwargs):
-        """
-        Retrieves a list of items for the specified action.
-
-        Args:
-            action (str): Action type, defaulting to 'list'.
-
-        Returns:
-            list: Cleaned data for each item in the list.
-        """
-        url = self.url.format(base=self.base, action=action)   
-        data = self.get_response_get(url, params=kwargs, auth=self.auth)        
-        return [self.clean_get(item) for item in data]
-
-    def tree(self, **kwargs):
-        """
-        Retrieves a tree structure of items.
-
-        Returns:
-            list: Tree-structured list of items.
-        """
-        return self.list(action='tree', **kwargs)
-
-    def post(self, data):
-        """
-        Posts data to create or update an item.
-
-        Args:
-            data (dict): Data to post.
-
-        Returns:
-            dict: Response indicating success or failure.
-        """
-        url = self.url.format(base=self.base, action='create')
-        if self.read_only:
-            raise Exception(f"API '{url}' is read-only.")
-        
-        cleaned_data = self.clean_post(data)
-        return self.get_response_post(url, data=cleaned_data, auth=self.auth)
-        
-        
-# CustomFields
-class CustomFieldCtrl(CashCtrl):
-
-    def list(self, **kwargs):
-        # If 'type' is provided, call the superclass method directly
-        if kwargs.get('type'):
-            return super().list(**kwargs)  # Calls CashCtrl's list method
+    # Xml <-> JSON
+    def clean_value(self, value):
+        if type(value) == str and value.startswith('<values>'):
+            # XML
+            return xmltodict.parse(value)
         else:
-            # Fetch for all entity types and construct a dictionary
-            results = {}            
-            for type_enum in FieldType:
-                type = type_enum.value
-                kwargs['type'] = type
-                results[type] = super().list(**kwargs)
-            
-            return results
+            # Return original value
+            return value
+
+    def value_to_xml(self, value):
+        # Check if value is a dictionary
+        if type(value) is dict and 'values' in value:
+            xmlstr = xmltodict.unparse(value['values'], full_document=False)
+            return '<values>' + xmlstr + '</values>'
+        # Return original value
+        else:
+            return value
 
 
-class CustomField(CustomFieldCtrl):
-    read_only = False  
-    url = '{base}/customfield/{action}.json'            
-    
- 
-class CustomFieldGroup(CustomFieldCtrl):
-    read_only = False  
-    url = '{base}/customfield/group/{action}.json'   
+    # REST API
+    def get(self, url, params):
+        response = requests.get(url, params=params, auth=self.auth)
+        if response.status_code != 200:
+            # Decode the content and include it in the error message
+            error_message = response._content.decode(DECODE)
+            raise Exception(
+                    f"Get request failed with status {response.status_code}. "
+                    f"Error message: {error_message}")
+        else:
+            return response
+
+    def post(self, url, data):
+        data = {
+            snake_to_camel(key): self.value_to_xml(value)
+            for key, value in data.items()}
+        response = requests.post(url, data=data, auth=self.auth)
+        if response.status_code != 200:
+            # Decode the content and include it in the error message
+            error_message = response._content.decode(DECODE)
+            raise Exception(
+                    f"Post request failed with status {response.status_code}. "
+                    f"Error message: {error_message}")
+        elif response.json().get('success') is False:
+            # Decode the content and include it in the error message
+            error_message = response._content.decode(DECODE)
+            raise Exception(
+                    f"Post request failed with 'success': False. "
+                    f"Error message: {error_message}")
+        else:
+            return self.clean_dict(response.json())
+
+    def list(self, url, params={}, **filter):
+        if filter:
+            # e.g. categoryId=110,  camelCase!
+            filters = []
+            for key, value in filters.items():
+                filters.append(
+                    {'comparison': 'eq', 'field': key, 'value': value})
+            params['filter'] = json.dumps(filters)
+
+        url = self.BASE.format(
+            org=self.org, url=url, params=params, action='list')
+        response = self.get(url, params)
+        return [self.clean_dict(x) for x in response.json()['data']]
+
+    def read(self, url, params={}):
+        url = self.BASE.format(
+            org=self.org, url=url, params=params, action='read')
+        response = self.get(url, params)
+        return self.clean_dict(json.loads(response._content.decode(DECODE)))
+
+    def delete(self, url, *ids):
+        url = self.BASE.format(
+            org=self.org, url=url, params=params, action='delete')
+        data = {'ids': ','.join([str(id) for id in ids])}
+        response = self.post(url, data=data)
+        return response  # e.g. {'success': True, 'message': '1 account deleted'}
+
+    def create(self, url, data):
+        url = self.BASE.format(
+            org=self.org, url=url, data=data, action='create')
+        response = self.post(url, data=data)
+        return response  # e.g. {'success': True, 'message': 'Custom field saved', 'insert_id': 58}
+
+    def update(self, url, data):
+        url = self.BASE.format(org=self.org, url=url, data=data, action='update')
+        response = self.post(url, data=data)
+        return response  # e.g. {'success': True, 'message': 'Account saved', 'insert_id': 183}
+
+    # Customized Actions
+    def create_customfield_group(self, name, type):
+        url = API.customfield_group.value['url']
+        data = {'name': name, 'type': type}
+        return self.create(url, data)
+
+    def get_customfield_group(self, name, type):
+        url = API.customfield_group.value['url']
+        params = {'type': type}
+        groups = self.list(url, params)
+        
+        return next((x for x in groups if x['name'] == name), None)
+
+    def create_customfield(
+            self, name, group, data_type, is_multi=False, values=[]):
+        '''is_multi = True not tested yet
+        '''
+        url = API.customfield.value['url']
+        type = group['type']
+        group = self.get_customfield_group(group['name'], type)
+        if not group:
+            raise Exception(f"Group name '{group}' not found.")
+
+        data = {
+            'name': name,
+            'type': type,
+            'group_id': group['id'],
+            'data_type': data_type,
+            'is_multi': is_multi,
+            'values': values
+        }
+        return self.create(url, data)
+
+    def get_customfield(self, name, type):
+        url = API.customfield.value['url']
+        params = {'type': type}
+        fields = self.list(url, params)
+        return next((x for x in fields if x['name'] == name), None)
 
 
-# Account    
-class AccountCategory(CashCtrl):
-    read_only = False
-    url = '{base}/account/category/{action}.json'
+# main
+if __name__ == "__main__":
+    org = 'bdo'
+    key = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
+    params = {}
+    ctrl = CashCtrl(org, key)
+    '''
+    for api in API:
+        print(api.name)
+        for action in api.value['actions']:
+            def_ = getattr(ctrl, action)
+            params = api.value.get('params', {})
+            response = def_(api.value['url'], params)
+            print(response, "\n")
 
 
-class Account(CashCtrl):
-    read_only = False  
-    url = '{base}/account/{action}.json'
-    
- 
- # Common
-class Currency(CashCtrl):
-    read_only = True
-    url = '{base}/currency/{action}.json'    
-    
-    
-class Rounding(CashCtrl):
-    read_only = True
-    url = '{base}/rounding/{action}.json'  
+    setting = ctrl.read(API.setting.value['url'])
+    print(setting, "\n")
 
- 
-class SequenceNumber(CashCtrl):
-    read_only = True
-    url = '{base}/sequencenumber/{action}.json'     
+    account = ctrl.list(API.account.value['url'])
+    print("*account", len(account), account[-2:], "\n")
+    print("*account last key", account[-1].keys(), "\n")
+    '''
 
- 
-class Tax(CashCtrl):
-    read_only = False  
-    url = '{base}/tax/{action}.json'      
- 
- 
-# File
-class File(CashCtrl):
-    read_only = False  
-    url = '{base}/file/{action}.json'
- 
- 
-# Inventory 
-class InventoryArticle(CashCtrl):
-    read_only = False  
-    url = '{base}/inventory_article/{action}.json'
+    account_category = ctrl.list(API.account_category.value['url'])
+    top_accounts = [x for x in account_category if x['parent_id'] is None]
+    for accounts in top_accounts:
+        print(accounts['id'], accounts['account_class'])
+
+    '''
+    ids = [109, 110]
+    response = ctrl.delete(API.account_category.value['url'], *ids)
+    print("*response", response)
 
 
-class InventoryAsset(CashCtrl):
-    read_only = False  
-    url = '{base}/inventory_asset/{action}.json'
- 
+    fiscal_periods = ctrl.list(API.fiscalperiod.value['url'])
+    fiscal_period = next(x for x in fiscal_periods if x['is_current'] is True)
+    print(fiscal_period, "\n")
 
-# Journal 
-class Journal(CashCtrl):
-    read_only = False  
-    jsons = []
-    url = '{base}/journal/{action}.json' 
-    
-    
-# Meta    
-class FiscalPeriod(CashCtrl):
-    read_only = True
-    url = '{base}/fiscalperiod/{action}.json'    
- 
+    params={
+        'fiscalPeriodId': fiscal_period['id'],
+        # not working: 'filter': [{'comparison': 'eq', 'field': 'createdBy', 'value': 'SYSTEM4'}]
+        'filter': json.dumps([{'comparison': 'eq', 'field': 'categoryId', 'value': 109}])
+    }
+    accounts_1 = ctrl.list(API.account.value['url'], params=params)
 
-class OrganizationLogo(CashCtrl):
-    read_only = True
-    url = '{base}/domain/logo/'  
- 
+    params={
+        'fiscalPeriodId': fiscal_period['id'],
+        # not working: 'filter': [{'comparison': 'eq', 'field': 'createdBy', 'value': 'SYSTEM4'}]
+        'filter': json.dumps([{'comparison': 'eq', 'field': 'categoryId', 'value': 110}])
+    }
+    accounts_2 = ctrl.list(API.account.value['url'], params=params)
+    accounts = accounts_1 + accounts_2
 
-class Setting(CashCtrl):
-    read_only = False
-    url = '{base}/setting/'
- 
-
-# Order    
-class Order(CashCtrl):
-    read_only = False  
-    url = '{base}/order/{action}.json'
-    
-    
-class DocumentTemplate(CashCtrl):
-    read_only = False  
-    url = '{base}/order/template/{action}.json'
-
-    
-# Person   
-class PersonCategory(CashCtrl):
-    read_only = False
-    url = '{base}/person/category/{action}.json'  
+    ids = [x['id'] for x in accounts]
+    print(len(accounts), accounts, ids, "\n")
 
 
-class Person(CashCtrl):  
-    read_only = False  
-    url = '{base}/person/{action}.json'   
-  
-  
-# Report
-class Report(CashCtrl):  
-    # Has action tree instead list
-    read_only = True  
-    url = '{base}/report/{action}.json'   
-    
+    # Store custom field group
+    data = {
+        'name': {'values': {'de': 'Custom Test A'}},
+        'type': FIELD_TYPE.ACCOUNT.value
+    }
+    customfield_group = ctrl.create(API.customfield_group.value['url'], data)
+    print("*customfield_group", customfield_group)
 
-class Element(CashCtrl):  
-    read_only = False
-    url = '{base}/report/element/{action}.json' 
-    
-    
-class Set(CashCtrl):  
-    read_only = False
-    url = '{base}/report/set/{action}.json'     
+    # Store custom field
+    group_id = customfield_group['insert_id']
+    data = {
+        'data_type': DATA_TYPE.TEXT.value,
+        'name': {'values': {'de': 'Field Test A'}},
+        'type': FIELD_TYPE.ACCOUNT.value,
+        'group_id': group_id,
+    }
+    customfield = ctrl.create(API.customfield.value['url'], data)
+    print("*customfield", customfield)
 
 
-    
+    # Get all information of custom field
+    field_id = customfield['insert_id']
+    params = {
+        'id': field_id
+    }
+    customfield = ctrl.read(API.customfield.value['url'], params)
+    print("*customfield", customfield)
+    variable = customfield['variable']
+
+    # Read accounts
+    accounts = ctrl.list(API.account.value['url'])
+    account = next(x for x in accounts if x['number'] == '102604210.01')
+    print("*account", account, "\n")
+
+    # Update account
+    id = account['id']
+    account['custom']['values']['customField59'] = 'Test Content A'
+    account['target_min'] = 1000.0
+    account = ctrl.update(API.account.value['url'], account)
+    print("*account", account, "\n")
+
+
+    # Make custom fields
+
+    # Create Groups
+    for group in CUSTOM_FIELD_GROUPS:
+        group['type'] = group['type'].value
+        customfield_group = ctrl.create(API.customfield_group.value['url'], group)
+        group['id'] = customfield_group['insert_id']
+        print("group['id']", group['id'])
+
+    # Create Fields
+    for field in CUSTOM_FIELDS:
+        field['type'] = field['type'].value
+        field['data_type'] = field['data_type'].value
+        field['group_id'] = next(
+            x['id'] for x in CUSTOM_FIELD_GROUPS
+            if x['type'] == field['type'])
+        if field.get('values'):
+            field['values'] = json.dumps(field['values'])
+        customfield = ctrl.create(API.customfield.value['url'], field)
+        print("*customfield", customfield)
+
+
+    files = ctrl.list(API.file.value['url'])
+    print("*", files)
+    '''
+
+    # init cashctrl
+

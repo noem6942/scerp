@@ -19,12 +19,7 @@
         
         {% if request.session.tenant.name %}
             <!-- Tenant name -->
-            <h1 style="margin: 0; font-size: 24px; color: #333;">
-              {{ request.session.tenant.name }}{% if request.session.tenant.year %},
-                {{ request.session.tenant.year }}
-              {% endif %}
-            </h1>
+            <h1 style="margin: 0; font-size: 24px; color: #333;">{{ request.session.tenant.name }}</h1>
         {% endif %}
     </div>
-
 {% endblock %}

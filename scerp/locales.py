@@ -47,12 +47,13 @@ class APP:
         'accounting': {
             'symbol': 'A',
             'models': {
-                'Location': '0',
-                'FiscalPeriod': '1',
-                'ChartOfAccountsTemplate': '10',
-                'AccountPositionTemplate': '11',
-                'ChartOfAccounts': '12',
-                'AccountPosition': '13'                
+                'APISetup': '0',
+                'Location': '10',
+                'FiscalPeriod': '11',
+                'ChartOfAccountsTemplate': '20',
+                'AccountPositionTemplate': '21',
+                'ChartOfAccounts': '32',
+                'AccountPosition': '33'                
             }
         },
         'billing': {

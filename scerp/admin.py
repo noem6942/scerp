@@ -34,6 +34,10 @@ TEXTAREA_DEFAULT = {
 
 
 # Helpers
+def get_help_text(model, field_name):
+    return model._meta.get_field(field_name).help_text
+    
+    
 def verbose_name_field(model, field_name):
     return model._meta.get_field(field_name).verbose_name
 
@@ -187,6 +191,7 @@ class Site(AdminSite):
 
     def index(self, request, extra_context=None):
         '''Insert the menu to select the tenant'''
+        print("*index")
 
         # Get all tenants associated with the user
         available_tenants = get_available_tenants(request)

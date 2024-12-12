@@ -7,6 +7,8 @@ from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
 from decimal import Decimal
 
+import json
+
 from core.models import (
     LogAbstract, NotesAbstract, TenantAbstract, TenantLocation, CITY_CATEGORY)
 from scerp.locales import CANTON_CHOICES
@@ -44,13 +46,50 @@ class APISetup(TenantAbstract):
         _('initialized'), max_length=100, null=True, blank=True,
         help_text=_('date and time when initialized'))
                 
-    # Custom fields for cashCtrl
-    custom_field_group_account_id = models.PositiveSmallIntegerField(
-        default=1)
-    custom_field_group_person_id = models.PositiveSmallIntegerField(
-        default=2)
-    custom_field_account_account_number_id = models.PositiveSmallIntegerField(
-        default=1)
+    # Custom groups for cashCtrl
+    # name, type
+    custom_field_group_account = models.PositiveSmallIntegerField(
+        _('Tab Account'), blank=True, null=True,
+        help_text=json.dumps({
+            'name': {
+                'values': {
+                    'de': 'SC-ERP', 
+                    'en': 'SC-ERP', 
+                    'fr': 'SC-ERP', 
+                    'it': 'SC-ERP'
+                }},
+            'type': 'ACCOUNT',
+        }))        
+            
+    custom_field_group_person = models.PositiveSmallIntegerField(
+        _('Tab Person'), blank=True, null=True,
+        help_text=json.dumps({
+            'name': {
+                'values': {
+                    'de': 'SC-ERP', 
+                    'en': 'SC-ERP', 
+                    'fr': 'SC-ERP', 
+                    'it': 'SC-ERP'
+                }},
+            'type': 'PERSON',
+        }))        
+
+    # Custom fields for cashCtrl    
+    custom_field_account_hrm = models.PositiveSmallIntegerField(
+        _('Field Position Number'), blank=True, null=True,
+        help_text=json.dumps({
+            'name': {
+                'values': {
+                    'de': 'HRM', 
+                    'en': 'HRM', 
+                    'fr': 'HRM', 
+                    'it': 'HRM'
+                }},
+            'group': custom_field_group_account.help_text, 
+            'data_type': 'NUMBER', 
+            'is_multi': False, 
+            'values': []
+        }))
 
     def __str__(self):
         # add symbol for notes, attachment, protected, inactive
@@ -84,12 +123,41 @@ class CashCtrl(TenantAbstract):
 
 
 class Location(CashCtrl):
-    tenant_location = models.OneToOneField(
-        TenantLocation, null=True, blank=True, on_delete=models.CASCADE,
-        related_name='%(class)s_location')
+    name = models.CharField(max_length=100)
+
+    # Accounting
+    bic = models.CharField(
+        _("BIC"), max_length=11, blank=True, null=True,
+        help_text=_("The BIC (Business Identifier Code) of your bank."))
+    iban = models.CharField(
+        _("IBAN"), max_length=32, blank=True, null=True,
+        help_text=_("The IBAN (International Bank Account Number)."))
+    qr_first_digits = models.PositiveIntegerField(
+        _("QR First Digits"), blank=True, null=True,
+        help_text=_("The first few digits of the Swiss QR reference. Specific "
+                    "to Switzerland."))
+    qr_iban = models.CharField(
+        _("QR-IBAN"), max_length=32, blank=True, null=True,
+        help_text=_("The QR-IBAN, used especially for QR invoices. Specific to "
+                    "Switzerland."))
+    vat_uid = models.CharField(
+        _("VAT UID"), max_length=32, blank=True, null=True,
+        help_text=_("The VAT UID of the company."))
+
+    # Formats
+    logo_file_id = models.IntegerField(
+        _("Logo File ID"), blank=True, null=True,
+        help_text=_("File ID for the company logo. Supported types: JPG, GIF, PNG."))
+    footer = models.TextField(
+        _("Footer Text"), blank=True, null=True,
+        help_text=_("Footer text for order documents with limited HTML support."))    
 
     def __str__(self):
         return self.tenant_location.org_name
+
+    class Meta:
+        verbose_name = _("VAT, Codes, Formats")
+        verbose_name_plural = verbose_name        
 
 
 class CostCenter(CashCtrl):

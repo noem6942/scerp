@@ -33,7 +33,7 @@ def cash_ctrl_str_to_date(datetime_str):
     return start_datetime.date()
         
 
-@receiver(post_save, sender=APISetup)
+# disable @receiver(post_save, sender=APISetup)
 def api_create(sender, instance, created, **kwargs):
     """Perform follow-up actions when a new APISetup is created."""
     if created:

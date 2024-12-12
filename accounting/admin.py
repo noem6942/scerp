@@ -26,10 +26,16 @@ class APISetupAdmin(BaseAdmin):
     has_tenant_field = True
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
+    actions = [a.api_setup_init]
     
     fieldsets = (
         (None, {
-            'fields': ('org_name', 'api_key'),
+            'fields': (
+                'org_name', 'api_key', 
+                'custom_field_group_account',
+                'custom_field_group_person',
+                'custom_field_account_hrm'
+            ),
             'classes': ('expand',),            
         }),     
     )
@@ -38,14 +44,28 @@ class APISetupAdmin(BaseAdmin):
 @admin.register(Location, site=admin_site) 
 class Location(BaseAdmin):
     has_tenant_field = True
-    list_display = ('tenant_location',)
-    search_fields = ('tenant_location',)
+    list_display = ('name', 'vat_uid')
+    search_fields = ('tenant_location', 'vat_uid')
     
     fieldsets = (
         (None, {
-            'fields': ('tenant_location', ),
+            'fields': ('name', ),
             'classes': ('expand',),            
-        }),     
+        }),   
+        
+        # Accounting Information
+        (_('Accounting Information'), {
+            'fields': (
+                'bic', 'iban', 'qr_first_digits', 'qr_iban', 'vat_uid'
+            ),
+            'classes': ('expand',),
+        }),    
+        
+        # Layout
+        (_('Layout'), {
+            'fields': ('logo_file_id', 'footer'),
+            'classes': ('collapse',),            
+        }),    
     )
 
 

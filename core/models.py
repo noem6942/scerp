@@ -1,5 +1,6 @@
 # core/models.py
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.contrib.auth.models import Group, User
 from django.utils import timezone
@@ -267,40 +268,90 @@ class TenantSetup(TenantAbstract):
 
 
 class TenantLocation(TenantAbstract):
+    """
+    Model for managing tenant-specific locations.
+    """
     class Type(models.TextChoices):
-        MAIN = "MAIN", _("Company Headquarters")
+        MAIN = "MAIN", _("Headquarters")
         BRANCH = "BRANCH", _("Branch Office")
         STORAGE = "STORAGE", _("Storage Facility")
         OTHER = "OTHER", _("Other / Tax")
 
     # Mandatory field
-    org_name = models.CharField(max_length=250, help_text="A name to describe and identify the location.")
+    org_name = models.CharField(
+        _("Organization Name"), max_length=250,
+        help_text=_("A name to describe and identify the location."))
     type = models.CharField(
-        max_length=50,
-        choices=Type.choices,
-        default=Type.MAIN,
-        help_text="The type of location. Defaults to MAIN."
-    )
+        _("Type"), max_length=50, choices=Type.choices, default=Type.MAIN,
+        help_text=_("The type of location. Defaults to MAIN."))
 
     # Optional fields
-    address = models.TextField(max_length=250, blank=True, null=True, help_text="The address of the location (street, house number, additional info).")
-    zip = models.CharField(max_length=10, blank=True, null=True, help_text="The postal code of the location.")
-    city = models.CharField(max_length=100, blank=True, null=True, help_text="The town / city of the location.")
-    country = models.CharField(max_length=3, default='CHE', help_text="The country of the location, as an ISO 3166-1 alpha-3 code.")
+    address = models.TextField(
+        _("Address"), max_length=250, blank=True, null=True,
+        help_text=_("The address of the location (street, house number, "
+                    "additional info)."))
+    zip = models.CharField(
+        _("ZIP Code"), max_length=10, blank=True, null=True,
+        help_text=_("The postal code of the location."))
+    city = models.CharField(
+        _("City"), max_length=100, blank=True, null=True,
+        help_text=_("The town / city of the location."))
+    country = models.CharField(
+        _("Country"), max_length=3, default="CHE",
+        help_text=_("The country of the location, as an ISO 3166-1 alpha-3 code."))
 
     # Layout
     logo = models.ImageField(
-        _('logo'), upload_to='profile_photos/',
-        blank=True, null=True, help_text=_('logo used in website'))
-    logoFileId = models.IntegerField(blank=True, null=True, help_text="File ID for the company logo. Supported types: JPG, GIF, PNG.")
-    footer = models.TextField(blank=True, null=True, help_text="Footer text for order documents with limited HTML support.")
+        _("Logo"), upload_to="profile_photos/", blank=True, null=True,
+        help_text=_("Logo used in website."))
+    logoFileId = models.IntegerField(
+        _("Logo File ID"), blank=True, null=True,
+        help_text=_("File ID for the company logo. Supported types: JPG, GIF, PNG."))
+    footer = models.TextField(
+        _("Footer Text"), blank=True, null=True,
+        help_text=_("Footer text for order documents with limited HTML support."))
 
     # Accounting
-    bic = models.CharField(max_length=11, blank=True, null=True, help_text="The BIC (Business Identifier Code) of your bank.")
-    iban = models.CharField(max_length=32, blank=True, null=True, help_text="The IBAN (International Bank Account Number).")
-    qr_first_digits = models.PositiveIntegerField(blank=True, null=True, help_text="The first few digits of the Swiss QR reference. Specific to Switzerland.")
-    qr_iban = models.CharField(max_length=32, blank=True, null=True, help_text="The QR-IBAN, used especially for QR invoices. Specific to Switzerland.")
-    vat_uid = models.CharField(max_length=32, blank=True, null=True, help_text="The VAT UID of the company.")
+    bic = models.CharField(
+        _("BIC"), max_length=11, blank=True, null=True,
+        help_text=_("The BIC (Business Identifier Code) of your bank."))
+    iban = models.CharField(
+        _("IBAN"), max_length=32, blank=True, null=True,
+        help_text=_("The IBAN (International Bank Account Number)."))
+    qr_first_digits = models.PositiveIntegerField(
+        _("QR First Digits"), blank=True, null=True,
+        help_text=_("The first few digits of the Swiss QR reference. Specific "
+                    "to Switzerland."))
+    qr_iban = models.CharField(
+        _("QR-IBAN"), max_length=32, blank=True, null=True,
+        help_text=_("The QR-IBAN, used especially for QR invoices. Specific to "
+                    "Switzerland."))
+    vat_uid = models.CharField(
+        _("VAT UID"), max_length=32, blank=True, null=True,
+        help_text=_("The VAT UID of the company."))
 
     def __str__(self):
-        return f"{self.org_name} (({self.type}), {self.address})"
+        return f"{self.org_name} ({self.type}), {self.address}"
+
+
+
+class Year(TenantAbstract):
+    # Define the year range directly with Min and Max validators
+    year = models.PositiveSmallIntegerField(
+        _("Year"),
+        validators=[MinValueValidator(1900), MaxValueValidator(2099)],        
+        help_text=_("Year available for data inputs, usually equal fiscal year")
+    )
+
+    def __str__(self):
+        return str(self.year)
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['year', 'tenant'],
+                name='unique_year'
+            )]    
+        ordering = ('year',)
+        verbose_name = _("Year")
+        verbose_name_plural = _("Years")

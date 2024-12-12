@@ -64,6 +64,12 @@ def set_tenant(request, tenant_setup_id=None):
         return request.session['tenant']
 
 
+def set_year(request, year):
+    tenant = get_tenant(request)
+    if tenant:
+        request.session['tenant']['year'] = year
+
+
 def get_available_tenants(request):
     # Check if the user is a superuser with global access to all tenants
     if request.user.is_superuser and getattr(

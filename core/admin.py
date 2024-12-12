@@ -90,13 +90,12 @@ class TenantLocationAdmin(BaseAdmin):
     has_tenant_field = True
     list_display = ('org_name', 'type',)
     search_fields = ('org_name', 'type',)
+    
     fieldsets = (
+        # Organization Details
         (None, {
-            'fields': ('org_name', 'type', 'address', 'zip', 'city', 'country'),
+            'fields': (
+                'org_name', 'type', 'address', 'zip', 'city', 'country', 'logo'),
             'classes': ('expand',),            
         }),
-        (_('Layout'), {
-            'fields': ('logo', 'logoFileId', 'footer'),
-            'classes': ('expand',),            
-        }),
-    )    
+    ) 
