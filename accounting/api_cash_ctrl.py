@@ -1,4 +1,5 @@
 # accounting/api_cash_ctrl.py
+from datetime import datetime
 import json
 import re
 import requests
@@ -233,23 +234,25 @@ class CashCtrl(object):
     def __init__(self, org, api_key):
         self.org = org
         self.auth = (api_key, '')
-
-    def clean_dict(self, dict_):
-        data = {}
-        for key, value in dict_.items():
-            data[camel_to_snake(key)] = self.clean_value(value)
-
-        return data
-
+        
+    @staticmethod
+    def str_to_dt(dt_string):
+        '''Convert to a datetime object 
+            dt_string = '2024-10-14 09:58:33.0'
+        '''
+        return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S.%f')
+    
     # Xml <-> JSON
-    def clean_value(self, value):
+    @staticmethod
+    def clean_value(value):
         if type(value) == str and value.startswith('<values>'):
             # XML
             return xmltodict.parse(value)
         else:
             # Return original value
             return value
-
+    
+    @staticmethod
     def value_to_xml(self, value):
         # Check if value is a dictionary
         if type(value) is dict and 'values' in value:
@@ -259,6 +262,17 @@ class CashCtrl(object):
         else:
             return value
 
+    def clean_dict(self, dict_):
+        data = {}
+        for key, value in dict_.items():
+            key = camel_to_snake(key)
+            if key in ('created',  'last_updated', 'start', 'end'):
+                try:
+                    value = self.str_to_dt(value)
+                except:
+                    pass
+            data[key] = self.clean_value(value)            
+        return data
 
     # REST API
     def get(self, url, params):
@@ -273,9 +287,15 @@ class CashCtrl(object):
             return response
 
     def post(self, url, data):
-        data = {
-            snake_to_camel(key): self.value_to_xml(value)
-            for key, value in data.items()}
+        data = {}
+        for key, value in data.items():
+            key = snake_to_camel(key)
+            if key in ('start', 'end'):
+                value = value.strftime('%Y-%m-%d')
+            else:
+                value = self.value_to_xml(value)
+            data[key] = value
+            
         response = requests.post(url, data=data, auth=self.auth)
         if response.status_code != 200:
             # Decode the content and include it in the error message
@@ -326,7 +346,8 @@ class CashCtrl(object):
         return response  # e.g. {'success': True, 'message': 'Custom field saved', 'insert_id': 58}
 
     def update(self, url, data):
-        url = self.BASE.format(org=self.org, url=url, data=data, action='update')
+        url = self.BASE.format(
+            org=self.org, url=url, data=data, action='update')
         response = self.post(url, data=data)
         return response  # e.g. {'success': True, 'message': 'Account saved', 'insert_id': 183}
 

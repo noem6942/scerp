@@ -13,10 +13,14 @@ from core.models import (
     LogAbstract, NotesAbstract, TenantAbstract, TenantLocation, CITY_CATEGORY)
 from scerp.locales import CANTON_CHOICES
 
-from .mixins import FiscalPeriodValidate, account_position_calc_number
+from .mixins import fiscal_period_validate, account_position_calc_number
 
 
 # Definitions
+class APPLICATION(models.TextChoices):
+    CASH_CTRL = 'CC', 'Cash Control'
+
+
 class ACCOUNT_TYPE_TEMPLATE(models.IntegerChoices):
     # Used for Cantonal / Template Charts
     BALANCE = (1, _('Bilanz'))
@@ -42,6 +46,9 @@ class APISetup(TenantAbstract):
         help_text='name of organization as used in cashCtrl domain')
     api_key = models.CharField(
         _('api key'), max_length=100, help_text=_('api key'))
+    application = models.CharField(
+        _('application'), max_length=2, choices=APPLICATION.choices,
+        default=APPLICATION.CASH_CTRL)
     initialized = models.DateTimeField(
         _('initialized'), max_length=100, null=True, blank=True,
         help_text=_('date and time when initialized'))
@@ -105,24 +112,26 @@ class APISetup(TenantAbstract):
         verbose_name_plural = _('Api Setup')
 
 
-class CashCtrl(TenantAbstract):
+class AcctApp(TenantAbstract):
     '''id_cashctrl gets set after first synchronization
     '''
+    # CashCtrl
     c_id = models.PositiveIntegerField(
-        null=True, blank=True)
+        _('CashCtrl id'), null=True, blank=True)
     c_created = models.DateTimeField(
-        default=timezone.now, null=True, blank=True)
+        _('CashCtrl created'), null=True, blank=True)
     c_created_by = models.CharField(
-        max_length=100, null=True, blank=True)
-    c_last_updated = models.DateTimeField(null=True, blank=True)
+        _('CashCtrl created_by'), max_length=100, null=True, blank=True)
+    c_last_updated = models.DateTimeField(
+        _('CashCtrl last_updated'), null=True, blank=True)
     c_last_updated_by = models.CharField(
-        max_length=100, null=True, blank=True)
+        _('CashCtrl last_updated_by'), max_length=100, null=True, blank=True)   
 
     class Meta:
         abstract = True
 
 
-class Location(CashCtrl):
+class Location(AcctApp):
     name = models.CharField(max_length=100)
 
     # Accounting
@@ -153,14 +162,14 @@ class Location(CashCtrl):
         help_text=_("Footer text for order documents with limited HTML support."))    
 
     def __str__(self):
-        return self.tenant_location.org_name
+        return self.name
 
     class Meta:
         verbose_name = _("VAT, Codes, Formats")
         verbose_name_plural = verbose_name        
 
 
-class CostCenter(CashCtrl):
+class CostCenter(AcctApp):
     '''CostCenters must only be created and edited in scerp
         most optional fields are null and not displayed
     '''
@@ -170,27 +179,16 @@ class CostCenter(CashCtrl):
     def __str__(self):
         return f"{self.name} ({self.number})"
 
-    def clean(self):
-        super().clean()
-
     class Meta:
         verbose_name = "Cost Center"
         verbose_name_plural = "Cost Centers"
 
 
-class FiscalPeriod(CashCtrl, FiscalPeriodValidate):
-    '''Fiscal Periods must only be created and edited in scerp
-        most optional fields are null and not displayed;
-        intially loaded from cashCtrl
+class FiscalPeriod(AcctApp):
+    '''First period is loaded from cash_ctrl, all others must must only be 
+        created and edited in scerp;
+        most optional fields are null and not displayed;        
     '''
-    class CreationType(models.TextChoices):
-        '''
-            LATEST will create the next year after the latest existing year
-            EARLIEST will create the year before the earliest existing year
-        '''
-        LATEST = "LATEST", _("Latest")  
-        EARLIEST = "EARLIEST", _("Earliest")
-
     name = models.CharField(
         max_length=30,
         blank=True,
@@ -207,24 +205,27 @@ class FiscalPeriod(CashCtrl, FiscalPeriodValidate):
         null=True,
         help_text="End date of the fiscal period, required if isCustom is true."
     )
+    is_closed = models.BooleanField(
+        _("Is closed"), default=False,
+        help_text="Check if fiscal period is closed.")
     is_current = models.BooleanField(
-        default=False,
-        help_text="Check for current fiscl period.")
+        _("Is current"), default=False, 
+        help_text="Check for current fiscal period.")
 
     def __str__(self):
         return self.name or f"Fiscal Period {self.pk}"
 
     def clean(self):
-        super().clean()
+        fiscal_period_validate(self)
 
     class Meta:
         ordering = ['-start']
 
 
-class Currency(CashCtrl):
+class Currency(AcctApp):
     '''Rates must only be created and edited in scerp
         most optional fields are null and not displayed;
-        intially loaded from cashCtrl
+        intially loaded from AcctApp
     '''    
     code = models.CharField(max_length=3, help_text="The 3-characters currency code, like CHF, EUR, etc.")
     description = models.TextField(blank=True, null=True)
@@ -239,10 +240,10 @@ class Currency(CashCtrl):
         ordering = ['code']
 
 
-class Unit(CashCtrl):
+class Unit(AcctApp):
     '''Units must only be created and edited in scerp
         most optional fields are null and not displayed;
-        intially loaded from cashCtrl
+        intially loaded from AcctApp
     '''
     name = models.CharField(max_length=100, help_text="The name of the unit ('hours', 'minutes', etc.).")
     is_default = models.BooleanField(default=False)
@@ -388,7 +389,7 @@ class AccountPositionTemplate(
         verbose_name_plural = _('Account Positions (Canton or Others)')
 
 
-class AccountPosition(AccountPositionAbstract, CashCtrl):
+class AccountPosition(AccountPositionAbstract, AcctApp):
     '''actual account for booking
     '''
     function = models.CharField(
@@ -457,7 +458,7 @@ class AccountPosition(AccountPositionAbstract, CashCtrl):
         verbose_name_plural = _('Account Positions')
         
 
-class TaxRate(CashCtrl):
+class TaxRate(AcctApp):
     '''Rates must only be created and edited in scerp
         most optional fields are null and not displayed
     '''
@@ -482,7 +483,7 @@ class TaxRate(CashCtrl):
         ordering = ['number']
 
 
-class ArticleCategory(CashCtrl):
+class ArticleCategory(AcctApp):
     '''Categories must only be created and edited in scerp
         all optional fields are null
         e.g. WATER = ('W', _('water'))
@@ -524,7 +525,7 @@ class Tarif(TenantAbstract):
     tarif_bez = models.CharField(max_length=255, verbose_name="TarifBez")  # Tariff Description
 
 
-class Article(CashCtrl):
+class Article(AcctApp):
     name = models.CharField(
         max_length=240,
         help_text="The name of the article, with localized text as XML."

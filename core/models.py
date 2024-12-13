@@ -304,31 +304,6 @@ class TenantLocation(TenantAbstract):
     logo = models.ImageField(
         _("Logo"), upload_to="profile_photos/", blank=True, null=True,
         help_text=_("Logo used in website."))
-    logoFileId = models.IntegerField(
-        _("Logo File ID"), blank=True, null=True,
-        help_text=_("File ID for the company logo. Supported types: JPG, GIF, PNG."))
-    footer = models.TextField(
-        _("Footer Text"), blank=True, null=True,
-        help_text=_("Footer text for order documents with limited HTML support."))
-
-    # Accounting
-    bic = models.CharField(
-        _("BIC"), max_length=11, blank=True, null=True,
-        help_text=_("The BIC (Business Identifier Code) of your bank."))
-    iban = models.CharField(
-        _("IBAN"), max_length=32, blank=True, null=True,
-        help_text=_("The IBAN (International Bank Account Number)."))
-    qr_first_digits = models.PositiveIntegerField(
-        _("QR First Digits"), blank=True, null=True,
-        help_text=_("The first few digits of the Swiss QR reference. Specific "
-                    "to Switzerland."))
-    qr_iban = models.CharField(
-        _("QR-IBAN"), max_length=32, blank=True, null=True,
-        help_text=_("The QR-IBAN, used especially for QR invoices. Specific to "
-                    "Switzerland."))
-    vat_uid = models.CharField(
-        _("VAT UID"), max_length=32, blank=True, null=True,
-        help_text=_("The VAT UID of the company."))
 
     def __str__(self):
         return f"{self.org_name} ({self.type}), {self.address}"

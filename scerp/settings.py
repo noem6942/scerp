@@ -218,6 +218,3 @@ CKEDITOR_CONFIGS = {
 ADMIN_ROOT = 'scerp'
 ADMIN_ACCESS_ALL = True  # Admin can access all clients
 LOGO = '/static/img/default-logo.png'
-
-ORG_CASH_CTRL_DEBUG = os.getenv("ORG_CASH_CTRL_DEBUG")
-API_KEY_CASH_CTRL_DEBUG = os.getenv("API_KEY_CASH_CTRL_DEBUG")

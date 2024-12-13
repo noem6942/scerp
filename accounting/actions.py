@@ -5,14 +5,11 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
 
-import json
-
 from core.models import Tenant
 from core.safeguards import save_logging, get_tenant
 from scerp.actions import action_check_nr_selected
 from scerp.admin import get_help_text
 
-from .api_cash_ctrl import API, FIELD_TYPE, CashCtrl
 from .forms import (
     ChartOfAccountsTemplateForm, 
     ChartOfAccountsBalanceForm, 
@@ -21,7 +18,7 @@ from .forms import (
     AccountPositionAddInvestForm
 )
 from .models import (
-    APISetup, ACCOUNT_TYPE_TEMPLATE, FiscalPeriod,
+    ACCOUNT_TYPE_TEMPLATE,
     ChartOfAccountsTemplate, AccountPositionTemplate,
     ChartOfAccounts, AccountPosition
 )
@@ -44,84 +41,6 @@ DONOT_COPY_FIELDS = [
 
 
 # mixins
-@admin.action(description=_('A1. Init Account Setup'))
-def api_setup_init(self, request, queryset):
-    ''' Init API Settings in cashCtrl '''
-    # Check
-    if action_check_nr_selected(request, queryset, 1):
-        account = queryset.first()    
-    else:
-        return
-    
-    # Init
-    ctrl = CashCtrl(account.org_name, account.api_key)
-    
-    # Create Custom Groups
-    model = APISetup
-    for field in account.__dict__.keys():
-        if field.startswith('custom_field_group_'):
-            # Get elems    
-            data = json.loads(get_help_text(model, field))
-            name = data['name'] 
-            type_ = data['type'] 
-            
-            group = ctrl.get_customfield_group(name, type_)
-            if group:
-                msg = _('Group {name} of type {type} already existing.').format(
-                    name=name, type=type_)
-                messages.warning(request, msg)              
-            else:
-                # Create group
-                group = ctrl.create_customfield_group(name, type_)
-                
-                # Register group
-                setattr(account, field, group['insert_id'])
-                account.save()
-            
-                # Msg
-                msg = _('Created group {name} of type {type}.').format(
-                    name=name, type=type_)
-                messages.success(request, msg)  
-            
-            
-
-    # Create Custom Fields, currently only for simple types with no defaults
-    model = APISetup
-    for field in account.__dict__.keys():
-        if (not field.startswith('custom_field_group_')
-                and field.startswith('custom_field_')):
-            # Get elems    
-            data = json.loads(get_help_text(model, field))     
-            data['group'] = json.loads(data['group'])
-                        
-            # Get customfield    
-            customfield = ctrl.get_customfield(
-                data['name'], data['group']['type'])
-
-            if customfield:
-                msg = _('Customfield {name} of type {type} in '
-                        '{group_name} already existing.')
-                msg = msg.format(
-                    name=data['name'], type=data['group']['type'], 
-                    group_name=data['group']['name'])
-                messages.warning(request, msg)                
-            else: 
-                # Create field
-                customfield = ctrl.create_customfield(**data)
-                
-                # Register field
-                setattr(account, field, customfield['insert_id'])
-                account.save()
-            
-                # Msg
-                msg = _('Created customfield {name} of type {type} in '
-                        '{group_name}.')
-                msg = msg.format(
-                    name=data['name'], type=data['group']['type'], 
-                    group_name=data['group']['name'])
-                messages.success(request, msg)              
-
-
 @admin.action(description=_('> Insert copy of record below'))
 def position_insert(self, request, queryset):
     ''' Insert row of a model that has a field position '''

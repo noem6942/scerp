@@ -1,5 +1,5 @@
 # from django_admin_action_forms import action_with_form, AdminActionForm
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin import ModelAdmin
 from django.utils import formats
 from django.utils.html import format_html
@@ -21,17 +21,27 @@ from . import actions as a
 from scerp.admin import verbose_name_field
 
 
+CASH_CTRL_FIELDS = [
+    'c_id', 
+    'c_created', 
+    'c_created_by', 
+    'c_last_updated', 
+    'c_last_updated_by'
+]
+
+
 @admin.register(APISetup, site=admin_site) 
 class APISetupAdmin(BaseAdmin):
     has_tenant_field = True
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
-    actions = [a.api_setup_init]
     
     fieldsets = (
         (None, {
             'fields': (
-                'org_name', 'api_key', 
+                'org_name', 
+                'api_key', 
+                'application',
                 'custom_field_group_account',
                 'custom_field_group_person',
                 'custom_field_account_hrm'
@@ -39,13 +49,44 @@ class APISetupAdmin(BaseAdmin):
             'classes': ('expand',),            
         }),     
     )
+    
+    def save_model(self, request, obj, form, change):
+        try:
+            super().save_model(request, obj, form, change)
+            # Success message
+            msg = _("Initialized Accounting and App")
+            messages.info(request, msg)       
+        except Exception as e:             
+            msg = _("Error in post-processing: {e}").format(e=str(e))
+            messages.error(request, msg)  
 
+
+class CashCtrlAdmin(BaseAdmin):
+    has_tenant_field = True
+
+    def get_readonly_fields(self, request, obj=None):
+        ''' Extend readonly fields
+        '''
+        # Get readonly fields from parent
+        readonly_fields = super().get_readonly_fields(request, obj)          
+        readonly_fields = list(readonly_fields)  # Ensure it's mutable
+        readonly_fields.extend(CASH_CTRL_FIELDS)  # Add custom readonly fields
+        return readonly_fields
+
+    def get_fieldsets(self, request, obj=None):
+        # Add additional sections like Notes and Logging
+        return super().get_fieldsets(request, obj) + (
+            ('CashCtrl', {
+                'fields': CASH_CTRL_FIELDS,
+                'classes': ('collapse',),
+            }),
+        )        
 
 @admin.register(Location, site=admin_site) 
-class Location(BaseAdmin):
+class Location(CashCtrlAdmin):
     has_tenant_field = True
     list_display = ('name', 'vat_uid')
-    search_fields = ('tenant_location', 'vat_uid')
+    search_fields = ('name', 'vat_uid')
     
     fieldsets = (
         (None, {
@@ -70,12 +111,18 @@ class Location(BaseAdmin):
 
 
 @admin.register(FiscalPeriod, site=admin_site) 
-class FiscalPeriodAdmin(BaseAdmin):
-    has_tenant_field = True
+class FiscalPeriodAdmin(CashCtrlAdmin):
     list_display = ('name', 'start', 'end', 'is_current')
     search_fields = ('name', 'start', 'end', 'is_current')
     readonly_fields = ('is_current',)
     actions = [a.fiscal_period_set_current] 
+    
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'start', 'end', 'is_closed', 'is_current'),
+            'classes': ('expand',),            
+        }),  
+    )    
     
 
 @admin.register(Currency, site=admin_site) 
