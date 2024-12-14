@@ -253,7 +253,7 @@ class CashCtrl(object):
             return value
     
     @staticmethod
-    def value_to_xml(self, value):
+    def value_to_xml(value):
         # Check if value is a dictionary
         if type(value) is dict and 'values' in value:
             xmlstr = xmltodict.unparse(value['values'], full_document=False)
@@ -262,17 +262,17 @@ class CashCtrl(object):
         else:
             return value
 
-    def clean_dict(self, dict_):
-        data = {}
-        for key, value in dict_.items():
+    def clean_dict(self, data):
+        post_data = {}
+        for key, value in data.items():
             key = camel_to_snake(key)
             if key in ('created',  'last_updated', 'start', 'end'):
                 try:
                     value = self.str_to_dt(value)
                 except:
                     pass
-            data[key] = self.clean_value(value)            
-        return data
+            post_data[key] = self.clean_value(value)            
+        return post_data
 
     # REST API
     def get(self, url, params):
@@ -287,28 +287,34 @@ class CashCtrl(object):
             return response
 
     def post(self, url, data):
-        data = {}
+        # Check
+        if type(data) != dict:
+            raise Exception(f"{data} is not of type dict")
+            
+        # Build data
+        post_data = {}
         for key, value in data.items():
-            key = snake_to_camel(key)
-            if key in ('start', 'end'):
+            camel_key = snake_to_camel(key)
+            if camel_key in ('start', 'end'):
                 value = value.strftime('%Y-%m-%d')
             else:
                 value = self.value_to_xml(value)
-            data[key] = value
-            
-        response = requests.post(url, data=data, auth=self.auth)
+            post_data[camel_key] = value
+
+        # Post data
+        response = requests.post(url, data=post_data, auth=self.auth)
         if response.status_code != 200:
             # Decode the content and include it in the error message
-            error_message = response._content.decode(DECODE)
+            error_message = response.content.decode(DECODE)
             raise Exception(
-                    f"Post request failed with status {response.status_code}. "
-                    f"Error message: {error_message}")
+                f"Post request failed with status {response.status_code}. "
+                f"Error message: {error_message}")
         elif response.json().get('success') is False:
             # Decode the content and include it in the error message
-            error_message = response._content.decode(DECODE)
+            error_message = response.content.decode(DECODE)
             raise Exception(
-                    f"Post request failed with 'success': False. "
-                    f"Error message: {error_message}")
+                f"Post request failed with 'success': False. "
+                f"Error message: {error_message}")
         else:
             return self.clean_dict(response.json())
 

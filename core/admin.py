@@ -39,27 +39,41 @@ class TenantAdmin(BaseAdmin):
     list_display = ('name', 'code', 'is_trustee')
     search_fields = ('name', 'code')
     list_filter = ('is_trustee',)    
+    read_only_fields = ('initial_user_password',)
+    
     fieldsets = (
         (None, {
             'fields': ('name', 'code', 'is_trustee', 'initial_user_email',
                        'initial_user_first_name', 'initial_user_last_name'),
             'classes': ('expand',),            
         }),
-    )    
+    )        
     
     def save_model(self, request, obj, form, change):
-        # Do the save
-        created = obj.pk is None
+        """
+        Save the Tenant model and handle additional actions for new tenants.
+        """
+        created = obj._state.adding  # Check if this is a new object
+                
+        # Save the object (this triggers the post_save signal)
         super().save_model(request, obj, form, change)
         
-        # Do the post actions after creating a tenant object
+        # Post-save actions for new tenants
         if created:
-            username, password = tenant_create_post_action(obj, request)
-            msg = _("TenantSetup instance initiated.")        
+            # Display messages in the admin interface
+            msg = _("TenantSetup instance initiated.")
             messages.success(request, msg)
+            
+            # Check if password
+            queryset = Tenant.objects.filter(pk=obj.pk)
+            initial_password = queryset.first().initial_user_password
             msg = _("Created user '{username}' with password '{password}'.")
-            msg = msg.format(username=username, password=password)
-            messages.success(request, msg)            
+            messages.success(request, msg.format(
+                username=obj.initial_user_email,
+                password=initial_password))
+            
+            # Clear the password field without triggering another save
+            queryset.update(initial_user_password=None)
 
 
 @admin.register(TenantSetup, site=admin_site) 

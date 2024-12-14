@@ -1,6 +1,8 @@
 # core/management/commands/process_core.py
 '''usage:
     python manage.py process_core update-or-create-apps
+    python manage.py process_core update-or-create-groups
+    python manage.py process_core create-markdown
 '''
 from django.core.management.base import BaseCommand
 from django.core.management import CommandError
@@ -56,17 +58,9 @@ class Command(BaseCommand):
                     'Invalid action specified. Use "create".'))
 
         # Handling the action of creating a markdown file
-        elif action == 'create-markdown':
-            # Ensure the 'name' argument is provided for Markdown file creation
+        elif action == 'create-markdown':            
             name = options.get('name')
-            d = DocumentationSetup(name)
-            
-            if not name:
-                self.stdout.write(self.style.ERROR(
-                    'The --name argument is required for create-markdown action.'))
-                return
-            
-            # Create the markdown file
+            d = DocumentationSetup(name)            
             d.create_markdown()
             self.stdout.write(self.style.SUCCESS(
                 f'Markdown file for {name} created successfully.'))

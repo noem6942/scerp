@@ -7,8 +7,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from scerp.locales import CANTON_CHOICES
-from scerp.mixins import display_photo
-from .mixins import TenantMixin
+from .mixins import validate_tenant, validate_tenant_location
 
 
 class CITY_CATEGORY(models.TextChoices):
@@ -96,7 +95,7 @@ class NotesAbstract(models.Model):
         abstract = True  # This makes it an abstract model
 
 
-class Module(LogAbstract, NotesAbstract, TenantMixin):
+class Tenant(LogAbstract, NotesAbstract):
     '''only admin and trustees are allowed to create Tenants
         sends signals after creation!
     '''
@@ -119,52 +118,17 @@ class Module(LogAbstract, NotesAbstract, TenantMixin):
         help_text=_('Gets entered by system'))        
     initial_user_last_name = models.CharField(
         _('initial username last name'), max_length=30,
-        help_text=_('Gets entered by system'))
+        help_text=_('Gets entered by system'))   
+    initial_user_password = models.CharField(
+        _('initial username password'), max_length=64, blank=True, null=True,
+        help_text=_('Filled out by system'))
 
     def __str__(self):
         return self.name + self.symbols
 
     def clean(self):
+        validate_tenant(self)
         super().clean()  # Call the parent's clean method
-        self.clean_related_data()
-
-    class Meta:
-        ordering = ['name']
-        verbose_name = _('tenant')
-        verbose_name_plural = _('tenants')
-
-
-class Tenant(LogAbstract, NotesAbstract, TenantMixin):
-    '''only admin and trustees are allowed to create Tenants
-        sends signals after creation!
-    '''
-    name = models.CharField(
-        _('name'), max_length=100, unique=True)
-    code = models.CharField(
-        _('code'), max_length=32, unique=True,
-        help_text=_(
-            'code of tenant / client, unique, max 32 characters, '
-            'only small letters, should only contains characters that '
-            'can be displayed in an url)'))
-    is_trustee = models.BooleanField(
-        _('is trustee'), default=False,
-        help_text=_('Check if this is the trustee account that can created new tenants'))
-    initial_user_email = models.EmailField(
-        _('Email of initial user'), max_length=254, unique=True,
-        help_text=_('Enter for creating initial user / admin'))
-    initial_user_first_name = models.CharField(
-        _('initial user first name'), max_length=30,
-        help_text=_('Gets entered by system'))        
-    initial_user_last_name = models.CharField(
-        _('initial username last name'), max_length=30,
-        help_text=_('Gets entered by system'))
-
-    def __str__(self):
-        return self.name + self.symbols
-
-    def clean(self):
-        super().clean()  # Call the parent's clean method
-        self.clean_related_data()
 
     class Meta:
         ordering = ['name']
@@ -184,9 +148,6 @@ class UserProfile(LogAbstract, NotesAbstract):
 
     def __str__(self):
         return f'{self.user.last_name.upper()}, {self.user.first_name}'
-
-    def display_photo(self):
-        return display_photo(self.photo)
         
     def get_group_names(self):
         return [x.name for x in self.user.groups.all().order_by('name')]
@@ -214,6 +175,7 @@ class App(LogAbstract, NotesAbstract):
     ''' all available Apps
     '''
     name = models.CharField(max_length=100, unique=True)
+    is_mandatory = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
@@ -305,9 +267,12 @@ class TenantLocation(TenantAbstract):
         _("Logo"), upload_to="profile_photos/", blank=True, null=True,
         help_text=_("Logo used in website."))
 
+    def clean(self):
+        validate_tenant_location(self)
+        super().clean()
+
     def __str__(self):
         return f"{self.org_name} ({self.type}), {self.address}"
-
 
 
 class Year(TenantAbstract):

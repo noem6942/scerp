@@ -12,7 +12,6 @@ from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
 from .locales import APP
-from core.models import Tenant, TenantSetup, UserProfile
 from core.safeguards import (
     get_available_tenants, set_tenant, filter_query_for_tenant, save_logging)
 
@@ -289,11 +288,11 @@ class BaseAdmin(ModelAdmin):
 
         # Add additional sections like Notes and Logging
         return self.fieldsets + (
-            ('Notes and Status', {
+            (_('Notes and Status'), {
                 'fields': note_fields,
                 'classes': ('collapse',),
             }),
-            ('Logging', {
+            (_('Logging'), {
                 'fields': logging_fields,
                 'classes': ('collapse',),
             }),

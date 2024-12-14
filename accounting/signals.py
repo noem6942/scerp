@@ -47,11 +47,9 @@ def api_setup(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=FiscalPeriod)
-def fiscal_period(sender, instance, created, **kwargs):    
+def fiscal_period(sender, instance, created, **kwargs):
     ctrl = get_ctrl(instance)
-    if created:        
-        print("*", created)
-        # ctrl.create_fiscal_period(instance)
+    if created or not instance:        
+        ctrl.create_fiscal_period(instance)
     else:
-        print("**", created)
-        # ctrl.update_fiscal_period(instance)
+        ctrl.update_fiscal_period(instance)

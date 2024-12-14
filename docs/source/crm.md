@@ -1,27 +1,27 @@
-<!-- source/CRM Stammdaten.md -->
+<!-- source/Crm.md -->
 
-# CRM Stammdaten
+# Crm
 
 ## Beschreibung
-...
+
 
 ## Besonderheiten
-..
+
 - Easy to use
 - Written in Markdown
 - Integrated with Django
 
 ## Daten
-..
+
 - Easy to use
 - Written in Markdown
 - Integrated with Django
 
 ## Funktionen
-..
+
 - Easy to use
 - Written in Markdown
 - Integrated with Django
 
 ## Hinweise
-..
+

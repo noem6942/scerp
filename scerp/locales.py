@@ -11,6 +11,7 @@ class APP:
     APP_MODEL_ORDER = {
         'auth': {  # App label
             'symbol': '(A)',
+            'is_mandatory': True,
             'models': {  # Models order
                 'group': '1',
                 'user': '2',
@@ -18,6 +19,7 @@ class APP:
         },
         'core': {
             'symbol': '@',
+            'is_mandatory': True,
             'models': {                
                 'Tenant': '1',
                 'TenantLocation': '2',
@@ -27,11 +29,13 @@ class APP:
         },
         'crm': {
             'symbol': 'C',
+            'is_mandatory': True,
             'models': {                
             }
         },
         'meeting': {
             'symbol': 'M',
+            'is_mandatory': False,
             'models': {   
                 'Meeting': '1',
                 'Agenda': '2'           
@@ -39,6 +43,7 @@ class APP:
         }, 
         'vault': {
             'symbol': 'V',
+            'is_mandatory': False,
             'models': {  
                 'RegistrationPlanCanton': '1',
                 'RegistrationPositionCanton': '2'
@@ -46,6 +51,7 @@ class APP:
         },  
         'accounting': {
             'symbol': 'A',
+            'is_mandatory': False,
             'models': {
                 'APISetup': '0',
                 'Location': '10',
@@ -58,6 +64,7 @@ class APP:
         },
         'billing': {
             'symbol': 'B',
+            'is_mandatory': False,
             'models': {                
             }
         },            

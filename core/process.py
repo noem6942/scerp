@@ -1,4 +1,5 @@
 # core/process.py
+from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.models import Group, Permission
 from django.utils.text import slugify
@@ -8,7 +9,7 @@ import os
 from scerp.locales import APP
 from scerp.mixins import get_admin 
 
-from ._init_user_groups import USER_GROUPS
+from ._init_user_groups import ADMIN_GROUP_NAME, USER_GROUPS
 from ._init_markdown import MODULE_PAGE
 from .models import App
 
@@ -19,10 +20,11 @@ class AppSetup(object):
 
     def update_or_create(self):                
         admin = get_admin()
-        for app_name in APP.APP_MODEL_ORDER.keys():
+        for app_name, app_desc in APP.APP_MODEL_ORDER.items():
             if not App.objects.filter(name=app_name):
                 app = App(
                     name=app_name,
+                    is_mandatory=app_desc.get('is_mandatory'),
                     modified_by=admin,
                     created_by=admin)
                 app.save()            
@@ -76,8 +78,9 @@ class UserGroupSetup(object):
                         f"Permission '{perm}' does not exist.")            
             
             # Assign all permissions to admin  # TEMP!!!
-            if group_info['name'] == 'Admin':
-                admin_group = Group.objects.filter(name='Admin').first()  
+            if group_info['name'] == ADMIN_GROUP_NAME:
+                admin_group = Group.objects.filter(
+                    name=ADMIN_GROUP_NAME).first()  
                 all_permissions = Permission.objects.all()
                 for permission in all_permissions:
                     admin_group.permissions.add(permission)                
@@ -90,31 +93,42 @@ class DocumentationSetup(object):
     '''
         Manage documentation
     '''
-    def __init__(self, name):
+    def __init__(self, name=None):
         self.name = name
         
     def create_markdown(self):
         """Creates a markdown file with sections for description, features, data, functions, and notes."""
-        # Define the filename
-        name = self.name
-        filename = f"{slugify(name)}.md"        
+        # Init
+        EXTENSION = '.md'
+        if self.name:
+            # Define the filename
+            names = [self.name]
+        else:        
+            names = []
+            for app_name in APP.APP_MODEL_ORDER.keys():
+                app_config = apps.get_app_config(app_name)
+                names.append(app_config.verbose_name)   
 
-        # Gather information from the user
-        data = dict(
-            name=name,
-            description=input(f"Enter description for {name}: "),
-            features=input(f"Enter special features for {name}: "),
-            data=input(f"Enter data details for {name}: "),
-            functions=input(f"Enter functions for {name}: "),
-            notes=input(f"Enter notes for {name}: ")
-        )
+        # Create        
+        for name in names:
+            filename = f"{slugify(name)}{EXTENSION}"        
 
-        # Prepare the content for the Markdown file
-        content = MODULE_PAGE.format(**data)
+            # Gather information from the user
+            data = dict(
+                name=name,
+                description='',
+                features='',
+                data='',
+                functions='',
+                notes=''
+            )
 
-        # Write the content to the markdown file
-        filepath = os.path.join(settings.DOCS_SOURCE, filename)
+            # Prepare the content for the Markdown file
+            content = MODULE_PAGE.format(**data)
 
-        with open(filepath, 'w') as file:
-            file.write(content)
-    
+            # Write the content to the markdown file
+            filepath = os.path.join(settings.DOCS_SOURCE, filename)
+
+            with open(filepath, 'w') as file:
+                file.write(content)    
+            logger.info(f"Created {filename}{EXTENSION}")

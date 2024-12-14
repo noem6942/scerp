@@ -2,11 +2,11 @@
 from django.contrib import messages
 from django.contrib.auth.models import Group, Permission
 from django.utils.translation import gettext as _
+from django.utils import timezone
 
 import json
 import logging
 
-from core.safeguards import save_logging
 from scerp.admin import get_help_text
 from .api_cash_ctrl import API, FIELD_TYPE, CashCtrl
 from .models import APISetup, FiscalPeriod, Location
@@ -20,6 +20,16 @@ class Process(object):
         '''messages is admin.py messanger; if not giving logger is used
         '''
         self.api_setup = api_setup
+        self.timezone = timezone.get_current_timezone()
+    
+    def make_timeaware(self, naive_datetime):
+        timezone.make_aware(naive_datetime, self.timezone)
+        
+    def save_logging(self, obj):
+        obj.tenant = self.api_setup.tenant
+        if not obj.created_by:
+            obj.created_by = self.api_setup.modified_by
+        obj.modified_by = self.api_setup.modified_by
 
 
 class ProcessGenericAppCtrl(Process):
@@ -32,27 +42,23 @@ class ProcessCashCtrl(Process):
         '''messages is admin.py messanger; if not giving logger is used
         '''
         self.ctrl = CashCtrl(api_setup.org_name, api_setup.api_key)
+        
         super().__init__(api_setup)
-
-    def save_logging(self, obj):
-        obj.created_by = self.api_setup.created_by
-        obj.modified_by = self.api_setup.modified_by
-        obj.tenant = self.api_setup.tenant
 
     def save_application_logging(self, obj, data):
         obj.c_id = data['id']
         obj.c_created = data['created']
         obj.c_created_by = data['created_by']
-        obj.c_last_updated = data['last_updated']
-        obj.c_last_updated_by = data['last_updated_by']
-        self.save_logging(obj)
+        obj.c_last_updated = make_timeaware(data['last_updated'])
+        obj.c_last_updated_by = make_timeaware(data['last_updated_by'])
+        save_logging(obj)
 
+    # APISetup
     def init_custom_groups(self):
-        model = APISetup
         for field in self.api_setup.__dict__.keys():
             if field.startswith('custom_field_group_'):
                 # Get elems
-                data = json.loads(get_help_text(model, field))
+                data = json.loads(get_help_text(APISetup, field))
                 name = data['name']
                 type_ = data['type']
 
@@ -75,12 +81,11 @@ class ProcessCashCtrl(Process):
                     logger.info(msg)
 
     def init_custom_fields(self):
-        model = APISetup
         for field in self.api_setup.__dict__.keys():
             if (not field.startswith('custom_field_group_')
                     and field.startswith('custom_field_')):
                 # Get elems
-                data = json.loads(get_help_text(model, field))
+                data = json.loads(get_help_text(APISetup, field))
                 data['group'] = json.loads(data['group'])
 
                 # Get customfield
@@ -133,11 +138,7 @@ class ProcessCashCtrl(Process):
                 msg = _('Saved Fiscal Period {name}.').format(name=obj.name)
                 logger.info(msg)
 
-    def get_fiscal_period(self, name):
-        fiscal_periods = self.ctrl.list(API.fiscalperiod.value['url'])
-        return next(
-            (x for x in fiscal_periods if x['name'] == name), None)
-            
+    # FiscalPeriod
     def create_fiscal_period(self, obj):            
         # Create, we do is_custom=True, we don't assign type
         data = {
@@ -145,17 +146,32 @@ class ProcessCashCtrl(Process):
             'is_custom': True,
             'start': obj.start,
             'end': obj.end
-        }
+        }        
         fp = self.ctrl.create(API.fiscalperiod.value['url'], data)
-        if fp.get('success'):            
-            fp = self.get_fiscal_period(obj.name)
-            self.save_application_logging(obj, fp)
-            obj.save()
+        if fp.get('success'):         
+            # Get data
+            fiscal_periods = self.ctrl.list(API.fiscalperiod.value['url'])
+            period = next(
+                (x for x in fiscal_periods if x['name'] == obj.name), None)
+                
+            # Save    
+            if period:       
+                self.save_application_logging(obj, period)
+                obj.save()            
+            else:
+                raise Exception(f"Period '{obj.name}' not found.")
 
     def update_fiscal_period(self, obj):
-        data = self.get_fiscal_period(obj.name)
+        data = {
+            'id': obj.c_id,
+            'name': obj.name,
+            'is_custom': True,
+            'start': obj.start,
+            'end': obj.end
+        }
         fp = self.ctrl.update(API.fiscalperiod.value['url'], data)
 
+    # Location
     def init_locations(self):
         # Create in api_setuping
         if not Location.objects.filter(tenant=self.api_setup.tenant).exists():

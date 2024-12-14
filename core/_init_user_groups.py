@@ -1,8 +1,10 @@
 # core/init_user_groups.py
 
+ADMIN_GROUP_NAME = 'Admin'
+
 USER_GROUPS = [
     # Intern
-    {'name': 'Admin', 'permissions': []},  # must be first
+    {'name': ADMIN_GROUP_NAME, 'permissions': []},  # must be first
     {'name': 'Intern Leitung', 'permissions': []},
     {'name': 'Intern Kanzlei', 'permissions': []},
     {'name': 'Intern Einwohnerdienste', 'permissions': []},
