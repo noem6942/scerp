@@ -1,5 +1,6 @@
 # scerp/mixins.py
 from django.contrib.auth.models import User
+from django.utils import timezone
 from django.utils.text import slugify
 
 import re
@@ -7,6 +8,8 @@ from openpyxl import load_workbook
 
 
 # helpers, use this for all models in all apps
+timezone = timezone.get_current_timezone()
+
 
 # excel functions
 def read_excel_file(file_path, convert_to_str=True):
@@ -40,3 +43,7 @@ def is_url_friendly(name):
     slugified_name = slugify(name)
     # Check if the slugified name is non-empty and identical to the original, lowercased name
     return slugified_name == name.lower() and bool(slugified_name)
+
+
+def make_timeaware(naive_datetime):    
+    return timezone.make_aware(naive_datetime, timezone)

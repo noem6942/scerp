@@ -40,9 +40,10 @@ class ACCOUNT_TYPE(models.IntegerChoices):
 class APISetup(TenantAbstract):
     '''only restricted to admin!
         # triggers signals.py after creation!
+        org_name, application is unique (cashCtrl)
     '''
     org_name = models.CharField(
-        'org_name', max_length=100,
+        'org_name', max_length=100, unique=True,
         help_text='name of organization as used in cashCtrl domain')
     api_key = models.CharField(
         _('api key'), max_length=100, help_text=_('api key'))
@@ -107,6 +108,12 @@ class APISetup(TenantAbstract):
         return '*' * len(self.api_key)
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['application', 'org_name'],
+                name='unique_org_name_per_tenant'
+            )
+        ]        
         ordering = ['tenant__name',]
         verbose_name = _('Accounting Setup')
         verbose_name_plural = _('Accounting Setups')
@@ -210,6 +217,12 @@ class Location(AcctApp):
         return self.name
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__location'
+            )
+        ]        
         ordering = ['name']
         verbose_name = _("Location: Logo, Address, VAT, Codes, Formats etc. ")
         verbose_name_plural = f"⬇️ {verbose_name}"
@@ -248,6 +261,12 @@ class FiscalPeriod(AcctApp):
         fiscal_period_validate(self)
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__period'
+            )
+        ]        
         ordering = ['-start']
         verbose_name = _("Fiscal Period")
         verbose_name_plural = f"⬇️ {_('Fiscal Periods')}"
@@ -272,6 +291,12 @@ class Currency(AcctApp):
         return self.code
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__currency'
+            )
+        ]        
         ordering = ['code']
         verbose_name = _("Currency")
         verbose_name_plural = f"⬇️ {_('Currencies')}"
@@ -293,6 +318,12 @@ class Unit(AcctApp):
         return self.local_name
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__unit'
+            )
+        ]        
         ordering = ['name']
         verbose_name = _("Unit")
         verbose_name_plural = f"⬇️ {_('Units')}"
@@ -324,6 +355,12 @@ class Tax(AcctApp):
         return self.local_name
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__tax'
+            )
+        ]        
         ordering = ['number']
         verbose_name = _("Tax Rate")
         verbose_name_plural = f"⬇️ {_('Tax Rates')}"
@@ -343,9 +380,16 @@ class CostCenter(AcctApp):
         return self.local_name
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__cost_center'
+            )
+        ]        
         ordering = ['name']
         verbose_name = _("Cost Center")
         verbose_name_plural = f"⬇️ {_('Cost Centers')}"
+
 
 # Accounting Charts -----------------------------------------------------------
 '''
@@ -386,6 +430,12 @@ class ChartOfAccountsTemplate(LogAbstract, NotesAbstract):
         return f'{self.name}, V{self.chart_version}'
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['name', 'canton', 'category', 'chart_version'],
+                name='unique_chart_template'
+            )
+        ]        
         ordering = ['account_type', 'name']
         verbose_name = _('Chart of Accounts (Canton)')
         verbose_name_plural = _('Charts of Accounts (Canton)')
@@ -405,10 +455,19 @@ class ChartOfAccounts(TenantAbstract):
         on_delete=models.CASCADE, related_name='%(class)s_chart',
         help_text=_('Fiscal period, automatically updated in Fiscal Period'))      
 
+    def full_name(self):
+        return f'{self.name} {self.period.name}, V{self.chart_version}'
+        
     def __str__(self):
-        return f'{self.name}, V{self.chart_version}'
+        return self.full_name()
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['name', 'period'],
+                name='unique_name_period'
+            )
+        ]
         ordering = ['name']
         verbose_name = _('Chart of Accounts')
         verbose_name_plural = _('Charts of Accounts')
@@ -464,17 +523,15 @@ class AccountPositionTemplate(
     class Meta:        
         constraints = [
             models.UniqueConstraint(
-                fields=['chart', 'chart__account_type', 'account_number', 
-                        'is_category'],
+                fields=['chart', 'account_number', 'is_category'],
                 name='unique_account_position_canton'
-            )]
-        constraints = [
+            ),
             models.UniqueConstraint(
                 fields=['chart', 'number'],
                 name='unique_account_position_canton_number'
-            )]
-        ordering = [
-            'chart', 'chart__account_type', 'account_number',  '-is_category']
+            ),
+        ]
+        ordering = ['chart', 'account_number',  '-is_category']
         verbose_name = _('Account Position (Canton or Others)')
         verbose_name_plural = _('Account Positions (Canton or Others)')
 
@@ -537,12 +594,11 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
             models.UniqueConstraint(
                 fields=['chart', 'function', 'account_number', 'account_type'],
                 name='unique_account_position'
-            )]
-
-        constraints = [
+            ),
             models.UniqueConstraint(fields=['chart', 'number'],
                 name='unique_account_position_number'
-            )]        
+            )
+        ]        
         ordering = ['chart', 'account_type', 'function', 'account_number']
         verbose_name = ('Account Position (Municipality)')
         verbose_name_plural = _('Account Positions')        
@@ -580,6 +636,12 @@ class ArticleCategory(AcctApp):
         return f"{self.name} ({self.number})" if self.number else self.name
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__article'
+            )
+        ]        
         verbose_name = "Account Category"
         verbose_name_plural = "Account Categories"
         ordering = ['name']
@@ -697,5 +759,11 @@ class Article(AcctApp):
         return self.name
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup'
+            )
+        ]        
         verbose_name = "Article"
         verbose_name_plural = "Articles"

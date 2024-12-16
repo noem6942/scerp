@@ -1,34 +1,35 @@
 # import_accounts.py
-from .models import AccountPosition, ChartOfAccounts, FiscalPeriod
-from core.models import Tenant
 from scerp.mixins import get_admin
+from .models import APISetup, AccountPosition, ChartOfAccounts
 
 
-def save_accounts(accounts, tenant_code, chart_id, fiscal_period_name=None):        
+def save_accounts(accounts, tenant__code, org_name, chart_id):        
     # Init
     admin = get_admin()
-    chart = ChartOfAccounts.objects.get(id=chart_id)
-    tenant = Tenant.objects.get(code=tenant_code)
+    chart = ChartOfAccounts.objects.get(
+        tenant__code=tenant__code, id=chart_id)
     
-    # FiscalPeriod
-    if fiscal_period_name:
-        period = FiscalPeriod.objects.get(
-            tenant=tenant, name=fiscal_period_name)
+    tenant_setup = APISetup.objects.filter(
+        org_name=org_name,
+        tenant__code=tenant__code
+    ).first()
+    if tenant_setup:
+        tenant = tenant_setup.tenant
     else:
-        period = FiscalPeriod.objects.get(
-            tenant=tenant, is_current=True)
+        raise ValueError(f"No API Setup found for org_name: {org_name}")
         
     for account in accounts:
         # add mandatory fields
         account.update({
             'tenant': tenant,
+            'setup': tenant_setup,
             'created_by': admin,
             'modified_by': admin
         })
         
         # Delete existings
         AccountPosition.objects.filter(
-            tenant=tenant,
+            setup=tenant_setup,
             chart=chart,
             function=account['function'],
             account_number=account['account_number'],
@@ -40,7 +41,6 @@ def save_accounts(accounts, tenant_code, chart_id, fiscal_period_name=None):
         account_position = AccountPosition(chart=chart, **account)        
         try:
             account_position.save()
-            account_position.periods.add(period)
         except Exception as e:
             # Print the error to the console
             print(f"Record: {account}")

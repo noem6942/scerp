@@ -2,13 +2,12 @@
 from django.contrib import messages
 from django.contrib.auth.models import Group, Permission
 from django.utils.translation import gettext as _
-from django.utils import timezone
 
 import json
 import logging
 
 from scerp.admin import get_help_text
-from scerp.mixins import get_admin     
+from scerp.mixins import get_admin, make_timeaware 
 from .api_cash_ctrl import API, FIELD_TYPE, CashCtrl
 from .models import (
     APISetup, FiscalPeriod, Location, Currency, Unit, Tax, CostCenter)
@@ -21,12 +20,8 @@ class Process(object):
     def __init__(self, api_setup):
         '''messages is admin.py messanger; if not giving logger is used
         '''
-        self.api_setup = api_setup
-        self.timezone = timezone.get_current_timezone()
+        self.api_setup = api_setup        
         self.admin = get_admin()
-    
-    def make_timeaware(self, naive_datetime):
-        return timezone.make_aware(naive_datetime, self.timezone)
       
     def add_logging(self, data):
         data['setup'] = self.api_setup   
@@ -53,26 +48,6 @@ class ProcessCashCtrl(Process):
         self.ctrl = CashCtrl(api_setup.org_name, api_setup.api_key)
         
         super().__init__(api_setup)
-
-    def add_application_logging(self, data):
-        print("***1")
-        data.update({
-            'c_id': data.pop('id'),
-            'c_created': self.make_timeaware(data.pop('created')),
-            'c_created_by': data.pop('created_by'),
-            'c_last_updated': self.make_timeaware(data.pop('last_updated')),
-            'c_last_updated_by': data.pop('last_updated_by')
-        })
-        print("***2")
-        self.add_logging(data)
-
-    def save_application_logging(self, obj, data):
-        self.add_logging(data)
-        obj.c_id = data['id']
-        obj.c_created = data['created']
-        obj.c_created_by = data['created_by']
-        obj.c_last_updated = self.make_timeaware(data['last_updated'])
-        obj.c_last_updated_by = self.make_timeaware(data['last_updated_by'])
 
     # APISetup
     def init_custom_groups(self):
@@ -136,68 +111,11 @@ class ProcessCashCtrl(Process):
                         group_name=data['group']['name'])
                     logger.info(msg)
 
-    def init_fiscal_periods(self):
-        # Get Periods
-        fiscal_periods = self.ctrl.list(API.fiscalperiod.value['url'])
-
-        # Assign Periods
-        for data in fiscal_periods:
-            if not FiscalPeriod.objects.filter(c_id=data['id']).exists():
-                # Create
-                obj = FiscalPeriod(
-                    name=data['name'],
-                    start=data['start'].date(),
-                    end=data['end'].date(),
-                    is_closed=data['is_closed'],
-                    is_current=data['is_current'])
-
-                # Save
-                self.save_application_logging(obj, data)
-                obj.save()
-
-                # Message
-                msg = _('Saved Fiscal Period {name}.').format(name=obj.name)
-                logger.info(msg)
-
-    # FiscalPeriod
-    def create_fiscal_period(self, obj):            
-        # Create, we do is_custom=True, we don't assign type
-        data = {
-            'name': obj.name,
-            'is_custom': True,
-            'start': obj.start,
-            'end': obj.end
-        }        
-        fp = self.ctrl.create(API.fiscalperiod.value['url'], data)
-        if fp.get('success'):         
-            # Get data
-            fiscal_periods = self.ctrl.list(API.fiscalperiod.value['url'])
-            period = next(
-                (x for x in fiscal_periods if x['name'] == obj.name), None)
-                
-            # Save    
-            if period:       
-                self.save_application_logging(obj, period)
-                obj.save()            
-            else:
-                raise Exception(f"Period '{obj.name}' not found.")
-
-    def update_fiscal_period(self, obj):
-        data = {
-            'id': obj.c_id,
-            'name': obj.name,
-            'is_custom': True,
-            'start': obj.start,
-            'end': obj.end
-        }
-        fp = self.ctrl.update(API.fiscalperiod.value['url'], data)
-
-    # Location
+    # Handle cashCtrl push
     def push_accounting_data(self, api_class, model):
         # Get data
 
         data_list = self.ctrl.list(api_class.url)
-        print("*d", data_list)     
  
         # Init
         created, updated = 0, 0
@@ -209,10 +127,9 @@ class ProcessCashCtrl(Process):
             # Clean basics
             data.update({
                 'c_id': data.pop('id'),
-                'c_created': self.make_timeaware(data.pop('created')),
+                'c_created': make_timeaware(data.pop('created')),
                 'c_created_by': data.pop('created_by'),
-                'c_last_updated': self.make_timeaware(
-                    data.pop('last_updated')),
+                'c_last_updated': make_timeaware(data.pop('last_updated')),
                 'c_last_updated_by': data.pop('last_updated_by')
             })                       
             

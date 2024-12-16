@@ -301,21 +301,22 @@ class AccountPositionAbstractAdmin(BaseAdmin):
         
 @admin.register(AccountPositionTemplate, site=admin_site) 
 class AccountPositionTemplateAdmin(AccountPositionAbstractAdmin):
-    has_tenant_field = False       
-    list_display = ('category_number', 'position_number', 'name', )
-    list_filter = (        
-        'chart__account_type', 
-        'chart__canton', 'chart__chart_version', 'chart')    
-    actions = [a.apc_export_balance, a.apc_export_function_to_income,
-               a.apc_export_function_to_invest, a.position_insert]
+        has_tenant_field = False       
+        list_display = ('category_number', 'position_number', 'name', )
+        list_filter = (        
+            'chart__account_type', 
+            'chart__canton', 'chart__chart_version', 'chart')    
+        actions = [a.apc_export_balance, a.apc_export_function_to_income,
+                   a.apc_export_function_to_invest, a.position_insert]
 
 
 @admin.register(ChartOfAccounts, site=admin_site) 
 class ChartOfAccountsAdmin(BaseAdmin):
     has_tenant_field = True
-    list_display = ('name', 'chart_version', 'period', 'link_to_positions')    
+    list_display = (
+        'display_name', 'chart_version', 'period', 'link_to_positions')    
     search_fields = ('name',)
-    readonly_fields = ('period',)
+    # readonly_fields = ('period',)
     
     fieldsets = (
         (None, {
@@ -323,6 +324,10 @@ class ChartOfAccountsAdmin(BaseAdmin):
             'classes': ('expand',),            
         }),
     )
+
+    @admin.display(description=_('Position Nr.'))
+    def display_name(self, obj):
+        return obj.full_name()
 
     @admin.display(description=_('Show positions'))
     def link_to_positions(self, obj):
@@ -339,12 +344,15 @@ class ChartOfAccountsAdmin(BaseAdmin):
 
 @admin.register(AccountPosition, site=admin_site) 
 class AccountPositionAdmin(AccountPositionAbstractAdmin):
-    has_tenant_field = True
+    has_tenant_field = True    
+    
     list_display = (
         'display_function', 'position_number', 'name', 'display_balance',
         'display_budget', 'display_previous')    
     list_filter = ('account_type', 'chart', 'responsible')
     readonly_fields = ('balance', 'budget', 'previous')
+    list_per_page = 500  # Show 500 results per page
+    
     fieldsets = (
         (None, {
             'fields': ('account_type', 'account_number', 'function', 
