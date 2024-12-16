@@ -10,24 +10,27 @@ from core.safeguards import get_tenant
 from scerp.admin import (
     admin_site, BaseAdmin, display_empty, display_verbose_name,
     display_datetime, display_big_number)
-    
+
 from .models import (
-    APISetup, Location, FiscalPeriod, Currency, ChartOfAccountsTemplate,
+    APISetup, Location, FiscalPeriod, Currency, Unit, Tax, CostCenter,
+    ChartOfAccountsTemplate,
     AccountPositionTemplate, ChartOfAccounts, AccountPosition,
-    CostCenter, TaxRate, ACCOUNT_TYPE
+    ACCOUNT_TYPE
 )
 
 from . import actions as a
 from scerp.admin import verbose_name_field
 
 
-CASH_CTRL_FIELDS = [
-    'c_id', 
-    'c_created', 
-    'c_created_by', 
-    'c_last_updated', 
-    'c_last_updated_by'
-]
+class CASH_CTRL:
+    FIELDS = [
+        'c_id', 
+        'c_created', 
+        'c_created_by', 
+        'c_last_updated', 
+        'c_last_updated_by'
+    ]
+    WARNING_READ_ONLY = _("Read only model. <i>Use cashControl for edits!</i>")
 
 
 @admin.register(APISetup, site=admin_site) 
@@ -70,14 +73,22 @@ class CashCtrlAdmin(BaseAdmin):
         # Get readonly fields from parent
         readonly_fields = super().get_readonly_fields(request, obj)          
         readonly_fields = list(readonly_fields)  # Ensure it's mutable
-        readonly_fields.extend(CASH_CTRL_FIELDS)  # Add custom readonly fields
+        
+        # Adjust readonly_fields
+        if getattr(self, 'is_readonly'):
+            all_fields = [
+                field.name for field in self.model._meta.get_fields()]
+            readonly_fields.extend(all_fields)
+        else:
+            readonly_fields.extend(CASH_CTRL.FIELDS)  # Add custom readonly fields
+            
         return readonly_fields
 
     def get_fieldsets(self, request, obj=None):
         # Add additional sections like Notes and Logging
         return super().get_fieldsets(request, obj) + (
             ('CashCtrl', {
-                'fields': CASH_CTRL_FIELDS,
+                'fields': CASH_CTRL.FIELDS,
                 'classes': ('collapse',),
             }),
         )        
@@ -85,14 +96,21 @@ class CashCtrlAdmin(BaseAdmin):
 @admin.register(Location, site=admin_site) 
 class Location(CashCtrlAdmin):
     has_tenant_field = True
-    list_display = ('name', 'vat_uid')
-    search_fields = ('name', 'vat_uid')
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
     
+    list_display = ('name', 'type', 'vat_uid', 'c_last_updated')
+    search_fields = ('name', 'vat_uid')
+    list_filter = ('setup', 'type')  
+
     fieldsets = (
+        # Organization Details
         (None, {
-            'fields': ('name', ),
+            'fields': (
+                'name', 'type', 'address', 'zip', 'city',
+                'country', 'logo'),
             'classes': ('expand',),            
-        }),   
+        }),     
         
         # Accounting Information
         (_('Accounting Information'), {
@@ -107,14 +125,18 @@ class Location(CashCtrlAdmin):
             'fields': ('logo_file_id', 'footer'),
             'classes': ('collapse',),            
         }),    
-    )
+    )         
 
 
 @admin.register(FiscalPeriod, site=admin_site) 
 class FiscalPeriodAdmin(CashCtrlAdmin):
-    list_display = ('name', 'start', 'end', 'is_current')
+    has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    
+    list_display = ('name', 'start', 'end', 'is_current', 'c_last_updated')
     search_fields = ('name', 'start', 'end', 'is_current')
-    readonly_fields = ('is_current',)
+    list_filter = ('setup',)  
     actions = [a.fiscal_period_set_current] 
     
     fieldsets = (
@@ -126,36 +148,96 @@ class FiscalPeriodAdmin(CashCtrlAdmin):
     
 
 @admin.register(Currency, site=admin_site) 
-class CurrencyAdmin(BaseAdmin):
+class CurrencyAdmin(CashCtrlAdmin):
     has_tenant_field = True
-    list_display = ('code', 'is_default')
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    readonly_fields = ('display_description',)
+    
+    list_display = ('code', 'is_default', 'rate', 'c_last_updated')
     search_fields = ('code',)        
+    list_filter = ('setup',)  
     
     fieldsets = (
         (None, {
-            'fields': ('code', 'description'),
+            'fields': (
+                'code', 'display_description', 'is_default', 'rate', 'index'),
+            'classes': ('expand',),            
+        }),
+    )    
+    
+    @admin.display(description=_('description'))
+    def display_description(self, obj):
+        return obj.local_description   
+
+
+@admin.register(Unit, site=admin_site) 
+class UnitAdmin(CashCtrlAdmin):
+    has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    readonly_fields = ('display_name',)
+    
+    list_display = ('display_name', 'is_default', 'c_last_updated')
+    search_fields = ('name',)       
+    list_filter = ('setup',)   
+    
+    fieldsets = (
+        (None, {
+            'fields': ('display_name', 'is_default'),
             'classes': ('expand',),            
         }),
     )    
 
+    @admin.display(description=_('name'))
+    def display_name(self, obj):
+        return obj.local_name
+
+
+@admin.register(Tax, site=admin_site) 
+class TaxAdmin(CashCtrlAdmin):
+    has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    readonly_fields = ('display_name',)
+    
+    list_display = ('display_name', 'percentage', 'c_last_updated')
+    search_fields = ('name',)        
+    list_filter = ('setup',)  
+    
+    fieldsets = (
+        (None, {
+            'fields': ('display_name', 'percentage'),
+            'classes': ('expand',),            
+        }),
+    )    
+
+    @admin.display(description=_('name'))
+    def display_name(self, obj):
+        return obj.local_name
+
 
 @admin.register(CostCenter, site=admin_site) 
-class CostCenterAdmin(BaseAdmin):    
+class CostCenterAdmin(CashCtrlAdmin):    
     has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    readonly_fields = ('display_name',)  
 
-    list_display = ['name', 'number']
-    search_fields = ['number']
+    list_display = ['display_name', 'number', 'c_last_updated']
+    search_fields = ['display_name', 'number']
+    list_filter = ('setup',)  
 
     fieldsets = (
         (None, {
-            'fields': ('name',),
+            'fields': ('display_name', 'number'),
             'classes': ('expand',),            
         }),     
-        (_('Details'), {
-            'fields': ('number',),
-            'classes': ('expand',),            
-        })
     )
+
+    @admin.display(description=_('name'))
+    def display_name(self, obj):
+        return obj.local_name
 
 
 @admin.register(ChartOfAccountsTemplate, site=admin_site) 
@@ -194,7 +276,7 @@ class ChartOfAccountsTemplateAdmin(BaseAdmin):
 class AccountPositionAbstractAdmin(BaseAdmin):
     list_display_links = ('name',)
     search_fields = (
-        'account_number', 'name', 'notes')    
+        'account_number', 'name', 'notes', 'number')    
     readonly_fields = ('chart', 'number')
     
     fieldsets = (
@@ -298,17 +380,3 @@ class AccountPositionAdmin(AccountPositionAbstractAdmin):
     @admin.display(description=_('previous'))
     def display_previous(self, obj):
         return display_big_number(obj.previous)
-
-
-@admin.register(TaxRate, site=admin_site) 
-class TaxRateAdmin(BaseAdmin):
-    has_tenant_field = True
-    list_display = ('name', 'percentage')
-    search_fields = ('name', 'percentage')
-
-    fieldsets = (
-        (None, {
-            'fields': ('name', 'percentage', 'account'),
-            'classes': ('expand',),            
-        }),       
-    )

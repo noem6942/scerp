@@ -2,7 +2,6 @@ from django.contrib.auth.models import Group
 from django.db import models
 
 # from core.models import TenantAbstract, to be done later
-from core.models import TenantLocation
 from crm.models import Building
 #from vault.models import RegistrationPosition
 
@@ -19,9 +18,11 @@ class Meeting(models.Model):
         related_name='meeting')     
         
     # Details    
+    ''' move to CRM
     place = models.ForeignKey(
         TenantLocation, on_delete=models.CASCADE, 
         related_name='place')   
+    '''
     president  = models.ForeignKey(
         Group, null=True, blank=True, on_delete=models.SET_NULL, 
         related_name='president')        

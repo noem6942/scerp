@@ -8,8 +8,10 @@ import json
 import logging
 
 from scerp.admin import get_help_text
+from scerp.mixins import get_admin     
 from .api_cash_ctrl import API, FIELD_TYPE, CashCtrl
-from .models import APISetup, FiscalPeriod, Location
+from .models import (
+    APISetup, FiscalPeriod, Location, Currency, Unit, Tax, CostCenter)
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
@@ -21,15 +23,22 @@ class Process(object):
         '''
         self.api_setup = api_setup
         self.timezone = timezone.get_current_timezone()
+        self.admin = get_admin()
     
     def make_timeaware(self, naive_datetime):
-        timezone.make_aware(naive_datetime, self.timezone)
-        
-    def save_logging(self, obj):
-        obj.tenant = self.api_setup.tenant
-        if not obj.created_by:
-            obj.created_by = self.api_setup.modified_by
-        obj.modified_by = self.api_setup.modified_by
+        return timezone.make_aware(naive_datetime, self.timezone)
+      
+    def add_logging(self, data):
+        data['setup'] = self.api_setup   
+            
+        if not data.get('tenant'):
+            data['tenant'] = self.api_setup.tenant
+
+        if not data.get('created_by'):
+            data['created_by'] = self.admin
+
+        if not data.get('modified_by'):
+            data['modified_by'] = self.admin   
 
 
 class ProcessGenericAppCtrl(Process):
@@ -45,13 +54,25 @@ class ProcessCashCtrl(Process):
         
         super().__init__(api_setup)
 
+    def add_application_logging(self, data):
+        print("***1")
+        data.update({
+            'c_id': data.pop('id'),
+            'c_created': self.make_timeaware(data.pop('created')),
+            'c_created_by': data.pop('created_by'),
+            'c_last_updated': self.make_timeaware(data.pop('last_updated')),
+            'c_last_updated_by': data.pop('last_updated_by')
+        })
+        print("***2")
+        self.add_logging(data)
+
     def save_application_logging(self, obj, data):
+        self.add_logging(data)
         obj.c_id = data['id']
         obj.c_created = data['created']
         obj.c_created_by = data['created_by']
-        obj.c_last_updated = make_timeaware(data['last_updated'])
-        obj.c_last_updated_by = make_timeaware(data['last_updated_by'])
-        save_logging(obj)
+        obj.c_last_updated = self.make_timeaware(data['last_updated'])
+        obj.c_last_updated_by = self.make_timeaware(data['last_updated_by'])
 
     # APISetup
     def init_custom_groups(self):
@@ -172,12 +193,84 @@ class ProcessCashCtrl(Process):
         fp = self.ctrl.update(API.fiscalperiod.value['url'], data)
 
     # Location
-    def init_locations(self):
-        # Create in api_setuping
-        if not Location.objects.filter(tenant=self.api_setup.tenant).exists():
-            loc = Location(name=_('VAT (1)'))
-            self.save_logging(loc)
-            loc.save()
+    def push_accounting_data(self, api_class, model):
+        # Get data
 
-        # Create in CashCtrl
-        pass
+        data_list = self.ctrl.list(api_class.url)
+        print("*d", data_list)     
+ 
+        # Init
+        created, updated = 0, 0
+        instance = model()
+        model_keys = instance.__dict__.keys()  
+
+        # Parse
+        for data in data_list:
+            # Clean basics
+            data.update({
+                'c_id': data.pop('id'),
+                'c_created': self.make_timeaware(data.pop('created')),
+                'c_created_by': data.pop('created_by'),
+                'c_last_updated': self.make_timeaware(
+                    data.pop('last_updated')),
+                'c_last_updated_by': data.pop('last_updated_by')
+            })                       
+            
+            # Remove keys not needed
+            for key in list(data.keys()):
+                if key  not in model_keys:
+                    data.pop(key)  
+
+            # Add logging info
+            self.add_logging(data)
+            
+            # Update or create
+            _obj, created = model.objects.update_or_create(
+                tenant=self.api_setup.tenant,
+                setup=data.pop('setup'),
+                c_id=data.pop('c_id'),
+                defaults=data)
+            if created:
+                created += 1
+            else:
+                updated += 1
+        
+        # Message    
+        msg = _('{total} {verbose_name_plural}, updated {updated}, '
+                'created {created}')
+        logger.info(msg.format(
+            verbose_name_plural = model._meta.verbose_name_plural,
+            total=created + updated, 
+            created=created, 
+            updated=updated))         
+        
+        return created, updated
+ 
+    def get_locations(self):
+        # Get and update all locations
+        created, updated = self.push_accounting_data(API.Location, Location)
+        
+    def get_fiscal_periods(self):
+        # Get and update all fiscal periods
+        created, updated = self.push_accounting_data(
+            API.FiscalPeriod, FiscalPeriod)
+            
+    def get_currencies(self):
+        # Get and update all currencies
+        created, updated = self.push_accounting_data(
+            API.Currency, Currency)
+            
+    def get_units(self):
+        # Get and update all units
+        created, updated = self.push_accounting_data(
+            API.Unit, Unit)
+            
+    def get_tax(self):
+        # Get and update all tax rates
+        created, updated = self.push_accounting_data(
+            API.Tax, Tax)
+            
+    def get_cost_centere(self):
+        # Get and update all cost centers
+        created, updated = self.push_accounting_data(
+            API.AccountCostCenter, CostCenter)

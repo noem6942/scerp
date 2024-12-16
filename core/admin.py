@@ -5,8 +5,7 @@ from django.contrib.auth.models import User, Group
 from django.utils.translation import gettext_lazy as _
 
 from scerp.admin import admin_site, BaseAdmin, display_photo as display_photo_h
-from ._init_tenant import tenant_create_post_action
-from .models import Tenant, TenantSetup, TenantLocation, UserProfile
+from .models import Tenant, TenantSetup, UserProfile
 
 
 # Register User, Group
@@ -97,19 +96,3 @@ class TenantSetupAdmin(BaseAdmin):
     @admin.display(description=_('logo'))
     def display_logo(self, obj):
         return display_photo_h(obj.logo)    
-
-
-@admin.register(TenantLocation, site=admin_site) 
-class TenantLocationAdmin(BaseAdmin):    
-    has_tenant_field = True
-    list_display = ('org_name', 'type',)
-    search_fields = ('org_name', 'type',)
-    
-    fieldsets = (
-        # Organization Details
-        (None, {
-            'fields': (
-                'org_name', 'type', 'address', 'zip', 'city', 'country', 'logo'),
-            'classes': ('expand',),            
-        }),
-    ) 

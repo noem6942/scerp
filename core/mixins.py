@@ -17,8 +17,10 @@ def validate_tenant(obj):
 
 
 # TenantLocation
-def validate_tenant_location(obj):
-    """Validate Tenant"""
+def validate_tenant_setup(obj):
+    """Validate Tenant Setup"""
+    MAX_SIZE_KB = 400  # unit: KB
+    MAX_RESOLUTION = (2500, 2500)
 
     # Logo
     if obj.logo:  # Ensure a logo is uploaded before validation
@@ -28,16 +30,16 @@ def validate_tenant_location(obj):
             msg = _("Unsupported file type. Only JPG, GIF, and PNG are allowed.")
             raise ValidationError(msg)
 
-        # Validate that the file size does not exceed 400KB.
-        max_size_kb = 400
+        # Validate that the file size does not exceed MAX_SIZE_KB.
         if obj.logo.size > max_size_kb * 1024:
-            raise ValidationError(_(f"File size exceeds 400KB."))
+            raise ValidationError(_(f"File size exceeds {MAX_SIZE_KB}KB."))
 
-        # Validate that the image resolution does not exceed 2500x2500 pixels.
-        max_resolution = (2500, 2500)
+        # Validate that the image resolution does not exceed 2500x2500 pixels.        
         try:
             img = Image.open(obj.logo)
-            if img.width > max_resolution[0] or img.height > max_resolution[1]:
-                raise ValidationError(_("Image resolution exceeds 2500x2500 pixels."))
+            if img.width > MAX_RESOLUTION[0] or img.height > MAX_RESOLUTION[1]:
+                raise ValidationError(
+                    _("Image resolution exceeds "
+                      f"{MAX_RESOLUTION[0]} * {MAX_RESOLUTION[1]} pixels."))
         except Exception:
             raise ValidationError(_("Invalid image file."))

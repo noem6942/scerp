@@ -23,7 +23,7 @@ SPACE = '\u00a0'  # invisible space
 LOGGING_FIELDS = [
     'created_at', 'created_by', 'modified_at', 'modified_by']
 NOTES_FIELDS = [
-    'notes', 'attachment', 'protected', 'inactive']
+    'notes', 'attachment', 'protected', 'is_inactive']
 TENANT_FIELD = 'tenant'
 
 TEXTAREA_DEFAULT = {
@@ -310,6 +310,18 @@ class BaseAdmin(ModelAdmin):
         if getattr(self, 'has_tenant_field', False):
             readonly_fields.extend([TENANT_FIELD]) 
         return readonly_fields
+
+    def changelist_view(self, request, extra_context=None):
+        """
+        Show warning for a model if specified
+        """
+        if getattr(self, 'warning', ''):
+            messages.warning(request, mark_safe(self.warning))
+        if getattr(self, 'info', ''):
+            messages.info(request, mark_safe(self.info))     
+        if getattr(self, 'error', ''):
+            messages.error(request, mark_safe(self.error))             
+        return super().changelist_view(request, extra_context=extra_context)   
 
     # security
     def get_queryset(self, request):

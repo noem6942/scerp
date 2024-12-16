@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from scerp.locales import CANTON_CHOICES
-from .mixins import validate_tenant, validate_tenant_location
+from .mixins import validate_tenant, validate_tenant_setup
 
 
 class CITY_CATEGORY(models.TextChoices):
@@ -54,13 +54,14 @@ class NotesAbstract(models.Model):
     protected = models.BooleanField(
         _('protected'), default=False,
         help_text=_('item must not be changed anymore'))
-    inactive = models.BooleanField(
-        _('inactive'), default=False,
+    is_inactive = models.BooleanField(
+        _('is inactive'), default=False,
         help_text=_('item is not active anymore (but not permanently deleted)'),)
 
     @property
     def symbols(self):
         # add protection symbol to __str__
+        ''' move to admin.py later '''
         symbols = ''
         if self.notes:
             symbols += ' \u270D'
@@ -68,7 +69,7 @@ class NotesAbstract(models.Model):
             symbols += ' \U0001F4CE'
         if self.protected:
             symbols += ' \U0001F512'
-        if self.inactive:
+        if self.is_inactive:
             symbols += ' \U0001F6AB'
 
         return symbols
@@ -209,7 +210,7 @@ class TenantSetup(TenantAbstract):
     users = models.ManyToManyField(
         UserProfile, verbose_name=_('users'),
         help_text=_('users for this organization'))
-    logo = models.ImageField(  # remove later
+    logo = models.ImageField(
         _('logo'), upload_to='profile_photos/',
         blank=True, null=True,
         help_text=_('logo used in website'))
@@ -220,59 +221,14 @@ class TenantSetup(TenantAbstract):
     def __str__(self):
         return self.tenant.name + self.symbols
 
-    def display_logo(self):
-        return display_photo(self.logo)
+    def clean(self):
+        validate_tenant_setup(self)
+        super().clean()
 
     class Meta:
         ordering = ['tenant__name']
         verbose_name = _('tenant setup')
         verbose_name_plural =  _('tenant setups')
-
-
-class TenantLocation(TenantAbstract):
-    """
-    Model for managing tenant-specific locations.
-    """
-    class Type(models.TextChoices):
-        MAIN = "MAIN", _("Headquarters")
-        BRANCH = "BRANCH", _("Branch Office")
-        STORAGE = "STORAGE", _("Storage Facility")
-        OTHER = "OTHER", _("Other / Tax")
-
-    # Mandatory field
-    org_name = models.CharField(
-        _("Organization Name"), max_length=250,
-        help_text=_("A name to describe and identify the location."))
-    type = models.CharField(
-        _("Type"), max_length=50, choices=Type.choices, default=Type.MAIN,
-        help_text=_("The type of location. Defaults to MAIN."))
-
-    # Optional fields
-    address = models.TextField(
-        _("Address"), max_length=250, blank=True, null=True,
-        help_text=_("The address of the location (street, house number, "
-                    "additional info)."))
-    zip = models.CharField(
-        _("ZIP Code"), max_length=10, blank=True, null=True,
-        help_text=_("The postal code of the location."))
-    city = models.CharField(
-        _("City"), max_length=100, blank=True, null=True,
-        help_text=_("The town / city of the location."))
-    country = models.CharField(
-        _("Country"), max_length=3, default="CHE",
-        help_text=_("The country of the location, as an ISO 3166-1 alpha-3 code."))
-
-    # Layout
-    logo = models.ImageField(
-        _("Logo"), upload_to="profile_photos/", blank=True, null=True,
-        help_text=_("Logo used in website."))
-
-    def clean(self):
-        validate_tenant_location(self)
-        super().clean()
-
-    def __str__(self):
-        return f"{self.org_name} ({self.type}), {self.address}"
 
 
 class Year(TenantAbstract):

@@ -175,50 +175,133 @@ CUSTOM_FIELDS = [
 ]
 
 
-class API(Enum):
+class API:
     # Common
-    currency = {'url': 'currency/', 'actions': ['list']}
-    customfield = {'url': 'customfield/', 'actions': ['list', 'create'],
-                   'params': {'type': 'ACCOUNT'}}
-    customfield_group = {'url': 'customfield/group/', 'actions': ['list'],
-                   'params': {'type': 'ACCOUNT'}}
-    rounding = {'url': 'rounding/', 'actions': ['list']}
-    sequencenumber = {'url': 'sequencenumber/', 'actions': ['list']}
-    tax = {'url': 'tax/', 'actions': ['list']}
-    text = {'url': 'text/', 'actions': ['list'],
-                   'params': {'type': 'ORDER_ITEM'}}
+    class Currency:
+        url = 'currency/'
+        actions = ['list']
+
+    class CurrencyLower:
+        url = 'currency/'
+        actions = ['list']
+
+    class CustomField:
+        url = 'customfield/'
+        actions = ['list', 'create']
+        params = {'type': 'ACCOUNT'}
+
+    class CustomFieldGroup:
+        url = 'customfield/group/'
+        actions = ['list']
+        params = {'type': 'ACCOUNT'}
+
+    class Rounding:
+        url = 'rounding/'
+        actions = ['list']
+
+    class SequenceNumber:
+        url = 'sequencenumber/'
+        actions = ['list']
+
+    class Tax:
+        url = 'tax/'
+        actions = ['list']
+
+    class Text:
+        url = 'text/'
+        actions = ['list']
+        params = {'type': 'ORDER_ITEM'}
 
     # Meta
-    fiscalperiod = {'url': 'fiscalperiod/', 'actions': ['list']}
-    location = {'url': 'location/', 'actions': ['list']}
-    setting = {'url': 'setting/', 'actions': ['read']}
+    class FiscalPeriod:
+        url = 'fiscalperiod/'
+        actions = ['list']
+
+    class Location:
+        url = 'location/'
+        actions = ['list', 'create']
+
+    class Setting:
+        url = 'setting/'
+        actions = ['read']
 
     # File
-    file = {'url': 'file/', 'actions': ['list']}
-    file_category = {'url': 'file/category/', 'actions': ['list']}
+    class File:
+        url = 'file/'
+        actions = ['list']
 
-    # Accounts
-    account = {'url': 'account/', 'actions': ['list']}
-    account_category = {'url': 'account/category/', 'actions': ['list']}
+    class FileCategory:
+        url = 'file/category/'
+        actions = ['list']
 
+    # Account
+    class Account:
+        url = 'account/'
+        actions = ['list']
+
+    class AccountCategory:
+        url = 'account/category/'
+        actions = ['list']
+
+    class AccountCostCenter:
+        url = 'account/costcenter/'
+        actions = ['list']
+     
     # Inventory
-    article = {'url': 'inventory/article/', 'actions': ['list']}
-    article_category = {'url': 'inventory/article/category/', 'actions': ['list']}
-    asset = {'url': 'inventory/asset/', 'actions': ['list']}
-    asset_category = {'url': 'inventory/asset/category/', 'actions': ['list']}
-    unit = {'url': 'inventory/unit/', 'actions': ['list']}
+    class Article:
+        url = 'inventory/article/'
+        actions = ['list']
+
+    class ArticleCategory:
+        url = 'inventory/article/category/'
+        actions = ['list']
+
+    class Asset:
+        url = 'inventory/asset/'
+        actions = ['list']
+
+    class AssetCategory:
+        url = 'inventory/asset/category/'
+        actions = ['list']
+
+    class Unit:
+        url = 'inventory/unit/'
+        actions = ['list']
 
     # Orders
-    order = {'url': 'order/', 'actions': ['list']}
-    # order_bookentry = {'url': 'order/bookentry/', 'actions': ['list']}  # not working ever used?
-    order_category = {'url': 'order/category/', 'actions': ['list']}
-    document = {'url': 'order/document/', 'actions': ['read']}  # The ID of the order.
-    template = {'url': 'order/template/', 'actions': ['read']}  # The ID of the entry.
+    class Order:
+        url = 'order/'
+        actions = ['list']
+
+    class OrderBookEntry:
+        url = 'order/bookentry/'
+        actions = ['list']  # not working ever used?
+
+    class OrderCategory:
+        url = 'order/category/'
+        actions = ['list']
+
+    class Document:
+        url = 'order/document/'
+        actions = ['read']  # The ID of the order.
+
+    class Template:
+        url = 'order/template/'
+        actions = ['read']  # The ID of the entry.
 
     # Person
-    person = {'url': 'person/', 'actions': ['list']}
-    person_category = {'url': 'person/category/', 'actions': ['list']}
-    person_title = {'url': 'person/title/', 'actions': ['list']}
+    class Person:
+        url = 'person/'
+        actions = ['list']
+
+    class PersonCategory:
+        url = 'person/category/'
+        actions = ['list']
+
+    class PersonTitle:
+        url = 'person/title/'
+        actions = ['list']
+
 
 
 class API_PROJECT(Enum):
@@ -234,14 +317,14 @@ class CashCtrl(object):
     def __init__(self, org, api_key):
         self.org = org
         self.auth = (api_key, '')
-        
+
     @staticmethod
     def str_to_dt(dt_string):
-        '''Convert to a datetime object 
+        '''Convert to a datetime object
             dt_string = '2024-10-14 09:58:33.0'
         '''
         return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S.%f')
-    
+
     # Xml <-> JSON
     @staticmethod
     def clean_value(value):
@@ -251,7 +334,7 @@ class CashCtrl(object):
         else:
             # Return original value
             return value
-    
+
     @staticmethod
     def value_to_xml(value):
         # Check if value is a dictionary
@@ -271,7 +354,7 @@ class CashCtrl(object):
                     value = self.str_to_dt(value)
                 except:
                     pass
-            post_data[key] = self.clean_value(value)            
+            post_data[key] = self.clean_value(value)
         return post_data
 
     # REST API
@@ -290,7 +373,7 @@ class CashCtrl(object):
         # Check
         if type(data) != dict:
             raise Exception(f"{data} is not of type dict")
-            
+
         # Build data
         post_data = {}
         for key, value in data.items():
@@ -359,22 +442,22 @@ class CashCtrl(object):
 
     # Customized Actions
     def create_customfield_group(self, name, type):
-        url = API.customfield_group.value['url']
+        url = API.CustomFieldGroup.url
         data = {'name': name, 'type': type}
         return self.create(url, data)
 
     def get_customfield_group(self, name, type):
-        url = API.customfield_group.value['url']
-        params = {'type': type}
+        url = API.CustomFieldGroup.url
+        params =  {'type': type}
         groups = self.list(url, params)
-        
+
         return next((x for x in groups if x['name'] == name), None)
 
     def create_customfield(
             self, name, group, data_type, is_multi=False, values=[]):
         '''is_multi = True not tested yet
         '''
-        url = API.customfield.value['url']
+        url = API.CustomField.url
         type = group['type']
         group = self.get_customfield_group(group['name'], type)
         if not group:
@@ -391,8 +474,8 @@ class CashCtrl(object):
         return self.create(url, data)
 
     def get_customfield(self, name, type):
-        url = API.customfield.value['url']
-        params = {'type': type}
+        url = API.CustomField.url
+        params =  {'type': type}
         fields = self.list(url, params)
         return next((x for x in fields if x['name'] == name), None)
 
@@ -401,14 +484,18 @@ class CashCtrl(object):
 if __name__ == "__main__":
     org = 'bdo'
     key = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
-    params = {}
+    params =  {}
     ctrl = CashCtrl(org, key)
-    '''
+
+    articles = ctrl.list(API.Article.url)
+    print("article", articles)
+
+    """
     for api in API:
         print(api.name)
         for action in api.value['actions']:
             def_ = getattr(ctrl, action)
-            params = api.value.get('params', {})
+            params =  api.value.get('params', {})
             response = def_(api.value['url'], params)
             print(response, "\n")
 
@@ -477,7 +564,7 @@ if __name__ == "__main__":
 
     # Get all information of custom field
     field_id = customfield['insert_id']
-    params = {
+    params =  {
         'id': field_id
     }
     customfield = ctrl.read(API.customfield.value['url'], params)
@@ -525,3 +612,4 @@ if __name__ == "__main__":
 
     # init cashctrl
 
+    """

@@ -10,7 +10,7 @@ from decimal import Decimal
 import json
 
 from core.models import (
-    LogAbstract, NotesAbstract, TenantAbstract, TenantLocation, CITY_CATEGORY)
+    LogAbstract, NotesAbstract, TenantAbstract, CITY_CATEGORY)
 from scerp.locales import CANTON_CHOICES
 
 from .mixins import fiscal_period_validate, account_position_calc_number
@@ -100,7 +100,7 @@ class APISetup(TenantAbstract):
 
     def __str__(self):
         # add symbol for notes, attachment, protected, inactive
-        return self.tenant.name + self.symbols
+        return self.org_name + self.symbols
 
     @property
     def api_key_hidden(self):
@@ -108,8 +108,8 @@ class APISetup(TenantAbstract):
 
     class Meta:
         ordering = ['tenant__name',]
-        verbose_name = _('Api Setup')
-        verbose_name_plural = _('Api Setup')
+        verbose_name = _('Accounting Setup')
+        verbose_name_plural = _('Accounting Setups')
 
 
 class AcctApp(TenantAbstract):
@@ -126,13 +126,58 @@ class AcctApp(TenantAbstract):
         _('CashCtrl last_updated'), null=True, blank=True)
     c_last_updated_by = models.CharField(
         _('CashCtrl last_updated_by'), max_length=100, null=True, blank=True)   
-
+    setup = models.ForeignKey(
+        APISetup, verbose_name=_('Accounting Setup'),
+        on_delete=models.CASCADE, related_name='%(class)s_setup',
+        help_text=_('Account Setup used')) 
+        
+    def get_multi_language(self, value_dict):
+        language = get_language().split('-')[0]
+        values = value_dict.get('values')
+        if values and language in values:
+            return values[language] + self.symbols
+        elif values and settings.LANGUAGE_CODE_PRIMARY in values:
+            return values[language] + self.symbols
+        return str(value_dict)            
+        
     class Meta:
         abstract = True
 
 
 class Location(AcctApp):
+    '''Read - only
+    '''
+    class Type(models.TextChoices):
+        MAIN = "MAIN", _("Headquarters")
+        BRANCH = "BRANCH", _("Branch Office")
+        STORAGE = "STORAGE", _("Storage Facility")
+        OTHER = "OTHER", _("Other / Tax")
+
+    # Mandatory field
     name = models.CharField(max_length=100)
+    type = models.CharField(
+        _("Type"), max_length=50, choices=Type.choices, default=Type.MAIN,
+        help_text=_("The type of location. Defaults to MAIN."))
+
+    # Optional fields
+    address = models.TextField(
+        _("Address"), max_length=250, blank=True, null=True,
+        help_text=_("The address of the location (street, house number, "
+                    "additional info)."))
+    zip = models.CharField(
+        _("ZIP Code"), max_length=10, blank=True, null=True,
+        help_text=_("The postal code of the location."))
+    city = models.CharField(
+        _("City"), max_length=100, blank=True, null=True,
+        help_text=_("The town / city of the location."))
+    country = models.CharField(
+        _("Country"), max_length=3, default="CHE", blank=True, null=True,
+        help_text=_("The country of the location, as an ISO 3166-1 alpha-3 code."))
+
+    # Layout
+    logo = models.ImageField(
+        _("Logo"), upload_to="profile_photos/", blank=True, null=True,
+        help_text=_("Logo used in website."))
 
     # Accounting
     bic = models.CharField(
@@ -165,29 +210,13 @@ class Location(AcctApp):
         return self.name
 
     class Meta:
-        verbose_name = _("VAT, Codes, Formats")
-        verbose_name_plural = verbose_name        
-
-
-class CostCenter(AcctApp):
-    '''CostCenters must only be created and edited in scerp
-        most optional fields are null and not displayed
-    '''
-    name = models.CharField(max_length=100, blank=True, null=True)
-    number = models.DecimalField(max_digits=20, decimal_places=2)
-
-    def __str__(self):
-        return f"{self.name} ({self.number})"
-
-    class Meta:
-        verbose_name = "Cost Center"
-        verbose_name_plural = "Cost Centers"
+        ordering = ['name']
+        verbose_name = _("Location: Logo, Address, VAT, Codes, Formats etc. ")
+        verbose_name_plural = f"⬇️ {verbose_name}"
 
 
 class FiscalPeriod(AcctApp):
-    '''First period is loaded from cash_ctrl, all others must must only be 
-        created and edited in scerp;
-        most optional fields are null and not displayed;        
+    '''Read - only        
     '''
     name = models.CharField(
         max_length=30,
@@ -195,12 +224,12 @@ class FiscalPeriod(AcctApp):
         null=True,
         help_text="The name of the fiscal period, required if isCustom is true."
     )
-    start = models.DateField(
+    start = models.DateTimeField(
         blank=True,
         null=True,
         help_text="Start date of the fiscal period, required if isCustom is true."
     )
-    end = models.DateField(
+    end = models.DateTimeField(
         blank=True,
         null=True,
         help_text="End date of the fiscal period, required if isCustom is true."
@@ -220,42 +249,103 @@ class FiscalPeriod(AcctApp):
 
     class Meta:
         ordering = ['-start']
+        verbose_name = _("Fiscal Period")
+        verbose_name_plural = f"⬇️ {_('Fiscal Periods')}"
 
 
 class Currency(AcctApp):
-    '''Rates must only be created and edited in scerp
-        most optional fields are null and not displayed;
-        intially loaded from AcctApp
-    '''    
-    code = models.CharField(max_length=3, help_text="The 3-characters currency code, like CHF, EUR, etc.")
-    description = models.TextField(blank=True, null=True)
+    '''Read - only        
+    '''
+    code = models.CharField(
+        max_length=3, 
+        help_text=_("The 3-characters currency code, like CHF, EUR, etc."))           
+    description = models.JSONField(_('Description'), blank=True, null=True)
+    index = models.JSONField(_('Index'), blank=True, null=True)
+    rate = models.FloatField(_('Rate'), blank=True, null=True)
     is_default = models.BooleanField(default=False)
+
+    @property
+    def local_description(self):
+        return self.get_multi_language(self.description)
 
     def __str__(self):
         return self.code
 
     class Meta:
-        verbose_name = "Currency"
-        verbose_name_plural = "Currencies"
         ordering = ['code']
+        verbose_name = _("Currency")
+        verbose_name_plural = f"⬇️ {_('Currencies')}"
 
 
 class Unit(AcctApp):
-    '''Units must only be created and edited in scerp
-        most optional fields are null and not displayed;
-        intially loaded from AcctApp
+    '''Read - only        
     '''
-    name = models.CharField(max_length=100, help_text="The name of the unit ('hours', 'minutes', etc.).")
-    is_default = models.BooleanField(default=False)
+    name = models.JSONField(
+        _('name'), null=True, 
+        help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
+    is_default = models.BooleanField(_("Is default"), default=False)
 
+    @property
+    def local_name(self):
+        return self.get_multi_language(self.name)
+        
     def __str__(self):
-        return f"{self.name} ({self.number})" if self.number else self.name
+        return self.local_name
 
     class Meta:
-        verbose_name = "Currency"
-        verbose_name_plural = "Currencies"
         ordering = ['name']
+        verbose_name = _("Unit")
+        verbose_name_plural = f"⬇️ {_('Units')}"
 
+
+class Tax(AcctApp):
+    '''Read - only        
+    '''    
+    name = models.JSONField(
+        _('name'),  help_text=_("The name of the tax rate."), null=True)
+    number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text="A name to describe and identify the tax rate."
+    )
+    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    document_name = models.CharField(
+        max_length=50,
+        help_text=(
+            "The name for the tax rate displayed on documents (seen by "
+            "customers). Leave empty to use the name instead."))
+
+    @property
+    def local_name(self):
+        return self.get_multi_language(self.name)
+        
+    def __str__(self):
+        return self.local_name
+
+    class Meta:
+        ordering = ['number']
+        verbose_name = _("Tax Rate")
+        verbose_name_plural = f"⬇️ {_('Tax Rates')}"
+
+
+class CostCenter(AcctApp):
+    '''Read - only        
+    '''    
+    name = models.JSONField(_('Cost Center'), null=True)    
+    number = models.DecimalField(max_digits=20, decimal_places=2)
+
+    @property
+    def local_name(self):
+        return self.get_multi_language(self.name)
+        
+    def __str__(self):
+        return self.local_name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = _("Cost Center")
+        verbose_name_plural = f"⬇️ {_('Cost Centers')}"
 
 # Accounting Charts -----------------------------------------------------------
 '''
@@ -268,7 +358,7 @@ class ChartOfAccountsTemplate(LogAbstract, NotesAbstract):
         visible for all, only editable by admin!
     '''
     name = models.CharField(
-        _('Name'), max_length=250,
+        _('name'), max_length=250,
         help_text=_('Enter the name of the chart of accounts.'))
     account_type = models.PositiveSmallIntegerField(
         _('Type'), choices=ACCOUNT_TYPE_TEMPLATE.choices,
@@ -305,7 +395,7 @@ class ChartOfAccounts(TenantAbstract):
     '''Model for Chart of Accounts (individual).
     '''
     name = models.CharField(
-        _('Name'), max_length=250,
+        _('name'), max_length=250,
         help_text=_('Enter the name of the chart of accounts.'))
     chart_version = models.CharField(
         _('Chart Version'), max_length=100, blank=True, null=True,
@@ -334,7 +424,7 @@ class AccountPositionAbstract(LogAbstract):
     is_category = models.BooleanField(
         _('is category'), help_text=_('Flag indicating position is category'))
     name = models.CharField(
-        _('Name'), max_length=255,
+        _('name'), max_length=255,
         help_text=_('Name of the account'))
     description = models.TextField(
         _('Description'), null=True, blank=True,
@@ -455,32 +545,7 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
             )]        
         ordering = ['chart', 'account_type', 'function', 'account_number']
         verbose_name = ('Account Position (Municipality)')
-        verbose_name_plural = _('Account Positions')
-        
-
-class TaxRate(AcctApp):
-    '''Rates must only be created and edited in scerp
-        most optional fields are null and not displayed
-    '''
-    name = models.CharField(max_length=50, help_text="The name of the tax rate.")
-    number = models.CharField(
-        max_length=20,
-        blank=True,
-        null=True,
-        help_text="A name to describe and identify the tax rate."
-    )
-    percentage = models.DecimalField(max_digits=5, decimal_places=2)
-    document_name = models.CharField(
-        max_length=50,
-        help_text=(
-            "The name for the tax rate displayed on documents (seen by "
-            "customers). Leave empty to use the name instead."))
-
-    def __str__(self):
-        return f"{self.name} ({self.number})" if self.number else self.name
-
-    class Meta:
-        ordering = ['number']
+        verbose_name_plural = _('Account Positions')        
 
 
 class ArticleCategory(AcctApp):

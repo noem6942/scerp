@@ -124,6 +124,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
 LANGUAGE_CODE = 'de-ch'
+LANGUAGE_CODE_PRIMARY = 'de'  # used for accounting
 
 TIME_ZONE = 'Europe/Zurich'
 

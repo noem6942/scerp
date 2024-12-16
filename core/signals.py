@@ -9,7 +9,7 @@ from django.contrib import messages
 import logging
 
 from ._init_user_groups import ADMIN_GROUP_NAME, USER_GROUPS
-from .models import App, Tenant, TenantSetup, TenantLocation, UserProfile
+from .models import App, Tenant, TenantSetup, UserProfile
 
 
 PASSWORD_LENGTH = 32
@@ -33,17 +33,7 @@ def tenant_create(sender, instance, created, **kwargs):
         group_names = [x['name'] for x in USER_GROUPS]
         groups = Group.objects.filter(name__in=group_names)
         for group in groups:
-            tenant_setup.groups.add(group)
-        
-        # Create empty TenantLocation
-        location, created = TenantLocation.objects.get_or_create(
-            org_name=instance.name,
-            tenant=instance,
-            defaults={
-                'created_by': instance.modified_by,
-                'modified_by': instance.modified_by,
-            }
-        )        
+            tenant_setup.groups.add(group)   
         
         # Create a new user if necessary
         user = User.objects.filter(
