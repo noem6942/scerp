@@ -174,136 +174,6 @@ CUSTOM_FIELDS = [
     }
 ]
 
-
-class API:
-    # Common
-    class Currency:
-        url = 'currency/'
-        actions = ['list']
-
-    class CurrencyLower:
-        url = 'currency/'
-        actions = ['list']
-
-    class CustomField:
-        url = 'customfield/'
-        actions = ['list', 'create']
-        params = {'type': 'ACCOUNT'}
-
-    class CustomFieldGroup:
-        url = 'customfield/group/'
-        actions = ['list']
-        params = {'type': 'ACCOUNT'}
-
-    class Rounding:
-        url = 'rounding/'
-        actions = ['list']
-
-    class SequenceNumber:
-        url = 'sequencenumber/'
-        actions = ['list']
-
-    class Tax:
-        url = 'tax/'
-        actions = ['list']
-
-    class Text:
-        url = 'text/'
-        actions = ['list']
-        params = {'type': 'ORDER_ITEM'}
-
-    # Meta
-    class FiscalPeriod:
-        url = 'fiscalperiod/'
-        actions = ['list']
-
-    class Location:
-        url = 'location/'
-        actions = ['list', 'create']
-
-    class Setting:
-        url = 'setting/'
-        actions = ['read']
-
-    # File
-    class File:
-        url = 'file/'
-        actions = ['list']
-
-    class FileCategory:
-        url = 'file/category/'
-        actions = ['list']
-
-    # Account
-    class Account:
-        url = 'account/'
-        actions = ['list']
-
-    class AccountCategory:
-        url = 'account/category/'
-        actions = ['list']
-
-    class AccountCostCenter:
-        url = 'account/costcenter/'
-        actions = ['list']
-     
-    # Inventory
-    class Article:
-        url = 'inventory/article/'
-        actions = ['list']
-
-    class ArticleCategory:
-        url = 'inventory/article/category/'
-        actions = ['list']
-
-    class Asset:
-        url = 'inventory/asset/'
-        actions = ['list']
-
-    class AssetCategory:
-        url = 'inventory/asset/category/'
-        actions = ['list']
-
-    class Unit:
-        url = 'inventory/unit/'
-        actions = ['list']
-
-    # Orders
-    class Order:
-        url = 'order/'
-        actions = ['list']
-
-    class OrderBookEntry:
-        url = 'order/bookentry/'
-        actions = ['list']  # not working ever used?
-
-    class OrderCategory:
-        url = 'order/category/'
-        actions = ['list']
-
-    class Document:
-        url = 'order/document/'
-        actions = ['read']  # The ID of the order.
-
-    class Template:
-        url = 'order/template/'
-        actions = ['read']  # The ID of the entry.
-
-    # Person
-    class Person:
-        url = 'person/'
-        actions = ['list']
-
-    class PersonCategory:
-        url = 'person/category/'
-        actions = ['list']
-
-    class PersonTitle:
-        url = 'person/title/'
-        actions = ['list']
-
-
-
 class API_PROJECT(Enum):
     # Report, not implemented yet
     report = {'url': 'report/', 'actions': ['tree']}
@@ -385,6 +255,7 @@ class CashCtrl(object):
             post_data[camel_key] = value
 
         # Post data
+        print("*url", url, post_data)
         response = requests.post(url, data=post_data, auth=self.auth)
         if response.status_code != 200:
             # Decode the content and include it in the error message
@@ -401,7 +272,7 @@ class CashCtrl(object):
         else:
             return self.clean_dict(response.json())
 
-    def list(self, url, params={}, **filter):
+    def list(self, params={}, **filter):
         if filter:
             # e.g. categoryId=110,  camelCase!
             filters = []
@@ -411,86 +282,240 @@ class CashCtrl(object):
             params['filter'] = json.dumps(filters)
 
         url = self.BASE.format(
-            org=self.org, url=url, params=params, action='list')
+            org=self.org, url=self.url, params=params, action='list')
         response = self.get(url, params)
         return [self.clean_dict(x) for x in response.json()['data']]
 
-    def read(self, url, params={}):
+    def read(self, params={}):
         url = self.BASE.format(
-            org=self.org, url=url, params=params, action='read')
+            org=self.org, url=self.url, params=params, action='read')
         response = self.get(url, params)
         return self.clean_dict(json.loads(response._content.decode(DECODE)))
 
-    def delete(self, url, *ids):
+    def delete(self, *ids):
         url = self.BASE.format(
-            org=self.org, url=url, params=params, action='delete')
+            org=self.org, url=self.url, params=params, action='delete')
         data = {'ids': ','.join([str(id) for id in ids])}
         response = self.post(url, data=data)
         return response  # e.g. {'success': True, 'message': '1 account deleted'}
 
-    def create(self, url, data):
+    def create(self, data):
         url = self.BASE.format(
-            org=self.org, url=url, data=data, action='create')
+            org=self.org, url=self.url, data=data, action='create')
         response = self.post(url, data=data)
         return response  # e.g. {'success': True, 'message': 'Custom field saved', 'insert_id': 58}
 
-    def update(self, url, data):
+    def update(self, data):
         url = self.BASE.format(
-            org=self.org, url=url, data=data, action='update')
+            org=self.org, url=self.url, data=data, action='update')
         response = self.post(url, data=data)
         return response  # e.g. {'success': True, 'message': 'Account saved', 'insert_id': 183}
 
-    # Customized Actions
-    def create_customfield_group(self, name, type):
-        url = API.CustomFieldGroup.url
-        data = {'name': name, 'type': type}
-        return self.create(url, data)
 
-    def get_customfield_group(self, name, type):
-        url = API.CustomFieldGroup.url
-        params =  {'type': type}
-        groups = self.list(url, params)
+# Element Classes
+class API:
+    # Common
+    class Currency(CashCtrl):
+        url = 'currency/'
+        actions = ['list']
 
-        return next((x for x in groups if x['name'] == name), None)
+    class CurrencyLower(CashCtrl):
+        url = 'currency/'
+        actions = ['list']
 
-    def create_customfield(
-            self, name, group, data_type, is_multi=False, values=[]):
-        '''is_multi = True not tested yet
-        '''
-        url = API.CustomField.url
-        type = group['type']
-        group = self.get_customfield_group(group['name'], type)
-        if not group:
-            raise Exception(f"Group name '{group}' not found.")
+    class CustomField(CashCtrl):
+        url = 'customfield/'
+        actions = ['list', 'create']
+        
+        def create(
+                self, name, group, data_type, is_multi=False, values=[]):
+            '''is_multi = True not tested yet
+                group has type and name
+            '''            
+            type = group['type']
+            group_obj = API.CustomFieldGroup(self.org, self.key)
+            group_data = group_obj.get(group['name'], type)
+            if not group_data:
+                raise Exception(f"Group name '{group}' not found.")
 
-        data = {
-            'name': name,
-            'type': type,
-            'group_id': group['id'],
-            'data_type': data_type,
-            'is_multi': is_multi,
-            'values': values
-        }
-        return self.create(url, data)
+            data = {
+                'name': name,
+                'type': type,
+                'group_id': group_data['id'],
+                'data_type': data_type,
+                'is_multi': is_multi,
+                'values': values
+            }
+            return super().create(data)        
 
-    def get_customfield(self, name, type):
-        url = API.CustomField.url
-        params =  {'type': type}
-        fields = self.list(url, params)
-        return next((x for x in fields if x['name'] == name), None)
+        def get(self, name, type):            
+            params =  {'type': type}
+            fields = self.list(url, params)
+            return next((
+                x for x in fields if x['name'] == name), 
+                None)
 
+    class CustomFieldGroup(CashCtrl):
+        url = 'customfield/group/'
+        actions = ['list']
+        
+        def create(self, name, type):            
+            ''' e.g. name = {values: {'de': 'Test'} 
+                     type = type='ACCOUNT'}
+            '''
+            data = {
+                'name': name, 
+                'type': type
+            }
+            return super().create(data)
+
+        def get(self, name, type):            
+            params =  {'type': type}
+            groups = self.list(url, params)
+            return next((
+                x for x in groups if x['name'] == name),
+                None)
+
+    class Rounding(CashCtrl):
+        url = 'rounding/'
+        actions = ['list']
+
+    class SequenceNumber(CashCtrl):
+        url = 'sequencenumber/'
+        actions = ['list']
+
+    class Tax(CashCtrl):
+        url = 'tax/'
+        actions = ['list']
+
+    class Text(CashCtrl):
+        url = 'text/'
+        actions = ['list']
+        params = {'type': 'ORDER_ITEM'}
+
+    # Meta
+    class FiscalPeriod(CashCtrl):
+        url = 'fiscalperiod/'
+        actions = ['list']
+
+    class Location(CashCtrl):
+        url = 'location/'
+        actions = ['list', 'create']
+
+    class Setting(CashCtrl):
+        url = 'setting/'
+        actions = ['read']
+
+    # File
+    class File(CashCtrl):
+        url = 'file/'
+        actions = ['list']
+
+    class FileCategory(CashCtrl):
+        url = 'file/category/'
+        actions = ['list']
+
+    # Account
+    class Account(CashCtrl):
+        url = 'account/'
+        actions = ['list']
+
+    class AccountCategory(CashCtrl):
+        url = 'account/category/'
+        actions = ['list', 'create']
+        
+        def _validate(self, data):
+            if 'name' not in data:
+                raise Exception("'name' missing in data")
+            if 'number' not in data:
+                raise Exception("'number' missing in data")
+            if 'parent_id' not in data:
+                raise Exception("'parent_id' missing in data")
+                
+        def get_top(self):
+            '''return top categories 
+                'ASSET', 'LIABILITY', 'EXPENSE', 'REVENUE' and 'BALANCE'
+            '''
+            categories = self.list()
+            return {
+                x['account_class']: x 
+                for x in categories 
+                if not x['parent_id']
+            }        
+            
+        def create(self, data):
+            self._validate(data)
+            return super().create(data)
+
+    class AccountCostCenter(CashCtrl):
+        url = 'account/costcenter/'
+        actions = ['list']
+     
+    # Inventory
+    class Article(CashCtrl):
+        url = 'inventory/article/'
+        actions = ['list']
+
+    class ArticleCategory(CashCtrl):
+        url = 'inventory/article/category/'
+        actions = ['list']
+
+    class Asset(CashCtrl):
+        url = 'inventory/asset/'
+        actions = ['list']
+
+    class AssetCategory(CashCtrl):
+        url = 'inventory/asset/category/'
+        actions = ['list']
+
+    class Unit(CashCtrl):
+        url = 'inventory/unit/'
+        actions = ['list']
+
+    # Orders
+    class Order(CashCtrl):
+        url = 'order/'
+        actions = ['list']
+
+    class OrderBookEntry(CashCtrl):
+        url = 'order/bookentry/'
+        actions = ['list']  # not working ever used?
+
+    class OrderCategory(CashCtrl):
+        url = 'order/category/'
+        actions = ['list']
+
+    class Document(CashCtrl):
+        url = 'order/document/'
+        actions = ['read']  # The ID of the order.
+
+    class Template(CashCtrl):
+        url = 'order/template/'
+        actions = ['read']  # The ID of the entry.
+
+    # Person
+    class Person(CashCtrl):
+        url = 'person/'
+        actions = ['list']
+
+    class PersonCategory(CashCtrl):
+        url = 'person/category/'
+        actions = ['list']
+
+    class PersonTitle(CashCtrl):
+        url = 'person/title/'
+        actions = ['list']
 
 # main
 if __name__ == "__main__":
     org = 'bdo'
     key = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
     params =  {}
-    ctrl = CashCtrl(org, key)
-
+    """
     articles = ctrl.list(API.Article.url)
     print("article", articles)
 
-    """
+
     for api in API:
         print(api.name)
         for action in api.value['actions']:
@@ -502,18 +527,51 @@ if __name__ == "__main__":
 
     setting = ctrl.read(API.setting.value['url'])
     print(setting, "\n")
+    """
+    ctrl = API.AccountCategory(org, key)
+    top_categories = ctrl.get_top()
+    print("*top_categories", top_categories)
+    
+    # add P&L
+    ACCOUNT_CATEGORIES = {
+        'P&L':{
+            'de': 'Erfolgsrechnung', 
+            'en': 'P&L', 
+            'fr': 'Compte de résultat', 
+            'it': 'Conto economico'
+        },        
+        'IS': {  
+            'de': 'Investitionsrechnung',
+            'en': 'Investment Statement',
+            'fr': 'Compte d’investissement',
+            'it': 'Conto degli investimenti'
+        }
+    }
+        
+    for category in ['EXPENSE', 'REVENUE']:
+        for number, name in enumerate(ACCOUNT_CATEGORIES.values(), start=1):
+            data = {
+                'name': {'values': name},
+                'number': number,
+                'parent_id': top_categories[category]['id']
+            }
+            response = ctrl.create(data)
+            print("*response", response)
+    
+    """    
+    ctrl = API.Account(org, key)
+    accounts = ctrl.list()
+    top_accounts = [x for x in accounts if not x['category_id']]
+    print("*account", len(accounts), top_accounts, "\n")
+    print("*account last key", accounts[-1].keys(), "\n")
 
-    account = ctrl.list(API.account.value['url'])
-    print("*account", len(account), account[-2:], "\n")
-    print("*account last key", account[-1].keys(), "\n")
-    '''
-
+    
     account_category = ctrl.list(API.account_category.value['url'])
     top_accounts = [x for x in account_category if x['parent_id'] is None]
     for accounts in top_accounts:
         print(accounts['id'], accounts['account_class'])
 
-    '''
+    
     ids = [109, 110]
     response = ctrl.delete(API.account_category.value['url'], *ids)
     print("*response", response)

@@ -3,12 +3,11 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.text import slugify
 
-import re
 from openpyxl import load_workbook
 
 
 # helpers, use this for all models in all apps
-timezone = timezone.get_current_timezone()
+current_timezone = timezone.get_current_timezone()
 
 
 # excel functions
@@ -46,4 +45,4 @@ def is_url_friendly(name):
 
 
 def make_timeaware(naive_datetime):    
-    return timezone.make_aware(naive_datetime, timezone)
+    return timezone.make_aware(naive_datetime, current_timezone)

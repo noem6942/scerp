@@ -9,6 +9,7 @@ import logging
 from scerp.admin import get_help_text
 from scerp.mixins import get_admin, make_timeaware 
 from .api_cash_ctrl import API, FIELD_TYPE, CashCtrl
+from .init_cash_ctrl import ACCOUNT_CATEGORIES
 from .models import (
     APISetup, FiscalPeriod, Location, Currency, Unit, Tax, CostCenter)
 
@@ -45,9 +46,10 @@ class ProcessCashCtrl(Process):
     def __init__(self, api_setup):
         '''messages is admin.py messanger; if not giving logger is used
         '''
-        self.ctrl = CashCtrl(api_setup.org_name, api_setup.api_key)
-        
         super().__init__(api_setup)
+
+    def init_class(self, cls):
+        return cls(self.api_setup.org_name, self.api_setup.api_key)
 
     # APISetup
     def init_custom_groups(self):
@@ -111,11 +113,34 @@ class ProcessCashCtrl(Process):
                         group_name=data['group']['name'])
                     logger.info(msg)
 
-    # Handle cashCtrl push
-    def push_accounting_data(self, api_class, model):
-        # Get data
+    def init_accounts(self):
+        # init
+        ctrl = self.init_class(API.AccountCategory)
+        top_categories = ctrl.get_top()
+        
+        # create top classes
+        category_id = {}
+        for number, category in enumerate(ACCOUNT_CATEGORIES, start=1):
+            key = category['key']
+            category_id[key] = {}
+            for category in ['EXPENSE', 'REVENUE']:
+                data = {
+                    'name': {'values': category['name']},
+                    'number': number,
+                    'parent_id': top_categories[category]['id']
+                }
+                response = ctrl.create(data)
+                if response.get('success', False):
+                    category_id[key]['category'] = response['insert_id']
+                    logger.info(f"created {data['name']}")                    
 
-        data_list = self.ctrl.list(api_class.url)
+    # Handle cashCtrl pull
+    def pull_accounting_data(self, api_class, model):
+        # Init
+        ctrl = self.init_class(api_class)
+        
+        # Get data
+        data_list = ctrl.list(api_class.url)
  
         # Init
         created, updated = 0, 0
@@ -165,29 +190,29 @@ class ProcessCashCtrl(Process):
  
     def get_locations(self):
         # Get and update all locations
-        created, updated = self.push_accounting_data(API.Location, Location)
+        created, updated = self.pull_accounting_data(API.Location, Location)
         
     def get_fiscal_periods(self):
         # Get and update all fiscal periods
-        created, updated = self.push_accounting_data(
+        created, updated = self.pull_accounting_data(
             API.FiscalPeriod, FiscalPeriod)
             
     def get_currencies(self):
         # Get and update all currencies
-        created, updated = self.push_accounting_data(
+        created, updated = self.pull_accounting_data(
             API.Currency, Currency)
             
     def get_units(self):
         # Get and update all units
-        created, updated = self.push_accounting_data(
+        created, updated = self.pull_accounting_data(
             API.Unit, Unit)
             
     def get_tax(self):
         # Get and update all tax rates
-        created, updated = self.push_accounting_data(
+        created, updated = self.pull_accounting_data(
             API.Tax, Tax)
             
     def get_cost_centere(self):
         # Get and update all cost centers
-        created, updated = self.push_accounting_data(
-            API.AccountCostCenter, CostCenter)
+        created, updated = self.pull_accounting_data(
+            API.AccountCostCenter, CostCenter)            

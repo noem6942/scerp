@@ -93,13 +93,18 @@ class CashCtrlAdmin(BaseAdmin):
             }),
         )        
 
+    @admin.display(description=_('last update'))
+    def display_last_update(self, obj):
+        return obj.modified_at   
+
+
 @admin.register(Location, site=admin_site) 
 class Location(CashCtrlAdmin):
     has_tenant_field = True
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
     
-    list_display = ('name', 'type', 'vat_uid', 'c_last_updated')
+    list_display = ('name', 'type', 'vat_uid', 'display_last_update')
     search_fields = ('name', 'vat_uid')
     list_filter = ('setup', 'type')  
 
@@ -134,7 +139,7 @@ class FiscalPeriodAdmin(CashCtrlAdmin):
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
     
-    list_display = ('name', 'start', 'end', 'is_current', 'c_last_updated')
+    list_display = ('name', 'start', 'end', 'is_current', 'display_last_update')
     search_fields = ('name', 'start', 'end', 'is_current')
     list_filter = ('setup',)  
     actions = [a.fiscal_period_set_current] 
@@ -154,7 +159,7 @@ class CurrencyAdmin(CashCtrlAdmin):
     warning = CASH_CTRL.WARNING_READ_ONLY
     readonly_fields = ('display_description',)
     
-    list_display = ('code', 'is_default', 'rate', 'c_last_updated')
+    list_display = ('code', 'is_default', 'rate', 'display_last_update')
     search_fields = ('code',)        
     list_filter = ('setup',)  
     
@@ -178,7 +183,7 @@ class UnitAdmin(CashCtrlAdmin):
     warning = CASH_CTRL.WARNING_READ_ONLY
     readonly_fields = ('display_name',)
     
-    list_display = ('display_name', 'is_default', 'c_last_updated')
+    list_display = ('display_name', 'is_default', 'display_last_update')
     search_fields = ('name',)       
     list_filter = ('setup',)   
     
@@ -201,7 +206,7 @@ class TaxAdmin(CashCtrlAdmin):
     warning = CASH_CTRL.WARNING_READ_ONLY
     readonly_fields = ('display_name',)
     
-    list_display = ('display_name', 'percentage', 'c_last_updated')
+    list_display = ('display_name', 'percentage', 'display_last_update')
     search_fields = ('name',)        
     list_filter = ('setup',)  
     
@@ -224,7 +229,7 @@ class CostCenterAdmin(CashCtrlAdmin):
     warning = CASH_CTRL.WARNING_READ_ONLY
     readonly_fields = ('display_name',)  
 
-    list_display = ['display_name', 'number', 'c_last_updated']
+    list_display = ['display_name', 'number', 'display_last_update']
     search_fields = ['display_name', 'number']
     list_filter = ('setup',)  
 
