@@ -123,15 +123,15 @@ class ProcessCashCtrl(Process):
         for number, category in enumerate(ACCOUNT_CATEGORIES, start=1):
             key = category['key']
             category_id[key] = {}
-            for category in ['EXPENSE', 'REVENUE']:
+            for side in ['EXPENSE', 'REVENUE']:
                 data = {
                     'name': {'values': category['name']},
                     'number': number,
-                    'parent_id': top_categories[category]['id']
+                    'parent_id': top_categories[side]['id']
                 }
                 response = ctrl.create(data)
                 if response.get('success', False):
-                    category_id[key]['category'] = response['insert_id']
+                    category_id[key][side] = response['insert_id']
                     logger.info(f"created {data['name']}")                    
 
     # Handle cashCtrl pull

@@ -38,7 +38,11 @@ def api_setup(sender, instance, created, **kwargs):
 
         # Create Custom Fields if not existing and update numbers in setup
         ctrl.init_custom_fields()       
+        """      
         
+        ctrl.init_accounts()
+        
+        """      
         # Settings
         # 'thousand_separator'
         ''' do this after first practice with invoices 
@@ -81,7 +85,7 @@ def api_setup(sender, instance, created, **kwargs):
         # FiscalPeriod: download first fiscal period if not existing
         ctrl.get_fiscal_periods()
         
-        """      
+
         
         # Currencies
         ctrl.get_currencies()         
@@ -94,7 +98,7 @@ def api_setup(sender, instance, created, **kwargs):
         
         # Cost Center
         ctrl.get_cost_centere()
-        
+        """              
 
 @receiver(post_save, sender=FiscalPeriod)
 def fiscal_period(sender, instance, created, **kwargs):
