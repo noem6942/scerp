@@ -11,6 +11,8 @@ from django.utils.safestring import mark_safe
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
+import json
+
 from .locales import APP
 from core.safeguards import (
     get_available_tenants, set_tenant, filter_query_for_tenant, save_logging)
@@ -64,6 +66,22 @@ def display_big_number(value):
         html = '<span style="text-align: right; display: block;">{}</span>'
         return format_html(html, number_str)        
     
+
+def display_json(value):
+    try:
+        # Sort keys
+        data = {
+            key: value[key] 
+            for key in sorted(value.keys())
+        }  
+        
+        # Format JSON data with indentation and render it as preformatted text
+        formatted_json = json.dumps(data, indent=4, ensure_ascii=False)        
+        return formatted_json
+        
+    except Exception as e:
+        return f"Error displaying data: {e}"    
+
 
 def format_hierarchy(level, name):
     '''Function to print out hierarchy names nice;

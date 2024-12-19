@@ -17,3 +17,13 @@ ACCOUNT_CATEGORIES = [{
         'it': 'Conto degli investimenti'
     }
 }]
+
+
+UNITS = [{
+    'name':  {'values': {
+        'de': 'm³', 
+        'en': 'm³', 
+        'fr': 'm³', 
+        'it': 'm³'}
+    }
+}]

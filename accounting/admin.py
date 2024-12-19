@@ -9,11 +9,11 @@ from core.safeguards import get_tenant
 
 from scerp.admin import (
     admin_site, BaseAdmin, display_empty, display_verbose_name,
-    display_datetime, display_big_number)
+    display_datetime, display_big_number, display_json)
 
 from .models import (
-    APISetup, Location, FiscalPeriod, Currency, Unit, Tax, CostCenter,
-    ChartOfAccountsTemplate,
+    APISetup, Setting, Location, FiscalPeriod, Currency, Unit, Tax, 
+    CostCenter, ChartOfAccountsTemplate,
     AccountPositionTemplate, ChartOfAccounts, AccountPosition,
     ACCOUNT_TYPE
 )
@@ -96,6 +96,33 @@ class CashCtrlAdmin(BaseAdmin):
     @admin.display(description=_('last update'))
     def display_last_update(self, obj):
         return obj.modified_at   
+
+
+@admin.register(Setting, site=admin_site)
+class Setting(BaseAdmin):
+    has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    
+    list_display = ('display_settings', 'modified_at')
+    search_fields = ('setup',)
+    list_filter = ('setup',)
+    readonly_fields = ['display_data']  # Corrected
+
+    fieldsets = (
+        (None, {
+            'fields': ('setup', 'display_data'),
+            'classes': ('expand',),
+        }),
+    )
+
+    @admin.display(description=_('settings'))
+    def display_settings(self, obj):
+        return _('settings')
+
+    @admin.display(description=_('settings'))
+    def display_data(self, obj):
+        return display_json(obj.data)
 
 
 @admin.register(Location, site=admin_site) 

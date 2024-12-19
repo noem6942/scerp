@@ -1,4 +1,6 @@
 # accounting/mixins.py
+'''helpers for models.py and signals.py
+'''
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -42,7 +44,7 @@ def account_position_calc_number(
         C .. 1 if is_category else 0
         NNNNN.NN .. unique number with leading zeros and 2 commas
         
-        ff is ignored (replace by '')
+        ff in account_number is ignored (replace by '')
     '''
     DIGITS_FUNCTIONAL = 4, 0
     DIGITS_ACCOUNT = 5, 2

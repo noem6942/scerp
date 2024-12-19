@@ -1,9 +1,11 @@
 # accounting/signals.py
 from django.core.exceptions import ValidationError
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from .models import APPLICATION, APISetup, FiscalPeriod, Location
+from .models import (
+    APPLICATION, APISetup, AccountPosition, FiscalPeriod, Location)
+from .mixins import account_position_calc_number
 from .process import ProcessCashCtrl
 
 
@@ -38,14 +40,19 @@ def api_setup(sender, instance, created, **kwargs):
 
         # Create Custom Fields if not existing and update numbers in setup
         ctrl.init_custom_fields()       
-        """      
         
+         """
+        # Create m³
+        ctrl.init_units()
+        """
+        # Create Accounts
         ctrl.init_accounts()
         
         """      
         # Settings
         # 'thousand_separator'
         ''' do this after first practice with invoices 
+            do this at the end  
         '''
         settings = {
             'default_sequence_number_inventory_article': 2, 
@@ -79,20 +86,24 @@ def api_setup(sender, instance, created, **kwargs):
             'default_creditor_account_id': 9
         }        
         
-        # Create Location for VAT, Codes, Formats if not existing 
+        # Settings
+        ctrl.get_settings()           
+        
+        """
+        # Location for VAT, Codes, Formats if not existing 
         ctrl.get_locations()                    
         
         # FiscalPeriod: download first fiscal period if not existing
         ctrl.get_fiscal_periods()
         
-
-        
         # Currencies
         ctrl.get_currencies()         
+        """   
         
         # Units
-        ctrl.get_units()         
+        ctrl.get_units()  
         
+        """           
         # Tax Rates
         ctrl.get_tax()         
         
@@ -100,10 +111,13 @@ def api_setup(sender, instance, created, **kwargs):
         ctrl.get_cost_centere()
         """              
 
-@receiver(post_save, sender=FiscalPeriod)
-def fiscal_period(sender, instance, created, **kwargs):
-    ctrl = get_ctrl(instance)
-    if created or not instance:        
-        ctrl.create_fiscal_period(instance)
-    else:
-        ctrl.update_fiscal_period(instance)
+
+@receiver(pre_save, sender=AccountPosition)
+def account_position(sender, instance, created, **kwargs):
+    # Update number before saving
+    number = account_position_calc_number(
+        instance.account_type, 
+        instance.function, 
+        instance.account_number, 
+        instance.is_category)
+    instance.number = Decimal(number)        

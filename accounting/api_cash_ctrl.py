@@ -187,6 +187,7 @@ class CashCtrl(object):
     def __init__(self, org, api_key):
         self.org = org
         self.auth = (api_key, '')
+        self.data = None  # data can be loaded (list, read) or posted
 
     @staticmethod
     def str_to_dt(dt_string):
@@ -227,7 +228,7 @@ class CashCtrl(object):
             post_data[key] = self.clean_value(value)
         return post_data
 
-    # REST API
+    # REST API CashCtrl: post, get
     def get(self, url, params):
         response = requests.get(url, params=params, auth=self.auth)
         if response.status_code != 200:
@@ -236,10 +237,14 @@ class CashCtrl(object):
             raise Exception(
                     f"Get request failed with status {response.status_code}. "
                     f"Error message: {error_message}")
-        else:
+        else:            
             return response
 
-    def post(self, url, data):
+    def post(self, url, data=None):
+        # Load data from self.data if not given
+        if data is None:
+            data = self.data
+        
         # Check
         if type(data) != dict:
             raise Exception(f"{data} is not of type dict")
@@ -272,6 +277,7 @@ class CashCtrl(object):
         else:
             return self.clean_dict(response.json())
 
+    # REST API mine: list, read, create, update, delete
     def list(self, params={}, **filter):
         if filter:
             # e.g. categoryId=110,  camelCase!
@@ -284,13 +290,28 @@ class CashCtrl(object):
         url = self.BASE.format(
             org=self.org, url=self.url, params=params, action='list')
         response = self.get(url, params)
-        return [self.clean_dict(x) for x in response.json()['data']]
+        self.data = [self.clean_dict(x) for x in response.json()['data']]
+        return self.data
 
     def read(self, params={}):
         url = self.BASE.format(
             org=self.org, url=self.url, params=params, action='read')
         response = self.get(url, params)
-        return self.clean_dict(json.loads(response._content.decode(DECODE)))
+        self.data = self.clean_dict(
+            json.loads(response._content.decode(DECODE)))
+        return self.data
+        
+    def create(self, data=None):
+        url = self.BASE.format(
+            org=self.org, url=self.url, data=data, action='create')
+        response = self.post(url, data=data)
+        return response  # e.g. {'success': True, 'message': 'Custom field saved', 'insert_id': 58}
+
+    def update(self, data=None):
+        url = self.BASE.format(
+            org=self.org, url=self.url, data=data, action='update')
+        response = self.post(url, data=data)
+        return response  # e.g. {'success': True, 'message': 'Account saved', 'insert_id': 183}
 
     def delete(self, *ids):
         url = self.BASE.format(
@@ -298,18 +319,6 @@ class CashCtrl(object):
         data = {'ids': ','.join([str(id) for id in ids])}
         response = self.post(url, data=data)
         return response  # e.g. {'success': True, 'message': '1 account deleted'}
-
-    def create(self, data):
-        url = self.BASE.format(
-            org=self.org, url=self.url, data=data, action='create')
-        response = self.post(url, data=data)
-        return response  # e.g. {'success': True, 'message': 'Custom field saved', 'insert_id': 58}
-
-    def update(self, data):
-        url = self.BASE.format(
-            org=self.org, url=self.url, data=data, action='update')
-        response = self.post(url, data=data)
-        return response  # e.g. {'success': True, 'message': 'Account saved', 'insert_id': 183}
 
 
 # Element Classes
@@ -424,6 +433,10 @@ class API:
         url = 'account/category/'
         actions = ['list', 'create']
         
+        def _check_not_None(self):
+            if self.data is None:
+                raise Exception("data is None")            
+        
         def _validate(self, data):
             if 'name' not in data:
                 raise Exception("'name' missing in data")
@@ -432,20 +445,50 @@ class API:
             if 'parent_id' not in data:
                 raise Exception("'parent_id' missing in data")
                 
-        def get_top(self):
-            '''return top categories 
+        def create(self, data):
+            self._validate(data)
+            return super().create(data)                
+                
+        def top_categories(self):
+            '''return top categories from self.data
                 'ASSET', 'LIABILITY', 'EXPENSE', 'REVENUE' and 'BALANCE'
             '''
-            categories = self.list()
+            self._check_not_None()
+            
             return {
                 x['account_class']: x 
-                for x in categories 
+                for x in self.data 
                 if not x['parent_id']
             }        
             
-        def create(self, data):
-            self._validate(data)
-            return super().create(data)
+        def leaves(self):
+            """
+            Returns all leaf nodes from the provided data_list.
+            A leaf node is defined as a node where no other node has `parent_id` equal to its `id`.
+            
+            Args:
+                data_list (list): A list of dictionaries, each representing a node.
+
+            Returns:
+                list: A list of dictionaries representing the leaf nodes.
+            """
+            # Init
+            data_list = self.data
+            
+            # Extract all ids that are referenced as parent_id
+            parent_ids = {
+                item['parent_id'] 
+                for item in data_list 
+                if item['parent_id'] is not None
+            }
+            
+            # Find all nodes whose id is not in the set of parent_ids
+            leaves = [
+                item for item in data_list 
+                if item['id'] not in parent_ids
+            ]
+            
+            return leaves
 
     class AccountCostCenter(CashCtrl):
         url = 'account/costcenter/'
@@ -470,7 +513,7 @@ class API:
 
     class Unit(CashCtrl):
         url = 'inventory/unit/'
-        actions = ['list']
+        actions = ['list', 'create']
 
     # Orders
     class Order(CashCtrl):
@@ -511,7 +554,29 @@ if __name__ == "__main__":
     org = 'bdo'
     key = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
     params =  {}
-    """
+    
+    ctrl = API.Setting(org, key)
+    setting = ctrl.read()
+    print(setting, "\n")
+
+    """     
+    ctrl = API.AccountCategory(org, key)
+    categories = ctrl.list()
+    top_categories = ctrl.top_categories()
+    
+    leaves = ctrl.leaves()
+    print("*leaves\n\n\n")
+    for leave in leaves:
+        if leave is None:
+            print("*")
+            continue
+        print("*", leave['name'])
+    
+
+    ids = [109, 110]
+    response = ctrl.delete(API.account_category.value['url'], *ids)
+    print("*response", response)   
+        
     articles = ctrl.list(API.Article.url)
     print("article", articles)
 
@@ -525,9 +590,8 @@ if __name__ == "__main__":
             print(response, "\n")
 
 
-    setting = ctrl.read(API.setting.value['url'])
-    print(setting, "\n")
-    """
+
+
     ctrl = API.AccountCategory(org, key)
     top_categories = ctrl.get_top()
     print("*top_categories", top_categories)
@@ -558,24 +622,12 @@ if __name__ == "__main__":
             response = ctrl.create(data)
             print("*response", response)
     
-    """    
+    ""|   
     ctrl = API.Account(org, key)
     accounts = ctrl.list()
     top_accounts = [x for x in accounts if not x['category_id']]
     print("*account", len(accounts), top_accounts, "\n")
     print("*account last key", accounts[-1].keys(), "\n")
-
-    
-    account_category = ctrl.list(API.account_category.value['url'])
-    top_accounts = [x for x in account_category if x['parent_id'] is None]
-    for accounts in top_accounts:
-        print(accounts['id'], accounts['account_class'])
-
-    
-    ids = [109, 110]
-    response = ctrl.delete(API.account_category.value['url'], *ids)
-    print("*response", response)
-
 
     fiscal_periods = ctrl.list(API.fiscalperiod.value['url'])
     fiscal_period = next(x for x in fiscal_periods if x['is_current'] is True)

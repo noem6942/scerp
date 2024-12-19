@@ -13,7 +13,7 @@ from core.models import (
     LogAbstract, NotesAbstract, TenantAbstract, CITY_CATEGORY)
 from scerp.locales import CANTON_CHOICES
 
-from .mixins import fiscal_period_validate, account_position_calc_number
+from .mixins import fiscal_period_validate
 
 
 # Definitions
@@ -39,7 +39,7 @@ class ACCOUNT_TYPE(models.IntegerChoices):
 # CashCtrl Basics ------------------------------------------------------------
 class APISetup(TenantAbstract):
     '''only restricted to admin!
-        # triggers signals.py after creation!
+        triggers signals.py past_save
         org_name, application is unique (cashCtrl)
     '''
     org_name = models.CharField(
@@ -150,6 +150,30 @@ class AcctApp(TenantAbstract):
     class Meta:
         abstract = True
 
+
+class Setting(TenantAbstract):
+    '''Read - only        
+    '''
+    data = models.JSONField(_('Index'), blank=True, null=True)    
+    setup = models.ForeignKey(
+        APISetup, verbose_name=_('Accounting Setup'),
+        on_delete=models.CASCADE, related_name='%(class)s_setup',
+        help_text=_('Account Setup used')) 
+        
+    def __str__(self):
+        return self.setup.org_name
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup',],
+                name='unique_setup'
+            )
+        ]        
+        ordering = ['setup__org_name']
+        verbose_name = _("Settings")
+        verbose_name_plural = f"⬇️ {verbose_name}"
+    
 
 class Location(AcctApp):
     '''Read - only
@@ -538,6 +562,7 @@ class AccountPositionTemplate(
 
 class AccountPosition(AccountPositionAbstract, AcctApp):
     '''actual account for booking
+        triggers signals.py pre_save
     '''
     function = models.CharField(
          _('Function'), max_length=8, null=True, blank=True,
@@ -580,14 +605,6 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
     def clean(self):
         super().clean()  # Call the parent's clean method
         self.clean_related_data(CHART_TYPE)
-
-    def save(self, *args, **kwargs):        
-        # Update number
-        number = account_position_calc_number(
-            self.account_type, self.function, self.account_number, 
-            self.is_category)
-        self.number = Decimal(number)        
-        super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
