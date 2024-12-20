@@ -84,11 +84,12 @@ class Import(object):
                 # re-assign function
                 function = account_number_str
             else:
-                # clean account_number_str
-                account_number_str = account_number_str.lstrip('0')
-                if '.' not in account_number_str:
-                    account_number_str += '.00'
-            
+                # clean account_number_str               
+                # Convert to a float                
+                numeric_value = float(account_number_str)                
+                # Format as a float with two decimal places                
+                account_number_str = f"{numeric_value:.2f}"  
+
             # Read numbers
             if self.account_type == ACCOUNT_TYPE.BALANCE:
                 # Assign balance, budget, previous
