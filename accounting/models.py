@@ -5,9 +5,9 @@ from django.db import models
 from django.db.models import UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
-from decimal import Decimal
 
 import json
+from enum import Enum
 
 from core.models import (
     LogAbstract, NotesAbstract, TenantAbstract, CITY_CATEGORY)
@@ -34,6 +34,22 @@ class ACCOUNT_TYPE(models.IntegerChoices):
     BALANCE = ACCOUNT_TYPE_TEMPLATE.BALANCE
     INCOME = ACCOUNT_TYPE_TEMPLATE.INCOME
     INVEST = ACCOUNT_TYPE_TEMPLATE.INVEST
+
+
+class CATEGORY_NRM(Enum):
+    # First digits account_number, name
+    ASSET = [1], "ASSET"
+    LIABILITY = [2], "LIABILITY"
+    EXPENSE = [3, 5], "EXPENSE" 
+    REVENUE = [4, 6],  "REVENUE" 
+    BALANCE = [9], "BALANCE"
+    
+    def get_scope(category):
+        try:
+            scope, _label = category.value
+            return scope
+        except:
+            return None
 
 
 # CashCtrl Basics ------------------------------------------------------------
@@ -518,6 +534,13 @@ class AccountPositionAbstract(LogAbstract):
         _('Number'), max_digits=14, decimal_places=2,
         help_text=_('Calculated account number for reference'))
 
+    @property
+    def level(self):
+        if self.is_category:
+            return len(self.account_number.split('.')[0])
+        else:
+            return self.name
+
     def __str__(self):
         return f"{self.account_number} {self.name}"
         
@@ -527,20 +550,14 @@ class AccountPositionAbstract(LogAbstract):
 
 class AccountPositionTemplate(
         AccountPositionAbstract, LogAbstract, NotesAbstract):
+    ''' triggers signals.py pre_save
+    '''
     chart = models.ForeignKey(
         ChartOfAccountsTemplate, verbose_name=_('Chart of Accounts'),
         on_delete=models.CASCADE, related_name='%(class)s_chart',
         help_text=_('Link to the relevant chart of accounts'))     
      
     def save(self, *args, **kwargs):
-        # Update number
-        function = None
-        number = account_position_calc_number(
-            self.chart.account_type, function, self.account_number, 
-            self.is_category)
-        self.number = Decimal(number)
-        
-        # Save
         if not kwargs.pop('check_only', False):
             super().save(*args, **kwargs)
      
@@ -595,6 +612,14 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
         _('Explanation'), null=True, blank=True,
         help_text=_('Explanation, esp. deviations to previous period'))
 
+    @property
+    def category_nrm(self):
+        for category in CATEGORY_NRM:    
+            scope, _label = category.value
+            if int(self.account_number[0]) in scope:
+                return category
+        return None    
+
     def __str__(self):
         if self.function:
             text = f'{self.function}.'
@@ -616,7 +641,8 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
                 name='unique_account_position_number'
             )
         ]        
-        ordering = ['chart', 'account_type', 'function', 'account_number']
+        ordering = [
+            'chart', 'account_type', 'function', 'account_number']
         verbose_name = ('Account Position (Municipality)')
         verbose_name_plural = _('Account Positions')        
 

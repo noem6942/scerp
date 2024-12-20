@@ -3,8 +3,11 @@ from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
+from decimal import Decimal
+
 from .models import (
-    APPLICATION, APISetup, AccountPosition, FiscalPeriod, Location)
+    APPLICATION, APISetup, AccountPosition, AccountPositionTemplate,
+    FiscalPeriod, Location)
 from .mixins import account_position_calc_number
 from .process import ProcessCashCtrl
 
@@ -113,11 +116,23 @@ def api_setup(sender, instance, created, **kwargs):
 
 
 @receiver(pre_save, sender=AccountPosition)
-def account_position(sender, instance, created, **kwargs):
+def account_position(sender, instance, *args, **kwargs):
     # Update number before saving
     number = account_position_calc_number(
         instance.account_type, 
         instance.function, 
+        instance.account_number, 
+        instance.is_category)
+    instance.number = Decimal(number)     
+
+
+@receiver(pre_save, sender=AccountPositionTemplate)
+def account_position_template(sender, instance, *args, **kwargs):
+    # Update number before saving
+    function = None
+    number = account_position_calc_number(
+        instance.account_type, 
+        function, 
         instance.account_number, 
         instance.is_category)
     instance.number = Decimal(number)        

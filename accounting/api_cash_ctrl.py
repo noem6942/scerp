@@ -555,9 +555,9 @@ if __name__ == "__main__":
     key = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
     params =  {}
     
-    ctrl = API.Setting(org, key)
-    setting = ctrl.read()
-    print(setting, "\n")
+    ctrl = API.Account(org, key)
+    data = ctrl.list()
+    print(data, "\n")
 
     """     
     ctrl = API.AccountCategory(org, key)

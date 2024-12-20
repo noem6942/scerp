@@ -1,5 +1,6 @@
 from django.contrib.auth.models import Group
 from django.db import models
+from django.utils.translation import get_language, gettext_lazy as _
 
 # from core.models import TenantAbstract, to be done later
 from crm.models import Building
@@ -12,9 +13,11 @@ class Meeting(models.Model):
     committee = models.ForeignKey(
         Group, on_delete=models.CASCADE,
         related_name='committee') 
-    datetime = models.DateTimeField()
+    date = models.DateField()
+    opening_time = models.DateTimeField()
+    closing_time = models.DateTimeField(null=True, blank=True)
     venue = models.ForeignKey(
-        Building, null=True, on_delete=models.CASCADE, 
+        Building, null=True, blank=True, on_delete=models.CASCADE, 
         related_name='meeting')     
         
     # Details    
@@ -42,7 +45,9 @@ class Meeting(models.Model):
 
 class Agenda(models.Model):
     meeting = models.ForeignKey(Meeting, related_name='agenda_points', on_delete=models.CASCADE)
-    name = models.CharField(max_length=255)
+    name = models.CharField(
+        _("name"), max_length=255, 
+        help_text=_("name of agenda"))
     order = models.PositiveSmallIntegerField(default=0, null=True, blank=True)
     is_business = models.BooleanField(default=True)
     id_business = models.CharField(max_length=16, null=True, blank=True)

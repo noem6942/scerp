@@ -1,5 +1,5 @@
 # import_accounts_gesoft.py
-from .models import ACCOUNT_TYPE
+from .models import ACCOUNT_TYPE, CATEGORY_NRM
 
 from openpyxl import load_workbook
 
@@ -7,16 +7,17 @@ from openpyxl import load_workbook
 class ACCOUNT_SIDE:
     # Used for assignment
     EXPENSE = 1
-    INCOME = 2 
+    REVENUE = 2 
     CLOSING = 9
 
 
 class Import(object):
 
-    def __init__(self, file_path, account_type, account_side=None):
+    def __init__(self, file_path, account_type, category_nrm=None):
         # Account
         self.account_type = account_type
-        self.account_side = account_side
+        self.category_nrm = category_nrm
+        self.scope = CATEGORY_NRM.get_scope(category_nrm)  # e.g. [4, 6]
         
         # read content
         workbook = load_workbook(file_path)
@@ -25,160 +26,101 @@ class Import(object):
         sheet = workbook.active  # Default to the first sheet or use workbook['SheetName']
         
         # Iterate over rows and columns
-        # `values_only=True` gets only cell values
-        self.rows = [row for row in sheet.iter_rows(values_only=True)] 
+        # `values_only=False ensures we get formats as well (leading zeroes)
+        self.rows = [row for row in sheet.iter_rows(values_only=False)] 
+
+    def format_with_leading_zeros(self, value, format_string):
+        """
+        Formats an integer or string to match the leading zero pattern in the format string.
+        
+        :param value: The value to be formatted (int or str).
+        :param format_string: The format string defining the desired pattern (e.g., '0000').
+        :return: A formatted string matching the pattern in `format_string`
+            if possible otherwise value
+        """
+        # Determine the length of the format string
+        length = len(format_string)
+
+        # Convert value to an integer, then to a string with leading zeros
+        if type(value) == int:
+            # do not skip leading zeros
+            return f"{int(value):0{length}d}"
+        else:
+            return str(value)
 
     def get_accounts(self):
+        # Init
         accounts = []
-        row_count = len(self.rows)
-        for nr, row in enumerate(self.rows):       
-            cells = list(row)  # convert tuple to list
-            if type(cells[0]) in [int, float]:
-                # Init
-                account_number = cells.pop(0)
-                account_number_str = str(account_number)
-                name = cells.pop(0)                              
-                is_category = (type(account_number) == int)  # no '.' in value
+        function = None
+        row_count = len(self.rows)        
+        count = 0
+        
+        # Parse
+        for nr, row in enumerate(self.rows):  
+            # Get cell_0
+            cell_0 = row[0]            
 
-                # check if broken name in next row
-                if nr < row_count - 1:
-                    next_row = self.rows[nr + 1]
-                    if next_row[0] is None and next_row[1]:
-                        name += ' ' + next_row[1]
-
-                # Check closing
-                if self.account_side == ACCOUNT_SIDE.CLOSING:
-                    if account_number_str[:2] != '99':
-                        continue
-                
-                # Process
-                if self.account_type == ACCOUNT_TYPE.BALANCE:
-                    # Init
-                    function = None
-                    budget = None
-                    
-                    # Read balance                                        
-                    balance, _in, _out, previous = cells                    
-                    
-                elif self.account_type == ACCOUNT_TYPE.INCOME:
-                    # read income                    
-                    (income, expense,
-                     budget_income, budget_expense,
-                     previous_income, previous_expense
-                    ) = cells 
-
-                    # Get function                    
-                    if is_category:
-                        function = account_number      
-                        if (self.account_side == ACCOUNT_SIDE.EXPENSE
-                                  or self.account_side == ACCOUNT_SIDE.CLOSING):
-                            balance = expense
-                            budget = budget_expense
-                            previous = previous_expense
-                        elif self.account_side == ACCOUNT_SIDE.INCOME:
-                            balance = income
-                            budget = budget_income
-                            previous = previous_income                      
-                    else:
-                        if (self.account_side == ACCOUNT_SIDE.EXPENSE 
-                                and 3000 <= account_number < 4000):
-                            balance = expense
-                            budget = budget_expense
-                            previous = previous_expense
-                        elif (self.account_side == ACCOUNT_SIDE.CLOSING 
-                                and 9000 <= account_number == 9000.01):
-                            balance = expense
-                            budget = budget_expense
-                            previous = previous_expense
-                        elif (self.account_side == ACCOUNT_SIDE.INCOME 
-                                  and 4000 <= account_number < 5000):
-                            balance = income
-                            budget = budget_income
-                            previous = previous_income  
-                        elif (self.account_side == ACCOUNT_SIDE.CLOSING 
-                                and 9000 <= account_number == 9001.01):
-                            balance = income
-                            budget = budget_income
-                            previous = previous_income  
-                        else:
-                            continue
-
-                elif self.account_type == ACCOUNT_TYPE.INVEST:
-                    # read invest
-                    (expense, income, 
-                     budget_expense, budget_income, 
-                     previous_expense, previous_income,
-                    ) = cells 
-
-                    # Get function                    
-                    if is_category:
-                        function = account_number 
-                        if self.account_side == ACCOUNT_SIDE.EXPENSE:
-                            balance = expense
-                            budget = budget_expense
-                            previous = previous_expense
-                        elif self.account_side == ACCOUNT_SIDE.INCOME:
-                            balance = income
-                            budget = budget_income
-                            previous = previous_income                      
-                    else:
-                        if (self.account_side == ACCOUNT_SIDE.EXPENSE 
-                                and 5000 <= account_number < 6000):
-                            balance = expense
-                            budget = budget_expense
-                            previous = previous_expense
-                        elif (self.account_side == ACCOUNT_SIDE.INCOME 
-                                  and 6000 <= account_number < 7000):
-                            balance = income
-                            budget = budget_income
-                            previous = previous_income    
-                        else:
-                            continue
-                
-                # Make account
-                accounts.append({
-                    'function': str(function),
-                    'account_type': self.account_type,
-                    'is_category': is_category,
-                    'account_number': account_number_str,
-                    'name': name,
-                    'balance': balance,
-                    'budget': budget,
-                    'previous': previous,
-                })   
+            # Check if valid position            
+            if type(cell_0.value) not in [int, float]:
+                continue            
+            
+            # Get name, is_category
+            name = row[1].value
+            is_category = False if '0.00' in cell_0.number_format else True            
+                        
+            # Get account_number + leading zeros for first col
+            account_number = cell_0.value
+            account_number_str = self.format_with_leading_zeros(
+                cell_0.value, cell_0.number_format)
+            
+            # check if broken name in next row
+            if nr < row_count - 1:
+                next_row = [x.value for x in self.rows[nr + 1]]
+                if next_row[0] is None and next_row[1]:
+                    name += ' ' + next_row[1]
+            
+            # Function, account_number_str
+            if is_category:
+                # re-assign function
+                function = account_number_str
+            else:
+                # clean account_number_str
+                account_number_str = account_number_str.lstrip('0')
+                if '.' not in account_number_str:
+                    account_number_str += '.00'
+            
+            # Read numbers
+            if self.account_type == ACCOUNT_TYPE.BALANCE:
+                # Assign balance, budget, previous
+                budget = None
+                (previous, _add, _subtract, balance
+                ) = [None] * 4 if is_category else [x.value for x in row[2:]]
+            else:
+                (income, expense,
+                 budget_income, budget_expense,
+                 previous_income, previous_expense
+                ) = [None] * 6 if is_category else [x.value for x in row[2:]]
+            
+                # Assign balance, budget, previous
+                balance = income if income is not None else expense
+                budget = (
+                    budget_income if budget_income is not None 
+                    else budget_expense)
+                previous = (
+                    previous_income if previous_income is not None 
+                    else previous_expense)            
+                 
+            # Make account
+            accounts.append({
+                'function': function,
+                'account_type': self.account_type,
+                'is_category': is_category,
+                'account_number': account_number_str,
+                'name': name,
+                'balance': balance,
+                'budget': budget,
+                'previous': previous,
+            })
             
         return accounts
         
-        
-# main        
-if __name__ == "__main__":
-    # Bilanz    
-    file_path = './fixtures/transfer ge_soft/Bilanz 2023 AGEM.xlsx'
-    i = Import(file_path, ACCOUNT_TYPE.BALANCE)
-    accounts = i.get_accounts()
-    print("*** Bilanz", accounts[:10])
-
-    # Income
-    file_path = './fixtures/transfer ge_soft/Erfolgsrechnung 2023 AGEM.xlsx'
-
-    i = Import(file_path,  ACCOUNT_TYPE.INCOME, ACCOUNT_SIDE.INCOME)
-    accounts = i.get_accounts()
-    print("*** Income / INCOME", accounts[:10])
-
-    i = Import(file_path,  ACCOUNT_TYPE.INCOME, ACCOUNT_SIDE.EXPENSE)
-    accounts = i.get_accounts()
-    print("*** Income / EXPENSE", accounts[:10])
-
-    i = Import(file_path,  ACCOUNT_TYPE.INCOME, ACCOUNT_SIDE.CLOSING)
-    accounts = i.get_accounts()
-    print("*** Income / CLOSING", accounts[:10])
-
-    # Invest
-    file_path = './fixtures/transfer ge_soft/IR-F JR Detail  (Q) SO_BE HRM2 DLIHB.SO.IR15.xlsx'
-    i = Import(file_path, ACCOUNT_TYPE.INVEST, ACCOUNT_SIDE.INCOME)
-    accounts = i.get_accounts()
-    print("*** Invest / INCOME", accounts[:10])
-
-    i = Import(file_path, ACCOUNT_TYPE.INVEST, ACCOUNT_SIDE.EXPENSE)
-    accounts = i.get_accounts()
-    print("*** Invest / EXPENSE", accounts[:10])

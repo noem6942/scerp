@@ -38,11 +38,14 @@ def save_accounts(accounts, tenant__code, org_name, chart_id):
         ).delete()
         
         # Save
-        account_position = AccountPosition(chart=chart, **account)        
+        account_position = AccountPosition(chart=chart, **account)      
+        account_position.save()        
+        '''
         try:
-            account_position.save()
+            
         except Exception as e:
             # Print the error to the console
             print(f"Record: {account}")
             print(f"Error occurred while saving account_position: {e}")
             break
+        '''

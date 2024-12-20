@@ -64,7 +64,7 @@ class APP:
                 'ChartOfAccountsTemplate': '20',
                 'AccountPositionTemplate': '21',
                 'ChartOfAccounts': '32',
-                'AccountPosition': '33'                
+                #'AccountPosition': '33'                
             }
         },
         'billing': {

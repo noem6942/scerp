@@ -41,8 +41,8 @@ def account_position_calc_number(
         AFFFFCNNNNN.NN
         A .. ACCOUNT_TYPE
         FFFF .. function with leading zeros
-        C .. 1 if is_category else 0
-        NNNNN.NN .. unique number with leading zeros and 2 commas
+        C .. 1 if is_position else 0 (to make it easier for sorting)
+        NNNNN.NN .. account number with leading zeros and 2 commas
         
         ff in account_number is ignored (replace by '')
     '''
@@ -63,9 +63,9 @@ def account_position_calc_number(
     praefix = format_number_with_leading_digits(
         account_type, function, *DIGITS_FUNCTIONAL)
     
-    # Add category
-    category_1 = '1' if is_category else '0'
-    praefix += category_1
+    # Add category / position flag
+    is_position = '0' if is_category else '1'
+    praefix += is_position
 
     # clean account_number
     try:

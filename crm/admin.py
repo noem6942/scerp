@@ -38,4 +38,4 @@ class PersonCategoryAdmin(admin.ModelAdmin):
 # Register Building
 @admin.register(Building, site=admin_site) 
 class BuildingAdmin(admin.ModelAdmin):
-    list_display = ('zip', 'city', 'address')
+    list_display = ('name', 'zip', 'city', 'address')

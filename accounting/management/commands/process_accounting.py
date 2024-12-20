@@ -9,8 +9,7 @@
 '''
 from django.core.management.base import BaseCommand
 from accounting.import_accounts import save_accounts
-from accounting.import_accounts_gesoft import (
-    ACCOUNT_TYPE, ACCOUNT_SIDE, Import)
+from accounting.import_accounts_gesoft import ACCOUNT_TYPE, Import
 
 
 class Command(BaseCommand):
@@ -61,22 +60,22 @@ class Command(BaseCommand):
             if import_ == 'gesoft':
                 if account_type == ACCOUNT_TYPE.BALANCE:
                     i = Import(file_path, account_type)
-                    accounts = i.get_accounts()
+                    accounts = i.get_accounts()                    
                     save_accounts(accounts, tenant_code, org_name, chart_id)
+                    
                 elif account_type == ACCOUNT_TYPE.INCOME:
-                    i = Import(file_path, account_type, ACCOUNT_SIDE.INCOME)
-                    accounts = i.get_accounts()
-                    i = Import(file_path, account_type, ACCOUNT_SIDE.EXPENSE)
-                    accounts += i.get_accounts()
-                    i = Import(file_path, account_type, ACCOUNT_SIDE.CLOSING)
-                    accounts += i.get_accounts()
-                    save_accounts(accounts, tenant_code, org_name, chart_id)
+                    i = Import(file_path, account_type)
+                    accounts = i.get_accounts()                 
+
+                    if accounts:
+                        save_accounts(accounts, tenant_code, org_name, chart_id)
+                        
                 elif account_type == ACCOUNT_TYPE.INVEST:
-                    i = Import(file_path, account_type, ACCOUNT_SIDE.INCOME)
+                    i = Import(file_path, account_type)
                     accounts = i.get_accounts()
-                    i = Import(file_path, account_type, ACCOUNT_SIDE.EXPENSE)
-                    accounts += i.get_accounts()
-                    save_accounts(accounts, tenant_code, org_name, chart_id)
+                                        
+                    if accounts:
+                        save_accounts(accounts, tenant_code, org_name, chart_id)
                     
             # Output        
             self.stdout.write(

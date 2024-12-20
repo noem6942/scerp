@@ -1,6 +1,6 @@
 from django.apps import apps
 from django.conf import settings
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.contrib.admin import AdminSite, ModelAdmin
 from django.db import models
 from django.forms import Textarea

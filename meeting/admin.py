@@ -61,18 +61,18 @@ class MeetingFileInline(admin.TabularInline):
 
 @admin.register(Meeting, site=admin_site)
 class MeetingAdmin(admin.ModelAdmin):
-    list_display = ('name', 'datetime', 'agenda')
+    list_display = ('name', 'date', 'agenda')
     search_fields = ('name',)
-    list_filter = ('datetime',)
+    list_filter = ('date',)
     inlines = [AgendaInline, MeetingFileInline]
 
     fieldsets = (
         (None, {
-            'fields': ('name', 'committee', 'datetime', 'venue'),
+            'fields': ('name', 'committee', 'date', 'opening_time', 'venue'),
             'classes': ('expand',),  # This could be collapsed by default
         }),
-        (_('Details'), {
-            'fields': ('place', 'president', 'secretary'),
+        (_('Invite'), {
+            'fields': ('president', 'secretary'),
             'classes': ('collapse',),  # This could be collapsed by default
         }),
         # (_('Closing'), {
@@ -81,11 +81,13 @@ class MeetingAdmin(admin.ModelAdmin):
         # }),
     )
 
-    @admin.display(description='agenda')
+    @admin.display(description=_('Meeting Details'))
     def agenda(self, obj):
         # We create a link to the agendas' page
         link = f'../agenda/?meeting__id__exact={obj.id}'
-        return format_html(f'<a href="{link}">{obj.name}</a>')
+        queryset = Agenda.objects.filter(meeting=obj).order_by('order')
+        agenda_str = ', '.join([x.name for x in queryset])
+        return format_html(f'<a href="{link}">{agenda_str}</a>')
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'venue':
@@ -100,7 +102,7 @@ class AgendaAdmin(admin.ModelAdmin):
     list_display = ('order', 'name', 'meeting')
     search_fields = ('name', 'meeting__name')
     list_display_links = ('name',)
-    list_filter = ('meeting', 'meeting__datetime',)
+    list_filter = ('meeting', 'meeting__date',)
     ordering = ['meeting', 'order']
     inlines = [
         AgendaFileInline, RemarkInline, AgendaNotesInline, AgendaResultInline]

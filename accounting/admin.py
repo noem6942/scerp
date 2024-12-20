@@ -9,13 +9,13 @@ from core.safeguards import get_tenant
 
 from scerp.admin import (
     admin_site, BaseAdmin, display_empty, display_verbose_name,
-    display_datetime, display_big_number, display_json)
+    display_datetime, display_big_number, display_json, format_hierarchy)
 
 from .models import (
     APISetup, Setting, Location, FiscalPeriod, Currency, Unit, Tax, 
     CostCenter, ChartOfAccountsTemplate,
     AccountPositionTemplate, ChartOfAccounts, AccountPosition,
-    ACCOUNT_TYPE
+    ACCOUNT_TYPE, CATEGORY_NRM
 )
 
 from . import actions as a
@@ -379,8 +379,10 @@ class AccountPositionAdmin(AccountPositionAbstractAdmin):
     has_tenant_field = True    
     
     list_display = (
-        'display_function', 'position_number', 'name', 'display_balance',
+        'display_function', 'position_number', 'display_name', 
+        'display_balance_credit', 'display_balance_debit',
         'display_budget', 'display_previous')    
+    list_display_links = ('display_name',)
     list_filter = ('account_type', 'chart', 'responsible')
     readonly_fields = ('balance', 'budget', 'previous')
     list_per_page = 500  # Show 500 results per page
@@ -398,7 +400,16 @@ class AccountPositionAdmin(AccountPositionAbstractAdmin):
         }),        
     )
     actions = [a.apm_add_income, a.apm_add_invest, a.position_insert]    
-    
+ 
+    @admin.display(
+        description=verbose_name_field(AccountPosition, 'name'))
+    def display_name(self, obj):
+        if obj.is_category:
+            level = obj.level
+            if level < 3:
+                return format_hierarchy(obj.level, obj.name)            
+        return obj.name          
+ 
     @admin.display(
         description=verbose_name_field(AccountPosition, 'function'))
     def display_function(self, obj):
@@ -407,6 +418,22 @@ class AccountPositionAdmin(AccountPositionAbstractAdmin):
     @admin.display(description=_('position nr.'))
     def position_number(self, obj):
         return display_empty() if obj.is_category else obj.account_number
+
+    @admin.display(description=_('balance +'))
+    def display_balance_credit(self, obj):        
+        if obj.category_nrm in (CATEGORY_NRM.EXPENSE, CATEGORY_NRM.ASSET):
+            balance = 0 if obj.balance is None else obj.balance
+            return display_big_number(balance)       
+        else:
+            return display_empty()  
+        
+    @admin.display(description=_('balance -'))
+    def display_balance_debit(self, obj):
+        if obj.category_nrm in (CATEGORY_NRM.REVENUE, CATEGORY_NRM.LIABILITY):
+            balance = 0 if obj.balance is None else obj.balance
+            return display_big_number(balance)
+        else:
+            return display_empty()       
 
     @admin.display(description=_('balance'))
     def display_balance(self, obj):
