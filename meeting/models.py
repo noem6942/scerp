@@ -43,7 +43,9 @@ class Meeting(models.Model):
         return self.name
 
 
-class Agenda(models.Model):
+class AgendaItem(models.Model):
+    '''has signals
+    '''
     meeting = models.ForeignKey(Meeting, related_name='agenda_points', on_delete=models.CASCADE)
     name = models.CharField(
         _("name"), max_length=255, 
@@ -55,22 +57,14 @@ class Agenda(models.Model):
     def __str__(self):
         return f"{self.name} ({self.meeting.name})"
 
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None  # Check if the instance is new (not yet saved)
-        super().save(*args, **kwargs)  # Save the instance
-
-        if is_new:
-            if self.is_business and not self.id_business:
-                id = Agenda.objects.filter(meeting=self.meeting).count() + 1
-                self.id_business = f'2024/{str(id).zfill(3)}'
-                self.save()
-
     class Meta:
         # unique_together = ('meeting', 'name')
         ordering = ['order']
+        verbose_name = _('Agenda Item')
+        verbose_name_plural =  _('Agenda Items')
 
 
-class Remark(models.Model):
+class AgendaRemark(models.Model):
     VISIBILITY_CHOICES = [
         ('personal', 'Personal'),
         ('organizer', 'Organizer'),
@@ -80,7 +74,7 @@ class Remark(models.Model):
     name = models.CharField(max_length=255)
     text = models.TextField()
     agenda = models.ForeignKey(
-        Agenda, null=True, blank=True, on_delete=models.CASCADE, 
+        AgendaItem, null=True, blank=True, on_delete=models.CASCADE, 
         related_name='remark')
     visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='personal')
 
@@ -105,14 +99,14 @@ class File(models.Model):
 
 class AgendaFile(File):
     agenda = models.ForeignKey(
-        Agenda, null=True, blank=True, on_delete=models.CASCADE, 
+        AgendaItem, null=True, blank=True, on_delete=models.CASCADE, 
         related_name='agenda_file')
  
  
 class AgendaNotes(models.Model):
     text = models.TextField()
     agenda = models.OneToOneField(
-        Agenda, null=True, blank=True, on_delete=models.CASCADE, 
+        AgendaItem, null=True, blank=True, on_delete=models.CASCADE, 
         related_name='agenda_notes')
 
 
@@ -123,7 +117,7 @@ class AgendaResult(models.Model):
     ]
 
     agenda = models.OneToOneField(
-        Agenda, null=True, blank=True, on_delete=models.CASCADE, 
+        AgendaItem, null=True, blank=True, on_delete=models.CASCADE, 
         related_name='agenda_result') 
     vote = models.CharField(
         max_length=20, choices=VOTE_CHOICES, null=True, blank=True)    

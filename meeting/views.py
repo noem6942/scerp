@@ -2,12 +2,12 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
 from .models import (
-    Meeting, Agenda, AgendaResult, MeetingFile)
+    Meeting, AgendaItem, AgendaResult, MeetingFile)
 
 
 def get_agenda(id):
     return {
-       'agenda':  get_object_or_404(Agenda, id=id),
+       'agenda':  get_object_or_404(AgendaItem, id=id),
        'result': AgendaResult.objects.filter(agenda__id=id).first()
     }
 
@@ -15,11 +15,11 @@ def get_agenda(id):
 # meeting/views.py
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
-from .models import Meeting, Agenda, AgendaResult, MeetingFile
+from .models import Meeting, AgendaItem, AgendaResult, MeetingFile
 
 def get_agenda(id):
     '''Fetch agenda and its corresponding result.'''
-    agenda = get_object_or_404(Agenda, id=id)
+    agenda = get_object_or_404(AgendaItem, id=id)
     result = AgendaResult.objects.filter(agenda__id=id).first()  # .first() to avoid exceptions if no results
     return {
         'agenda': agenda,

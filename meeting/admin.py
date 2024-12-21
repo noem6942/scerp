@@ -10,12 +10,12 @@ from scerp.admin import (
 
 from .actions import show_agenda, make_minutes
 from .models import (
-    Meeting, Agenda, Remark, AgendaFile, MeetingFile, AgendaNotes, 
+    Meeting, AgendaItem, AgendaRemark, AgendaFile, MeetingFile, AgendaNotes, 
     AgendaResult)
 
 
-class RemarkInline(admin.StackedInline):
-    model = Remark
+class AgendaRemarkInline(admin.StackedInline):
+    model = AgendaRemark
     extra = 0  # Number of blank forms to display
     fields = ('name', 'text', 'visibility')
     readonly_fields = ('id',)
@@ -42,10 +42,11 @@ class AgendaResultInline(admin.StackedInline):
     fields = ('vote', 'votes_yes', 'votes_no', 'votes_abstention')
     readonly_fields = ('id',)
     show_change_link = True
+    classes = ['collapse']
 
 
-class AgendaInline(admin.TabularInline):
-    model = Agenda
+class AgendaItemInline(admin.TabularInline):
+    model = AgendaItem
     extra = 0  # Number of blank forms to display
     fields = ('order', 'name', 'is_business', 'id_business')
     readonly_fields = ('id', 'id_business')
@@ -64,7 +65,7 @@ class MeetingAdmin(admin.ModelAdmin):
     list_display = ('name', 'date', 'agenda')
     search_fields = ('name',)
     list_filter = ('date',)
-    inlines = [AgendaInline, MeetingFileInline]
+    inlines = [AgendaItemInline, MeetingFileInline]
 
     fieldsets = (
         (None, {
@@ -84,8 +85,8 @@ class MeetingAdmin(admin.ModelAdmin):
     @admin.display(description=_('Meeting Details'))
     def agenda(self, obj):
         # We create a link to the agendas' page
-        link = f'../agenda/?meeting__id__exact={obj.id}'
-        queryset = Agenda.objects.filter(meeting=obj).order_by('order')
+        link = f'../agendaitem/?meeting__id__exact={obj.id}'
+        queryset = AgendaItem.objects.filter(meeting=obj).order_by('order')
         agenda_str = ', '.join([x.name for x in queryset])
         return format_html(f'<a href="{link}">{agenda_str}</a>')
 
@@ -97,15 +98,18 @@ class MeetingAdmin(admin.ModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
-@admin.register(Agenda, site=admin_site)
-class AgendaAdmin(admin.ModelAdmin):
+@admin.register(AgendaItem, site=admin_site)
+class AgendaItemAdmin(admin.ModelAdmin):
     list_display = ('order', 'name', 'meeting')
     search_fields = ('name', 'meeting__name')
     list_display_links = ('name',)
     list_filter = ('meeting', 'meeting__date',)
     ordering = ['meeting', 'order']
+    readonly_fields = ('meeting', 'name', 'order')
+    
     inlines = [
-        AgendaFileInline, RemarkInline, AgendaNotesInline, AgendaResultInline]
+        AgendaFileInline, AgendaRemarkInline, AgendaNotesInline, 
+        AgendaResultInline]
     actions = [make_minutes, show_agenda]
 
     fieldsets = (
