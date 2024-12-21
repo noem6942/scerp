@@ -12,19 +12,19 @@ class APP:
         'auth': {  # App label
             'symbol': '(A)',
             'is_mandatory': True,
-            'models': {  # Models order
-                'group': '1',
-                'user': '2',
+            'models': {  # Models order, postfix
+                'group': ('1', None),
+                'user': ('2', None)
             }
         },
         'core': {
             'symbol': '@',
             'is_mandatory': True,
             'models': {                
-                'Tenant': '1',
-                'TenantLocation': '2',
-                'TenantSetup': '3',
-                'UserProfile': '4',
+                'Tenant': ('1', None),
+                'TenantLocation': ('2', None),
+                'TenantSetup': ('3', None),
+                'UserProfile': ('4', None)
             }
         },
         'crm': {
@@ -37,34 +37,34 @@ class APP:
             'symbol': 'M',
             'is_mandatory': False,
             'models': {   
-                'Meeting': '1',
-                'Agenda': '2'           
+                'Meeting': ('1', None),
+                'Agenda': ('2',  None)           
             }
         }, 
         'vault': {
             'symbol': 'V',
             'is_mandatory': False,
             'models': {  
-                'RegistrationPlanCanton': '1',
-                'RegistrationPositionCanton': '2'
+                'RegistrationPlanCanton': ('1', None),
+                'RegistrationPositionCanton': ('2', None)
             }
         },  
         'accounting': {
             'symbol': 'A',
             'is_mandatory': False,
             'models': {
-                'APISetup': '0',
-                'Setting': '10',
-                'Location': '11',
-                'FiscalPeriod': '12',
-                'Currency': '13',
-                'Unit': '14',
-                'Tax': '15',
-                'CostCenter': '16',
-                'ChartOfAccountsTemplate': '20',
-                'AccountPositionTemplate': '21',
-                'ChartOfAccounts': '32',
-                #'AccountPosition': '33'                
+                'APISetup': ('1', None),
+                'Setting': ('10', ' ⬇️'),
+                'Location': ('11', ' ⬇️'),
+                'FiscalPeriod': ('12', ' ⬇️'),
+                'Currency': ('13', ' ⬇️'),
+                'Unit': ('14', ' ⬇️'),
+                'Tax': ('15', ' ⬇️'),
+                'CostCenter': ('16', ' ⬇️'),
+                'ChartOfAccountsTemplate': ('20', None),
+                'AccountPositionTemplate': ('21', None),
+                'ChartOfAccounts': ('32', None),
+                #'AccountPosition': ('33', None),     
             }
         },
         'billing': {
