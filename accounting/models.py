@@ -188,7 +188,7 @@ class Setting(TenantAbstract):
         ]        
         ordering = ['setup__org_name']
         verbose_name = _("Settings")
-        verbose_name_plural = f"⬇️ {verbose_name}"
+        verbose_name_plural = f"{verbose_name}"
     
 
 class Location(AcctApp):
@@ -265,7 +265,7 @@ class Location(AcctApp):
         ]        
         ordering = ['name']
         verbose_name = _("Location: Logo, Address, VAT, Codes, Formats etc. ")
-        verbose_name_plural = f"⬇️ {verbose_name}"
+        verbose_name_plural = f"{verbose_name}"
 
 
 class FiscalPeriod(AcctApp):
@@ -309,7 +309,7 @@ class FiscalPeriod(AcctApp):
         ]        
         ordering = ['-start']
         verbose_name = _("Fiscal Period")
-        verbose_name_plural = f"⬇️ {_('Fiscal Periods')}"
+        verbose_name_plural = f"{_('Fiscal Periods')}"
 
 
 class Currency(AcctApp):
@@ -339,7 +339,7 @@ class Currency(AcctApp):
         ]        
         ordering = ['code']
         verbose_name = _("Currency")
-        verbose_name_plural = f"⬇️ {_('Currencies')}"
+        verbose_name_plural = f"{_('Currencies')}"
 
 
 class Unit(AcctApp):
@@ -366,7 +366,7 @@ class Unit(AcctApp):
         ]        
         ordering = ['name']
         verbose_name = _("Unit")
-        verbose_name_plural = f"⬇️ {_('Units')}"
+        verbose_name_plural = f"{_('Units')}"
 
 
 class Tax(AcctApp):
@@ -403,7 +403,7 @@ class Tax(AcctApp):
         ]        
         ordering = ['number']
         verbose_name = _("Tax Rate")
-        verbose_name_plural = f"⬇️ {_('Tax Rates')}"
+        verbose_name_plural = f"{_('Tax Rates')}"
 
 
 class CostCenter(AcctApp):
@@ -428,7 +428,7 @@ class CostCenter(AcctApp):
         ]        
         ordering = ['name']
         verbose_name = _("Cost Center")
-        verbose_name_plural = f"⬇️ {_('Cost Centers')}"
+        verbose_name_plural = f"{_('Cost Centers')}"
 
 
 # Accounting Charts -----------------------------------------------------------
