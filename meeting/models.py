@@ -4,43 +4,77 @@ from django.utils.translation import get_language, gettext_lazy as _
 
 # from core.models import TenantAbstract, to be done later
 from crm.models import Building
-#from vault.models import RegistrationPosition
+from vault.models import Status
+
+
+from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class Meeting(models.Model):
-    # Core
-    name = models.CharField(max_length=255)
+    # Core fields
+    name = models.CharField(
+        max_length=255,
+        verbose_name=_("Meeting Name"),
+        help_text=_("The name of the meeting.")
+    )
     committee = models.ForeignKey(
-        Group, on_delete=models.CASCADE,
-        related_name='committee') 
-    date = models.DateField()
-    opening_time = models.DateTimeField()
-    closing_time = models.DateTimeField(null=True, blank=True)
+        Group,
+        on_delete=models.CASCADE,
+        related_name='committee',
+        verbose_name=_("Committee"),
+        help_text=_("The committee responsible for the meeting.")
+    )
+    date = models.DateField(
+        verbose_name=_("Meeting Date"),
+        help_text=_("The date of the meeting.")
+    )
+    opening_time = models.DateTimeField(
+        verbose_name=_("Opening Time"),
+        help_text=_("The date and time the meeting starts.")
+    )
+    closing_time = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name=_("Closing Time"),
+        help_text=_("The date and time the meeting ends.")
+    )
     venue = models.ForeignKey(
-        Building, null=True, blank=True, on_delete=models.CASCADE, 
-        related_name='meeting')     
-        
-    # Details    
-    ''' move to CRM
-    place = models.ForeignKey(
-        TenantLocation, on_delete=models.CASCADE, 
-        related_name='place')   
-    '''
-    president  = models.ForeignKey(
-        Group, null=True, blank=True, on_delete=models.SET_NULL, 
-        related_name='president')        
-    secretary  = models.ForeignKey(
-        Group, null=True, blank=True, on_delete=models.SET_NULL, 
-        related_name='secretary')        
-        
-    # Closing   
-    '''    
-    vault_position = models.ForeignKey(
-        RegistrationPosition, null=True, blank=True, on_delete=models.CASCADE, 
-        related_name='meeting')     
-    '''
+        Building, null=True, blank=True, on_delete=models.CASCADE,
+        related_name='meeting',
+        verbose_name=_("Venue"),
+        help_text=_("The venue where the meeting is held.")
+    )
+
+    # Status field
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.INITIALIZATION,
+        verbose_name=_("Meeting Status"),
+        help_text=_("Current status of the meeting.")
+    )
+
+    # Details
+    president = models.ForeignKey(
+        Group, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='president',
+        verbose_name=_("President"),
+        help_text=_("The president presiding over the meeting.")
+    )
+    secretary = models.ForeignKey(
+        Group, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='secretary',
+        verbose_name=_("Secretary"),
+        help_text=_("The secretary responsible for documenting the meeting.")
+    )
+
     def __str__(self):
-        return self.name
+        return f"{self.name}, {self.date}"
+
+    class Meta:
+        ordering = ['-date', 'committee']
+        verbose_name = _("Meeting")
+        verbose_name_plural = _("Meetings")
 
 
 class AgendaItem(models.Model):

@@ -62,14 +62,17 @@ class MeetingFileInline(admin.TabularInline):
 
 @admin.register(Meeting, site=admin_site)
 class MeetingAdmin(admin.ModelAdmin):
-    list_display = ('name', 'date', 'agenda')
+    list_display = ('name', 'date', 'agenda', 'status')
     search_fields = ('name',)
     list_filter = ('date',)
+    list_filter = ('committee', 'date', 'status')
     inlines = [AgendaItemInline, MeetingFileInline]
 
     fieldsets = (
         (None, {
-            'fields': ('name', 'committee', 'date', 'opening_time', 'venue'),
+            'fields': (
+                'name', 'committee', 'date', 'opening_time', 'venue',
+                'status'),
             'classes': ('expand',),  # This could be collapsed by default
         }),
         (_('Invite'), {

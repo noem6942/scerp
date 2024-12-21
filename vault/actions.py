@@ -14,7 +14,7 @@ from .models import (
 )
     
 from core.safeguards import save_logging    
-from scerp.actions import action_check_nr_selected
+from scerp.admin import action_check_nr_selected
 from scerp.mixins import read_excel_file
 
 

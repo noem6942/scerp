@@ -23,8 +23,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY: 
-    # Windows needs to load env in settings    
+if not SECRET_KEY:
+    # Windows needs to load env in settings
     from .load_env_windows import SECRET_KEY as key
     SECRET_KEY = key
 
@@ -36,14 +36,14 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 # Application definition
 # GUI looked at jazzmin, grappelli and baton but all failed
 
-INSTALLED_APPS = [        
+INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',    
-    'django_admin_action_forms',  # Extension for the Django admin panel that allows passing additional parameters to actions by creating intermediate pages with forms.              
+    'django.contrib.staticfiles',
+    'django_admin_action_forms',  # Extension for the Django admin panel
     'core',
     'home',
     'accounting',
@@ -61,7 +61,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'core.middleware.TenantMiddleware',  # Control tenant    
+    # 'core.middleware.TenantMiddleware',  # Control tenant
 ]
 
 ROOT_URLCONF = 'scerp.urls'
@@ -135,9 +135,9 @@ USE_TZ = True
 # List of languages supported by your project
 LANGUAGES = [
     ('de', 'Deutsch'),
-    ('fr', 'French'),    
-    ('it', 'Italiano'),    
-    ('en', 'English'),    
+    ('fr', 'French'),
+    ('it', 'Italiano'),
+    ('en', 'English'),
 ]
 
 # Locale path where your translation files will be stored

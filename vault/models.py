@@ -15,6 +15,15 @@ Note: class setup is complex as we have a first part for general
     canton plans with no tenants and then the municipital plans with tenant
 '''
 
+
+class Status(models.TextChoices):
+    INITIALIZATION = 'INIT', _('Initialization')
+    PREPARATION = 'PREP', _('Preparation')
+    FINISHED = 'FIN', _('Finished')  # The meeting took place
+    COMPLETED = 'COMP', _('Completed')  # Minutes are done and sent
+    ARCHIVED = 'ARCH', _('Archived')  # Nothing must be changed now
+
+
 # Abstract ----------------------------------------------------------
 class RegistrationPlanAbstract(LogAbstract, NotesAbstract):
     name = models.CharField(

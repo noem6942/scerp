@@ -96,6 +96,38 @@ class NotesAbstract(models.Model):
         abstract = True  # This makes it an abstract model
 
 
+class Message(LogAbstract, NotesAbstract):
+    '''only admin and trustees are allowed to create Tenants
+        sends signals after creation!
+    '''
+    class Severity(models.TextChoices):
+        INFO = 'info', _('Info')
+        WARNING = 'warning', _('Warning')
+        
+    name = models.CharField(_('name'), max_length=100)
+    text = models.TextField(_('text'))        
+    severity = models.CharField(
+        max_length=10,
+        choices=Severity.choices,
+        default=Severity.INFO,
+        verbose_name=_("Severity"),
+        help_text=_("Current status of the meeting.")
+    )
+
+    def __str__(self):
+        return f"{self.name}, {self.modified_at}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['is_inactive', 'name'],
+                name='unique_name'
+            )]    
+        ordering = ['is_inactive', '-modified_at']
+        verbose_name = _('Message')
+        verbose_name_plural = _('Messages')
+
+
 class Tenant(LogAbstract, NotesAbstract):
     '''only admin and trustees are allowed to create Tenants
         sends signals after creation!

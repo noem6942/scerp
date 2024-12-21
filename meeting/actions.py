@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.http import HttpResponseRedirect
 from django.utils.translation import gettext_lazy as _
 
-from scerp.actions import action_check_nr_selected
+from scerp.admin import action_check_nr_selected
 
 
 @admin.action(description=_('1. Make minutes web page from agenda points'))

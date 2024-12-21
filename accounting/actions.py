@@ -1,40 +1,38 @@
-# accounting/actions.py
+'''
+accounting/actions.py
+'''
 from django.contrib import admin, messages
 from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
 
-from core.models import Tenant
-from core.safeguards import save_logging, get_tenant
-from scerp.actions import action_check_nr_selected
-from scerp.admin import get_help_text
+from core.safeguards import save_logging
+from scerp.admin import action_check_nr_selected
 
 from .forms import (
-    ChartOfAccountsTemplateForm, 
-    ChartOfAccountsBalanceForm, 
+    ChartOfAccountsTemplateForm,
+    ChartOfAccountsBalanceForm,
     ChartOfAccountsFunctionForm,
     AccountPositionAddIncomeForm,
     AccountPositionAddInvestForm
 )
 from .models import (
     ACCOUNT_TYPE_TEMPLATE,
-    ChartOfAccountsTemplate, AccountPositionTemplate,
-    ChartOfAccounts, AccountPosition
+    AccountPositionTemplate,
+    ChartOfAccounts, AccountPosition, FiscalPeriod
 )
 from .import_accounts_canton import Import
-
-import json
 
 
 DONOT_COPY_FIELDS = [
     # General
     'pk', 'id', 'created_at', 'created_by_id', 'modified_at', 'modified_by_id',
     'version_id', 'protected', 'inactive',
-    
+
     # Accounting
     'chart', 'chart_id', 'account_type', 'function',
-    
+
     # CashCtrl
     'c_id', 'c_created', 'c_created_by', 'c_last_updated', 'c_last_updated_by'
 ]
@@ -42,11 +40,14 @@ DONOT_COPY_FIELDS = [
 
 # mixins
 @admin.action(description=_('> Insert copy of record below'))
-def position_insert(self, request, queryset):
-    ''' Insert row of a model that has a field position '''
+def position_insert(modeladmin, request, queryset):
+    """
+    Insert row of a model that has a field position
+    """
+    _ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, 1):
-        obj = queryset.first()    
+        obj = queryset.first()
     else:
         return
 
@@ -60,18 +61,22 @@ def position_insert(self, request, queryset):
             obj.account_number = str(float(obj.account_number) + 0.01)
         obj.save()
         messages.success(request, _('Copied record.'))
-    except:
-        messages.warning(request, _('Not allowed to copy this record.'))
+    except Exception as e:
+        msg = _('Not allowed to copy this record. {e}').format(e=e)
+        messages.warning(request, msg)
         return
-        
-        
-# FiscalPeriod        
+
+
+# FiscalPeriod
 @admin.action(description=_('3. Set selected period as current'))
-def fiscal_period_set_current(self, request, queryset):
-    ''' Insert row of a model that has a field position '''
+def fiscal_period_set_current(modeladmin, request, queryset):
+    """
+    Insert row of a model that has a field position
+    """
+    _ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, 1):
-        obj = queryset.first()    
+        obj = queryset.first()
     else:
         return
 
@@ -81,14 +86,16 @@ def fiscal_period_set_current(self, request, queryset):
     # Set selected object as the current one
     obj.is_current = True
     obj.save()
-    
+
     msg = _('Set {obj.name} as current.').format(obj=obj)
-    messages.success(request, msg)   
-        
+    messages.success(request, msg)
+
 
 # ChartOfAccountsTemplate (coac)
-def coac_positions(modeladmin, request, queryset, overwrite):
-    """Check Excel File of ChartOfAccountsTemplate"""
+def coac_positions(request, queryset, overwrite):
+    """
+    Check Excel File of ChartOfAccountsTemplate
+    """
     for chart in queryset:
         # Load excel
         try:
@@ -103,11 +110,11 @@ def coac_positions(modeladmin, request, queryset, overwrite):
         add_tenant = False
 
         # Delete existing
-        check_only = True if not overwrite else False
+        check_only = not overwrite
         if overwrite:
             AccountPositionTemplate.objects.filter(chart=chart).delete()
             chart.exported_at = None
-            chart.save() 
+            chart.save()
 
         # Create Positions
         try:
@@ -120,14 +127,14 @@ def coac_positions(modeladmin, request, queryset, overwrite):
 
                     # Add Logging
                     save_logging(request, account_instance, add_tenant)
-                    
+
                     # Try to save (here the validity checks get performed
                     account_instance.save(check_only=check_only)
 
                 # Message
                 msg = _("successfully checked {count} accounts.").format(
                     count=len(accounts))
-                messages.success(request, msg)    
+                messages.success(request, msg)
 
                 # Log
                 if overwrite:
@@ -140,27 +147,32 @@ def coac_positions(modeladmin, request, queryset, overwrite):
             messages.error(request, f'{_("Error Message:")} {str(e)}')
             return
 
-        
+
 @admin.action(description=_('> Check Excel file for validity'))
 def coac_positions_check(modeladmin, request, queryset):
-    coac_positions(modeladmin, request, queryset, overwrite=False)
+    '''
+    perform position check
+    '''
+    _ = modeladmin  # disable pylint warning
+    coac_positions(request, queryset, overwrite=False)
 
 
 @action_with_form(
     ChartOfAccountsTemplateForm,
     description=_('> Create canton account positions'))
 def coac_positions_create(modeladmin, request, queryset, data):
-    """Check Excel File of ChartOfAccountsTemplate"""
+    """
+    Check Excel File of ChartOfAccountsTemplate
+    """
+    _ = modeladmin  # disable pylint warning
+    _ = data  # disable pylint warning
+
     # Check number selected
     if action_check_nr_selected(request, queryset, 1):
-        chart = queryset.first()
-    else:
-        return False
+         # Load excel
+        coac_positions(request, queryset, overwrite=True)
 
-    # Load excel
-    coac_positions(modeladmin, request, queryset, overwrite=True)
 
- 
 # AccountPositionCanton (apc)
 def apc_export(request, queryset, type_from, account_type, chart_id):
     '''two cases:
@@ -170,50 +182,50 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
         copy account_number
         copy account_type
     2. Copy function to income:
-        add chart 
+        add chart
         function gets account_number (if existing), otherwise account
-        account_type gets income   
+        account_type gets income
     '''
 
     # Init
     chart = ChartOfAccounts.objects.get(id=chart_id)
     count_created = 0
     count_updated = 0
-    
+
     # Copy
     for obj in queryset.all():
         # Adjust function and accounting numbers
         if type_from == ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL:
             function = obj.account_number
-            obj.account_number = ''              
+            obj.account_number = ''
         else:
-            function = None 
-    
-        # Check existing    
+            function = None
+
+        # Check existing
         account_instance = AccountPosition.objects.filter(
-            chart=chart, 
+            chart=chart,
             function=function,
-            account_number=obj.account_number, 
+            account_number=obj.account_number,
             is_category=obj.is_category,
             account_type=account_type
         ).first()
-        
+
         # Create new
         if account_instance:
             count_updated += 1
         else:
             count_created += 1
             account_instance = AccountPosition()
-            account_instance.chart = chart 
-            account_instance.function = function  
+            account_instance.chart = chart
+            account_instance.function = function
             account_instance.is_category=obj.is_category
-            account_instance.account_type = account_type  
+            account_instance.account_type = account_type
 
         # Copy values
-        for key, value in obj.__dict__.items():            
-            if key not in DONOT_COPY_FIELDS and key[0] != '_':                
+        for key, value in obj.__dict__.items():
+            if key not in DONOT_COPY_FIELDS and key[0] != '_':
                 setattr(account_instance, key, value)
-        
+
         # As we create an AbstractTenant instance from a non tenant obj we
         # do the update of tenant and logging ourselves instead of using
         # save_logging
@@ -232,50 +244,61 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
     if count_created or count_updated:
         msg = _("Go to '{verbose}' to see the results.").format(
             verbose=AccountPosition._meta.verbose_name)
-        messages.success(request, msg)   
+        messages.success(request, msg)
 
 
 @action_with_form(
     ChartOfAccountsBalanceForm,
     description=_('> Export selected balance positions to own balance'))
 def apc_export_balance(modeladmin, request, queryset, data):
-    # type checks are done in the form
+    '''
+    type checks are done in the form
+    '''
+    _ = modeladmin  # disable pylint warning
     chart_id = data.get('chart')
-    if chart_id:        
+    if chart_id:
         apc_export(
-            request, queryset, ACCOUNT_TYPE_TEMPLATE.BALANCE, 
+            request, queryset, ACCOUNT_TYPE_TEMPLATE.BALANCE,
             ACCOUNT_TYPE_TEMPLATE.BALANCE, chart_id)
 
 @action_with_form(
     ChartOfAccountsFunctionForm,
     description=_('> Export selected function positions to own income'))
 def apc_export_function_to_income(modeladmin, request, queryset, data):
-    # type checks are done in the form
+    '''
+    type checks are done in the form
+    '''
+    _ = modeladmin  # disable pylint warning
     chart_id = data.get('chart')
     if chart_id:
         apc_export(
-            request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL, 
+            request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL,
             ACCOUNT_TYPE_TEMPLATE.INCOME, chart_id)
 
 @action_with_form(
     ChartOfAccountsFunctionForm,
     description=_('> Export selected function positions to own invest'))
 def apc_export_function_to_invest(modeladmin, request, queryset, data):
-    # type checks are done in the form
+    '''
+    type checks are done in the form
+    '''
+    _ = modeladmin  # disable pylint warning
     chart_id = data.get('chart')
-    if chart_id:        
+    if chart_id:
         apc_export(
-            request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL, 
+            request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL,
             ACCOUNT_TYPE_TEMPLATE.INVEST, chart_id)
 
 
 # AccountPosition (apm)
-def apm_add(modeladmin, request, queryset, data, account_type):
-    
+def apm_add(request, queryset, data, account_type):
+    '''
+    add income or invest
+    '''
     # Check number selected
     if queryset.count() > 1:
-         messages.warning(request, MESSAGE.multiple_functions)
-    
+        messages.warning(request, _('Select only one function.'))
+
     # Init
     chart = queryset.first().chart
     count_created = 0
@@ -293,20 +316,20 @@ def apm_add(modeladmin, request, queryset, data, account_type):
             # Check if existing
             function = function_obj.function
             account_instance = AccountPosition.objects.filter(
-                chart=chart, 
+                chart=chart,
                 account_number=obj.account_number,
                 is_category=obj.is_category,
                 function=function,
                 account_type=account_type
             ).first()
-                
-            # Create new 
+
+            # Create new
             if account_instance:
                 count_updated += 1
             else:
                 # We create a new instance
                 count_created += 1
-                account_instance = AccountPosition()                            
+                account_instance = AccountPosition()
                 account_instance.chart = chart
                 account_instance.account_type = account_type
                 account_instance.function = function
@@ -314,12 +337,12 @@ def apm_add(modeladmin, request, queryset, data, account_type):
             # Copy values
             for key, value in obj.__dict__.items():
                 if key not in DONOT_COPY_FIELDS and key[0] != '_':
-                    setattr(account_instance, key, value)        
+                    setattr(account_instance, key, value)
 
             # Save
             save_logging(request, account_instance, add_tenant=True)
-            account_instance.save()    
-    
+            account_instance.save()
+
     # Message
     if count_created:
         msg = _("successfully created {count} accounts. ").format(
@@ -336,7 +359,11 @@ def apm_add(modeladmin, request, queryset, data, account_type):
     description=_('10. Add income positions to function')
 )
 def apm_add_income(modeladmin, request, queryset, data):
-    apm_add(modeladmin, request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INCOME)
+    '''
+    add income to Account Positions
+    '''
+    _ = modeladmin  # disable pylint warning
+    apm_add(request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INCOME)
 
 
 @action_with_form(
@@ -344,4 +371,8 @@ def apm_add_income(modeladmin, request, queryset, data):
     description=_('11 Add invest positions to function')
 )
 def apm_add_invest(modeladmin, request, queryset, data):
-    apm_add(modeladmin, request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INVEST)
+    '''
+    add invest to Account Positions
+    '''
+    _ = modeladmin  # disable pylint warning
+    apm_add(request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INVEST)

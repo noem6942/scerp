@@ -1,17 +1,18 @@
 # accounting/process.py
 '''Interface to cashCtrl (and other accounting applications later)
 '''
+import json
+import logging
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import Group, Permission
 from django.utils.translation import gettext as _
 
-import json
-import logging
-
 from scerp.admin import get_help_text
 from scerp.mixins import get_admin, make_timeaware
-from .api_cash_ctrl import API, FIELD_TYPE, CashCtrl
+
+from . import api_cash_ctrl
 from .init_cash_ctrl import ACCOUNT_CATEGORIES, UNITS
 from .models import (
     APISetup, FiscalPeriod, Setting, Location, Currency, Unit, Tax, CostCenter)
@@ -61,16 +62,19 @@ class ProcessCashCtrl(Process):
                 # Get elems
                 data = json.loads(get_help_text(APISetup, field))
                 name = data['name']
-                type_ = data['type']
+                c_type = data['type']
 
-                group = self.ctrl.get_customfield_group(name, type_)
+                # Get group
+                ctrl = self.init_class(api_cash_ctrl.CustomFieldGroup)
+                group = ctrl.get_from_name(name, c_type)
                 if group:
                     msg = _('Group {name} of type {type} already existing.').format(
                         name=name, type=type_)
                     logger.warning(msg)
                 else:
                     # Create group
-                    group = self.ctrl.create_customfield_group(name, type_)
+                    data = {'name': name, 'type': c_type}
+                    group = ctrl.create(data)
 
                     # Register group
                     setattr(api_setup, field, group['insert_id'])
@@ -90,7 +94,8 @@ class ProcessCashCtrl(Process):
                 data['group'] = json.loads(data['group'])
 
                 # Get customfield
-                customfield = self.ctrl.get_customfield(
+                ctrl = self.init_class(api_cash_ctrl.CustomField)
+                customfield = ctrl.get_from_name(
                     data['name'], data['group']['type'])
 
                 if customfield:
@@ -102,7 +107,7 @@ class ProcessCashCtrl(Process):
                     logger.warning(msg)
                 else:
                     # Create field
-                    customfield = self.ctrl.create_customfield(**data)
+                    customfield = ctrl.create_from_group(**data)
 
                     # Register field
                     setattr(api_setup, field, customfield['insert_id'])
@@ -118,7 +123,7 @@ class ProcessCashCtrl(Process):
 
     def init_accounts(self):
         # init
-        ctrl = self.init_class(API.AccountCategory)
+        ctrl = self.init_class(api_cash_ctrl.AccountCategory)
         categories = ctrl.list()
         top_categories = ctrl.top_categories()
 
@@ -142,7 +147,7 @@ class ProcessCashCtrl(Process):
         ''' add m³, call before units load
         '''
         # Init
-        ctrl = self.init_class(API.Unit)
+        ctrl = self.init_class(api_cash_ctrl.Unit)
 
         # List existing
         units = ctrl.list()
@@ -157,7 +162,7 @@ class ProcessCashCtrl(Process):
     def init_settings(self):
         ''' do this at the end
         '''
-        ctrl = self.init_class(API.AccountCategory)
+        ctrl = self.init_class(api_cash_ctrl.AccountCategory)
 
         data = {
             # General
@@ -267,7 +272,7 @@ class ProcessCashCtrl(Process):
 
     def get_settings(self):
         # Get settings
-        ctrl = self.init_class(API.Setting)
+        ctrl = self.init_class(api_cash_ctrl.Setting)
         data = ctrl.read()
 
         if data:
@@ -285,29 +290,30 @@ class ProcessCashCtrl(Process):
 
     def get_locations(self):
         # Get and update all locations
-        created, updated = self.pull_accounting_data(API.Location, Location)
+        created, updated = self.pull_accounting_data(
+            api_cash_ctrl.Location, Location)
 
     def get_fiscal_periods(self):
         # Get and update all fiscal periods
         created, updated = self.pull_accounting_data(
-            API.FiscalPeriod, FiscalPeriod)
+            api_cash_ctrl.FiscalPeriod, FiscalPeriod)
 
     def get_currencies(self):
         # Get and update all currencies
         created, updated = self.pull_accounting_data(
-            API.Currency, Currency)
+            api_cash_ctrl.Currency, Currency)
 
     def get_units(self):
         # Get and update all units
         created, updated = self.pull_accounting_data(
-            API.Unit, Unit)
+            api_cash_ctrl.Unit, Unit)
 
     def get_tax(self):
         # Get and update all tax rates
         created, updated = self.pull_accounting_data(
-            API.Tax, Tax)
+            api_cash_ctrl.Tax, Tax)
 
     def get_cost_centere(self):
         # Get and update all cost centers
         created, updated = self.pull_accounting_data(
-            API.AccountCostCenter, CostCenter)
+            api_cash_ctrl.AccountCostCenter, CostCenter)

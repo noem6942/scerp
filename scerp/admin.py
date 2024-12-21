@@ -1,22 +1,27 @@
+"""
+scerp/admin.py
+
+Admin configuration for the scerp app.
+
+This module contains the configuration for models and views that manage the admin interface.
+"""
+import json
+
 from django.apps import apps
 from django.conf import settings
-from django.contrib import admin, messages
+from django.contrib import messages
 from django.contrib.admin import AdminSite, ModelAdmin
 from django.db import models
 from django.forms import Textarea
 from django.http import HttpResponseForbidden
-from django.shortcuts import redirect, render
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.formats import date_format
 from django.utils.translation import gettext_lazy as _
 
-import json
-
-from .locales import APP
-from core.safeguards import (
-    get_available_tenants, set_tenant, filter_query_for_tenant, save_logging)
-
+from core.models import Message
+from core.safeguards import filter_query_for_tenant, save_logging
+from .locales import APP_CONFIG, APP_MODEL_ORDER
 
 GUI_ROOT = settings.ADMIN_ROOT
 SPACE = '\u00a0'  # invisible space
@@ -35,52 +40,92 @@ TEXTAREA_DEFAULT = {
 
 
 # Helpers
+def action_check_nr_selected(request, queryset, count=None, min_count=None):
+    """
+    This checks that a user selects the appropriate number of items in admin.py
+    """
+    if count is not None:
+        if queryset.count() != count:
+            msg = _('Please select excatly {count} record(s).').format(
+                    count=count)
+            messages.warning(request, msg)
+            return False
+    elif min_count is not None:
+        if queryset.count() < min_count:
+            msg =  _('Please select more than {count - 1} record(s).').format(
+                    count=min_count)
+            messages.warning(request, msg)
+            return False
+
+    return True
+
+
 def get_help_text(model, field_name):
+    """
+    Get help text from model
+    """
+    # pylint: disable=W0212
     return model._meta.get_field(field_name).help_text
 
 
 def verbose_name_field(model, field_name):
+    """
+    Get verbose_name from model
+    """
+    # pylint: disable=W0212
     return model._meta.get_field(field_name).verbose_name
 
 
 def display_datetime(value, default='-'):
+    """
+    Display date time nice
+    """
     if value is None:
         return default
-    else:
-        return date_format(value, format='DATETIME_FORMAT')
+    return date_format(value, format='DATETIME_FORMAT')
 
 
 def display_empty(value=None, default=' '):
+    """
+    Display '' instead of --empty--
+    """
     if value is None or value == '':
         return default
-    else:
-        return str(value)
+    return str(value)
 
 
 def display_big_number(value):
+    """
+    use settings.THOUSAND_SEPARATOR and 2 commas for big numberss
+    """
     if value is None:
+        # Show empty
         return display_empty()
-    else:
-        number_str = "{:,.2f}".format(value).replace(
-            ',', settings.THOUSAND_SEPARATOR)
-        html = '<span style="text-align: right; display: block;">{}</span>'
-        return format_html(html, number_str)
+
+    # Format number
+    number_str = f"{value:,.2f}".replace(',', settings.THOUSAND_SEPARATOR)
+    html = '<span style="text-align: right; display: block;">{}</span>'
+    return format_html(html, number_str)
 
 
 def display_json(value):
+    """
+    Print string for json
+    """
     try:
         # Sort keys
-        data = {
-            key: value[key]
-            for key in sorted(value.keys())
-        }
+        data = {key: value[key] for key in sorted(value.keys())}
 
         # Format JSON data with indentation and render it as preformatted text
         formatted_json = json.dumps(data, indent=4, ensure_ascii=False)
         return formatted_json
-
-    except Exception as e:
-        return f"Error displaying data: {e}"
+    except ValueError as e:
+        return f"Value Error displaying data: {e}"
+    except (KeyError, TypeError) as e:  # Catch specific exceptions
+        return f"Key or Type Error displaying data: {e}"
+    except Exception as e:  # pylint: disable=W0718
+        # Last resort: Catch any other exceptions
+        return f"Unexpected error displaying data: {e}"
 
 
 def format_hierarchy(level, name):
@@ -89,34 +134,50 @@ def format_hierarchy(level, name):
     '''
     if level == 1:
         return format_html(f"<b>{name.upper()}</b>")
-    elif level == 2:
+    if level == 2:
         return format_html(f"<b>{name}</b>")
-    else:
-        return format_html(f"<i>{name}</i>")
+    return format_html(f"<i>{name}</i>")
 
 
 def display_photo(url_field):
+    """
+    Display photo
+    """
     if url_field:
-        return mark_safe(f'<img src="{url_field.url}" width="60" height="60" style="object-fit: cover;" />')
+        return mark_safe(
+            f'<img src="{url_field.url}" width="60" height="60" '
+            f'style="object-fit: cover;" />')
     return ''
 
 
 def display_verbose_name(def_cls, field):
+    """
+    Display verbose name from field
+    """
     f_cls = getattr(def_cls, 'Field')
     return getattr(f_cls, field)['verbose_name']
 
 
 # Widgets
-def override_textfields_default(attrs=TEXTAREA_DEFAULT):
+def override_textfields_default(attrs=None):
+    """
+    Default textfield too small
+    """
+    if attrs is None:
+        attrs = TEXTAREA_DEFAULT
+
     return {
         models.TextField: {'widget': Textarea(attrs=attrs)}
     }
 
 
 class Site(AdminSite):
-    site_header = APP.verbose_name  # Default site header
-    site_title = APP.title  # Default site title
-    index_title = APP.welcome  # Default index title
+    """
+    Customized AdminSite; get's called with every Model in admin.py
+    """
+    site_header = APP_CONFIG['site_header']  # Default site header
+    site_title = APP_CONFIG['site_title']  # Default site title
+    index_title = APP_CONFIG['index_title']  # Default index title
 
     DEFAULT_ORDER = '\u00A0'  # Non-visible space character for late-order apps
     SEPARATOR_APP = '. '
@@ -130,16 +191,34 @@ class Site(AdminSite):
 
         if app_label is None:
             # Process the general admin index page
+            if 'login' in request.path:
+                pass  # don't show on login screen
+            elif not request.session.get('tenant_message_shown', False):
+                # Get messages
+                queryset = Message.objects.filter(
+                    is_inactive=False).order_by('-modified_at')
+
+                # Display messages
+                for message in queryset:
+                    call = (
+                        messages.warning
+                        if message.severity == Message.Severity.WARNING
+                        else messages.info
+                    )
+                    call(request, message.text)
+
+                # Set session variables
+                request.session['tenant_message_shown'] = True  # Mark message as shown
             return self._get_ordered_app_list(app_list)
-        else:
-            # Render a specific app's models
-            return self._get_app_detail_list(app_list, app_label)
+
+        # Else render a specific app's models
+        return self._get_app_detail_list(app_list, app_label)
 
     def _get_ordered_app_list(self, app_list):
         '''Generate an ordered list of all apps.'''
         ordered_app_list = []
 
-        for app_label, app_info in APP.APP_MODEL_ORDER.items():
+        for app_label, app_info in APP_MODEL_ORDER.items():
             app = self._find_app(app_list, app_label)
             if app:
                 self._process_app(app, app_info)
@@ -148,7 +227,7 @@ class Site(AdminSite):
         # Append remaining apps
         remaining_apps = [
             app for app in app_list
-            if app['app_label'] not in APP.APP_MODEL_ORDER
+            if app['app_label'] not in APP_MODEL_ORDER
         ]
         ordered_app_list.extend(remaining_apps)
 
@@ -156,7 +235,7 @@ class Site(AdminSite):
 
     def _get_app_detail_list(self, app_list, app_label):
         '''Generate a detailed list of models for a specific app.'''
-        app_info = APP.APP_MODEL_ORDER.get(app_label)
+        app_info = APP_MODEL_ORDER.get(app_label)
         if not app_info:
             return []
 
@@ -201,7 +280,6 @@ class Site(AdminSite):
                 f"{symbol}{self.SEPARATOR_MODEL}{name}{postfix}")
 
 
-
 # Initialize the custom admin site
 admin_site = Site(name='admin_site')
 
@@ -231,7 +309,7 @@ class BaseAdmin(ModelAdmin):
         # Check all fields
         fields = []
         if self.fieldsets:
-            for label, dict_ in self.fieldsets:
+            for _label, dict_ in self.fieldsets:
                 fields += dict_['fields']
 
         # Check tenant
@@ -313,16 +391,29 @@ class BaseAdmin(ModelAdmin):
         """
         Limit queryset based on user or other criteria.
         """
-        # add security
         queryset = super().get_queryset(request)
+
         if getattr(self, 'has_tenant_field', False):
             # Filter queryset
             try:
                 queryset = filter_query_for_tenant(request, queryset)
-            except Exception as e:
-                # If an error occurs, capture the exception and return an error message
-                msg = _("Error filtering tenant: {e}").format(e=e)
+            except ValueError as e:
+                # Handle known ValueError
+                msg = _("Value Error filtering tenant: {e}").format(e=e)
                 messages.error(request, msg)
+            except KeyError as e:
+                # Handle KeyError if expected
+                msg = _("Key Error filtering tenant: {e}").format(e=e)
+                messages.error(request, msg)
+            except TypeError as e:
+                # Handle TypeError if expected
+                msg = _("Type Error filtering tenant: {e}").format(e=e)
+                messages.error(request, msg)
+            except Exception as e:
+                # Catch unexpected errors and log them
+                msg = _("Unexpected error filtering tenant: {e}").format(e=e)
+                messages.error(request, msg)
+                raise  # Re-raise the exception to propagate it
 
         return queryset
 

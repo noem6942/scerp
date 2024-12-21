@@ -1,10 +1,14 @@
-# accounting/api_cash_ctrl.py
+'''
+accounting/api_cash_ctrl.py
+
+central file for communication to cash ctrl
+'''
 from datetime import datetime
+from enum import Enum
 import json
 import re
 import requests
 import xmltodict
-from enum import Enum
 
 
 DECODE = 'utf-8'
@@ -12,11 +16,13 @@ DECODE = 'utf-8'
 
 # mixins, we change right at down and uploading of data
 def camel_to_snake(name):
+    ''' we don't use cashCtrl camel field names '''
     name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
 
 
 def snake_to_camel(snake_str):
+    ''' we don't use cashCtrl camel field names '''
     components = snake_str.split('_')
     camel_case_str = ''.join(x.title() for x in components)
 
@@ -25,9 +31,11 @@ def snake_to_camel(snake_str):
 
 
 def create_enum(name, items):
+    ''' see COUNTRY '''
     return Enum(name, {item: item for item in items})
 
 
+# class COUNTRY
 COUNTRY_CODES = [
 	'AFG', 'ALA', 'ALB', 'DZA', 'ASM', 'AND', 'AGO', 'AIA', 'ATG', 'ARG', 'ARM',
 	'ABW', 'AUS', 'AUT', 'AZE', 'BHS', 'BHR', 'BGD', 'BRB', 'BLR', 'BEL', 'BLZ',
@@ -52,21 +60,20 @@ COUNTRY_CODES = [
 	'TON', 'TTO', 'TUN', 'TUR', 'TKM', 'TCA', 'TUV', 'UGA', 'UKR', 'ARE', 'GBR',
 	'USA', 'URY', 'UZB', 'VUT', 'VEN', 'VNM', 'VIR', 'VGB', 'WLF', 'YEM', 'ZMB',
 	'ZWE', 'ISL']
+COUNTRY = create_enum('COUNTRY', sorted(COUNTRY_CODES))
 
-
+# pylint: disable=invalid-name
 class ADDRESS_TYPE(Enum):
+    '''see public api desc'''
     MAIN = 'MAIN'
     INVOICE = 'INVOICE'
     DELIVERY = 'DELIVERY'
     OTHER = 'OTHER'
 
 
-class COUNTRY:
-    pass
-COUNTRY = create_enum('COUNTRY', sorted(COUNTRY_CODES))
-
-
+# pylint: disable=invalid-name
 class DATA_TYPE(Enum):
+    '''see public api desc'''
     TEXT = 'TEXT'
     TEXTAREA = 'TEXTAREA'
     CHECKBOX = 'CHECKBOX'
@@ -77,7 +84,9 @@ class DATA_TYPE(Enum):
     PERSON = 'PERSON'
 
 
+# pylint: disable=invalid-name
 class ELEMENT_TYPE(Enum):
+    '''see public api desc'''
     JOURNAL = 'JOURNAL'
     BALANCE = 'BALANCE'
     PLS = 'PLS'
@@ -110,7 +119,9 @@ class ELEMENT_TYPE(Enum):
     TEXT_IMAGE = 'TEXT_IMAGE'
 
 
+# pylint: disable=invalid-name
 class FIELD_TYPE(Enum):
+    '''see public api desc'''
     JOURNAL = 'JOURNAL'
     ACCOUNT = 'ACCOUNT'
     INVENTORY_ARTICLE = 'INVENTORY_ARTICLE'
@@ -120,13 +131,16 @@ class FIELD_TYPE(Enum):
     FILE = 'FILE'
 
 
+# pylint: disable=invalid-name
 class GENDER(Enum):
+    '''see public api desc'''
     FEMALE = 'FEMALE'
     MALE = 'MALE'
 
 
+# pylint: disable=invalid-name
 class ACCOUNT_CATEGORY_TYPE(Enum):
-    # Used for cashctrl
+    '''Used for cashctrl, see public api desc'''
     ASSET = 1  # Aktiven
     LIABILITY = 2  # Passiven
     EXPENSE = 3  # Aufwand (INCOME), Ausgaben (INVEST),
@@ -175,19 +189,27 @@ CUSTOM_FIELDS = [
 ]
 
 class API_PROJECT(Enum):
-    # Report, not implemented yet
+    ''' Report, not implemented yet
+    '''
     report = {'url': 'report/', 'actions': ['tree']}
     element = {'url': 'element/', 'actions': ['tree']}
     set = {'url': 'set/', 'actions': ['read']}
 
 
-class CashCtrl(object):
+class CashCtrl():
+    ''' Base Class with many children
+    '''
     BASE = "https://{org}.cashctrl.com/api/v1/{url}{action}.json"
 
     def __init__(self, org, api_key):
         self.org = org
+        self.api_key = api_key
         self.auth = (api_key, '')
         self.data = None  # data can be loaded (list, read) or posted
+
+    def url(self):
+        ''' defined in child class '''
+        return getattr(self, 'url')
 
     @staticmethod
     def str_to_dt(dt_string):
@@ -199,24 +221,25 @@ class CashCtrl(object):
     # Xml <-> JSON
     @staticmethod
     def clean_value(value):
-        if type(value) == str and value.startswith('<values>'):
+        ''' use cashctrl <values> xml '''
+        if isinstance(value, str) and value.startswith('<values>'):
             # XML
             return xmltodict.parse(value)
-        else:
-            # Return original value
-            return value
+        # Return original value
+        return value
 
     @staticmethod
     def value_to_xml(value):
+        ''' use cashctrl <values> xml '''
         # Check if value is a dictionary
-        if type(value) is dict and 'values' in value:
+        if isinstance(value, dict) and 'values' in value:
             xmlstr = xmltodict.unparse(value['values'], full_document=False)
             return '<values>' + xmlstr + '</values>'
         # Return original value
-        else:
-            return value
+        return value
 
     def clean_dict(self, data):
+        ''' convert cashctrl data '''
         post_data = {}
         for key, value in data.items():
             key = camel_to_snake(key)
@@ -229,24 +252,36 @@ class CashCtrl(object):
         return post_data
 
     # REST API CashCtrl: post, get
-    def get(self, url, params):
-        response = requests.get(url, params=params, auth=self.auth)
-        if response.status_code != 200:
-            # Decode the content and include it in the error message
-            error_message = response._content.decode(DECODE)
-            raise Exception(
+    def get(self, url, params, timeout=10):
+        '''
+        Get from cash_ctrl with timeout handling.
+        '''
+        try:
+            response = requests.get(url, params=params, auth=self.auth, timeout=timeout)
+            if response.status_code != 200:
+                # Decode the content and include it in the error message
+                content = getattr(response, '_content', None)
+                error_message = content.decode(DECODE) if content else ''
+                raise Exception(
                     f"Get request failed with status {response.status_code}. "
-                    f"Error message: {error_message}")
-        else:            
+                    f"Error message: {error_message}"
+                )
             return response
+        except requests.exceptions.Timeout:
+            raise Exception(f"Request to {url} timed out after {timeout} seconds.")
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"An error occurred during the request: {e}")
 
-    def post(self, url, data=None):
+    def post(self, url, data=None, timeout=10):
+        '''
+        Post to cash_ctrl with timeout handling.
+        '''
         # Load data from self.data if not given
         if data is None:
             data = self.data
-        
+
         # Check
-        if type(data) != dict:
+        if not isinstance(data, dict):
             raise Exception(f"{data} is not of type dict")
 
         # Build data
@@ -259,30 +294,41 @@ class CashCtrl(object):
                 value = self.value_to_xml(value)
             post_data[camel_key] = value
 
-        # Post data
-        print("*url", url, post_data)
-        response = requests.post(url, data=post_data, auth=self.auth)
-        if response.status_code != 200:
-            # Decode the content and include it in the error message
-            error_message = response.content.decode(DECODE)
-            raise Exception(
-                f"Post request failed with status {response.status_code}. "
-                f"Error message: {error_message}")
-        elif response.json().get('success') is False:
-            # Decode the content and include it in the error message
-            error_message = response.content.decode(DECODE)
-            raise Exception(
-                f"Post request failed with 'success': False. "
-                f"Error message: {error_message}")
-        else:
+        try:
+            # Post data
+            response = requests.post(
+                url, data=post_data, auth=self.auth, timeout=timeout)
+            if response.status_code != 200:
+                # Decode the content and include it in the error message
+                error_message = response.content.decode(DECODE)
+                raise Exception(
+                    f"Post request failed with status {response.status_code}. "
+                    f"Error message: {error_message}"
+                )
+            if not response.json().get('success', True):
+                # Decode the content and include it in the error message
+                error_message = response.content.decode(DECODE)
+                raise Exception(
+                    f"Post request failed with 'success': False. "
+                    f"Error message: {error_message}"
+                )
             return self.clean_dict(response.json())
+        except requests.exceptions.Timeout:
+            raise Exception(
+                f"Post request to {url} timed out after {timeout} seconds.")
+        except requests.exceptions.RequestException as e:
+            raise Exception(
+                f"An error occurred during the post request: {e}")
 
     # REST API mine: list, read, create, update, delete
-    def list(self, params={}, **filter):
-        if filter:
+    def list(self, params=None, **filter_kwargs):
+        ''' cash_ctrl list '''
+        if params is None:
+            params = {}  # Initialize the dictionary only when needed
+        if filter_kwargs:
             # e.g. categoryId=110,  camelCase!
             filters = []
-            for key, value in filters.items():
+            for key, value in filter_kwargs.items():
                 filters.append(
                     {'comparison': 'eq', 'field': key, 'value': value})
             params['filter'] = json.dumps(filters)
@@ -293,277 +339,304 @@ class CashCtrl(object):
         self.data = [self.clean_dict(x) for x in response.json()['data']]
         return self.data
 
-    def read(self, params={}):
+    def read(self, params=None):
+        ''' cash_ctrl read '''
+        # Get data
+        if params is None:
+            params = {}  # Initialize the dictionary only when needed
         url = self.BASE.format(
             org=self.org, url=self.url, params=params, action='read')
         response = self.get(url, params)
-        self.data = self.clean_dict(
-            json.loads(response._content.decode(DECODE)))
-        return self.data
-        
+        content = getattr(response, '_content', None)
+
+        # Return content
+        if content:
+            self.data = self.clean_dict(json.loads(content.decode(DECODE)))
+            return self.data
+        raise Exception("response has no _content ")
+
     def create(self, data=None):
+        ''' cash_ctrl create '''
         url = self.BASE.format(
             org=self.org, url=self.url, data=data, action='create')
         response = self.post(url, data=data)
         return response  # e.g. {'success': True, 'message': 'Custom field saved', 'insert_id': 58}
 
     def update(self, data=None):
+        ''' cash_ctrl update '''
         url = self.BASE.format(
             org=self.org, url=self.url, data=data, action='update')
         response = self.post(url, data=data)
         return response  # e.g. {'success': True, 'message': 'Account saved', 'insert_id': 183}
 
     def delete(self, *ids):
-        url = self.BASE.format(
-            org=self.org, url=self.url, params=params, action='delete')
+        ''' cash_ctrl delete '''
         data = {'ids': ','.join([str(id) for id in ids])}
+        url = self.BASE.format(
+            org=self.org, url=self.url, data=data, action='delete')
         response = self.post(url, data=data)
         return response  # e.g. {'success': True, 'message': '1 account deleted'}
 
 
 # Element Classes
-class API:
-    # Common
-    class Currency(CashCtrl):
-        url = 'currency/'
-        actions = ['list']
+# Common
+class Currency(CashCtrl):
+    '''see public api desc'''
+    url = 'currency/'
+    actions = ['list']
 
-    class CurrencyLower(CashCtrl):
-        url = 'currency/'
-        actions = ['list']
+class CurrencyLower(CashCtrl):
+    '''see public api desc'''
+    url = 'currency/'
+    actions = ['list']
 
-    class CustomField(CashCtrl):
-        url = 'customfield/'
-        actions = ['list', 'create']
-        
-        def create(
-                self, name, group, data_type, is_multi=False, values=[]):
-            '''is_multi = True not tested yet
-                group has type and name
-            '''            
-            type = group['type']
-            group_obj = API.CustomFieldGroup(self.org, self.key)
-            group_data = group_obj.get(group['name'], type)
-            if not group_data:
-                raise Exception(f"Group name '{group}' not found.")
+class CustomFieldGroup(CashCtrl):
+    '''see public api desc'''
+    url = 'customfield/group/'
+    actions = ['list']
 
-            data = {
-                'name': name,
-                'type': type,
-                'group_id': group_data['id'],
-                'data_type': data_type,
-                'is_multi': is_multi,
-                'values': values
-            }
-            return super().create(data)        
+    def get_from_name(self, name, cash_ctrl_type):
+        params =  {'type': cash_ctrl_type}
+        groups = self.list(params)
+        return next((x for x in groups if x['name'] == name), None)
 
-        def get(self, name, type):            
-            params =  {'type': type}
-            fields = self.list(url, params)
-            return next((
-                x for x in fields if x['name'] == name), 
-                None)
+class CustomField(CashCtrl):
+    '''see public api desc'''
+    url = 'customfield/'
+    actions = ['list', 'create']
 
-    class CustomFieldGroup(CashCtrl):
-        url = 'customfield/group/'
-        actions = ['list']
-        
-        def create(self, name, type):            
-            ''' e.g. name = {values: {'de': 'Test'} 
-                     type = type='ACCOUNT'}
-            '''
-            data = {
-                'name': name, 
-                'type': type
-            }
-            return super().create(data)
+    def create_from_group(self, name, group, data_type, **kwargs):
+        '''is_multi = True not tested yet
+            group has type and name
+        '''
+        # Init
+        is_multi = kwargs.get('is_multi', False)
+        values = kwargs.get('values', [])
+        c_type = group['type']
 
-        def get(self, name, type):            
-            params =  {'type': type}
-            groups = self.list(url, params)
-            return next((
-                x for x in groups if x['name'] == name),
-                None)
+        # Get
+        group_obj = CustomFieldGroup(self.org, self.api_key)
+        group_data = group_obj.get(group['name'], c_type)
+        if not group_data:
+            raise Exception(f"Group name '{group}' not found.")
 
-    class Rounding(CashCtrl):
-        url = 'rounding/'
-        actions = ['list']
+        data = {
+            'name': name,
+            'type': c_type,
+            'group_id': group_data['id'],
+            'data_type': data_type,
+            'is_multi': is_multi,
+            'values': values
+        }
+        return super().create(data)
 
-    class SequenceNumber(CashCtrl):
-        url = 'sequencenumber/'
-        actions = ['list']
+    def get_from_name(self, name, c_type):
+        '''name: dict, c_type: str
+        '''
+        params =  {'type': c_type}
+        fields = self.list(params)
+        return next((
+            x for x in fields if x['name'] == name),
+            None)
 
-    class Tax(CashCtrl):
-        url = 'tax/'
-        actions = ['list']
+class Rounding(CashCtrl):
+    '''see public api desc'''
+    url = 'rounding/'
+    actions = ['list']
 
-    class Text(CashCtrl):
-        url = 'text/'
-        actions = ['list']
-        params = {'type': 'ORDER_ITEM'}
+class SequenceNumber(CashCtrl):
+    '''see public api desc'''
+    url = 'sequencenumber/'
+    actions = ['list']
 
-    # Meta
-    class FiscalPeriod(CashCtrl):
-        url = 'fiscalperiod/'
-        actions = ['list']
+class Tax(CashCtrl):
+    '''see public api desc'''
+    url = 'tax/'
+    actions = ['list']
 
-    class Location(CashCtrl):
-        url = 'location/'
-        actions = ['list', 'create']
+class Text(CashCtrl):
+    '''see public api desc'''
+    url = 'text/'
+    actions = ['list']
+    params = {'type': 'ORDER_ITEM'}
 
-    class Setting(CashCtrl):
-        url = 'setting/'
-        actions = ['read']
+# Meta
+class FiscalPeriod(CashCtrl):
+    '''see public api desc'''
+    url = 'fiscalperiod/'
+    actions = ['list']
 
-    # File
-    class File(CashCtrl):
-        url = 'file/'
-        actions = ['list']
+class Location(CashCtrl):
+    '''see public api desc'''
+    url = 'location/'
+    actions = ['list', 'create']
 
-    class FileCategory(CashCtrl):
-        url = 'file/category/'
-        actions = ['list']
+class Setting(CashCtrl):
+    '''see public api desc'''
+    url = 'setting/'
+    actions = ['read']
 
-    # Account
-    class Account(CashCtrl):
-        url = 'account/'
-        actions = ['list']
+# File
+class File(CashCtrl):
+    '''see public api desc'''
+    url = 'file/'
+    actions = ['list']
 
-    class AccountCategory(CashCtrl):
-        url = 'account/category/'
-        actions = ['list', 'create']
-        
-        def _check_not_None(self):
-            if self.data is None:
-                raise Exception("data is None")            
-        
-        def _validate(self, data):
-            if 'name' not in data:
-                raise Exception("'name' missing in data")
-            if 'number' not in data:
-                raise Exception("'number' missing in data")
-            if 'parent_id' not in data:
-                raise Exception("'parent_id' missing in data")
-                
-        def create(self, data):
-            self._validate(data)
-            return super().create(data)                
-                
-        def top_categories(self):
-            '''return top categories from self.data
-                'ASSET', 'LIABILITY', 'EXPENSE', 'REVENUE' and 'BALANCE'
-            '''
-            self._check_not_None()
-            
-            return {
-                x['account_class']: x 
-                for x in self.data 
-                if not x['parent_id']
-            }        
-            
-        def leaves(self):
-            """
-            Returns all leaf nodes from the provided data_list.
-            A leaf node is defined as a node where no other node has `parent_id` equal to its `id`.
-            
-            Args:
-                data_list (list): A list of dictionaries, each representing a node.
+class FileCategory(CashCtrl):
+    '''see public api desc'''
+    url = 'file/category/'
+    actions = ['list']
 
-            Returns:
-                list: A list of dictionaries representing the leaf nodes.
-            """
-            # Init
-            data_list = self.data
-            
-            # Extract all ids that are referenced as parent_id
-            parent_ids = {
-                item['parent_id'] 
-                for item in data_list 
-                if item['parent_id'] is not None
-            }
-            
-            # Find all nodes whose id is not in the set of parent_ids
-            leaves = [
-                item for item in data_list 
-                if item['id'] not in parent_ids
-            ]
-            
-            return leaves
+# Account
+class Account(CashCtrl):
+    '''see public api desc'''
+    url = 'account/'
+    actions = ['list']
 
-    class AccountCostCenter(CashCtrl):
-        url = 'account/costcenter/'
-        actions = ['list']
-     
-    # Inventory
-    class Article(CashCtrl):
-        url = 'inventory/article/'
-        actions = ['list']
+class AccountCategory(CashCtrl):
+    '''see public api desc'''
+    url = 'account/category/'
+    actions = ['list', 'create']
 
-    class ArticleCategory(CashCtrl):
-        url = 'inventory/article/category/'
-        actions = ['list']
+    def create(self, data=None):
+        if 'name' not in data:
+            raise Exception("'name' missing in data")
+        if 'number' not in data:
+            raise Exception("'number' missing in data")
+        if 'parent_id' not in data:
+            raise Exception("'parent_id' missing in data")
+        return super().create(data)
 
-    class Asset(CashCtrl):
-        url = 'inventory/asset/'
-        actions = ['list']
+    def top_categories(self):
+        '''return top categories from self.data
+            'ASSET', 'LIABILITY', 'EXPENSE', 'REVENUE' and 'BALANCE'
+        '''
+        if self.data is None:
+            raise Exception("data is None")
 
-    class AssetCategory(CashCtrl):
-        url = 'inventory/asset/category/'
-        actions = ['list']
+        return {
+            x['account_class']: x
+            for x in self.data
+            if not x['parent_id']
+        }
 
-    class Unit(CashCtrl):
-        url = 'inventory/unit/'
-        actions = ['list', 'create']
+    def leaves(self):
+        """
+        Returns all leaf nodes from the provided data_list.
+        A leaf node is defined as a node where no other node has `parent_id` equal to its `id`.
 
-    # Orders
-    class Order(CashCtrl):
-        url = 'order/'
-        actions = ['list']
+        Args:
+            data_list (list): A list of dictionaries, each representing a node.
 
-    class OrderBookEntry(CashCtrl):
-        url = 'order/bookentry/'
-        actions = ['list']  # not working ever used?
+        Returns:
+            list: A list of dictionaries representing the leaf nodes.
+        """
+        # Init
+        data_list = self.data
 
-    class OrderCategory(CashCtrl):
-        url = 'order/category/'
-        actions = ['list']
+        # Extract all ids that are referenced as parent_id
+        parent_ids = {
+            item['parent_id']
+            for item in data_list
+            if item['parent_id'] is not None
+        }
 
-    class Document(CashCtrl):
-        url = 'order/document/'
-        actions = ['read']  # The ID of the order.
+        # Find all nodes whose id is not in the set of parent_ids
+        leaves = [
+            item for item in data_list
+            if item['id'] not in parent_ids
+        ]
 
-    class Template(CashCtrl):
-        url = 'order/template/'
-        actions = ['read']  # The ID of the entry.
+        return leaves
 
-    # Person
-    class Person(CashCtrl):
-        url = 'person/'
-        actions = ['list']
+class AccountCostCenter(CashCtrl):
+    '''see public api desc'''
+    url = 'account/costcenter/'
+    actions = ['list']
 
-    class PersonCategory(CashCtrl):
-        url = 'person/category/'
-        actions = ['list']
+# Inventory
+class Article(CashCtrl):
+    '''see public api desc'''
+    url = 'inventory/article/'
+    actions = ['list']
 
-    class PersonTitle(CashCtrl):
-        url = 'person/title/'
-        actions = ['list']
+class ArticleCategory(CashCtrl):
+    '''see public api desc'''
+    url = 'inventory/article/category/'
+    actions = ['list']
+
+class Asset(CashCtrl):
+    '''see public api desc'''
+    url = 'inventory/asset/'
+    actions = ['list']
+
+class AssetCategory(CashCtrl):
+    '''see public api desc'''
+    url = 'inventory/asset/category/'
+    actions = ['list']
+
+class Unit(CashCtrl):
+    '''see public api desc'''
+    url = 'inventory/unit/'
+    actions = ['list', 'create']
+
+# Orders
+class Order(CashCtrl):
+    '''see public api desc'''
+    url = 'order/'
+    actions = ['list']
+
+class OrderBookEntry(CashCtrl):
+    '''see public api desc'''
+    url = 'order/bookentry/'
+    actions = ['list']  # not working ever used?
+
+class OrderCategory(CashCtrl):
+    '''see public api desc'''
+    url = 'order/category/'
+    actions = ['list']
+
+class Document(CashCtrl):
+    '''see public api desc'''
+    url = 'order/document/'
+    actions = ['read']  # The ID of the order.
+
+class Template(CashCtrl):
+    '''see public api desc'''
+    url = 'order/template/'
+    actions = ['read']  # The ID of the entry.
+
+# Person
+class Person(CashCtrl):
+    '''see public api desc'''
+    url = 'person/'
+    actions = ['list']
+
+class PersonCategory(CashCtrl):
+    '''see public api desc'''
+    url = 'person/category/'
+    actions = ['list']
+
+class PersonTitle(CashCtrl):
+    '''see public api desc'''
+    url = 'person/title/'
+    actions = ['list']
 
 # main
 if __name__ == "__main__":
-    org = 'bdo'
-    key = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
-    params =  {}
-    
-    ctrl = API.Account(org, key)
-    data = ctrl.list()
-    print(data, "\n")
+    ORG = 'bdo'
+    KEY = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
+    PARAMS =  {}
 
-    """     
-    ctrl = API.AccountCategory(org, key)
+    ctrl = Account(ORG, KEY)
+    data_ = ctrl.list()
+    print(data_, "\n")
+
+    """
+    ctrl = AccountCategory(org, key)
     categories = ctrl.list()
     top_categories = ctrl.top_categories()
-    
+
     leaves = ctrl.leaves()
     print("*leaves\n\n\n")
     for leave in leaves:
@@ -571,13 +644,13 @@ if __name__ == "__main__":
             print("*")
             continue
         print("*", leave['name'])
-    
+
 
     ids = [109, 110]
-    response = ctrl.delete(API.account_category.value['url'], *ids)
-    print("*response", response)   
-        
-    articles = ctrl.list(API.Article.url)
+    response = ctrl.delete(account_category.value['url'], *ids)
+    print("*response", response)
+
+    articles = ctrl.list(Article.url)
     print("article", articles)
 
 
@@ -592,26 +665,26 @@ if __name__ == "__main__":
 
 
 
-    ctrl = API.AccountCategory(org, key)
+    ctrl = AccountCategory(org, key)
     top_categories = ctrl.get_top()
     print("*top_categories", top_categories)
-    
+
     # add P&L
     ACCOUNT_CATEGORIES = {
         'P&L':{
-            'de': 'Erfolgsrechnung', 
-            'en': 'P&L', 
-            'fr': 'Compte de résultat', 
+            'de': 'Erfolgsrechnung',
+            'en': 'P&L',
+            'fr': 'Compte de résultat',
             'it': 'Conto economico'
-        },        
-        'IS': {  
+        },
+        'IS': {
             'de': 'Investitionsrechnung',
             'en': 'Investment Statement',
             'fr': 'Compte d’investissement',
             'it': 'Conto degli investimenti'
         }
     }
-        
+
     for category in ['EXPENSE', 'REVENUE']:
         for number, name in enumerate(ACCOUNT_CATEGORIES.values(), start=1):
             data = {
@@ -621,15 +694,15 @@ if __name__ == "__main__":
             }
             response = ctrl.create(data)
             print("*response", response)
-    
-    ""|   
-    ctrl = API.Account(org, key)
+
+    ""|
+    ctrl = Account(org, key)
     accounts = ctrl.list()
     top_accounts = [x for x in accounts if not x['category_id']]
     print("*account", len(accounts), top_accounts, "\n")
     print("*account last key", accounts[-1].keys(), "\n")
 
-    fiscal_periods = ctrl.list(API.fiscalperiod.value['url'])
+    fiscal_periods = ctrl.list(fiscalperiod.value['url'])
     fiscal_period = next(x for x in fiscal_periods if x['is_current'] is True)
     print(fiscal_period, "\n")
 
@@ -638,14 +711,14 @@ if __name__ == "__main__":
         # not working: 'filter': [{'comparison': 'eq', 'field': 'createdBy', 'value': 'SYSTEM4'}]
         'filter': json.dumps([{'comparison': 'eq', 'field': 'categoryId', 'value': 109}])
     }
-    accounts_1 = ctrl.list(API.account.value['url'], params=params)
+    accounts_1 = ctrl.list(account.value['url'], params=params)
 
     params={
         'fiscalPeriodId': fiscal_period['id'],
         # not working: 'filter': [{'comparison': 'eq', 'field': 'createdBy', 'value': 'SYSTEM4'}]
         'filter': json.dumps([{'comparison': 'eq', 'field': 'categoryId', 'value': 110}])
     }
-    accounts_2 = ctrl.list(API.account.value['url'], params=params)
+    accounts_2 = ctrl.list(account.value['url'], params=params)
     accounts = accounts_1 + accounts_2
 
     ids = [x['id'] for x in accounts]
@@ -657,7 +730,7 @@ if __name__ == "__main__":
         'name': {'values': {'de': 'Custom Test A'}},
         'type': FIELD_TYPE.ACCOUNT.value
     }
-    customfield_group = ctrl.create(API.customfield_group.value['url'], data)
+    customfield_group = ctrl.create(customfield_group.value['url'], data)
     print("*customfield_group", customfield_group)
 
     # Store custom field
@@ -668,7 +741,7 @@ if __name__ == "__main__":
         'type': FIELD_TYPE.ACCOUNT.value,
         'group_id': group_id,
     }
-    customfield = ctrl.create(API.customfield.value['url'], data)
+    customfield = ctrl.create(customfield.value['url'], data)
     print("*customfield", customfield)
 
 
@@ -677,12 +750,12 @@ if __name__ == "__main__":
     params =  {
         'id': field_id
     }
-    customfield = ctrl.read(API.customfield.value['url'], params)
+    customfield = ctrl.read(customfield.value['url'], params)
     print("*customfield", customfield)
     variable = customfield['variable']
 
     # Read accounts
-    accounts = ctrl.list(API.account.value['url'])
+    accounts = ctrl.list(account.value['url'])
     account = next(x for x in accounts if x['number'] == '102604210.01')
     print("*account", account, "\n")
 
@@ -690,7 +763,7 @@ if __name__ == "__main__":
     id = account['id']
     account['custom']['values']['customField59'] = 'Test Content A'
     account['target_min'] = 1000.0
-    account = ctrl.update(API.account.value['url'], account)
+    account = ctrl.update(account.value['url'], account)
     print("*account", account, "\n")
 
 
@@ -699,7 +772,7 @@ if __name__ == "__main__":
     # Create Groups
     for group in CUSTOM_FIELD_GROUPS:
         group['type'] = group['type'].value
-        customfield_group = ctrl.create(API.customfield_group.value['url'], group)
+        customfield_group = ctrl.create(customfield_group.value['url'], group)
         group['id'] = customfield_group['insert_id']
         print("group['id']", group['id'])
 
@@ -712,11 +785,11 @@ if __name__ == "__main__":
             if x['type'] == field['type'])
         if field.get('values'):
             field['values'] = json.dumps(field['values'])
-        customfield = ctrl.create(API.customfield.value['url'], field)
+        customfield = ctrl.create(customfield.value['url'], field)
         print("*customfield", customfield)
 
 
-    files = ctrl.list(API.file.value['url'])
+    files = ctrl.list(file.value['url'])
     print("*", files)
     '''
 

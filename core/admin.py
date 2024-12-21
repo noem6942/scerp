@@ -5,12 +5,24 @@ from django.contrib.auth.models import User, Group
 from django.utils.translation import gettext_lazy as _
 
 from scerp.admin import admin_site, BaseAdmin, display_photo as display_photo_h
-from .models import Tenant, TenantSetup, UserProfile
+from .models import Message, Tenant, TenantSetup, UserProfile
 
 
 # Register User, Group
 admin_site.register(User, UserAdmin)
 admin_site.register(Group, GroupAdmin)
+
+
+@admin.register(Message, site=admin_site) 
+class MessageAdmin(BaseAdmin):
+    list_display = ('name', 'modified_at', 'is_inactive')
+    search_fields = ('name', 'text')    
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'text', 'is_inactive'),
+            'classes': ('expand',),            
+        }),
+    )  
 
 
 @admin.register(UserProfile, site=admin_site) 
