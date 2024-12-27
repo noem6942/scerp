@@ -172,7 +172,7 @@ DOCS_ACCESS = 'public'  # 'staff' or 'public', depending on who should have acce
 
 # Logging
 LOGGING = {
-    'version': 1.0,
+    'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
@@ -186,17 +186,24 @@ LOGGING = {
             'formatter': 'verbose',
         },
     },
+    'root': {  # Default logger for all modules
+        'handlers': ['console'],
+        'level': 'INFO',  # Set a default level
+    },
     'loggers': {
-        'django': {
+        'django': {  # Django-specific logging
             'handlers': ['console'],
             'level': 'INFO',
+            'propagate': False,  # Prevent double logging
         },
-        'core': {  # Use the name of your app
+        'core': {  # Example app-specific logger
             'handlers': ['console'],
             'level': 'DEBUG',  # Adjust level as needed
+            'propagate': False,
         },
     },
 }
+
 
 # Ckeditor
 CKEDITOR_UPLOAD_PATH = "uploads/"

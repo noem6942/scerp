@@ -6,7 +6,6 @@ from django.db.models import UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
 
-import json
 from enum import Enum
 
 from core.models import (
@@ -36,7 +35,7 @@ class ACCOUNT_TYPE(models.IntegerChoices):
     INVEST = ACCOUNT_TYPE_TEMPLATE.INVEST
 
 
-class CATEGORY_NRM(Enum):
+class CATEGORY_HRM(Enum):
     # First digits account_number, name
     ASSET = [1], "ASSET"
     LIABILITY = [2], "LIABILITY"
@@ -69,51 +68,16 @@ class APISetup(TenantAbstract):
     initialized = models.DateTimeField(
         _('initialized'), max_length=100, null=True, blank=True,
         help_text=_('date and time when initialized'))
-                
-    # Custom groups for cashCtrl
-    # name, type
-    custom_field_group_account = models.PositiveSmallIntegerField(
-        _('Tab Account'), blank=True, null=True,
-        help_text=json.dumps({
-            'name': {
-                'values': {
-                    'de': 'SC-ERP', 
-                    'en': 'SC-ERP', 
-                    'fr': 'SC-ERP', 
-                    'it': 'SC-ERP'
-                }},
-            'type': 'ACCOUNT',
-        }))        
-            
-    custom_field_group_person = models.PositiveSmallIntegerField(
-        _('Tab Person'), blank=True, null=True,
-        help_text=json.dumps({
-            'name': {
-                'values': {
-                    'de': 'SC-ERP', 
-                    'en': 'SC-ERP', 
-                    'fr': 'SC-ERP', 
-                    'it': 'SC-ERP'
-                }},
-            'type': 'PERSON',
-        }))        
-
-    # Custom fields for cashCtrl    
-    custom_field_account_hrm = models.PositiveSmallIntegerField(
-        _('Field Position Number'), blank=True, null=True,
-        help_text=json.dumps({
-            'name': {
-                'values': {
-                    'de': 'HRM', 
-                    'en': 'HRM', 
-                    'fr': 'HRM', 
-                    'it': 'HRM'
-                }},
-            'group': custom_field_group_account.help_text, 
-            'data_type': 'NUMBER', 
-            'is_multi': False, 
-            'values': []
-        }))
+    language = models.CharField(
+        _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
+        help_text=_('The main language of the person. May be used for documents.')
+    )        
+    account_plan_loaded = models.BooleanField(
+        _('Account plan loaded'), default=False,
+        help_text=_('gets set to True if account plan uploaded to accounting system'))
+    data = models.JSONField(
+        _('Setup Data'), blank=True, null=True,
+        help_text=_('Internal use'))
 
     def __str__(self):
         # add symbol for notes, attachment, protected, inactive
@@ -122,6 +86,27 @@ class APISetup(TenantAbstract):
     @property
     def api_key_hidden(self):
         return '*' * len(self.api_key)
+
+    def get_data(self, field, key):
+        ''' does only set but not save data ! '''
+        # Init
+        if self.data:
+            data = self.data.get(field)
+            if data:
+                return data.get(key)
+        return None
+
+    def set_data(self, field, key, value):
+        ''' does only set but not save data ! '''
+        # Init
+        if not self.data:
+            self.data = {}
+        if field not in self.data:
+            self.data[field] = {}
+            
+        # Set
+        self.data[field][key] = value
+        self.save()
 
     class Meta:
         constraints = [
@@ -528,6 +513,12 @@ class AccountPositionAbstract(LogAbstract):
     description = models.TextField(
         _('Description'), null=True, blank=True,
         help_text=_('Position description'))
+    parent = models.ForeignKey(
+        'self', verbose_name=_("Parent"), null=True, blank=True,
+        on_delete=models.CASCADE, 
+        related_name='%(class)s_parent',
+        help_text="The parent category."
+    )
 
     # Calculated data, calculate with every save
     number = models.DecimalField(
@@ -536,10 +527,7 @@ class AccountPositionAbstract(LogAbstract):
 
     @property
     def level(self):
-        if self.is_category:
-            return len(self.account_number.split('.')[0])
-        else:
-            return self.name
+        return len(self.account_number.split('.')[0])
 
     def __str__(self):
         return f"{self.account_number} {self.name}"
@@ -613,8 +601,8 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
         help_text=_('Explanation, esp. deviations to previous period'))
 
     @property
-    def category_nrm(self):
-        for category in CATEGORY_NRM:    
+    def category_hrm(self):
+        for category in CATEGORY_HRM:    
             scope, _label = category.value
             if int(self.account_number[0]) in scope:
                 return category

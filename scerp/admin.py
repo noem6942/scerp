@@ -60,6 +60,20 @@ def action_check_nr_selected(request, queryset, count=None, min_count=None):
     return True
 
 
+def format_big_number(value, thousand_separator=None):
+    """
+    use settings.THOUSAND_SEPARATOR and 2 commas for big numbers
+    value: float
+    """
+    if value is None:
+        return None
+
+    # Format number
+    if thousand_separator is None:
+        thousand_separator = settings.THOUSAND_SEPARATOR
+    return f"{value:,.2f}".replace(',', thousand_separator)
+
+
 def get_help_text(model, field_name):
     """
     Get help text from model
@@ -103,22 +117,23 @@ def display_big_number(value):
         return display_empty()
 
     # Format number
-    number_str = f"{value:,.2f}".replace(',', settings.THOUSAND_SEPARATOR)
+    number_str = format_big_number(value)
     html = '<span style="text-align: right; display: block;">{}</span>'
     return format_html(html, number_str)
 
 
-def display_json(value):
+def display_json(value, sort=False):
     """
     Print string for json
     """
+    if not value:
+        return ''
+        
     try:
-        # Sort keys
-        data = {key: value[key] for key in sorted(value.keys())}
-
         # Format JSON data with indentation and render it as preformatted text
-        formatted_json = json.dumps(data, indent=4, ensure_ascii=False)
-        return formatted_json
+        formatted_json = json.dumps(value, indent=4, ensure_ascii=False)
+        return format_html(
+            '<pre style="font-family: monospace;">{}</pre>', formatted_json)
     except ValueError as e:
         return f"Value Error displaying data: {e}"
     except (KeyError, TypeError) as e:  # Catch specific exceptions

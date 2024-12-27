@@ -18,11 +18,13 @@ from .forms import (
     AccountPositionAddInvestForm
 )
 from .models import (
-    ACCOUNT_TYPE_TEMPLATE,
+    ACCOUNT_TYPE_TEMPLATE, APISetup,
     AccountPositionTemplate,
     ChartOfAccounts, AccountPosition, FiscalPeriod
 )
 from .import_accounts_canton import Import
+from .process import ProcessCashCtrl
+from .signals import api_setup
 
 
 DONOT_COPY_FIELDS = [
@@ -39,6 +41,35 @@ DONOT_COPY_FIELDS = [
 
 
 # mixins
+@admin.action(description=_('Init setup'))
+def init_setup(modeladmin, request, queryset):
+    # Check
+    if action_check_nr_selected(request, queryset, 1):
+        instance = queryset.first()
+        api_setup(type(instance), instance, created=False, init=True) 
+        messages.success(request, _("Accounting API initialized"))
+    else:
+        return
+
+@admin.action(description=_('Upload accounting positions'))
+def upload_accounts(modeladmin, request, queryset):
+    # Check
+    if action_check_nr_selected(request, queryset, 1):
+        # Prepare
+        account_chart = queryset.first()
+        api_setup = APISetup.objects.filter(
+            tenant=account_chart.tenant).first()
+        if not api_setup:
+            messages.error(request, _("No account setup found"))
+            
+        # Perform    
+        p = ProcessCashCtrl(api_setup)
+        p.upload_accounts(account_chart) 
+        messages.success(request, _("Accounting positons uploaded"))
+    else:
+        return
+
+
 @admin.action(description=_('> Insert copy of record below'))
 def position_insert(modeladmin, request, queryset):
     """

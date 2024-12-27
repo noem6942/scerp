@@ -1,5 +1,5 @@
 # import_accounts_gesoft.py
-from .models import ACCOUNT_TYPE, CATEGORY_NRM
+from .models import ACCOUNT_TYPE, CATEGORY_HRM
 
 from openpyxl import load_workbook
 
@@ -13,11 +13,11 @@ class ACCOUNT_SIDE:
 
 class Import(object):
 
-    def __init__(self, file_path, account_type, category_nrm=None):
+    def __init__(self, file_path, account_type, category_hrm=None):
         # Account
         self.account_type = account_type
-        self.category_nrm = category_nrm
-        self.scope = CATEGORY_NRM.get_scope(category_nrm)  # e.g. [4, 6]
+        self.category_hrm = category_hrm
+        self.scope = CATEGORY_HRM.get_scope(category_hrm)  # e.g. [4, 6]
         
         # read content
         workbook = load_workbook(file_path)
@@ -113,7 +113,7 @@ class Import(object):
                  
             # Make account
             accounts.append({
-                'function': function,
+                'function': function,  # never None, for sorting
                 'account_type': self.account_type,
                 'is_category': is_category,
                 'account_number': account_number_str,

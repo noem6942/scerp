@@ -391,7 +391,9 @@ class CurrencyLower(CashCtrl):
     actions = ['list']
 
 class CustomFieldGroup(CashCtrl):
-    '''see public api desc'''
+    '''see public api desc
+        CustomFieldGroup has no filter param --> get_from_name
+    '''
     url = 'customfield/group/'
     actions = ['list']
 
@@ -401,34 +403,11 @@ class CustomFieldGroup(CashCtrl):
         return next((x for x in groups if x['name'] == name), None)
 
 class CustomField(CashCtrl):
-    '''see public api desc'''
+    '''see public api desc
+        CustomField has no filter param --> get_from_name
+    '''
     url = 'customfield/'
     actions = ['list', 'create']
-
-    def create_from_group(self, name, group, data_type, **kwargs):
-        '''is_multi = True not tested yet
-            group has type and name
-        '''
-        # Init
-        is_multi = kwargs.get('is_multi', False)
-        values = kwargs.get('values', [])
-        c_type = group['type']
-
-        # Get
-        group_obj = CustomFieldGroup(self.org, self.api_key)
-        group_data = group_obj.get(group['name'], c_type)
-        if not group_data:
-            raise Exception(f"Group name '{group}' not found.")
-
-        data = {
-            'name': name,
-            'type': c_type,
-            'group_id': group_data['id'],
-            'data_type': data_type,
-            'is_multi': is_multi,
-            'values': values
-        }
-        return super().create(data)
 
     def get_from_name(self, name, c_type):
         '''name: dict, c_type: str
@@ -507,8 +486,8 @@ class AccountCategory(CashCtrl):
             raise Exception("'parent_id' missing in data")
         return super().create(data)
 
-    def top_categories(self):
-        '''return top categories from self.data
+    def top_category(self):
+        '''return dict with top categories from self.data
             'ASSET', 'LIABILITY', 'EXPENSE', 'REVENUE' and 'BALANCE'
         '''
         if self.data is None:
@@ -616,6 +595,23 @@ class PersonCategory(CashCtrl):
     '''see public api desc'''
     url = 'person/category/'
     actions = ['list']
+    
+    def get_name(self, values):
+        name = values.get('en')
+        return name.upper() if name else None
+    
+    def top_category(self):
+        '''return dict with top categories from self.data
+            'ASSET', 'LIABILITY', 'EXPENSE', 'REVENUE' and 'BALANCE'
+        '''
+        if self.data is None:
+            raise Exception("data is None")
+
+        return {
+            self.get_name(x['name']['values']): x
+            for x in self.data
+            if not x['parent_id']
+        }    
 
 class PersonTitle(CashCtrl):
     '''see public api desc'''
@@ -628,13 +624,11 @@ if __name__ == "__main__":
     KEY = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
     PARAMS =  {}
 
-    ctrl = Account(ORG, KEY)
-    data_ = ctrl.list()
-    print(data_, "\n")
-
-    """
-    ctrl = AccountCategory(org, key)
+    ctrl = PersonCategory(ORG, KEY)
     categories = ctrl.list()
+    print("*", ctrl.top_category())
+    
+    """"
     top_categories = ctrl.top_categories()
 
     leaves = ctrl.leaves()

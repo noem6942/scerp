@@ -40,26 +40,22 @@ def api_setup(sender, instance, created, **kwargs):
     Perform follow-up actions when a new APISetup is created.
     """
     _ = sender  # disable pylint warning
-    if created:
-        # This code only runs the first time the tenant is created (not on updates)
-        pass
-    else:
+    if created or kwargs.get('init', False):
         # Init -------------------------------------------------------------
         ctrl = get_ctrl(apiset=instance)
-
-        """
+        
         # Create Custom Groups
         ctrl.init_custom_groups()
 
         # Create Custom Fields if not existing and update numbers in setup
         ctrl.init_custom_fields()
-
-         """
+        
         # Create m³
-        ctrl.init_units()
-        """
-        # Create Accounts
+        # ctrl.init_units()
+        ""
+        # Create Accounts, Persons
         ctrl.init_accounts()
+        ctrl.init_persons()
 
         """
         # Settings
@@ -118,11 +114,10 @@ def api_setup(sender, instance, created, **kwargs):
 
         """
         # Tax Rates
-        ctrl.get_tax()
+        # ctrl.get_tax()
 
         # Cost Center
-        ctrl.get_cost_centere()
-        """
+        # ctrl.get_cost_centere()
 
 
 @receiver(pre_save, sender=AccountPosition)
@@ -147,7 +142,7 @@ def account_position_template(sender, instance, *args, **kwargs):
     _ = sender  # disable pylint warning
     function = None
     number = account_position_calc_number(
-        instance.account_type,
+        instance.chart.account_type,
         function,
         instance.account_number,
         instance.is_category)
