@@ -51,7 +51,7 @@ class ProcessCashCtrl(Process):
         # First digits account_number, account_category in data
         1: 'ASSET',
         2: 'LIABILITY',
-        3: 'p&l_expense', 
+        3: 'p&l_expense',
         5: 'p&l_revenue',
         4: 'is_expense',
         6: 'is_revenue',
@@ -61,7 +61,23 @@ class ProcessCashCtrl(Process):
     def __init__(self, api_setup):
         '''messages is admin.py messanger; if not giving logger is used
         '''
+        # Init
         super().__init__(api_setup)
+
+        # Custom Fields
+        custom_field = self.api_setup.data.get('custom_field')
+        if custom_field:
+            self.hrm_id = custom_field.get('account_hrm')
+            self.function_id = custom_field.get('account_function')
+        else:
+            self.hrm_id = None
+            self.function_id = None
+
+    def _check_custom_fields(self):
+        if not self.hrm_id:
+            raise KeyError("No custom field 'account_hrm' found.")
+        if not self.function_id:
+            raise KeyError("No custom field 'account_function' found.")
 
     def init_class(self, cls):
         return cls(self.api_setup.org_name, self.api_setup.api_key)
@@ -70,7 +86,7 @@ class ProcessCashCtrl(Process):
     def init_custom_groups(self):
         # Init
         ctrl = self.init_class(api_cash_ctrl.CustomFieldGroup)
-        
+
         # Check and create groups
         for group_def in init_cash_ctrl.CUSTOM_FIELD_GROUPS:
             # Get group
@@ -82,7 +98,7 @@ class ProcessCashCtrl(Process):
             else:
                 # Create group
                 data = {
-                    'name': dict(values=group_def['name']), 
+                    'name': dict(values=group_def['name']),
                     'type': group_def['type']
                 }
                 group = ctrl.create(data)
@@ -100,25 +116,25 @@ class ProcessCashCtrl(Process):
         # Init
         ctrl = self.init_class(api_cash_ctrl.CustomField)
         ctrl_group = self.init_class(api_cash_ctrl.CustomFieldGroup)
-        
+
         # Check and create fields
         for field_def in init_cash_ctrl.CUSTOM_FIELDS:
             # Init
             key = field_def.pop('key')
-            group_key = field_def.pop('group_key')    
-                
+            group_key = field_def.pop('group_key')
+
             # Get group id
             group_id = self.api_setup.get_data('custom_field_group', group_key)
             if not group_id:
                 raise Exception(f"No group with {group_key} found.")
-                   
+
             # Get group type
             type_c = next((
                 x['type'] for x in init_cash_ctrl.CUSTOM_FIELD_GROUPS
                 if x['key'] == group_key), None)
             if not type_c:
                 raise Exception(f"No type for key {group_key} found.")
-            
+
             # Prepare
             name = dict(values=field_def['name'])
             customfield = ctrl.get_from_name(name, type_c)
@@ -153,10 +169,10 @@ class ProcessCashCtrl(Process):
         ctrl = self.init_class(api_cash_ctrl.AccountCategory)
         categories = ctrl.list()
         top_category = ctrl.top_category()
-        
+
         # Register top categories
         for key, value in top_category.items():
-            self.api_setup.set_data(DATA_KEY, key, value['id'])            
+            self.api_setup.set_data(DATA_KEY, key, value['id'])
 
         # Create top classes
         for number, category in enumerate(
@@ -164,7 +180,7 @@ class ProcessCashCtrl(Process):
             if self.api_setup.get_data(DATA_KEY, category['key']):
                 logger.info(f"{category['key']} already existing")
                 continue  # we don't overwrite categories
-             
+
             # Prepare
             top = top_category[category['top']]
             data = {
@@ -172,7 +188,7 @@ class ProcessCashCtrl(Process):
                 'number': number,
                 'parent_id': top['id']
             }
-            
+
             # Create
             response = ctrl.create(data)
             if response.get('success', False):
@@ -187,11 +203,11 @@ class ProcessCashCtrl(Process):
         ctrl = self.init_class(api_cash_ctrl.PersonCategory)
         categories = ctrl.list()
         top_category = ctrl.top_category()
-        
+
         # Register top categories
         for key, value in top_category.items():
             print("*key", key)
-            self.api_setup.set_data(DATA_KEY, key, value['id'])            
+            self.api_setup.set_data(DATA_KEY, key, value['id'])
 
         # Create top classes
         # currently we don't create any person categories
@@ -337,8 +353,8 @@ class ProcessCashCtrl(Process):
                 defaults={
                     'data': data,
                     'created_by': self.admin,
-                    'modified_by': self.admin              
-                })                
+                    'modified_by': self.admin
+                })
             return obj, created
         else:
             raise Exception("No settings found.")
@@ -373,83 +389,139 @@ class ProcessCashCtrl(Process):
         created, updated = self.pull_accounting_data(
             api_cash_ctrl.AccountCostCenter, CostCenter)
 
+    # Init Account Positions
+    def create_category(self, ctrl, position, field_name='c_id', c_id=None):
+        # Get parent_id for cashCtrl
+        parent_id = c_id if c_id else getattr(position.parent, field_name)
+
+        # Create category
+        data = {
+            'name': dict(values={self.api_setup.language: position.name}),
+            'number': float(position.number),
+            'parent_id': parent_id
+        }
+        response = ctrl.create(data)
+        if response.get('success', False):
+            parent_id = response['insert_id']
+            setattr(position, field_name, parent_id)
+        else:
+            raise DatabaseError (f"Couldn't save {data} in {field_name}")
+
+    def create_position(self, ctrl, position, field_name='c_id'):
+        # Create hrm, e.g. 10010.1 --> 10010.10
+        hrm = format_big_number(
+            float(position.account_number), thousand_separator='')
+        data = {
+            'name': dict(values={self.api_setup.language: position.name}),
+            'number': float(position.number),
+            'category_id': getattr(position.parent, field_name),
+            'custom': dict(values={
+                    f"customField{self.hrm_id}": hrm,
+                    f"customField{self.function_id}": position.function,
+                })
+        }
+        response = ctrl.create(data)
+        if response.get('success', False):
+            parent_id = response['insert_id']
+            setattr(position, field_name, parent_id)
+        else:
+            raise DatabaseError (f"Couldn't save {data} in {field_name}")
+
+    def check_position_parent(self, position):
+        if not position.parent:
+            raise KeyError(
+                f"{position.get_account_type_display()}: "
+                f"No parent found for '{position.account_number} {position.name}'.")
+
     def upload_accounts(self, chart):
         # Init
+        self._check_custom_fields()
         ctrl_account = self.init_class(api_cash_ctrl.Account)
         ctrl_category = self.init_class(api_cash_ctrl.AccountCategory)
-        language = self.api_setup.language
-        hrm_id = self.api_setup.data['custom_field'].get('account_hrm')
-        function_id = self.api_setup.data['custom_field'].get(
-            'account_function')
-        
-        if not hrm_id:
-            raise KeyError("No custom field 'account_hrm' found.")
-        if not function_id:
-            raise KeyError("No custom field 'account_function' found.")
-        
+        account_category = self.api_setup.data['account_category']
+
         # Upload balance
         positions = AccountPosition.objects.filter(
             chart=chart, account_type=ACCOUNT_TYPE.BALANCE).order_by(
-                'chart', 'account_type', 'function', 'account_number')
-            
-        # Loop    
+                'function', '-is_category', 'account_number')
+
+        # Loop
         parents = [None] * 99  # list for storing parents
-        for position in positions[:10]:   
-            if position.is_category:   
+        for position in []:  # TEMP positions[:10]:
+            if position.is_category:
                 # Is category
                 if position.level == 1:
-                    # Get top level 
+                    # Get top level
                     first_digit = int(position.account_number[0])
                     key = self.CATEGORY_MAPPING[first_digit]
-                    parent_id = self.api_setup.data['account_category'].get(
-                        key)               
-                    position.c_id = self.api_setup.data['account_category'].get(
-                        'ASSET')
+                    position.c_id = account_category.get(key)
                     position.parent = None
                 else:
                     # Parent
                     position.parent = parents[position.level - 1]
-                    
-                    # Create category
-                    data = {
-                        'name': dict(values={language: position.name}),
-                        'number': float(position.number),
-                        'parent_id': position.parent.c_id,
-                    }
-                    response = ctrl_category.create(data)
-                    if response.get('success', False):
-                        parent_id = response['insert_id']
-                        position.c_id = parent_id
-                    else:
-                        raise DatabaseError (f"Couldn't save {data}")
-                        
+                    self.check_position_parent(position)
+                    self.create_category(ctrl_category, position)
+
                 # Register parent
-                parents[position.level] = position        
-                    
+                parents[position.level] = position
+
             else:
                 # Is position
                 position.parent = parents[position.level]
-                
-                # Create hrm, e.g. 10010.1 --> 10010.10
-                hrm = format_big_number(
-                    float(position.account_number), thousand_separator='')
-                data = {
-                    'name': dict(values={language: position.name}),
-                    'number': float(position.number),
-                    'category_id': position.parent.c_id,
-                    'custom': dict(values={
-                            f"customField{hrm_id}": hrm,
-                            f"customField{function_id}": position.function,
-                        })                         
-                }     
-                response = ctrl_account.create(data)
-                if response.get('success', False):
-                    position.c_id = response['insert_id']
+                self.check_position_parent(position)
+                self.create_position(ctrl_account, position)
+
+            # Update position, no need to do post/preprocessing with signals
+            position.save_base(raw=True)
+
+        # Upload income, invest
+        for account_type in (ACCOUNT_TYPE.INCOME, ACCOUNT_TYPE.INVEST):
+            positions = AccountPosition.objects.filter(
+                chart=chart, account_type=account_type).order_by(
+                    'function', '-is_category', 'account_number')
+
+            # Loop
+            parents = [None] * 99  # list for storing parents
+            for position in positions[:10]:
+                if position.is_category:
+                    # Is category
+                    if position.level == 1:
+                        # Get top level
+                        if account_type == ACCOUNT_TYPE.INCOME:
+                            parent_id = account_category.get('p&l_expense')
+                            parent_rev_id = account_category.get('p&l_revenue')
+                        elif account_type == ACCOUNT_TYPE.INVEST:
+                            parent_id = account_category.get('is_expense')
+                            parent_rev_id = account_category.get('is_revenue')
+                        position.parent = None
+                        self.create_category(
+                            ctrl_category, position, 'c_id', parent_id)
+                        self.create_category(
+                            ctrl_category, position, 'c_rev_id', parent_rev_id)
+                    else:
+                        # Parent
+                        position.parent = parents[position.level - 1]
+                        self.check_position_parent(position)
+
+                        self.create_category(ctrl_category, position)
+                        self.create_category(
+                            ctrl_category, position, 'c_rev_id')
+
+                    # Register parent
+                    parents[position.level] = position
+
                 else:
-                    raise DatabaseError (f"Couldn't save {data}")
-         
-            # Update position
-            #   save_base(raw=True): 
-            #   no need to do post/preprocessing with signals
-            position.save_base(raw=True) 
-            
+                    # Is position
+                    position.parent = parents[position.level]
+                    self.check_position_parent(position)
+
+                    # Get cashCtrl parents
+                    first_digit = int(position.account_number[0])
+                    if first_digit in (3, 5):
+                        self.create_position(ctrl_account, position)
+                    elif first_digit in (4, 6):
+                        self.create_position(
+                            ctrl_account, position, 'c_rev_id')
+
+                # Update position, no need to do post/preprocessing with signals
+                position.save_base(raw=True)

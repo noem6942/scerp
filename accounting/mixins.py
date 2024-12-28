@@ -4,24 +4,8 @@ accounting/mixins.py
 helpers for models.py and signals.py
 pylint checked 2024-12-25
 '''
-from django.core.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as _
-
-
 DIGITS_FUNCTIONAL = 4, 0
 DIGITS_ACCOUNT = 5, 2
-
-
-# FiscalPeriod
-def fiscal_period_validate(obj):
-    '''check validity, but we anyway only download from cashCtrol
-    '''
-    if not obj.start or not obj.end:
-        raise ValidationError(
-            _("Custom periods require both a start and an end date."))
-    if obj.start > obj.end:
-        raise ValidationError(_("Start date cannot be after end date."))
-
 
 
 # AccountPositionAbstract

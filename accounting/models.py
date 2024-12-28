@@ -1,6 +1,7 @@
 # accounting/models.py
 from django.conf import settings
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import UniqueConstraint
 from django.utils import timezone
@@ -11,8 +12,6 @@ from enum import Enum
 from core.models import (
     LogAbstract, NotesAbstract, TenantAbstract, CITY_CATEGORY)
 from scerp.locales import CANTON_CHOICES
-
-from .mixins import fiscal_period_validate
 
 
 # Definitions
@@ -283,7 +282,11 @@ class FiscalPeriod(AcctApp):
         return self.name or f"Fiscal Period {self.pk}"
 
     def clean(self):
-        fiscal_period_validate(self)
+        if not self.start or not self.end:
+            raise ValidationError(
+                _("Custom periods require both a start and an end date."))
+        if self.start > self.end:
+            raise ValidationError(_("Start date cannot be after end date."))
 
     class Meta:
         constraints = [
@@ -600,6 +603,18 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
         _('Explanation'), null=True, blank=True,
         help_text=_('Explanation, esp. deviations to previous period'))
 
+    # REVENUE cashCtrl object
+    # as for INCOME and INVEST we need to assign categories to both sides
+    # EXPENSE and REVENUE we need the additional cashCtrl reference
+    c_rev_id = models.PositiveIntegerField(
+        _('CashCtrl id, Revenue'), null=True, blank=True)
+    c_rev_created = models.DateTimeField(
+        _('CashCtrl created, Revenue'), null=True, blank=True)
+    c_rev_created_by = models.CharField(
+        _('CashCtrl created_by, Revenue'), max_length=100, null=True, blank=True)
+    c_rev_last_updated = models.DateTimeField(
+        _('CashCtrl last_updated, Revenue'), null=True, blank=True)  
+
     @property
     def category_hrm(self):
         for category in CATEGORY_HRM:    
@@ -615,10 +630,6 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
             text = ''
         return text + super().__str__()
 
-    def clean(self):
-        super().clean()  # Call the parent's clean method
-        self.clean_related_data(CHART_TYPE)
-
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -630,7 +641,8 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
             )
         ]        
         ordering = [
-            'chart', 'account_type', 'function', 'account_number']
+            'chart', 'account_type', 'function', '-is_category', 
+            'account_number']
         verbose_name = ('Account Position (Municipality)')
         verbose_name_plural = _('Account Positions')        
 
