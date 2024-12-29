@@ -23,6 +23,7 @@ from .models import (
     ChartOfAccounts, AccountPosition, FiscalPeriod
 )
 from .import_accounts_canton import Import
+from .mixins import AccountPositionCheck
 from .process import ProcessCashCtrl
 from .signals import api_setup
 
@@ -51,6 +52,23 @@ def init_setup(modeladmin, request, queryset):
     else:
         return
 
+
+@admin.action(description=_('12 Check accounting positions'))
+def check_accounts(modeladmin, request, queryset):
+    # Check
+    if action_check_nr_selected(request, queryset, min_count=1):
+        # Perform    
+        try:
+            apc = AccountPositionCheck(queryset)
+            apc.check(queryset)
+            messages.success(
+                request, _("Accounting positons checked. No errors found."))
+        except Exception as e:
+            msg = _('Check result: {e}').format(e=e)
+            messages.warning(request, msg)
+            return        
+
+
 @admin.action(description=_('Upload accounting positions'))
 def upload_accounts(modeladmin, request, queryset):
     # Check
@@ -66,8 +84,6 @@ def upload_accounts(modeladmin, request, queryset):
         p = ProcessCashCtrl(api_setup)
         p.upload_accounts(account_chart) 
         messages.success(request, _("Accounting positons uploaded"))
-    else:
-        return
 
 
 @admin.action(description=_('> Insert copy of record below'))
@@ -220,6 +236,7 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
 
     # Init
     chart = ChartOfAccounts.objects.get(id=chart_id)
+    setup = chart.period.setup
     count_created = 0
     count_updated = 0
 
@@ -228,7 +245,6 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
         # Adjust function and accounting numbers
         if type_from == ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL:
             function = obj.account_number
-            obj.account_number = ''
         else:
             function = None
 
@@ -248,6 +264,7 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
             count_created += 1
             account_instance = AccountPosition()
             account_instance.chart = chart
+            account_instance.setup=setup
             account_instance.function = function
             account_instance.is_category=obj.is_category
             account_instance.account_type = account_type

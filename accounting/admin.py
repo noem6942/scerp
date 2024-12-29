@@ -9,7 +9,7 @@ from core.safeguards import get_tenant
 
 from scerp.admin import (
     admin_site, BaseAdmin, display_empty, display_verbose_name,
-    display_datetime, display_big_number, display_json, format_hierarchy)
+    display_datetime, display_big_number, display_json, display_name_w_levels)
 
 from .actions import init_setup, upload_accounts
 from .models import (
@@ -20,7 +20,8 @@ from .models import (
 )
 
 from . import actions as a
-from scerp.admin import verbose_name_field
+from scerp.admin import (
+    format_name, verbose_name_field, set_inactive, set_protected)
 
 
 class CASH_CTRL:
@@ -308,10 +309,11 @@ class ChartOfAccountsTemplateAdmin(BaseAdmin):
 @admin.register(AccountPositionTemplate, site=admin_site)
 class AccountPositionTemplateAdmin(BaseAdmin):
     has_tenant_field = False
-    list_display = ('category_number', 'position_number', 'name', )
+    list_display = ('category_number', 'position_number', 'display_name', )
     list_filter = (
         'chart__account_type',
         'chart__canton', 'chart__chart_version', 'chart')
+    list_display_links = ('display_name',)
     search_fields = ('account_number', 'name', 'notes', 'number')    
     readonly_fields = ('chart', 'number')
     
@@ -338,6 +340,11 @@ class AccountPositionTemplateAdmin(BaseAdmin):
     @admin.display(description=_('Position Nr.'))
     def position_number(self, obj):
         return display_empty() if obj.is_category else obj.account_number
+
+    @admin.display(
+        description=verbose_name_field(AccountPosition, 'name'))
+    def display_name(self, obj):
+        return display_name_w_levels(obj)
 
 
 @admin.register(ChartOfAccounts, site=admin_site)
@@ -400,16 +407,15 @@ class AccountPositionAdmin(CashCtrlAdmin):
             'classes': ('collapse',),
         }),
     )
-    actions = [a.apm_add_income, a.apm_add_invest, a.position_insert]
+    actions = [
+        a.apm_add_income, a.apm_add_invest, a.position_insert,
+        a.check_accounts, set_inactive, set_protected
+    ]
 
     @admin.display(
         description=verbose_name_field(AccountPosition, 'name'))
     def display_name(self, obj):
-        if obj.is_category:
-            level = obj.level
-            if level < 3:
-                return format_hierarchy(obj.level, obj.name)
-        return obj.name
+        return display_name_w_levels(obj)
 
     @admin.display(
         description=verbose_name_field(AccountPosition, 'function'))

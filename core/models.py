@@ -51,28 +51,12 @@ class NotesAbstract(models.Model):
         'self', verbose_name=_('version'), on_delete=models.SET_NULL,
         null=True, blank=True, related_name='%(class)s_previous_versions',
         help_text=_('previous_version'))
-    protected = models.BooleanField(
-        _('protected'), default=False,
-        help_text=_('item must not be changed anymore'))
     is_inactive = models.BooleanField(
         _('is inactive'), default=False,
         help_text=_('item is not active anymore (but not permanently deleted)'),)
-
-    @property
-    def symbols(self):
-        # add protection symbol to __str__
-        ''' move to admin.py later '''
-        symbols = ''
-        if self.notes:
-            symbols += ' \u270D'
-        if self.attachment:
-            symbols += ' \U0001F4CE'
-        if self.protected:
-            symbols += ' \U0001F512'
-        if self.is_inactive:
-            symbols += ' \U0001F6AB'
-
-        return symbols
+    is_protected = models.BooleanField(
+        _('protected'), default=False,
+        help_text=_('item must not be changed anymore'))
 
     def create_new_version(self, new_data):
         new_record = self.__class__.objects.create(
@@ -157,7 +141,7 @@ class Tenant(LogAbstract, NotesAbstract):
         help_text=_('Filled out by system'))
 
     def __str__(self):
-        return self.name + self.symbols
+        return self.name
 
     def clean(self):
         validate_tenant(self)

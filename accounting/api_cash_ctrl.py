@@ -620,13 +620,13 @@ class PersonTitle(CashCtrl):
 
 # main
 if __name__ == "__main__":
-    ORG = 'bdo'
-    KEY = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
+    ORG = 'test167'
+    KEY = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
     PARAMS =  {}
 
-    ctrl = PersonCategory(ORG, KEY)
+    ctrl = AccountCategory(ORG, KEY)
     categories = ctrl.list()
-    print("*", ctrl.top_category())
+    print("*", categories)
     
     """"
     top_categories = ctrl.top_categories()

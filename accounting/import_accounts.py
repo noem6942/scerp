@@ -27,7 +27,7 @@ def save_accounts(accounts, tenant__code, org_name, chart_id):
             'modified_by': admin
         })
         
-        # Delete existings
+        # Delete existing record (usually only one)
         AccountPosition.objects.filter(
             setup=tenant_setup,
             chart=chart,

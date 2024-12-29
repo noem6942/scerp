@@ -79,8 +79,7 @@ class APISetup(TenantAbstract):
         help_text=_('Internal use'))
 
     def __str__(self):
-        # add symbol for notes, attachment, protected, inactive
-        return self.org_name + self.symbols
+        return self.org_name
 
     @property
     def api_key_hidden(self):
@@ -139,12 +138,13 @@ class AcctApp(TenantAbstract):
         help_text=_('Account Setup used')) 
         
     def get_multi_language(self, value_dict):
+        # move to admin.py ?
         language = get_language().split('-')[0]
         values = value_dict.get('values')
         if values and language in values:
-            return values[language] + self.symbols
+            return values[language]
         elif values and settings.LANGUAGE_CODE_PRIMARY in values:
-            return values[language] + self.symbols
+            return values[language]
         return str(value_dict)            
         
     class Meta:
@@ -619,7 +619,8 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
     def category_hrm(self):
         for category in CATEGORY_HRM:    
             scope, _label = category.value
-            if int(self.account_number[0]) in scope:
+            if (self.account_number != '' 
+                    and int(self.account_number[0]) in scope):
                 return category
         return None    
 

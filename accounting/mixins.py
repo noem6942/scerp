@@ -4,6 +4,8 @@ accounting/mixins.py
 helpers for models.py and signals.py
 pylint checked 2024-12-25
 '''
+from django.utils.translation import get_language, gettext_lazy as _
+
 DIGITS_FUNCTIONAL = 4, 0
 DIGITS_ACCOUNT = 5, 2
 
@@ -68,3 +70,42 @@ def account_position_calc_number(
         praefix, account_number, *DIGITS_ACCOUNT)
 
     return float(number)
+
+
+class AccountPositionCheck():
+    '''AccountPosition Checks
+    '''
+    def __init__(self, query_positions):
+        query_positions = query_positions.order_by(
+            'function', '-is_category', 'account_number')
+        # Check levels    
+        self.positions = [x for x in query_positions]
+
+    def get_parent(self, position, nr): 
+        # Init
+        level_check = position.level - 1
+            
+        # Check   
+        for pos in reversed(self.positions[:nr]):
+            if position.is_category:
+                c1 = pos.account_number[:level_check] 
+                c2 = position.account_number[:level_check]
+                if c1 == c2:
+                    return pos
+            elif pos.function == position.function:
+                return pos
+            else:
+                print("*", pos.function, position.function) 
+        return None                 
+
+    def check(self, query_positions):
+        # Check if every position has a parent
+        for nr, position in enumerate(self.positions):
+            if position == self.positions[0]:
+                if position.level != 1:
+                    raise ValueError(_("Positions not starting with level 1")) 
+            elif not self.get_parent(position, nr):
+                msg = _("Positions '{number} {name}' has no parents").format(
+                    number=position.account_number, name=position.name)
+                raise ValueError(msg)                
+        return True

@@ -47,7 +47,7 @@ class ProcessGenericAppCtrl(Process):
 
 class ProcessCashCtrl(Process):
     # First digits account_number
-    CATEGORY_MAPPING = {
+    TOP_CATEGORY_MAP = {
         # First digits account_number, account_category in data
         1: 'ASSET',
         2: 'LIABILITY',
@@ -440,6 +440,9 @@ class ProcessCashCtrl(Process):
         ctrl_category = self.init_class(api_cash_ctrl.AccountCategory)
         account_category = self.api_setup.data['account_category']
 
+        # Check category definitions
+        pass
+
         # Upload balance
         positions = AccountPosition.objects.filter(
             chart=chart, account_type=ACCOUNT_TYPE.BALANCE).order_by(
@@ -453,7 +456,7 @@ class ProcessCashCtrl(Process):
                 if position.level == 1:
                     # Get top level
                     first_digit = int(position.account_number[0])
-                    key = self.CATEGORY_MAPPING[first_digit]
+                    key = self.TOP_CATEGORY_MAP[first_digit]
                     position.c_id = account_category.get(key)
                     position.parent = None
                 else:
@@ -475,7 +478,7 @@ class ProcessCashCtrl(Process):
             position.save_base(raw=True)
 
         # Upload income, invest
-        for account_type in (ACCOUNT_TYPE.INCOME, ACCOUNT_TYPE.INVEST):
+        for account_type in [ACCOUNT_TYPE.INVEST]:  # (ACCOUNT_TYPE.INCOME, ACCOUNT_TYPE.INVEST):
             positions = AccountPosition.objects.filter(
                 chart=chart, account_type=account_type).order_by(
                     'function', '-is_category', 'account_number')
@@ -483,6 +486,7 @@ class ProcessCashCtrl(Process):
             # Loop
             parents = [None] * 99  # list for storing parents
             for position in positions[:10]:
+                print("*position", position.account_number, position.name)
                 if position.is_category:
                     # Is category
                     if position.level == 1:
@@ -518,7 +522,8 @@ class ProcessCashCtrl(Process):
                     # Get cashCtrl parents
                     first_digit = int(position.account_number[0])
                     if first_digit in (3, 5):
-                        self.create_position(ctrl_account, position)
+                        self.create_position(
+                            ctrl_account, position, 'c_id')
                     elif first_digit in (4, 6):
                         self.create_position(
                             ctrl_account, position, 'c_rev_id')

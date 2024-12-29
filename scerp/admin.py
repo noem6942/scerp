@@ -9,7 +9,7 @@ import json
 
 from django.apps import apps
 from django.conf import settings
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.contrib.admin import AdminSite, ModelAdmin
 from django.db import models
 from django.forms import Textarea
@@ -30,7 +30,7 @@ SPACE = '\u00a0'  # invisible space
 LOGGING_FIELDS = [
     'created_at', 'created_by', 'modified_at', 'modified_by']
 NOTES_FIELDS = [
-    'notes', 'attachment', 'protected', 'is_inactive']
+    'notes', 'attachment', 'is_protected', 'is_inactive']
 TENANT_FIELD = 'tenant'
 
 TEXTAREA_DEFAULT = {
@@ -59,6 +59,37 @@ def action_check_nr_selected(request, queryset, count=None, min_count=None):
 
     return True
 
+
+@admin.action(description=_('Set inactive'))
+def set_inactive(modeladmin, request, queryset):
+    queryset.update(is_inactive=True)
+    msg = _("Set {count} records as inactive.").format(count=queryset.count())
+    messages.success(request, msg)
+  
+  
+@admin.action(description=_('Set protected'))
+def set_protected(modeladmin, request, queryset):
+    queryset.update(is_protected=True)
+    msg = _("Set {count} records as protected.").format(count=queryset.count())
+    messages.success(request, msg)
+
+
+def format_name(obj, fieldname='name'):
+    '''add symbols to name
+    '''
+    value = getattr(obj, fieldname)
+    if value is None:
+        return value
+    if obj.notes:
+        value += ' \u270D'
+    if obj.attachment:
+        value += ' \U0001F4CE'
+    if obj.is_protected:
+        value += ' \U0001F512'
+    if obj.is_inactive:
+        value += ' \U0001F6AB'  
+    return value
+    
 
 def format_big_number(value, thousand_separator=None):
     """
@@ -171,6 +202,18 @@ def display_verbose_name(def_cls, field):
     """
     f_cls = getattr(def_cls, 'Field')
     return getattr(f_cls, field)['verbose_name']
+
+
+# Standard formatted fields
+def display_name_w_levels(obj):
+    '''obj needs to have name, is_category, level
+    '''
+    name = format_name(obj)
+    if obj.is_category:
+        level = obj.level
+        if level < 3:
+            return format_hierarchy(obj.level, name)
+    return name
 
 
 # Widgets
@@ -305,7 +348,8 @@ class BaseAdmin(ModelAdmin):
     A base admin class that contains reusable functionality.
     """
     # format
-    formfield_overrides = override_textfields_default()  # Set form field overrides here if needed
+    formfield_overrides = override_textfields_default(
+        {'rows': 3, 'cols': 80})  # Set form field overrides here if needed
     list_display = ('',)  # Default fields to display in list view
     readonly_fields = []  # Fields that are read-only by default
 
