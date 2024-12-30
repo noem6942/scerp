@@ -5,6 +5,8 @@ central file for communication to cash ctrl
 '''
 from datetime import datetime
 from enum import Enum
+from time import sleep
+
 import json
 import re
 import requests
@@ -35,6 +37,26 @@ def create_enum(name, items):
     return Enum(name, {item: item for item in items})
 
 
+# Standard Accounts
+class STANDARD_ACCOUNT(Enum):
+    """
+    Standard account definitions with descriptive English names, numeric codes,
+    and German descriptions as comments.
+    """
+    OPENING_BALANCE = '9100'  # Eröffnungsbilanz
+    EXCHANGE_DIFFERENCES = '6960'  # Kursdifferenzen
+    ANNUAL_PROFIT_OR_LOSS = '9200'  # Jahresgewinn oder -verlust
+    TRADING_INCOME = '3200'  # Handelsertrag
+    COST_OF_GOODS_SOLD = '4200'  # Warenaufwand
+    DEPRECIATION = '6800'  # Abschreibungen
+    ASSET_DISPOSALS = '6801'  # Anlagenabgänge
+    REVENUE_FROM_MOBILE_ASSETS = '7900'  # Ertrag Mobile Sachanlagen
+    RECEIVABLES = '1100'  # Debitoren
+    PAYABLES = '2000'  # Kreditoren
+    VAT_RECONCILIATION = '2202'  # Umsatzsteuerausgleich Abrechnungsmethode
+    INPUT_TAX_RECONCILIATION = '1172'  # Vorsteuerausgleich Abrechnungsmethode
+
+
 # class COUNTRY
 COUNTRY_CODES = [
 	'AFG', 'ALA', 'ALB', 'DZA', 'ASM', 'AND', 'AGO', 'AIA', 'ATG', 'ARG', 'ARM',
@@ -60,7 +82,8 @@ COUNTRY_CODES = [
 	'TON', 'TTO', 'TUN', 'TUR', 'TKM', 'TCA', 'TUV', 'UGA', 'UKR', 'ARE', 'GBR',
 	'USA', 'URY', 'UZB', 'VUT', 'VEN', 'VNM', 'VIR', 'VGB', 'WLF', 'YEM', 'ZMB',
 	'ZWE', 'ISL']
-COUNTRY = create_enum('COUNTRY', sorted(COUNTRY_CODES))
+COUNTRY = Enum('COUNTRY', {item: item for item in sorted(COUNTRY_CODES)})
+
 
 # pylint: disable=invalid-name
 class ADDRESS_TYPE(Enum):
@@ -200,6 +223,10 @@ class CashCtrl():
     ''' Base Class with many children
     '''
     BASE = "https://{org}.cashctrl.com/api/v1/{url}{action}.json"
+    
+    # Rate-limiting constants
+    MAX_TRIES = 5  # Maximum number of retries
+    SLEEP_DURATION = 2  # Sleep duration between retries in second    
 
     def __init__(self, org, api_key):
         self.org = org
@@ -273,9 +300,9 @@ class CashCtrl():
             raise Exception(f"An error occurred during the request: {e}")
 
     def post(self, url, data=None, timeout=10):
-        '''
-        Post to cash_ctrl with timeout handling.
-        '''
+        """
+        Post to CashCtrl with timeout handling and rate-limiting retries.
+        """
         # Load data from self.data if not given
         if data is None:
             data = self.data
@@ -294,31 +321,53 @@ class CashCtrl():
                 value = self.value_to_xml(value)
             post_data[camel_key] = value
 
-        try:
-            # Post data
-            response = requests.post(
-                url, data=post_data, auth=self.auth, timeout=timeout)
-            if response.status_code != 200:
-                # Decode the content and include it in the error message
-                error_message = response.content.decode(DECODE)
-                raise Exception(
-                    f"Post request failed with status {response.status_code}. "
-                    f"Error message: {error_message}"
+        # Retry mechanism for rate-limiting
+        for attempt in range(self.MAX_TRIES):
+            try:
+                response = requests.post(
+                    url, data=post_data, auth=self.auth, timeout=timeout
                 )
-            if not response.json().get('success', True):
-                # Decode the content and include it in the error message
-                error_message = response.content.decode(DECODE)
-                raise Exception(
-                    f"Post request failed with 'success': False. "
-                    f"Error message: {error_message}"
-                )
-            return self.clean_dict(response.json())
-        except requests.exceptions.Timeout:
-            raise Exception(
-                f"Post request to {url} timed out after {timeout} seconds.")
-        except requests.exceptions.RequestException as e:
-            raise Exception(
-                f"An error occurred during the post request: {e}")
+
+                if response.status_code == 429:  # Rate limit
+                    print("Rate limit reached. Retrying...")
+                    sleep(self.SLEEP_DURATION)
+                    continue
+
+                if not response.ok:
+                    raise Exception(
+                        f"POST request failed for '{url}': "
+                        f"{response.status_code} - {response.reason} "
+                        f"{response.text}"
+                    )
+
+                content = response.json()
+                if not content.get('success', True):
+                    errors = "; ".join(
+                        f"{err.get('field', 'Unknown')}: {err.get('message', '')}"
+                        for err in content.get('errors', [])
+                    )
+                    raise Exception(f"POST request error in '{url}': {errors}")
+
+                # Clean and return response content
+                return self.clean_dict(content)
+
+            except requests.exceptions.Timeout:
+                print(f"Attempt {attempt + 1}/{self.MAX_TRIES} timed out.")
+            except requests.exceptions.RequestException as e:
+                print(f"An error occurred during the POST request: {e}")
+
+            # Sleep before retrying if it's not the last attempt
+            if attempt < self.MAX_TRIES - 1:
+                print(
+                    f"Retrying POST request to {url} "
+                    f"(Attempt {attempt + 2})...")
+                sleep(self.SLEEP_DURATION)
+
+        # Raise an exception if all attempts fail
+        raise Exception(
+            f"Maximum retry attempts ({self.MAX_TRIES}) reached for POST "
+            f"request to '{url}'."
+        )
 
     # REST API mine: list, read, create, update, delete
     def list(self, params=None, **filter_kwargs):
@@ -471,6 +520,21 @@ class Account(CashCtrl):
     '''see public api desc'''
     url = 'account/'
     actions = ['list']
+    
+    @property
+    def standard_account(self):
+        '''return dict with top accounts from self.data
+        '''        
+        if self.data is None:
+            raise Exception("data is None")
+
+        STANDARD_ACCOUNTS = [x.value for x in STANDARD_ACCOUNT]
+        return {
+            x['number']: x
+            for x in self.data
+            if x['number'] in STANDARD_ACCOUNTS
+        }    
+
 
 class AccountCategory(CashCtrl):
     '''see public api desc'''
@@ -486,6 +550,7 @@ class AccountCategory(CashCtrl):
             raise Exception("'parent_id' missing in data")
         return super().create(data)
 
+    @property
     def top_category(self):
         '''return dict with top categories from self.data
             'ASSET', 'LIABILITY', 'EXPENSE', 'REVENUE' and 'BALANCE'
@@ -496,7 +561,7 @@ class AccountCategory(CashCtrl):
         return {
             x['account_class']: x
             for x in self.data
-            if not x['parent_id']
+            if not x['parent_id'] 
         }
 
     def leaves(self):
@@ -600,6 +665,7 @@ class PersonCategory(CashCtrl):
         name = values.get('en')
         return name.upper() if name else None
     
+    @property
     def top_category(self):
         '''return dict with top categories from self.data
             'ASSET', 'LIABILITY', 'EXPENSE', 'REVENUE' and 'BALANCE'
@@ -624,9 +690,9 @@ if __name__ == "__main__":
     KEY = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
     PARAMS =  {}
 
-    ctrl = AccountCategory(ORG, KEY)
+    ctrl = Account(ORG, KEY)
     categories = ctrl.list()
-    print("*", categories)
+    print("*", ctrl.top_account)
     
     """"
     top_categories = ctrl.top_categories()

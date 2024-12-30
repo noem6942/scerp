@@ -32,6 +32,13 @@ class CASH_CTRL:
         'c_last_updated',
         'c_last_updated_by'
     ]
+    REVENUE_FIELDS = [
+        'c_rev_id',
+        'c_rev_created',
+        'c_rev_created_by',
+        'c_rev_last_updated',
+        'c_rev_last_updated_by'
+    ]
     WARNING_READ_ONLY = _("Read only model. <i>Use cashControl for edits!</i>")
 
 
@@ -68,6 +75,14 @@ class APISetupAdmin(BaseAdmin):
 
 class CashCtrlAdmin(BaseAdmin):
     has_tenant_field = True
+    
+    def get_cash_ctrl_fields(self):
+        fields = CASH_CTRL.FIELDS
+        if getattr(self, 'has_revenue_id'):
+            for field in CASH_CTRL.REVENUE_FIELDS:
+                if field not in fields:
+                    fields.append(field)
+        return fields
 
     def get_readonly_fields(self, request, obj=None):
         ''' Extend readonly fields
@@ -82,7 +97,7 @@ class CashCtrlAdmin(BaseAdmin):
                 field.name for field in self.model._meta.get_fields()]
             readonly_fields.extend(all_fields)
         else:
-            readonly_fields.extend(CASH_CTRL.FIELDS)  # Add custom readonly fields
+            readonly_fields.extend(self.get_cash_ctrl_fields())  # Add custom readonly fields
 
         return readonly_fields
 
@@ -90,7 +105,7 @@ class CashCtrlAdmin(BaseAdmin):
         # Add additional sections like Notes and Logging
         return super().get_fieldsets(request, obj) + (
             ('CashCtrl', {
-                'fields': CASH_CTRL.FIELDS,
+                'fields': self.get_cash_ctrl_fields(),
                 'classes': ('collapse',),
             }),
         )
@@ -354,11 +369,11 @@ class ChartOfAccountsAdmin(BaseAdmin):
         'display_name', 'chart_version', 'period', 'link_to_positions')
     search_fields = ('name',)
     # readonly_fields = ('period',)
-    actions = [upload_accounts]
 
     fieldsets = (
         (None, {
-            'fields': ('name', 'chart_version', 'period'),
+            'fields': (
+                'name', 'chart_version', 'period', 'headings_w_numbers'),
             'classes': ('expand',),
         }),
     )
@@ -383,14 +398,16 @@ class ChartOfAccountsAdmin(BaseAdmin):
 @admin.register(AccountPosition, site=admin_site)
 class AccountPositionAdmin(CashCtrlAdmin):
     has_tenant_field = True
+    has_revenue_id = True
     is_readonly = False
 
     list_display = (
         'display_function', 'position_number', 'display_name',
         'display_balance_credit', 'display_balance_debit',
-        'display_budget', 'display_previous')
+        'display_budget', 'display_previous', 'display_cashctrl')
     list_display_links = ('display_name',)
     list_filter = ('account_type', 'chart', 'responsible')
+    search_fields = ('function', 'account_number', 'number', 'name')
     readonly_fields = ('balance', 'budget', 'previous')
     list_per_page = 500  # Show 500 results per page
 
@@ -409,7 +426,9 @@ class AccountPositionAdmin(CashCtrlAdmin):
     )
     actions = [
         a.apm_add_income, a.apm_add_invest, a.position_insert,
-        a.check_accounts, set_inactive, set_protected
+        a.check_accounts, a.account_names_convert_upper_case,
+        upload_accounts,
+        set_inactive, set_protected
     ]
 
     @admin.display(
@@ -431,16 +450,14 @@ class AccountPositionAdmin(CashCtrlAdmin):
         if obj.category_hrm in (CATEGORY_HRM.EXPENSE, CATEGORY_HRM.ASSET):
             balance = 0 if obj.balance is None else obj.balance
             return display_big_number(balance)
-        else:
-            return display_empty()
+        return display_empty()
 
     @admin.display(description=_('balance -'))
     def display_balance_debit(self, obj):
         if obj.category_hrm in (CATEGORY_HRM.REVENUE, CATEGORY_HRM.LIABILITY):
             balance = 0 if obj.balance is None else obj.balance
             return display_big_number(balance)
-        else:
-            return display_empty()
+        return display_empty()
 
     @admin.display(description=_('balance'))
     def display_balance(self, obj):
@@ -454,3 +471,9 @@ class AccountPositionAdmin(CashCtrlAdmin):
     @admin.display(description=_('previous'))
     def display_previous(self, obj):
         return display_big_number(obj.previous)
+
+    @admin.display(description=_(''))
+    def display_cashctrl(self, obj):
+        if obj.c_id or obj.c_rev_id:
+            return '🪙'  # (Coin): \U0001FA99
+        return display_empty()

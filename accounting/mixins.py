@@ -2,6 +2,7 @@
 accounting/mixins.py
 
 helpers for models.py and signals.py
+general helpers not related to cash_ctrl
 pylint checked 2024-12-25
 '''
 from django.utils.translation import get_language, gettext_lazy as _
@@ -81,9 +82,10 @@ class AccountPositionCheck():
         # Check levels    
         self.positions = [x for x in query_positions]
 
-    def get_parent(self, position, nr): 
+    def get_parent(self, position): 
         # Init
         level_check = position.level - 1
+        nr = self.positions.index(position)
             
         # Check   
         for pos in reversed(self.positions[:nr]):
@@ -98,14 +100,32 @@ class AccountPositionCheck():
                 print("*", pos.function, position.function) 
         return None                 
 
-    def check(self, query_positions):
+    def check(self):
+        # Check is only upper
+        for position in self.positions:
+            if position.name.isupper():
+                msg = _("'{number} {name}' only contains upper letters").format(
+                    number=position.account_number, name=position.name)
+                raise ValueError(msg)                
+        
         # Check if every position has a parent
-        for nr, position in enumerate(self.positions):
+        for position in self.positions:
             if position == self.positions[0]:
                 if position.level != 1:
                     raise ValueError(_("Positions not starting with level 1")) 
-            elif not self.get_parent(position, nr):
+            elif not self.get_parent(position):
                 msg = _("Positions '{number} {name}' has no parents").format(
                     number=position.account_number, name=position.name)
                 raise ValueError(msg)                
         return True
+
+    def convert_upper_case(self):
+        change_list = []
+        for position in self.positions:
+            if position.name.isupper():
+                position.name = position.name.title()
+                position.save()
+                change_list.append(position)
+           
+        return change_list
+        

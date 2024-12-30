@@ -481,7 +481,10 @@ class ChartOfAccounts(TenantAbstract):
     period = models.ForeignKey(
         FiscalPeriod, verbose_name=_('period'),
         on_delete=models.CASCADE, related_name='%(class)s_chart',
-        help_text=_('Fiscal period, automatically updated in Fiscal Period'))      
+        help_text=_('Fiscal period, automatically updated in Fiscal Period')) 
+    headings_w_numbers = models.BooleanField(
+        _('headings with numbers'), default=True,
+        help_text=_('Show numbers in headings of the accounting system'))       
 
     def full_name(self):
         return f'{self.name} {self.period.name}, V{self.chart_version}'
@@ -611,10 +614,14 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
     c_rev_created = models.DateTimeField(
         _('CashCtrl created, Revenue'), null=True, blank=True)
     c_rev_created_by = models.CharField(
-        _('CashCtrl created_by, Revenue'), max_length=100, null=True, blank=True)
+        _('CashCtrl created_by, Revenue'), max_length=100, 
+        null=True, blank=True)
     c_rev_last_updated = models.DateTimeField(
         _('CashCtrl last_updated, Revenue'), null=True, blank=True)  
-
+    c_rev_last_updated_by = models.CharField(
+        _('CashCtrl last_updated_by, Revenue'), max_length=100, 
+        null=True, blank=True)   
+        
     @property
     def category_hrm(self):
         for category in CATEGORY_HRM:    

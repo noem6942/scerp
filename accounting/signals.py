@@ -11,27 +11,9 @@ from .models import (
     APPLICATION, APISetup, AccountPosition, AccountPositionTemplate
     # not used: FiscalPeriod, Location
 )
+from .connector import get_connector_module
 from .mixins import account_position_calc_number
-from .process import ProcessCashCtrl
 
-
-# helpers
-def get_ctrl(instance=None, apiset=None):
-    '''
-    Get APISetup given an instance that has a tenant field
-    '''
-    if not apiset:
-        try:
-            apiset = APISetup.objects.get(tenant=instance.tenant)
-        except APISetup.DoesNotExist as exc:  # Capture the original exception
-            raise ValidationError(
-                f"APISetup not found for tenant: {instance.tenant}"
-            ) from exc  # Re-raise the original exception with the new one
-
-    if apiset.application == APPLICATION.CASH_CTRL:
-        return ProcessCashCtrl(apiset)
-    
-    raise ValidationError("No application found.")
 
 
 @receiver(post_save, sender=APISetup)
@@ -42,22 +24,23 @@ def api_setup(sender, instance, created, **kwargs):
     _ = sender  # disable pylint warning
     if created or kwargs.get('init', False):
         # Init -------------------------------------------------------------
-        ctrl = get_ctrl(apiset=instance)
-        
+        api_setup, module = get_connector_module(api_setup=instance)
+        """
         # Create Custom Groups
+        ctrl = module.CustomField(apiset)
         ctrl.init_custom_groups()
 
         # Create Custom Fields if not existing and update numbers in setup
         ctrl.init_custom_fields()
         
         # Create m³
-        # ctrl.init_units()
-        ""
-        # Create Accounts, Persons
-        ctrl.init_accounts()
+        ctrl = module.Connector(apiset)
+        ctrl.init_units()
+
+        # Create Persons
         ctrl.init_persons()
 
-        """
+        ""
         # Settings
         # 'thousand_separator'
         ''' do this after first practice with invoices
@@ -98,7 +81,7 @@ def api_setup(sender, instance, created, **kwargs):
         # Settings
         ctrl.get_settings()
 
-        """
+        ""
         # Location for VAT, Codes, Formats if not existing
         ctrl.get_locations()
 
@@ -107,17 +90,19 @@ def api_setup(sender, instance, created, **kwargs):
 
         # Currencies
         ctrl.get_currencies()
-        """
 
         # Units
         ctrl.get_units()
 
-        """
         # Tax Rates
-        # ctrl.get_tax()
+        ctrl.get_tax()
 
         # Cost Center
-        # ctrl.get_cost_centere()
+        ctrl.get_cost_centers()
+        """
+        # Accounts
+        ctrl = module.Account(api_setup)
+        ctrl.init_accounts()
 
 
 @receiver(pre_save, sender=AccountPosition)

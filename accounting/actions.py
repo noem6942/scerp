@@ -24,7 +24,7 @@ from .models import (
 )
 from .import_accounts_canton import Import
 from .mixins import AccountPositionCheck
-from .process import ProcessCashCtrl
+from .connector import get_connector_module
 from .signals import api_setup
 
 
@@ -60,30 +60,52 @@ def check_accounts(modeladmin, request, queryset):
         # Perform    
         try:
             apc = AccountPositionCheck(queryset)
-            apc.check(queryset)
+            apc.check()
             messages.success(
                 request, _("Accounting positons checked. No errors found."))
         except Exception as e:
             msg = _('Check result: {e}').format(e=e)
             messages.warning(request, msg)
-            return        
 
 
-@admin.action(description=_('Upload accounting positions'))
+@admin.action(description=_('13 Convert names from upper to title case'))
+def account_names_convert_upper_case(modeladmin, request, queryset):
+    # Check
+    if action_check_nr_selected(request, queryset, min_count=1):
+        apc = AccountPositionCheck(queryset)
+        change_list = apc.convert_upper_case()
+        if not change_list:
+            messages.success(request, _("No changes. All good."))
+        else:
+            for position in change_list:
+                msg = _("Converted '{number} {name}'.").format(
+                    number=position.account_number, name=position.name)
+                messages.info(request, msg)
+
+
+@admin.action(description=_('14 Upload accounting positions'))
 def upload_accounts(modeladmin, request, queryset):
     # Check
-    if action_check_nr_selected(request, queryset, 1):
-        # Prepare
-        account_chart = queryset.first()
-        api_setup = APISetup.objects.filter(
-            tenant=account_chart.tenant).first()
-        if not api_setup:
-            messages.error(request, _("No account setup found"))
+    if action_check_nr_selected(request, queryset, min_count=1):
+        # Check account_type
+        account_types = set([x.account_type for x in queryset])
+        if len(account_types) > 1:
+            messages.error(request, _("Mixed account types found"))
+        else:
             
-        # Perform    
-        p = ProcessCashCtrl(api_setup)
-        p.upload_accounts(account_chart) 
-        messages.success(request, _("Accounting positons uploaded"))
+            # Prepare
+            api_setup = queryset.first().setup
+            if not api_setup:
+                messages.error(request, _("No account setup found"))
+     
+            # Import
+            _api_setup, module = get_connector_module(api_setup=api_setup)
+            ctrl = module.Account(api_setup)
+     
+            # Perform    
+            headings_w_numbers = queryset.first().chart.headings_w_numbers
+            ctrl.upload_accounts(queryset, headings_w_numbers) 
+            messages.success(request, _("Accounting positons uploaded"))
 
 
 @admin.action(description=_('> Insert copy of record below'))
