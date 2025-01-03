@@ -544,3 +544,33 @@ class Account(Connector):
 
                 # Update position, no need to do post/preprocessing with signals
                 position.save_base(raw=True)
+
+    def upload_balances(self, queryset):
+        signs_positive = (
+            CATEGORY_HRM.ASSET.value[0] + CATEGORY_HRM.EXPENSE.value[0])
+        for account in queryset:
+            if account.is_category:
+                continue
+            print("*upload", account.sign, account.function, 
+                account.account_number, account.balance)
+
+    def delete_accounts_not_used(self):
+        # Init
+        ctrl = self.init_class(api_cash_ctrl.Account)
+         
+        # Get all accounts
+        accounts = ctrl.list()
+        
+        # Eliminate the hrm-2 and standard_ids
+        standard_ids = [int(x.value) for x in api_cash_ctrl.STANDARD_ACCOUNT]
+        
+        accounts_filtered = [
+            x for x in accounts
+            if x['custom'] is None and int(x['number']) not in standard_ids
+        ]
+        
+        # Delete
+        delete_ids = [x['id'] for x in accounts_filtered]
+        response = ctrl.delete(*delete_ids)
+        print("*deleted with result ", response) 
+        

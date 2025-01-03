@@ -38,6 +38,11 @@ def create_enum(name, items):
 
 
 # Standard Accounts
+class ACCOUNT_SIDE(Enum):
+    CREDIT = 'C'
+    DEBIT = 'D'
+    
+
 class STANDARD_ACCOUNT(Enum):
     """
     Standard account definitions with descriptive English names, numeric codes,
@@ -564,7 +569,7 @@ class AccountCategory(CashCtrl):
             if not x['parent_id'] 
         }
 
-    def leaves(self):
+    def get_leaves(self):
         """
         Returns all leaf nodes from the provided data_list.
         A leaf node is defined as a node where no other node has `parent_id` equal to its `id`.
@@ -576,7 +581,7 @@ class AccountCategory(CashCtrl):
             list: A list of dictionaries representing the leaf nodes.
         """
         # Init
-        data_list = self.data
+        data_list = list(self.data)
 
         # Extract all ids that are referenced as parent_id
         parent_ids = {
@@ -584,7 +589,21 @@ class AccountCategory(CashCtrl):
             for item in data_list
             if item['parent_id'] is not None
         }
-
+        
+        '''
+        # Extract all ids that are referenced as parent_id
+        acc = Account(self.org, self.api_key)
+        accounts = acc.list()
+        parent_ids_acc = {
+            item['parent_id']
+            for item in accounts
+            if item['parent_id'] is not None
+        }
+        
+        # union
+        all_parent_ids = parent_ids.union(parent_ids_acc)
+        '''
+        
         # Find all nodes whose id is not in the set of parent_ids
         leaves = [
             item for item in data_list
@@ -623,6 +642,16 @@ class Unit(CashCtrl):
     '''see public api desc'''
     url = 'inventory/unit/'
     actions = ['list', 'create']
+
+# Journal
+class Journal(CashCtrl):
+    '''see public api desc'''
+    url = 'journal/'
+    actions = ['list', 'create']
+
+    def create_collective_entry(data, items):
+        pass
+
 
 # Orders
 class Order(CashCtrl):
@@ -690,11 +719,82 @@ if __name__ == "__main__":
     KEY = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
     PARAMS =  {}
 
+    # get all accounts
     ctrl = Account(ORG, KEY)
-    categories = ctrl.list()
-    print("*", ctrl.top_account)
+    accounts = ctrl.list()
     
-    """"
+    '''
+    for x in accounts:
+        print(x)
+        if x['end_amount'] == 123:
+            print(x)
+    '''
+    
+    
+    account_opening = next(
+        x for x in accounts 
+        if float(x['number']) == float(STANDARD_ACCOUNT.OPENING_BALANCE.value))
+    account_income = next(
+        x for x in accounts 
+        if float(x['number']) == float(STANDARD_ACCOUNT.TRADING_INCOME.value))
+    side = ACCOUNT_SIDE.CREDIT
+    
+    ctrl = Journal(ORG, KEY)
+    
+    # Item
+    amount = 123
+    items = [{
+        'account_id': account_income['id'],
+        'description': 'Income',
+        'credit': amount
+    }, {
+        'account_id': account_opening['id'],
+        'description': 'Opening',
+        'debit': amount
+    }]
+    
+    # Convert
+    items = [
+        {snake_to_camel(key): value for key, value in x.items()}
+        for x in items]
+    
+    # Create data
+    amount = -sum([amount])
+    data = {
+        'amount': None,  # gets ignored if items
+        'credit_id': None,
+        'debit_id': None,  # gets ignored 
+        'items': json.dumps(items),
+        'notes': 'Items are pening bookings',
+        'date_added': '2024-12-21',  # must be valid date in fiscal period
+        'title': 'Opening booking'
+    }
+    print("*r", data)
+    response = ctrl.create(data)
+    
+    print("*r", response)
+    
+
+    """"    
+    # eliminate the hrm-2 and standard_ids
+    standard_ids = [int(x.value) for x in STANDARD_ACCOUNT]
+    
+    accounts_filtered = [
+        x for x in accounts
+        if x['custom'] is None and int(x['number']) not in standard_ids
+    ]
+    
+    delete_ids = [x['id'] for x in accounts_filtered]
+    #print("*", x['number'])
+    response = ctrl.delete(*[delete_ids[-1]])
+    print("*", response)
+    
+    ctrl = AccountCategory(ORG, KEY)
+    account_categories = ctrl.list()
+    leaves = ctrl.get_leaves()
+    
+    print("*", [x['name'] for x in leaves])
+    
     top_categories = ctrl.top_categories()
 
     leaves = ctrl.leaves()

@@ -19,6 +19,11 @@ class APPLICATION(models.TextChoices):
     CASH_CTRL = 'CC', 'Cash Control'
 
 
+class ACCOUNT_SIDE(models.TextChoices):
+    CREDIT = 'C', _('Credit')
+    DEBIT = 'D', _('Debit')
+    
+
 class ACCOUNT_TYPE_TEMPLATE(models.IntegerChoices):
     # Used for Cantonal / Template Charts
     BALANCE = (1, _('Bilanz'))
@@ -589,11 +594,12 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
         Group, verbose_name=_('responsible'), null=True, blank=True,
         on_delete=models.PROTECT, related_name='%(class)s_responsible',
         help_text=_('Responsible for budgeting and review'))
+    allocations = models.ManyToManyField(CostCenter)
 
     # balance
     balance = models.FloatField(
-        _('Balance'), null=True, blank=True, 
-        help_text=_('Balance, calculated'))
+        _('Balance, imported'), null=True, blank=True, 
+        help_text=_('Balance, imported'))
         
     # custom fields
     budget = models.FloatField(
@@ -621,7 +627,23 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
     c_rev_last_updated_by = models.CharField(
         _('CashCtrl last_updated_by, Revenue'), max_length=100, 
         null=True, blank=True)   
-        
+    c_budget_uploaded = models.DateTimeField(
+        _('CashCtrl budget updated at'), null=True, blank=True)   
+ 
+    # Import accounting
+    opening_amount = models.FloatField(
+        _('opening amount'), null=True, blank=True,
+        help_text=_('Balance of previous period'))
+    end_amount = models.FloatField(
+        _('end amount'), null=True, blank=True,
+        help_text=_('Balance of previous period'))
+    target_min = models.FloatField(
+        _('target min'), null=True, blank=True,
+        help_text=_('Target min'))
+    target_max = models.FloatField(
+        _('target max'), null=True, blank=True,
+        help_text=_('Target max'))
+ 
     @property
     def category_hrm(self):
         for category in CATEGORY_HRM:    
@@ -629,7 +651,14 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
             if (self.account_number != '' 
                     and int(self.account_number[0]) in scope):
                 return category
-        return None    
+        return None   
+
+    @property
+    def side(self):
+        category = self.category_hrm
+        if category in [CATEGORY_HRM.ASSET, CATEGORY_HRM.EXPENSE]:
+            return ACCOUNT_SIDE.DEBIT
+        return ACCOUNT_SIDE.CREDIT
 
     def __str__(self):
         if self.function:

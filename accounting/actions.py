@@ -108,6 +108,24 @@ def upload_accounts(modeladmin, request, queryset):
             messages.success(request, _("Accounting positons uploaded"))
 
 
+@admin.action(description=_('15 Upload budgets'))
+def upload_balances(modeladmin, request, queryset):
+    # Check
+    if action_check_nr_selected(request, queryset, min_count=1):
+        # Prepare
+        api_setup = queryset.first().setup
+        if not api_setup:
+            messages.error(request, _("No account setup found"))
+ 
+        # Import
+        _api_setup, module = get_connector_module(api_setup=api_setup)
+        ctrl = module.Account(api_setup)
+ 
+        # Perform
+        ctrl.upload_balances(queryset) 
+        messages.success(request, _("Balances uploaded"))
+
+
 @admin.action(description=_('> Insert copy of record below'))
 def position_insert(modeladmin, request, queryset):
     """

@@ -11,7 +11,7 @@ from scerp.admin import (
     admin_site, BaseAdmin, display_empty, display_verbose_name,
     display_datetime, display_big_number, display_json, display_name_w_levels)
 
-from .actions import init_setup, upload_accounts
+from .actions import init_setup, upload_accounts, upload_balances
 from .models import (
     APISetup, Setting, Location, FiscalPeriod, Currency, Unit, Tax,
     CostCenter, ChartOfAccountsTemplate,
@@ -409,7 +409,7 @@ class AccountPositionAdmin(CashCtrlAdmin):
     list_filter = ('account_type', 'chart', 'responsible')
     search_fields = ('function', 'account_number', 'number', 'name')
     readonly_fields = ('balance', 'budget', 'previous')
-    list_per_page = 500  # Show 500 results per page
+    list_per_page = 1000  # Show 1000 (i.e. all most probably) results per page
 
     fieldsets = (
         (None, {
@@ -427,7 +427,7 @@ class AccountPositionAdmin(CashCtrlAdmin):
     actions = [
         a.apm_add_income, a.apm_add_invest, a.position_insert,
         a.check_accounts, a.account_names_convert_upper_case,
-        upload_accounts,
+        upload_accounts, upload_balances,
         set_inactive, set_protected
     ]
 

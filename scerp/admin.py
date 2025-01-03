@@ -181,7 +181,7 @@ def format_hierarchy(level, name):
     if level == 1:
         return format_html(f"<b>{name.upper()}</b>")
     if level == 2:
-        return format_html(f"<b>{name}</b>")
+        return format_html(f"{name}")
     return format_html(f"<i>{name}</i>")
 
 

@@ -123,5 +123,98 @@ class Import(object):
                 'previous': previous,
             })
             
+        if self.account_type == ACCOUNT_TYPE.INVEST:
+            # Add missing
+            accounts.append({
+                'function': '0',  
+                'account_type': ACCOUNT_TYPE.INVEST,
+                'is_category': True,
+                'account_number': '0',
+                'name': 'Allgemeine Verwaltung',
+                'balance': None,
+                'budget': None,
+                'previous': None
+            })
+            accounts.append({
+                'function': '02', 
+                'account_type': ACCOUNT_TYPE.INVEST,
+                'is_category': True,
+                'account_number': '02',
+                'name': 'Allgemeine Dienste',
+                'balance': None,
+                'budget': None,
+                'previous': None
+            })
+            accounts.append({
+                'function': '02', 
+                'account_type': ACCOUNT_TYPE.INVEST,
+                'is_category': True,
+                'account_number': '026',
+                'name': 'Bürgergemeinde',
+                'balance': None,
+                'budget': None,
+                'previous': None
+            })
+            accounts.append({
+                'function': '7', 
+                'account_type': ACCOUNT_TYPE.INVEST,
+                'is_category': True,
+                'account_number': '7',
+                'name': 'Umweltschutz und Raumordnung',
+                'balance': None,
+                'budget': None,
+                'previous': None
+            })
+            accounts.append({
+                'function': '71', 
+                'account_type': ACCOUNT_TYPE.INVEST,
+                'is_category': True,
+                'account_number': '71',
+                'name': 'Wasserversorgung SF',
+                'balance': None,
+                'budget': None,
+                'previous': None
+            })
+            accounts.append({
+                'function': '710', 
+                'account_type': ACCOUNT_TYPE.INVEST,
+                'is_category': True,
+                'account_number': '710',
+                'name': 'Wasserversorgung Spezialfinanzierung (SF)',
+                'balance': None,
+                'budget': None,
+                'previous': None
+            })
+            accounts.append({
+                'function': '8', 
+                'account_type': ACCOUNT_TYPE.INVEST,
+                'is_category': True,
+                'account_number': '8',
+                'name': 'Volkswirtschaft',
+                'balance': None,
+                'budget': None,
+                'previous': None
+            })
+            accounts.append({
+                'function': '82', 
+                'account_type': ACCOUNT_TYPE.INVEST,
+                'is_category': True,
+                'account_number': '82',
+                'name': 'Forstwirtschaft',
+                'balance': None,
+                'budget': None,
+                'previous': None
+            })
+            accounts.append({
+                'function': '820', 
+                'account_type': ACCOUNT_TYPE.INVEST,
+                'is_category': True,
+                'account_number': '820',
+                'name': 'Forstwirtschaft',
+                'balance': None,
+                'budget': None,
+                'previous': None
+            })
+            
         return accounts
         
