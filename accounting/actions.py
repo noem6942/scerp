@@ -15,7 +15,8 @@ from .forms import (
     ChartOfAccountsBalanceForm,
     ChartOfAccountsFunctionForm,
     AccountPositionAddIncomeForm,
-    AccountPositionAddInvestForm
+    AccountPositionAddInvestForm,
+    AssignResponsibleForm
 )
 from .models import (
     ACCOUNT_TYPE_TEMPLATE, APISetup,
@@ -42,8 +43,19 @@ DONOT_COPY_FIELDS = [
 
 
 # mixins
+def get_api_setup(queryset):
+    '''Get api.setup from queryset
+    '''
+    api_setup = queryset.first().setup
+    if api_setup:
+        _api_setup, module = get_connector_module(api_setup=api_setup)
+        return api_setup, module
+    messages.error(request, _("No account setup found"))
+
+
 @admin.action(description=_('Init setup'))
 def init_setup(modeladmin, request, queryset):
+    __ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, 1):
         instance = queryset.first()
@@ -55,6 +67,7 @@ def init_setup(modeladmin, request, queryset):
 
 @admin.action(description=_('12 Check accounting positions'))
 def check_accounts(modeladmin, request, queryset):
+    __ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, min_count=1):
         # Perform    
@@ -70,6 +83,7 @@ def check_accounts(modeladmin, request, queryset):
 
 @admin.action(description=_('13 Convert names from upper to title case'))
 def account_names_convert_upper_case(modeladmin, request, queryset):
+    __ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, min_count=1):
         apc = AccountPositionCheck(queryset)
@@ -85,6 +99,7 @@ def account_names_convert_upper_case(modeladmin, request, queryset):
 
 @admin.action(description=_('14 Upload accounting positions'))
 def upload_accounts(modeladmin, request, queryset):
+    __ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, min_count=1):
         # Check account_type
@@ -92,14 +107,8 @@ def upload_accounts(modeladmin, request, queryset):
         if len(account_types) > 1:
             messages.error(request, _("Mixed account types found"))
         else:
-            
             # Prepare
-            api_setup = queryset.first().setup
-            if not api_setup:
-                messages.error(request, _("No account setup found"))
-     
-            # Import
-            _api_setup, module = get_connector_module(api_setup=api_setup)
+            api_setup, module = get_api_setup(queryset)
             ctrl = module.Account(api_setup)
      
             # Perform    
@@ -110,15 +119,11 @@ def upload_accounts(modeladmin, request, queryset):
 
 @admin.action(description=_('15 Upload budgets'))
 def upload_balances(modeladmin, request, queryset):
+    __ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, min_count=1):
         # Prepare
-        api_setup = queryset.first().setup
-        if not api_setup:
-            messages.error(request, _("No account setup found"))
- 
-        # Import
-        _api_setup, module = get_connector_module(api_setup=api_setup)
+        api_setup, module = get_api_setup(queryset)
         ctrl = module.Account(api_setup)
  
         # Perform
@@ -126,12 +131,27 @@ def upload_balances(modeladmin, request, queryset):
         messages.success(request, _("Balances uploaded"))
 
 
+@admin.action(description=_('16 Get balances from accounting system'))
+def download_balances(modeladmin, request, queryset):
+    __ = modeladmin  # disable pylint warning
+    # Check
+    if action_check_nr_selected(request, queryset, min_count=1):
+        # Prepare
+        api_setup, module = get_api_setup(queryset)
+        ctrl = module.Account(api_setup)
+ 
+        # Perform
+        count = ctrl.download_balances(queryset) 
+        msg = _("{count} balances downloaded.").format(count=count)
+        messages.success(request, msg)
+        
+
 @admin.action(description=_('> Insert copy of record below'))
 def position_insert(modeladmin, request, queryset):
     """
     Insert row of a model that has a field position
     """
-    _ = modeladmin  # disable pylint warning
+    __ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, 1):
         obj = queryset.first()
@@ -160,7 +180,7 @@ def fiscal_period_set_current(modeladmin, request, queryset):
     """
     Insert row of a model that has a field position
     """
-    _ = modeladmin  # disable pylint warning
+    __ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, 1):
         obj = queryset.first()
@@ -240,7 +260,7 @@ def coac_positions_check(modeladmin, request, queryset):
     '''
     perform position check
     '''
-    _ = modeladmin  # disable pylint warning
+    __ = modeladmin  # disable pylint warning
     coac_positions(request, queryset, overwrite=False)
 
 
@@ -251,7 +271,7 @@ def coac_positions_create(modeladmin, request, queryset, data):
     """
     Check Excel File of ChartOfAccountsTemplate
     """
-    _ = modeladmin  # disable pylint warning
+    __ = modeladmin  # disable pylint warning
     _ = data  # disable pylint warning
 
     # Check number selected
@@ -342,7 +362,7 @@ def apc_export_balance(modeladmin, request, queryset, data):
     '''
     type checks are done in the form
     '''
-    _ = modeladmin  # disable pylint warning
+    __ = modeladmin  # disable pylint warning
     chart_id = data.get('chart')
     if chart_id:
         apc_export(
@@ -356,7 +376,7 @@ def apc_export_function_to_income(modeladmin, request, queryset, data):
     '''
     type checks are done in the form
     '''
-    _ = modeladmin  # disable pylint warning
+    __ = modeladmin  # disable pylint warning
     chart_id = data.get('chart')
     if chart_id:
         apc_export(
@@ -370,7 +390,7 @@ def apc_export_function_to_invest(modeladmin, request, queryset, data):
     '''
     type checks are done in the form
     '''
-    _ = modeladmin  # disable pylint warning
+    __ = modeladmin  # disable pylint warning
     chart_id = data.get('chart')
     if chart_id:
         apc_export(
@@ -450,7 +470,7 @@ def apm_add_income(modeladmin, request, queryset, data):
     '''
     add income to Account Positions
     '''
-    _ = modeladmin  # disable pylint warning
+    __ = modeladmin  # disable pylint warning
     apm_add(request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INCOME)
 
 
@@ -462,5 +482,23 @@ def apm_add_invest(modeladmin, request, queryset, data):
     '''
     add invest to Account Positions
     '''
-    _ = modeladmin  # disable pylint warning
+    __ = modeladmin  # disable pylint warning
     apm_add(request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INVEST)
+
+
+@action_with_form(
+    AssignResponsibleForm,
+    description=_(
+        '17 Assign a responsible group to the selected account positions.')
+)
+def assign_responsible(modeladmin, request, queryset, data):
+    """
+    Custom admin action to assign a responsible group to selected records.
+    """
+    __ = modeladmin  # disable pylint warning
+    # Update the `responsible` field for all selected records
+    responsible = data.get('responsible')
+    count_updated = queryset.update(responsible=responsible)
+    msg = _("Successfully assigned '{group}' to {count} records.").format(
+        group=responsible.name, count=count_updated)
+    messages.success(request, msg)

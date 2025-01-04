@@ -11,7 +11,6 @@ from scerp.admin import (
     admin_site, BaseAdmin, display_empty, display_verbose_name,
     display_datetime, display_big_number, display_json, display_name_w_levels)
 
-from .actions import init_setup, upload_accounts, upload_balances
 from .models import (
     APISetup, Setting, Location, FiscalPeriod, Currency, Unit, Tax,
     CostCenter, ChartOfAccountsTemplate,
@@ -19,9 +18,9 @@ from .models import (
     ACCOUNT_TYPE, CATEGORY_HRM
 )
 
-from . import actions as a
 from scerp.admin import (
     format_name, verbose_name_field, set_inactive, set_protected)
+from . import actions as a
 
 
 class CASH_CTRL:
@@ -48,7 +47,7 @@ class APISetupAdmin(BaseAdmin):
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
     readonly_fields = ('display_data',)
-    actions = [init_setup]
+    actions = [a.init_setup]
 
     fieldsets = (
         (None, {
@@ -403,8 +402,9 @@ class AccountPositionAdmin(CashCtrlAdmin):
 
     list_display = (
         'display_function', 'position_number', 'display_name',
+        'display_end_amount_credit', 'display_end_amount_debit',
         'display_balance_credit', 'display_balance_debit',
-        'display_budget', 'display_previous', 'display_cashctrl')
+        'display_budget', 'display_previous', 'display_cashctrl', 'responsible')
     list_display_links = ('display_name',)
     list_filter = ('account_type', 'chart', 'responsible')
     search_fields = ('function', 'account_number', 'number', 'name')
@@ -427,7 +427,8 @@ class AccountPositionAdmin(CashCtrlAdmin):
     actions = [
         a.apm_add_income, a.apm_add_invest, a.position_insert,
         a.check_accounts, a.account_names_convert_upper_case,
-        upload_accounts, upload_balances,
+        a.upload_accounts, a.upload_balances, a.download_balances,
+        a.assign_responsible,
         set_inactive, set_protected
     ]
 
@@ -444,6 +445,20 @@ class AccountPositionAdmin(CashCtrlAdmin):
     @admin.display(description=_('position nr.'))
     def position_number(self, obj):
         return display_empty() if obj.is_category else obj.account_number
+
+    @admin.display(description=_('actual +'))
+    def display_end_amount_credit(self, obj):
+        if obj.category_hrm in (CATEGORY_HRM.EXPENSE, CATEGORY_HRM.ASSET):
+            balance = 0 if obj.end_amount is None else obj.end_amount
+            return display_big_number(balance)
+        return display_empty()
+
+    @admin.display(description=_('actual -'))
+    def display_end_amount_debit(self, obj):
+        if obj.category_hrm in (CATEGORY_HRM.REVENUE, CATEGORY_HRM.LIABILITY):
+            balance = 0 if obj.end_amount is None else obj.end_amount
+            return display_big_number(balance)
+        return display_empty()
 
     @admin.display(description=_('balance +'))
     def display_balance_credit(self, obj):

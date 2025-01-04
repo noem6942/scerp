@@ -11,7 +11,7 @@ from django.utils.translation import gettext as _
 
 from scerp.admin import get_help_text, format_big_number
 
-from .connector import ConnectorBase
+from .connector import ConnectorBase, make_timeaware
 from .models import (
     APISetup, FiscalPeriod, Setting, Location, Currency, Unit, Tax, CostCenter,
     ACCOUNT_TYPE, CATEGORY_HRM, AccountPosition)
@@ -19,6 +19,14 @@ from . import api_cash_ctrl, init_cash_ctrl
 
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
+
+CASH_CTRL_KEYS = [
+    'c_id',
+    'c_created',
+    'c_created_by',
+    'c_last_updated',
+    'c_last_updated_by'
+]
 
 
 class Connector(ConnectorBase):
@@ -39,6 +47,28 @@ class Connector(ConnectorBase):
             self.function_id = None
 
     # Handle cashCtrl pull
+    def prepare_data(self, data):
+        """
+        Prepares data by renaming keys and transforming specific fields.
+
+        Args:
+            data (dict): The data dictionary to be modified.
+
+        Raises:
+            KeyError: If any of the required keys are missing.
+        """
+        try:
+            data.update({
+                'c_id': data.pop('id'),
+                'c_created': make_timeaware(data.pop('created')),
+                'c_created_by': data.pop('created_by'),
+                'c_last_updated': make_timeaware(data.pop('last_updated')),
+                'c_last_updated_by': data.pop('last_updated_by'),
+            })
+        except KeyError as e:
+            # Log or handle the missing key error
+            raise KeyError(f"Missing required field in data: {e}")
+  
     def _pull_accounting_data(self, api_class, model):
         '''generic class, pull data from api_class, e.g. Unit
             and store it in the model
@@ -56,14 +86,8 @@ class Connector(ConnectorBase):
 
         # Parse
         for data in data_list:
-            # Clean basics
-            data.update({
-                'c_id': data.pop('id'),
-                'c_created': make_timeaware(data.pop('created')),
-                'c_created_by': data.pop('created_by'),
-                'c_last_updated': make_timeaware(data.pop('last_updated')),
-                'c_last_updated_by': data.pop('last_updated_by')
-            })
+            # Load basics
+            self.prepare_data(data)
 
             # Convert data, remove keys not needed
             for key in list(data.keys()):
@@ -553,6 +577,44 @@ class Account(Connector):
                 continue
             print("*upload", account.sign, account.function, 
                 account.account_number, account.balance)
+
+    def download_balances(self, queryset):
+        """
+        Download 'opening_amount' and 'end_amount' from cashCtrl.
+        
+        Args:
+            queryset: A queryset of positions to update.
+
+        Returns:
+            int: The count of successfully updated positions.
+        """
+        ctrl = self.init_class(api_cash_ctrl.Account)
+        accounts = ctrl.list()
+        
+        # Optimize lookup by converting to a dictionary
+        account_map = {account['id']: account for account in accounts}
+        
+        count = 0
+        for position in queryset:
+            if not position.is_category:
+                # Try expense
+                account = (
+                    account_map.get(position.c_id)
+                        or account_map.get(position.c_rev_id))
+                    
+                # Save    
+                if account:
+                    self.prepare_data(account)
+                    for key in (CASH_CTRL_KEYS
+                            + ['opening_amount', 'end_amount']):
+                        if key in account:
+                            setattr(position, key, account[key])
+                    position.save()
+                    count += 1
+                else:
+                    logger.info(f'{position} not found.')
+        
+        return count
 
     def delete_accounts_not_used(self):
         # Init

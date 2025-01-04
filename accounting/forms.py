@@ -2,6 +2,7 @@
 from django import forms
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.models import Group
 from django.db import models
 from django.utils.translation import gettext as _
 from django.core.exceptions import ValidationError
@@ -155,3 +156,12 @@ class AccountPositionAddInvestForm(AccountPositionForm):
     def __post_init__(self, modeladmin, request, queryset):
         super().__post_init__(modeladmin, request, queryset, 
         ACCOUNT_TYPE_TEMPLATE.INVEST)
+
+
+class AssignResponsibleForm(AdminActionForm):
+    responsible = forms.ModelChoiceField(
+        queryset=Group.objects.all().order_by('name'),
+        required=True,
+        label="Responsible Group",
+        help_text="Select a group to assign as responsible."
+    )
