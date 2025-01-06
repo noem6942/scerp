@@ -10,19 +10,12 @@ from django_admin_action_forms import action_with_form
 from core.safeguards import save_logging
 from scerp.admin import action_check_nr_selected
 
-from .forms import (
-    ChartOfAccountsTemplateForm,
-    ChartOfAccountsBalanceForm,
-    ChartOfAccountsFunctionForm,
-    AccountPositionAddIncomeForm,
-    AccountPositionAddInvestForm,
-    AssignResponsibleForm
-)
 from .models import (
     ACCOUNT_TYPE_TEMPLATE, APISetup,
     AccountPositionTemplate,
     ChartOfAccounts, AccountPosition, FiscalPeriod
 )
+from . import forms
 from .import_accounts_canton import Import
 from .mixins import AccountPositionCheck
 from .connector import get_connector_module
@@ -117,21 +110,7 @@ def upload_accounts(modeladmin, request, queryset):
             messages.success(request, _("Accounting positons uploaded"))
 
 
-@admin.action(description=_('15 Upload budgets'))
-def upload_balances(modeladmin, request, queryset):
-    __ = modeladmin  # disable pylint warning
-    # Check
-    if action_check_nr_selected(request, queryset, min_count=1):
-        # Prepare
-        api_setup, module = get_api_setup(queryset)
-        ctrl = module.Account(api_setup)
- 
-        # Perform
-        ctrl.upload_balances(queryset) 
-        messages.success(request, _("Balances uploaded"))
-
-
-@admin.action(description=_('16 Get balances from accounting system'))
+@admin.action(description=_('15 Get balances from accounting system'))
 def download_balances(modeladmin, request, queryset):
     __ = modeladmin  # disable pylint warning
     # Check
@@ -145,6 +124,58 @@ def download_balances(modeladmin, request, queryset):
         msg = _("{count} balances downloaded.").format(count=count)
         messages.success(request, msg)
         
+
+@action_with_form(
+    forms.ChartOfAccountsDateForm,
+    description=_(
+        '16 Get current balances from accounting system')
+)
+def get_balances(modeladmin, request, queryset, data):
+    """
+    Custom admin action to get balances of selected records.
+    """
+    # Check
+    if action_check_nr_selected(request, queryset, min_count=1):
+        # Prepare
+        api_setup, module = get_api_setup(queryset)
+        ctrl = module.Account(api_setup)
+ 
+        # Perform
+        count = ctrl.get_balances(queryset, data.get('date'))
+    
+        # Perform
+        msg =  _("{count} positions updated.").format(count=count)
+        messages.success(request, msg)
+        
+        # Download balances to doublecheck
+        download_balances(modeladmin, request, queryset)
+
+
+@action_with_form(
+    forms.ChartOfAccountsDateForm,
+    description=_(
+        '17 Upload opening balances to accounting system')
+)
+def upload_balances(modeladmin, request, queryset, data):
+    """
+    Custom admin action to upload balances of selected records.
+    """
+    # Check
+    if action_check_nr_selected(request, queryset, min_count=1):
+        # Prepare
+        api_setup, module = get_api_setup(queryset)
+        ctrl = module.Account(api_setup)
+ 
+        # Perform
+        response = ctrl.upload_balances(queryset, data.get('date'))
+    
+        # Perform
+        msg =  _("Balances uploaded, {response}").format(response=response)
+        messages.success(request, msg)
+        
+        # Download balances to doublecheck
+        download_balances(modeladmin, request, queryset)
+
 
 @admin.action(description=_('> Insert copy of record below'))
 def position_insert(modeladmin, request, queryset):
@@ -265,14 +296,14 @@ def coac_positions_check(modeladmin, request, queryset):
 
 
 @action_with_form(
-    ChartOfAccountsTemplateForm,
+    forms.ChartOfAccountsTemplateForm,
     description=_('> Create canton account positions'))
 def coac_positions_create(modeladmin, request, queryset, data):
     """
     Check Excel File of ChartOfAccountsTemplate
     """
     __ = modeladmin  # disable pylint warning
-    _ = data  # disable pylint warning
+    __ = data  # disable pylint warning
 
     # Check number selected
     if action_check_nr_selected(request, queryset, 1):
@@ -356,7 +387,7 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
 
 
 @action_with_form(
-    ChartOfAccountsBalanceForm,
+    forms.ChartOfAccountsBalanceForm,
     description=_('> Export selected balance positions to own balance'))
 def apc_export_balance(modeladmin, request, queryset, data):
     '''
@@ -370,7 +401,7 @@ def apc_export_balance(modeladmin, request, queryset, data):
             ACCOUNT_TYPE_TEMPLATE.BALANCE, chart_id)
 
 @action_with_form(
-    ChartOfAccountsFunctionForm,
+    forms.ChartOfAccountsFunctionForm,
     description=_('> Export selected function positions to own income'))
 def apc_export_function_to_income(modeladmin, request, queryset, data):
     '''
@@ -384,7 +415,7 @@ def apc_export_function_to_income(modeladmin, request, queryset, data):
             ACCOUNT_TYPE_TEMPLATE.INCOME, chart_id)
 
 @action_with_form(
-    ChartOfAccountsFunctionForm,
+    forms.ChartOfAccountsFunctionForm,
     description=_('> Export selected function positions to own invest'))
 def apc_export_function_to_invest(modeladmin, request, queryset, data):
     '''
@@ -463,7 +494,7 @@ def apm_add(request, queryset, data, account_type):
 
 
 @action_with_form(
-    AccountPositionAddIncomeForm,
+    forms.AccountPositionAddIncomeForm,
     description=_('10. Add income positions to function')
 )
 def apm_add_income(modeladmin, request, queryset, data):
@@ -475,7 +506,7 @@ def apm_add_income(modeladmin, request, queryset, data):
 
 
 @action_with_form(
-    AccountPositionAddInvestForm,
+    forms.AccountPositionAddInvestForm,
     description=_('11 Add invest positions to function')
 )
 def apm_add_invest(modeladmin, request, queryset, data):
@@ -487,7 +518,7 @@ def apm_add_invest(modeladmin, request, queryset, data):
 
 
 @action_with_form(
-    AssignResponsibleForm,
+    forms.AssignResponsibleForm,
     description=_(
         '17 Assign a responsible group to the selected account positions.')
 )

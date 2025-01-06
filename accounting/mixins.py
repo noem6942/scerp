@@ -42,6 +42,13 @@ def account_position_calc_number(
         NNNNN.NN .. account number with leading zeros and 2 commas
 
         ff in account_number is ignored (replace by '')
+        
+        consider new numbers:
+        category:
+            ANNNNN
+        position:
+            Bilance: NNNNN.NN
+            Others: FFFF0NNNN.NN
     '''
     # Clean function
     try:

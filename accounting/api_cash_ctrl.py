@@ -226,8 +226,11 @@ class API_PROJECT(Enum):
 
 class CashCtrl():
     ''' Base Class with many children
+        BASE: used for almost all queries
+        BASE_DIR: used for queries not have not .json at end of url
     '''
-    BASE = "https://{org}.cashctrl.com/api/v1/{url}{action}.json"
+    BASE_DIR = "https://{org}.cashctrl.com/api/v1/{url}{action}"
+    BASE = BASE_DIR + '.json'  # default
     
     # Rate-limiting constants
     MAX_TRIES = 5  # Maximum number of retries
@@ -526,6 +529,26 @@ class Account(CashCtrl):
     url = 'account/'
     actions = ['list']
     
+    def get_balance(self, id, date=None):
+        ''' cash_ctrl read '''
+        # Get params
+        params = {'id': id}
+        if date:
+            params['date'] = date.strftime('%Y-%m-%d')
+            
+        # Get data    
+        url = self.BASE_DIR.format(
+            org=self.org, url=self.url, params=params, action='balance')
+        print("*url", url, params)
+        response = self.get(url, params)
+        print("*response", response._content)
+        content = getattr(response, '_content', None)
+
+        # Return content
+        if content:
+            return content.decode(DECODE)
+        raise Exception("response has no _content ")    
+    
     @property
     def standard_account(self):
         '''return dict with top accounts from self.data
@@ -721,60 +744,11 @@ if __name__ == "__main__":
 
     # get all accounts
     ctrl = Account(ORG, KEY)
-    accounts = ctrl.list()
+    balance = ctrl.get_balance(id=689)
+    print("*ba", balance)
+    data = ctrl.read({'id': 689})
+    print("*id", data)
     
-    '''
-    for x in accounts:
-        print(x)
-        if x['end_amount'] == 123:
-            print(x)
-    '''
-    
-    
-    account_opening = next(
-        x for x in accounts 
-        if float(x['number']) == float(STANDARD_ACCOUNT.OPENING_BALANCE.value))
-    account_income = next(
-        x for x in accounts 
-        if float(x['number']) == float(STANDARD_ACCOUNT.TRADING_INCOME.value))
-    side = ACCOUNT_SIDE.CREDIT
-    
-    ctrl = Journal(ORG, KEY)
-    
-    # Item
-    amount = 123
-    items = [{
-        'account_id': account_income['id'],
-        'description': 'Income',
-        'credit': amount
-    }, {
-        'account_id': account_opening['id'],
-        'description': 'Opening',
-        'debit': amount
-    }]
-    
-    # Convert
-    items = [
-        {snake_to_camel(key): value for key, value in x.items()}
-        for x in items]
-    
-    # Create data
-    amount = -sum([amount])
-    data = {
-        'amount': None,  # gets ignored if items
-        'credit_id': None,
-        'debit_id': None,  # gets ignored 
-        'items': json.dumps(items),
-        'notes': 'Items are pening bookings',
-        'date_added': '2024-12-21',  # must be valid date in fiscal period
-        'title': 'Opening booking'
-    }
-    print("*r", data)
-    response = ctrl.create(data)
-    
-    print("*r", response)
-    
-
     """"    
     # eliminate the hrm-2 and standard_ids
     standard_ids = [int(x.value) for x in STANDARD_ACCOUNT]

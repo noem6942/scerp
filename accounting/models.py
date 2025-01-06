@@ -595,9 +595,17 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
         on_delete=models.PROTECT, related_name='%(class)s_responsible',
         help_text=_('Responsible for budgeting and review'))
     allocations = models.ManyToManyField(CostCenter)
-
+    currency = models.ForeignKey(
+        Currency, verbose_name=_('Currency'), null=True, blank=True,
+        on_delete=models.PROTECT,
+        help_text="ID of the currency. Defaults to the system currency if not specified."
+    )
+    
     # balance
     balance = models.FloatField(
+        _('Balance'), null=True, blank=True, 
+        help_text=_('Acutal Balance'))
+    balance_init = models.FloatField(
         _('Balance, imported'), null=True, blank=True, 
         help_text=_('Balance, imported'))
         

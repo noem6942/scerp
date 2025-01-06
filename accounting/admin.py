@@ -420,16 +420,17 @@ class AccountPositionAdmin(CashCtrlAdmin):
         }),
         (_('Edit'), {
             'fields': ('balance', 'budget', 'previous',
-                       'explanation', 'responsible'),
+                       'explanation', 'responsible', 'currency'),
             'classes': ('collapse',),
         }),
     )
     actions = [
-        a.apm_add_income, a.apm_add_invest, a.position_insert,
+        a.apm_add_income, a.apm_add_invest,
         a.check_accounts, a.account_names_convert_upper_case,
-        a.upload_accounts, a.upload_balances, a.download_balances,
+        a.upload_accounts, a.download_balances, a.get_balances,
+        a.upload_balances, 
         a.assign_responsible,
-        set_inactive, set_protected
+        set_inactive, set_protected, a.position_insert
     ]
 
     @admin.display(

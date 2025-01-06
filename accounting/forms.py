@@ -158,6 +158,24 @@ class AccountPositionAddInvestForm(AccountPositionForm):
         ACCOUNT_TYPE_TEMPLATE.INVEST)
 
 
+class ChartOfAccountsDateForm(AdminActionForm):
+    date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        label="Effective Date",
+        required=True,
+        help_text=_(
+            "Enter the date shown in opening bookings. Must be within "
+            "fiscal period")
+    )
+    
+    def __post_init__(self, modeladmin, request, queryset):
+        # Determine the maximum 'modified_at' date from the queryset
+        last_modified = queryset.order_by('modified_at').last()
+        if last_modified:
+            # Set the initial value for the 'date' field
+            self.fields['date'].initial = last_modified.modified_at
+    
+
 class AssignResponsibleForm(AdminActionForm):
     responsible = forms.ModelChoiceField(
         queryset=Group.objects.all().order_by('name'),

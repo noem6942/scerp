@@ -11,10 +11,11 @@ from django.utils.translation import gettext as _
 
 from scerp.admin import get_help_text, format_big_number
 
+from .api_cash_ctrl import STANDARD_ACCOUNT
 from .connector import ConnectorBase, make_timeaware
 from .models import (
     APISetup, FiscalPeriod, Setting, Location, Currency, Unit, Tax, CostCenter,
-    ACCOUNT_TYPE, CATEGORY_HRM, AccountPosition)
+    ACCOUNT_TYPE, CATEGORY_HRM, ACCOUNT_SIDE, AccountPosition)
 from . import api_cash_ctrl, init_cash_ctrl
 
 
@@ -45,6 +46,14 @@ class Connector(ConnectorBase):
         else:
             self.hrm_id = None
             self.function_id = None
+
+    # Helpers
+    def get_currency_c_id(self, currency):
+        if currency:
+            if currency.c_id:   
+                return currency.c_id
+            raise ValueErrorError(f"{currency} has no 'c_id'")
+        return None
 
     # Handle cashCtrl pull
     def prepare_data(self, data):
@@ -457,6 +466,9 @@ class Account(Connector):
             'name': dict(values={self.api_setup.language: position.name}),
             'number': float(position.number),
             'category_id': getattr(position.parent, field_name),
+            'notes': position.notes,
+            'is_inactive': position.is_inactive,
+            'currency': self.get_currency_c_id(position.currency),
             'custom': dict(values={
                     f"customField{self.hrm_id}": hrm,
                     f"customField{self.function_id}": position.function,
@@ -569,14 +581,99 @@ class Account(Connector):
                 # Update position, no need to do post/preprocessing with signals
                 position.save_base(raw=True)
 
-    def upload_balances(self, queryset):
-        signs_positive = (
-            CATEGORY_HRM.ASSET.value[0] + CATEGORY_HRM.EXPENSE.value[0])
+    def upload_balances(self, queryset, date):
+        '''
+        upload balances from django to cashCtrl, use opening account
+        '''
+        # Get opening account
+        account_open_id = self.api_setup.data['account'].get(
+            STANDARD_ACCOUNT.OPENING_BALANCE)
+        if not account_open_id:
+            raise ValueError(_("Could not find opening account"))
+        
+        # Init
+        if date is None:
+            # Get the current date
+            date = date.today()
+        CREDIT, DEBIT = ACCOUNT_SIDE.CREDIT, ACCOUNT_SIDE.DEBIT
+        
+        # Make collective booking
+        items = []
         for account in queryset:
+            # Check if position
             if account.is_category:
                 continue
-            print("*upload", account.sign, account.function, 
-                account.account_number, account.balance)
+                
+            # Get amount    
+            amount = account.balance or 0
+            
+            # Calc side
+            if amount > 0:      
+                side = DEBIT if account.c_id else ACCOUNT_SIDE.CREDIT
+            else:
+                # CashCtrl doesn't allow negative amounts
+                amount = -amount
+                side = CREDIT if account.c_id else DEBIT
+            
+            # Calc account_id
+            account_id = account.c_id or account.c_rev_id
+            if not account_id:
+                logger.warning(f"No account c_id found for {account}.")
+                continue
+            
+            if side == DEBIT:
+                items += [{
+                    'account_id': account_id,
+                    'description': (
+                        _('Liability') if account.type ==  ACCOUNT_TYPE.BALANCE
+                        else _('Expense')),
+                    'debit': amount
+                }, {
+                    'account_id': account_open_id,
+                    'description': 'Opening',
+                    'credit': amount
+                }]
+            else:
+                # Credit
+                items += [{
+                    'account_id': account_id,
+                    'description': (                      
+                        _('Asset') if account.type ==  ACCOUNT_TYPE.BALANCE
+                        else _('Revenue')),
+                    'credit': amount
+                }, {
+                    'account_id': account_open_id,
+                    'description': 'Opening',
+                    'debit': amount
+                }]
+ 
+        # Convert
+        items = [{
+            api_cash_ctrl.snake_to_camel(key): value 
+            for key, value in item.items()
+        } for item in items]
+ 
+        # Create data
+        data = {
+            'amount': None,  # gets ignored if items
+            'credit_id': None,  # gets ignored
+            'debit_id': None,  # gets ignored 
+            'items': json.dumps(items),
+            'notes': _('Items are imported opening bookings'),
+            'date_added': date.strftime('%Y-%m-%d'),  # must be valid date in fiscal period
+            'title': _('Opening booking')
+        }
+ 
+        # Book
+        ctrl = self.init_class(api_cash_ctrl.Journal)
+        response = ctrl.create(data)
+        
+        if response.get('success', False):
+            logger.info(f'Collective booking: {response}')
+        else:
+            logger.error(f'Collective booking: {response}')
+        
+        return response
 
     def download_balances(self, queryset):
         """
@@ -615,6 +712,31 @@ class Account(Connector):
                     logger.info(f'{position} not found.')
         
         return count
+
+    def get_balances(self, queryset, date=None):
+        """
+        Download 'opening_amount' and 'end_amount' from cashCtrl.
+        
+        Args:
+            queryset: A queryset of positions to update.
+
+        Returns:
+            int: The count of successfully updated positions.
+        """
+        ctrl = self.init_class(api_cash_ctrl.Account)
+        
+        count = 0
+        for position in queryset:
+            if not position.is_category:
+                id = position.c_id or position.c_rev_id
+                position.balance = ctrl.get_balance(id, date=None)
+                print("*save", id, position.account_number, position.name,
+                    position.balance)
+                position.save()
+                count += 1
+        
+        return count
+
 
     def delete_accounts_not_used(self):
         # Init
