@@ -12,10 +12,9 @@ from django.utils.translation import gettext as _
 from scerp.admin import get_help_text, format_big_number
 
 from .api_cash_ctrl import STANDARD_ACCOUNT
-from .connector import ConnectorBase, make_timeaware
-from .models import (
-    APISetup, FiscalPeriod, Setting, Location, Currency, Unit, Tax, CostCenter,
-    ACCOUNT_TYPE, CATEGORY_HRM, ACCOUNT_SIDE, AccountPosition)
+from .connector import (
+    DJANGO_KEYS, ConnectorBase, make_timeaware, extract_fields_to_dict)
+from . import models
 from . import api_cash_ctrl, init_cash_ctrl
 
 
@@ -38,6 +37,10 @@ class Connector(ConnectorBase):
         # Init
         super().__init__(api_setup)
 
+        # Ctrl
+        cls = getattr(self, 'CLASS', None)
+        self.ctrl = self.init_class(cls) if cls else None
+
         # Custom Fields
         custom_field = self.api_setup.data.get('custom_field')
         if custom_field:
@@ -48,14 +51,10 @@ class Connector(ConnectorBase):
             self.function_id = None
 
     # Helpers
-    def get_currency_c_id(self, currency):
-        if currency:
-            if currency.c_id:   
-                return currency.c_id
-            raise ValueErrorError(f"{currency} has no 'c_id'")
-        return None
+    def init_class(self, cash_ctrl_cls):
+        # assign cash control class within api_cash_ctrl
+        return cash_ctrl_cls(self.api_setup.org_name, self.api_setup.api_key)    
 
-    # Handle cashCtrl pull
     def prepare_data(self, data):
         """
         Prepares data by renaming keys and transforming specific fields.
@@ -78,22 +77,20 @@ class Connector(ConnectorBase):
             # Log or handle the missing key error
             raise KeyError(f"Missing required field in data: {e}")
   
-    def _pull_accounting_data(self, api_class, model):
+    def get(self):
         '''generic class, pull data from api_class, e.g. Unit
             and store it in the model
         '''
-        # Init
-        ctrl = self.init_class(api_class)
-
         # Get data
-        data_list = ctrl.list(api_class.url)
+        data_list = self.ctrl.list()
 
         # Init
         created, updated = 0, 0
-        instance = model()
+        instance = self.model()
         model_keys = instance.__dict__.keys()
 
         # Parse
+        c_ids = []
         for data in data_list:
             # Load basics
             self.prepare_data(data)
@@ -108,68 +105,237 @@ class Connector(ConnectorBase):
             # Add logging info
             self.add_logging(data)
 
+            # Maintenance
+            setup = data.pop('setup')
+            c_id = data.pop('c_id')
+            c_ids.append(c_id)
+
             # Update or create
-            _obj, created = model.objects.update_or_create(
-                tenant=self.api_setup.tenant,
-                setup=data.pop('setup'),
-                c_id=data.pop('c_id'),
+            print("*", data)
+            _obj, created = self.model.objects.update_or_create(
+                tenant=self.api_setup.tenant, setup=setup, c_id=c_id,
                 defaults=data)
             if created:
                 created += 1
             else:
                 updated += 1
 
+        # Update deleted
+        queryset = self.model.objects.filter(
+            setup=setup).exclude(c_id__in=c_ids)
+        deleted_count, _deleted_objects = queryset.delete()
+
         # Message
         msg = _('{total} {verbose_name_plural}, updated {updated}, '
-                'created {created}')
+                'created {created}, deleted {deleted}')
         logger.info(msg.format(
-            verbose_name_plural = model._meta.verbose_name_plural,
-            total=created + updated,
-            created=created,
-            updated=updated))
+            verbose_name_plural = self.model._meta.verbose_name_plural,
+            total=created + updated + deleted_count,
+            created=created, updated=updated, deleted=deleted_count))
 
-        return created, updated
+        return {
+            'created': created, 'updated': updated, 'deleted': deleted_count}
 
-    # Init
-    def init_class(self, cls):
-        return cls(self.api_setup.org_name, self.api_setup.api_key)
 
-    def init_persons(self):
+class CustomFieldGroupConn(Connector):
+    CLASS = api_cash_ctrl.CustomFieldGroup
+
+    def init(self):
+        # Check and create groups
+        for group_def in init_cash_ctrl.CUSTOM_FIELD_GROUPS:
+            # Get group
+            group = self.ctrl.get_from_name(
+                group_def['name'], group_def['type'])
+            if group:
+                msg = _('Group {name} of type {type} already existing.').format(
+                    name=name, type=type_)
+                logger.warning(msg)
+            else:
+                # Create group
+                data = {
+                    'name': dict(values=group_def['name']),
+                    'type': group_def['type']
+                }
+                group = self.ctrl.create(data)
+
+                # Register group
+                self.api_setup.set_data(
+                    'custom_field_group', group_def['key'], group['insert_id'])
+
+                # Msg
+                msg = _("Created group {name} of type {type}.").format(
+                    name=group_def['name'], type=group_def['type'])
+                logger.info(msg)
+
+
+class CustomFieldConn(Connector):
+    CLASS = api_cash_ctrl.CustomField
+
+    def init(self):
+        # Check and create fields
+        for field_def in init_cash_ctrl.CUSTOM_FIELDS:
+            # Init
+            key = field_def.pop('key')
+            group_key = field_def.pop('group_key')
+
+            # Get group id
+            group_id = self.api_setup.get_data('custom_field_group', group_key)
+            if not group_id:
+                raise Exception(f"No group with {group_key} found.")
+
+            # Get group type
+            type_c = next((
+                x['type'] for x in init_cash_ctrl.CUSTOM_FIELD_GROUPS
+                if x['key'] == group_key), None)
+            if not type_c:
+                raise Exception(f"No type for key {group_key} found.")
+
+            # Prepare
+            name = dict(values=field_def['name'])
+            customfield = self.ctrl.get_from_name(name, type_c)
+
+            if customfield:
+                msg = _('Customfield {name} of type {type} in '
+                        '{group_name} already existing.')
+                msg = msg.format(
+                    name=field_def['name'], type=type_c, group_name=name)
+                logger.warning(msg)
+            else:
+                # Create field
+                field_def.update({
+                    'name': name,
+                    'type': type_c,
+                    'group_id': group_id
+                })
+                customfield = self.ctrl.create(field_def)
+
+                # Register field
+                self.api_setup.set_data(
+                    'custom_field', key, customfield['insert_id'])
+
+                # Msg
+                msg = _('Created customfield {name} of type {type}')
+                msg = msg.format(name=name, type=type_c)
+                logger.info(msg)
+
+
+class PersonConn(Connector):
+    CLASS = api_cash_ctrl.Person
+    # later MODEL = models.Person
+    
+    def init(self):
+        # Init
+        ctrl = self.init_class(api_cash_ctrl.PersonCategory)
+        
+        # Add new categories
+        for category in init_cash_ctrl.PERSON_CATEGORIES:
+            ctrl.create(category)
+        
         # Register top categories
         DATA_KEY = 'person_category'
-        ctrl = self.init_class(api_cash_ctrl.PersonCategory)
         categories = ctrl.list()
-        top_category = ctrl.top_category()
 
         # Register top categories
-        for key, value in top_category.items():
-            print("*key", key)
+        for key, value in ctrl.top_category.items():
             self.api_setup.set_data(DATA_KEY, key, value['id'])
 
-        # Create top classes
-        # currently we don't create any person categories
 
-    def init_units(self):
-        ''' add m³, call before units load
+# reading classes
+class CostCenterConn(Connector):
+    CLASS = api_cash_ctrl.AccountCostCenter
+    MODEL = models.CostCenter
+    
+
+class CurrencyConn(Connector):
+    CLASS = api_cash_ctrl.Currency
+    MODEL = models.Currency
+
+
+class FiscalPeriodConn(Connector):
+    CLASS = api_cash_ctrl.FiscalPeriod
+    MODEL = models.FiscalPeriod
+
+
+class LocationConn(Connector):
+    CLASS = api_cash_ctrl.Location
+    MODEL = models.Location
+
+
+class TaxPeriodConn(Connector):
+    CLASS = api_cash_ctrl.Tax
+    MODEL = models.Tax
+
+
+class ArticleConn(Connector):
+    CLASS = api_cash_ctrl.Article
+    MODEL = models.Article
+
+
+class SettingConn(Connector):
+    CLASS = api_cash_ctrl.Setting
+    MODEL = models.Setting
+
+    def get(self):
+        '''override default get as settings does not return list
         '''
-        # Init
-        ctrl = self.init_class(api_cash_ctrl.Unit)
+        # Get data
+        data = self.add_logging({})
+        data['data'] = self.ctrl.read()
 
-        # List existing
-        units = ctrl.list()
+        # Update or create   
+        updated, created = 0, 0
+        _obj, created = self.model.objects.update_or_create(
+            tenant=self.api_setup.tenant,
+            setup=data.pop('setup'),
+            defaults=data)
+        if created:
+            created += 1
+        else:
+            updated += 1
 
-        # Create new
-        for data in UNITS:
+        # Message
+        msg = _('Settings updated {updated} or created {created}')
+        logger.info(msg.format(created=created, updated=updated))
+
+        return {'created': created, 'updated': updated}
+
+
+class UnitConn(Connector):
+    CLASS = api_cash_ctrl.Unit
+    MODEL = models.Unit
+    
+    def init(self):
+        units = self.ctrl.list()
+        for data in init_cash_ctrl.UNITS:
             if not next((x for x in units if x['name'] == data['name']), None):
-                unit = ctrl.create(data)
+                unit = self.ctrl.create(data)
                 if unit.pop('success', None):
-                    logger.info(f"created {unit}")
+                    logger.info(f"created {unit}")        
+    
+def get_all(api_setup):
+    CLASSES = [
+        CostCenterConn,
+        CurrencyConn,
+        FiscalPeriodConn,
+        TaxPeriodConn,
+        SettingConn,
+        UnitConn,
+        LocationConn,
+        ArticleConn
+    ]
+    
+    for cls in CLASSES:
+        ctrl = cls(api_setup)
+        ctrl.get()
 
-    def init_settings(self):
-        ''' do this at the end
+
+"""
+class SettingsConn(Connector):
+    CLASS = api_cash_ctrl.Settings
+    
+    def init(self):
+        ''' work
         '''
-        ctrl = self.init_class(api_cash_ctrl.AccountCategory)
-
         data = {
             # General
             'tax_accounting_method': 'AGREED',
@@ -238,122 +404,45 @@ class Connector(ConnectorBase):
         else:
             raise Exception("No settings found.")
 
-    def get_locations(self):
+
+class LocationCntr(Connector):
+    def get(self):
         # Get and update all locations
-        created, updated = self._pull_accounting_data(
+        count = self._pull_accounting_data(
             api_cash_ctrl.Location, Location)
+            
+    def save(self, instance, created=False):
+        '''not working:
+        POST request failed for 'https://test167.cashctrl.com/api/v1/location/create.json': 500 - 500 CashCtrl - 500 Internal Server Error
+        '''
+        # Prepare
+        fields = [
+            x for x in instance.__dict__.keys()
+            if x not in DJANGO_KEYS and x not in CASH_CTRL_KEYS]
+        data = extract_fields_to_dict(instance, fields)
+        print("*data", data)
+        data.pop('logo_id')
+        data.pop('logo_file_id')
 
-    def get_fiscal_periods(self):
-        # Get and update all fiscal periods
-        created, updated = self._pull_accounting_data(
-            api_cash_ctrl.FiscalPeriod, FiscalPeriod)
-
-    def get_currencies(self):
-        # Get and update all currencies
-        created, updated = self._pull_accounting_data(
-            api_cash_ctrl.Currency, Currency)
-
-    def get_units(self):
-        # Get and update all units
-        created, updated = self._pull_accounting_data(
-            api_cash_ctrl.Unit, Unit)
-
-    def get_tax(self):
-        # Get and update all tax rates
-        created, updated = self._pull_accounting_data(
-            api_cash_ctrl.Tax, Tax)
-
-    def get_cost_centere(self):
-        # Get and update all cost centers
-        created, updated = self._pull_accounting_data(
-            api_cash_ctrl.AccountCostCenter, CostCenter)
-
-
-class CustomField(Connector):
-
-    def init_custom_groups(self):
-        # Init
-        ctrl = self.init_class(api_cash_ctrl.CustomFieldGroup)
-
-        # Check and create groups
-        for group_def in init_cash_ctrl.CUSTOM_FIELD_GROUPS:
-            # Get group
-            group = ctrl.get_from_name(group_def['name'], group_def['type'])
-            if group:
-                msg = _('Group {name} of type {type} already existing.').format(
-                    name=name, type=type_)
-                logger.warning(msg)
-            else:
-                # Create group
-                data = {
-                    'name': dict(values=group_def['name']),
-                    'type': group_def['type']
-                }
-                group = ctrl.create(data)
-
-                # Register group
-                self.api_setup.set_data(
-                    'custom_field_group', group_def['key'], group['insert_id'])
-
-                # Msg
-                msg = _("Created group {name} of type {type}.").format(
-                    name=group_def['name'], type=group_def['type'])
-                logger.info(msg)
-
-    def init_custom_fields(self):
-        # Init
-        ctrl = self.init_class(api_cash_ctrl.CustomField)
-        ctrl_group = self.init_class(api_cash_ctrl.CustomFieldGroup)
-
-        # Check and create fields
-        for field_def in init_cash_ctrl.CUSTOM_FIELDS:
-            # Init
-            key = field_def.pop('key')
-            group_key = field_def.pop('group_key')
-
-            # Get group id
-            group_id = self.api_setup.get_data('custom_field_group', group_key)
-            if not group_id:
-                raise Exception(f"No group with {group_key} found.")
-
-            # Get group type
-            type_c = next((
-                x['type'] for x in init_cash_ctrl.CUSTOM_FIELD_GROUPS
-                if x['key'] == group_key), None)
-            if not type_c:
-                raise Exception(f"No type for key {group_key} found.")
-
-            # Prepare
-            name = dict(values=field_def['name'])
-            customfield = ctrl.get_from_name(name, type_c)
-
-            if customfield:
-                msg = _('Customfield {name} of type {type} in '
-                        '{group_name} already existing.')
-                msg = msg.format(
-                    name=field_def['name'], type=type_c, group_name=name)
-                logger.warning(msg)
-            else:
-                # Create field
-                field_def.update({
-                    'name': name,
-                    'type': type_c,
-                    'group_id': group_id
-                })
-                customfield = ctrl.create(field_def)
-
-                # Register field
-                self.api_setup.set_data(
-                    'custom_field', key, customfield['insert_id'])
-
-                # Msg
-                msg = _('Created customfield {name} of type {type}')
-                msg = msg.format(name=name, type=type_c)
-                logger.info(msg)
+        # Send to cashCtrl
+        ctrl = self.init_class(api_cash_ctrl.Location)
+        if created:
+            print("*data**", data)
+            item = ctrl.create(data)
+        else:
+            data['id'] = instance.c_id
+            print("*data", data)
+            item = ctrl.update(data)
+          
+        # Process
+        if item.pop('success', None):
+            logger.info(f"created {item}")            
+"""
 
 
 class Account(Connector):
-
+    CLASS = api_cash_ctrl.Account
+    
     # First digits account_number
     TOP_CATEGORY_MAP = {
         # First digits account_number, account_category in data
@@ -367,12 +456,11 @@ class Account(Connector):
     }
 
     # Make account ready to import accounts
-    def init_accounts(self, overwrite=False):
+    def init(self, overwrite=False):
         # Init Accounts
         DATA_KEY = 'account'
-        ctrl = self.init_class(api_cash_ctrl.Account)
-        _accounts = ctrl.list()
-        standard_account = ctrl.standard_account
+        _accounts = self.ctrl.list()
+        standard_account = self.ctrl.standard_account
 
         # Register standard accounts
         for key, value in standard_account.items():
@@ -405,7 +493,7 @@ class Account(Connector):
             }
 
             # Create
-            response = ctrl.create(data)
+            response = self.ctrl.create(data)
             if response.get('success', False):
                 # register top categories
                 self.api_setup.set_data(
@@ -494,7 +582,7 @@ class Account(Connector):
         self.heading_w_numbers = heading_w_numbers
         
         # Init
-        ctrl_account = self.init_class(api_cash_ctrl.Account)
+        ctrl_account = self.ctrl
         ctrl_category = self.init_class(api_cash_ctrl.AccountCategory)
         account_category = self.api_setup.data['account_category']
 
@@ -685,8 +773,7 @@ class Account(Connector):
         Returns:
             int: The count of successfully updated positions.
         """
-        ctrl = self.init_class(api_cash_ctrl.Account)
-        accounts = ctrl.list()
+        accounts = self.ctrl.list()
         
         # Optimize lookup by converting to a dictionary
         account_map = {account['id']: account for account in accounts}

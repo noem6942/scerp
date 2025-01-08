@@ -377,7 +377,7 @@ class CashCtrl():
             f"request to '{url}'."
         )
 
-    # REST API mine: list, read, create, update, delete
+    # REST API mine: list, read, create, update, delete, data
     def list(self, params=None, **filter_kwargs):
         ''' cash_ctrl list '''
         if params is None:
@@ -411,6 +411,22 @@ class CashCtrl():
             self.data = self.clean_dict(json.loads(content.decode(DECODE)))
             return self.data
         raise Exception("response has no _content ")
+        
+    def json_data(self, params=None):
+        ''' cash_ctrl read '''
+        # Get data
+        if params is None:
+            params = {}  # Initialize the dictionary only when needed
+        url = self.BASE.format(
+            org=self.org, url=self.url, params=params, action='data')
+        response = self.get(url, params)
+        content = getattr(response, '_content', None)
+
+        # Return content
+        if content:
+            self.data = self.clean_dict(json.loads(content.decode(DECODE)))
+            return self.data
+        raise Exception("response has no _content ")        
 
     def create(self, data=None):
         ''' cash_ctrl create '''
@@ -534,14 +550,14 @@ class Account(CashCtrl):
         # Get params
         params = {'id': id}
         if date:
-            params['date'] = date.strftime('%Y-%m-%d')
+            if not isinstance(date, str):
+                date = date.strftime('%Y-%m-%d')
+            params['date'] = date
             
         # Get data    
         url = self.BASE_DIR.format(
             org=self.org, url=self.url, params=params, action='balance')
-        print("*url", url, params)
         response = self.get(url, params)
-        print("*response", response._content)
         content = getattr(response, '_content', None)
 
         # Return content
@@ -589,7 +605,7 @@ class AccountCategory(CashCtrl):
         return {
             x['account_class']: x
             for x in self.data
-            if not x['parent_id'] 
+            if not x['parent_id'] and isinstance(x['name'], dict)
         }
 
     def get_leaves(self):
@@ -720,7 +736,7 @@ class PersonCategory(CashCtrl):
     @property
     def top_category(self):
         '''return dict with top categories from self.data
-            'ASSET', 'LIABILITY', 'EXPENSE', 'REVENUE' and 'BALANCE'
+            'EMPLOYEE', 'CUSTOMER'
         '''
         if self.data is None:
             raise Exception("data is None")
@@ -728,7 +744,7 @@ class PersonCategory(CashCtrl):
         return {
             self.get_name(x['name']['values']): x
             for x in self.data
-            if not x['parent_id']
+            if not x['parent_id'] and isinstance(x['name'], dict)
         }    
 
 class PersonTitle(CashCtrl):
@@ -736,20 +752,62 @@ class PersonTitle(CashCtrl):
     url = 'person/title/'
     actions = ['list']
 
+# Element
+class Element(CashCtrl):
+    '''see public api desc'''
+    url = 'report/element/'
+    actions = ['list', 'create']
+
+
 # main
 if __name__ == "__main__":
     ORG = 'test167'
     KEY = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
+    
+    ORG_B = 'bdo'
+    KEY_B = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
+    
     PARAMS =  {}
 
     # get all accounts
     ctrl = Account(ORG, KEY)
-    balance = ctrl.get_balance(id=689)
-    print("*ba", balance)
-    data = ctrl.read({'id': 689})
-    print("*id", data)
     
-    """"    
+    accounts = ctrl.list()
+    for account in accounts:
+        if account['number'] == '37101003130.05':
+            balance = ctrl.get_balance(id=account['id'])
+            print("*acc", account['number'], balance)
+    
+    
+    '''
+    ctrl = Article(ORG, KEY)
+    articles = ctrl.list()
+    print("*articles", articles)
+    
+    ctrl = PersonCategory(ORG, KEY)
+    data = {
+        'name': '<values><de>*Abonnenten</de></values>'
+    }
+    response = ctrl.create(data)
+    if response.get('success', False):
+        person_category_id = response.get('insert_id')
+    print("*response", response)
+    
+    ctrl = Person(ORG, KEY)
+    data = {
+        'category_id': person_category_id,
+        'first_name': 'Anton',
+        'last_name': 'Meier',
+        'notes': '<values><de>*Export SC-ERP, dort bearbeiten</de></values>'
+    }
+    response = ctrl.create(data)
+    print("*response", response)   # 6
+      
+    '''
+  
+    """"     
+  
+    ""  
     # eliminate the hrm-2 and standard_ids
     standard_ids = [int(x.value) for x in STANDARD_ACCOUNT]
     

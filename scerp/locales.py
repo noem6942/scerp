@@ -32,7 +32,8 @@ APP_MODEL_ORDER = {
             'Tenant': ('2', None),
             'TenantLocation': ('3', None),
             'TenantSetup': ('4', None),
-            'UserProfile': ('5', None)
+            'TenantLogo': ('5', None),
+            'UserProfile': ('6', None)
         }
     },
     'crm': {
@@ -69,6 +70,7 @@ APP_MODEL_ORDER = {
             'Unit': ('14', ' ⬇️'),
             'Tax': ('15', ' ⬇️'),
             'CostCenter': ('16', ' ⬇️'),
+            'Article': ('17', ' ⬇️'),
             'ChartOfAccountsTemplate': ('20', None),
             'AccountPositionTemplate': ('21', None),
             'ChartOfAccounts': ('32', None),

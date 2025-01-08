@@ -130,22 +130,12 @@ def display_datetime(value, default='-'):
     return date_format(value, format='DATETIME_FORMAT')
 
 
-def display_empty(value=None, default=' '):
-    """
-    Display '' instead of --empty--
-    """
-    if value is None or value == '':
-        return default
-    return str(value)
-
-
 def display_big_number(value):
     """
     use settings.THOUSAND_SEPARATOR and 2 commas for big numberss
     """
     if value is None:
-        # Show empty
-        return display_empty()
+        return None
 
     # Format number
     number_str = format_big_number(value)
@@ -181,7 +171,7 @@ def format_hierarchy(level, name):
     if level == 1:
         return format_html(f"<b>{name.upper()}</b>")
     if level == 2:
-        return format_html(f"{name}")
+        return format_html(f"<b>{name}</b>")
     return format_html(f"<i>{name}</i>")
 
 
@@ -354,8 +344,8 @@ class BaseAdmin(ModelAdmin):
     readonly_fields = []  # Fields that are read-only by default
 
     # list_display_links = None  # Removes the links from list display
-    empty_value_display = '-empty-'  # Adjust this to a shorter string if needed
-
+    # empty_value_display = _('-empty-')  # can be defined individually
+    
     def get_list_display(self, request):
         ''' Automatically append 'has_notes' and 'has_attachment' etc. to list_display '''
         # Get the original list_display from any child class

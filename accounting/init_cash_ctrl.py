@@ -134,3 +134,14 @@ UNITS = [{
         'it': 'm³'}
     }
 }]
+
+
+LOCATIONS = [{
+    'name':  {'values': {
+        'de': f'MWST {i}',
+        'en': f'VAT {i}',
+        'fr': f'VAT {i}',
+        'it': f'VAT {i}'}
+    },
+    'type': 'OTHER'
+} for i in range(1,3)]

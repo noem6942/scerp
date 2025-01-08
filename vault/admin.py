@@ -6,7 +6,7 @@ from django.utils.translation import gettext as _
 from core.safeguards import get_tenant
 
 from scerp.admin import (
-    admin_site, BaseAdmin, display_empty, display_verbose_name,
+    admin_site, BaseAdmin, display_verbose_name,
     display_datetime, verbose_name_field, format_hierarchy)
     
 from .models import (
@@ -68,8 +68,8 @@ class ArchivalCantonEvaluationAdmin(BaseAdmin):
 @admin.register(RegistrationPositionCanton, site=admin_site) 
 class RegistrationPositionCantonAdmin(BaseAdmin):
     list_display = (
-        'heading_number', 'position_number', 'hierarchy_name', 'display_lead_agency', 
-        'display_retention_period', 'display_remarks')      
+        'heading_number', 'position_number', 'hierarchy_name', 'lead_agency', 
+        'retention_period', 'remarks')      
     list_display_links = ('indent_name',)
     list_filter = (
         'registration_plan', 'lead_agency', 'retention_period',
@@ -97,12 +97,12 @@ class RegistrationPositionCantonAdmin(BaseAdmin):
         if obj.is_category:
             return format_hierarchy(obj.level, obj.number)    
         else:
-            return display_empty()
+            return ' '
  
     @admin.display(description=_('#pos'))
     def position_number(self, obj):     
         if obj.is_category:
-            return display_empty()
+            return ' '
         else:
             return obj.number
  
@@ -113,20 +113,3 @@ class RegistrationPositionCantonAdmin(BaseAdmin):
             return format_hierarchy(obj.level, obj.name)    
         else:
             return obj.name
-
-    @admin.display(        
-        description=verbose_name_field(
-            RegistrationPositionCanton, 'lead_agency'))
-    def display_lead_agency(self, obj):
-        return display_empty(obj.lead_agency)
-
-    @admin.display(
-        description=verbose_name_field(
-            RegistrationPositionCanton, 'retention_period'))
-    def display_retention_period(self, obj):
-        return display_empty(obj.retention_period)
-
-    @admin.display(
-        description=verbose_name_field(RegistrationPositionCanton, 'remarks'))
-    def display_remarks(self, obj):
-        return display_empty(obj.remarks)

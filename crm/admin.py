@@ -1,8 +1,7 @@
 from django.contrib import admin
 
 from scerp.admin import (
-    admin_site, BaseAdmin, display_empty, display_verbose_name,
-    display_datetime)
+    admin_site, BaseAdmin, display_verbose_name, display_datetime)
 
 from .models import (
     PersonAccount, AddressPerson, Contact, PersonCategory, Building)

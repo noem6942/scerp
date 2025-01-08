@@ -5,8 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from crm.models import Building
 from core.safeguards import get_tenant
 from scerp.admin import (
-    admin_site, BaseAdmin, display_empty, display_verbose_name,
-    display_datetime)
+    admin_site, BaseAdmin, display_verbose_name, display_datetime)
 
 from .actions import show_agenda, make_minutes
 from .models import (

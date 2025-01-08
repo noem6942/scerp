@@ -2,8 +2,7 @@ from django.contrib import admin
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
 
-from scerp.admin import (
-    verbose_name_field, admin_site, BaseAdmin, display_empty)
+from scerp.admin import verbose_name_field, admin_site, BaseAdmin
 
 from .models import Counter, Subscription
 
@@ -34,14 +33,6 @@ class CounterAdmin(BaseAdmin):
         )
 
     update_status.short_description = "Update status"
-        
-    @admin.display(description=verbose_name_field(Counter, 'function'))    
-    def display_function(self, obj):
-        return display_empty(obj.function)
-  
-    @admin.display(description='***')
-    def display_jg(self, obj):
-        return display_empty(obj.jg)
   
 
 @admin.register(Subscription, site=admin_site)

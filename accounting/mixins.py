@@ -37,22 +37,15 @@ def account_position_calc_number(
     '''calc number with pattern:
         AFFFFCNNNNN.NN
         A .. ACCOUNT_TYPE
-        FFFF .. function with leading zeros
+        FFFF .. function with leading zeros, 
         C .. 1 if is_category else 0
         NNNNN.NN .. account number with leading zeros and 2 commas
 
         ff in account_number is ignored (replace by '')
-        
-        consider new numbers:
-        category:
-            ANNNNN
-        position:
-            Bilance: NNNNN.NN
-            Others: FFFF0NNNN.NN
     '''
     # Clean function
     try:
-        function = int(function)
+        function = 0 if function is None else int(function)
     except ValueError:
         function = 0
 

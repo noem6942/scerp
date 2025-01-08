@@ -10,7 +10,7 @@ from django.utils.translation import get_language, gettext_lazy as _
 from enum import Enum
 
 from core.models import (
-    LogAbstract, NotesAbstract, TenantAbstract, CITY_CATEGORY)
+    LogAbstract, NotesAbstract, TenantAbstract, TenantLogo, CITY_CATEGORY)
 from scerp.locales import CANTON_CHOICES
 
 
@@ -178,7 +178,33 @@ class Setting(TenantAbstract):
         ordering = ['setup__org_name']
         verbose_name = _("Settings")
         verbose_name_plural = f"{verbose_name}"
-    
+ 
+
+class MappingId(AcctApp):
+    '''For maintenance only
+    '''
+    class TYPE(models.TextChoices):
+        CUSTOM_FIELD_GROUP = 'custom_field_group' 
+        CUSTOM_FIELD = 'custom_field'
+        ACCOUNT_CATEGORY = 'account_category'
+        PERSON_CATEGORY = 'person_category' 
+        ACCOUNT = 'account'
+
+    # Mandatory field
+    type = models.CharField( _("Type"), max_length=50, choices=TYPE)
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'type', 'name'],
+                name='unique_constants'
+            )
+        ]        
+        ordering = ['type', 'name']
+        verbose_name = _("Mapping Id")
+        verbose_name_plural = _("Mapping Ids")
+
 
 class Location(AcctApp):
     '''Read - only
@@ -211,9 +237,10 @@ class Location(AcctApp):
         help_text=_("The country of the location, as an ISO 3166-1 alpha-3 code."))
 
     # Layout
-    logo = models.ImageField(
-        _("Logo"), upload_to="profile_photos/", blank=True, null=True,
-        help_text=_("Logo used in website."))
+    logo = models.ForeignKey(
+        TenantLogo, verbose_name=_('Logo'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_logo',
+        help_text=_('Logo to be used for accounting'))         
 
     # Accounting
     bic = models.CharField(
@@ -422,6 +449,155 @@ class CostCenter(AcctApp):
         ordering = ['name']
         verbose_name = _("Cost Center")
         verbose_name_plural = f"{_('Cost Centers')}"
+
+
+class Article(AcctApp):
+    """
+    Article Model for inventory and sales management.
+    """
+    name = models.JSONField(
+        _('Name'),
+        help_text=_("The name of the article. For localized text, use XML format: "
+                    "<values><de>German text</de><en>English text</en></values>."),
+        null=True,
+        blank=True,
+    )
+    bin_location = models.CharField(
+        _('Bin Location'),
+        max_length=255,
+        help_text=_("The place within the building (e.g., A15, B04, C11). "
+                    "Ignored unless isStockArticle is true."),
+        null=True,
+        blank=True,
+    )
+    category_id = models.PositiveIntegerField(
+        _('Category ID'),
+        help_text=_("The ID of the category. See Article category."),
+        null=True,
+        blank=True,
+    )
+    currency_id = models.PositiveIntegerField(
+        _('Currency ID'),
+        help_text=_("The ID of the currency. Leave empty to use the default currency."),
+        null=True,
+        blank=True,
+    )
+    custom = models.JSONField(
+        _('Custom Fields'),
+        help_text=_("Custom field values in XML format: "
+                    "<values><customField1>My value</customField1></values>."),
+        null=True,
+        blank=True,
+    )
+    description = models.JSONField(
+        _('Description'),
+        help_text=_("A description of the article. For localized text, use XML format: "
+                    "<values><de>German text</de><en>English text</en></values>."),
+        null=True,
+        blank=True,
+    )
+    is_inactive = models.BooleanField(
+        _('Is Inactive'),
+        default=False,
+        help_text=_("Mark the article as inactive. Defaults to false."),
+    )
+    is_purchase_price_gross = models.BooleanField(
+        _('Is Purchase Price Gross'),
+        default=False,
+        help_text=_("Defines the purchase price as gross (including tax). Defaults to false."),
+    )
+    is_sales_price_gross = models.BooleanField(
+        _('Is Sales Price Gross'),
+        default=False,
+        help_text=_("Defines the sales price as gross (including tax). Defaults to false."),
+    )
+    is_stock_article = models.BooleanField(
+        _('Is Stock Article'),
+        default=False,
+        help_text=_("Whether the article has stock and should be tracked."),
+    )
+    last_purchase_price = models.DecimalField(
+        _('Last Purchase Price'),
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=_("The last purchase price of the article. Defaults to net unless isPurchasePriceGross is true."),
+    )
+    location_id = models.PositiveIntegerField(
+        _('Location ID'),
+        null=True,
+        blank=True,
+        help_text=_("The ID of the location (e.g., a warehouse). Ignored unless isStockArticle is true."),
+    )
+    max_stock = models.PositiveIntegerField(
+        _('Max Stock'),
+        null=True,
+        blank=True,
+        help_text=_("The desired maximum stock of the article. Ignored unless isStockArticle is true."),
+    )
+    min_stock = models.PositiveIntegerField(
+        _('Min Stock'),
+        null=True,
+        blank=True,
+        help_text=_("The desired minimum stock of the article. Ignored unless isStockArticle is true."),
+    )
+    notes = models.TextField(
+        _('Notes'),
+        null=True,
+        blank=True,
+        help_text=_("Optional notes with limited HTML support. "
+                    "Allowed tags: a, p, div, etc."),
+    )
+    nr = models.CharField(
+        _('Article Number'),
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text=_("The article number. Leave empty to auto-generate."),
+    )
+    sales_price = models.DecimalField(
+        _('Sales Price'),
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=_("The sales price of the article. Defaults to net unless isSalesPriceGross is true."),
+    )
+    sequence_number_id = models.PositiveIntegerField(
+        _('Sequence Number ID'),
+        null=True,
+        blank=True,
+        help_text=_("The ID of the sequence number used to generate the article number."),
+    )
+    stock = models.PositiveIntegerField(
+        _('Stock'),
+        null=True,
+        blank=True,
+        help_text=_("The current stock of the article. Ignored unless isStockArticle is true."),
+    )
+    unit_id = models.CharField(
+        _('Unit ID'),
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text=_("The ID of the unit (like pcs., meters, liters)."),
+    )
+
+    @property
+    def local_name(self):
+        return self.get_multi_language(self.name)
+
+    class Meta:
+        ordering = ['nr']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup'
+            )
+        ]
+        verbose_name = _("Article")
+        verbose_name_plural = _("Articles")
 
 
 # Accounting Charts -----------------------------------------------------------
@@ -690,168 +866,3 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
             'account_number']
         verbose_name = ('Account Position (Municipality)')
         verbose_name_plural = _('Account Positions')        
-
-
-class ArticleCategory(AcctApp):
-    '''Categories must only be created and edited in scerp
-        all optional fields are null
-        e.g. WATER = ('W', _('water'))
-    '''
-    name = models.CharField(max_length=100, help_text="The name of the account category.")
-    allocations = models.ManyToManyField(CostCenter)
-    parent = models.ForeignKey(
-        'self',
-        on_delete=models.PROTECT,
-        related_name='subcategories',
-        help_text="The parent category."
-    )
-    purchase_account = models.ForeignKey(
-        AccountPosition,
-        on_delete=models.PROTECT,
-        related_name='purchase_account',
-        help_text=(
-            "The purchase account, which will be used when selling "
-            "aticles in this category through."))
-    sales_account = models.ForeignKey(
-        AccountPosition,
-        on_delete=models.PROTECT,
-        related_name='sales_account',
-        help_text=(
-            "The sales account, which will be used when selling "
-            "aticles in this category through."))
-
-    def __str__(self):
-        return f"{self.name} ({self.number})" if self.number else self.name
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'c_id'],
-                name='unique_c_id_per_tenant_setup__article'
-            )
-        ]        
-        verbose_name = "Account Category"
-        verbose_name_plural = "Account Categories"
-        ordering = ['name']
-
-
-class Tarif(TenantAbstract):
-    tarif = models.IntegerField(verbose_name="Tarif")  # Tariff
-    tarif_bez = models.CharField(max_length=255, verbose_name="TarifBez")  # Tariff Description
-
-
-class Article(AcctApp):
-    name = models.CharField(
-        max_length=240,
-        help_text="The name of the article, with localized text as XML."
-    )
-    bin_location = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-        help_text="Location within the building (e.g., A15, B04). Only if isStockArticle is True."
-    )
-    category = models.ForeignKey(
-        ArticleCategory,
-        on_delete=models.PROTECT,
-        help_text="ID of the category to which this article belongs."
-    )
-    currency = models.ForeignKey(
-        Currency,
-        on_delete=models.PROTECT,
-        help_text="ID of the currency. Defaults to the system currency if not specified."
-    )
-    description = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Localized description in XML format."
-    )
-    is_inactive = models.BooleanField(
-        default=False,
-        help_text="Mark the article as inactive. Default is false."
-    )
-    is_purchase_price_gross = models.BooleanField(
-        default=False,
-        help_text="Defines the purchase price as gross (including tax). Default is false."
-    )
-    is_sales_price_gross = models.BooleanField(
-        default=False,
-        help_text="Defines the sales price as gross (including tax). Default is false."
-    )
-    is_stock_article = models.BooleanField(
-        default=False,
-        help_text="Whether the article has a stock. Default is false."
-    )
-    last_purchase_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        blank=True,
-        null=True,
-        help_text="Last purchase price of the article. Excludes tax unless is_purchase_price_gross is true."
-    )
-    location = models.ForeignKey(
-        Location,
-        on_delete=models.PROTECT,
-        help_text="ID of the tax or building location."
-    )
-    max_stock = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        help_text="Desired maximum stock. Only applies if isStockArticle is true."
-    )
-    min_stock = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        help_text="Desired minimum stock. Only applies if isStockArticle is true."
-    )
-    article_number = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-        help_text="The article number. Leave empty to generate using sequenceNumberId."
-    )
-    sales_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        blank=True,
-        null=True,
-        help_text="Sales price of the article, excludes tax unless is_sales_price_gross is true."
-    )
-    sequence_number_id = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        help_text="ID of the sequence number to generate article number."
-    )
-    stock = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        help_text="Current stock level. Only applies if isStockArticle is true."
-    )
-    unit = models.ForeignKey(
-        Unit,
-        on_delete=models.PROTECT,
-        help_text="ID of the unit for the article."
-    )
-    # customs
-    custom_tarif = models.ForeignKey(
-        Tarif, null=True, blank=True,
-        on_delete=models.SET_NULL,
-        help_text="select Tarif"
-    )
-    custom_ansatz = models.PositiveSmallIntegerField(
-        null=True, blank=True,
-        help_text="ID of the unit for the article."
-    )
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'c_id'],
-                name='unique_c_id_per_tenant_setup'
-            )
-        ]        
-        verbose_name = "Article"
-        verbose_name_plural = "Articles"

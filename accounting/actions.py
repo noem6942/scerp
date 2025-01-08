@@ -15,12 +15,14 @@ from .models import (
     AccountPositionTemplate,
     ChartOfAccounts, AccountPosition, FiscalPeriod
 )
-from . import forms
+from . import connector_cash_ctrl, forms
 from .import_accounts_canton import Import
 from .mixins import AccountPositionCheck
 from .connector import get_connector_module
-from .signals import api_setup
+from .signals import api_setup_post_save
 
+
+ACTION_LOAD = _('Load actual data from Accounting System')
 
 DONOT_COPY_FIELDS = [
     # General
@@ -48,14 +50,30 @@ def get_api_setup(queryset):
 
 @admin.action(description=_('Init setup'))
 def init_setup(modeladmin, request, queryset):
-    __ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, 1):
         instance = queryset.first()
-        api_setup(type(instance), instance, created=False, init=True) 
+        api_setup_post_save(
+            modeladmin.model, instance, created=False, init=True) 
         messages.success(request, _("Accounting API initialized"))
-    else:
-        return
+    
+
+@admin.action(description=ACTION_LOAD)
+def api_setup_get(modeladmin, request, queryset):
+    __ = modeladmin  # disable pylint warning
+    if action_check_nr_selected(request, queryset, 1):
+        instance = queryset.first()
+        api_setup, module = get_connector_module(api_setup=instance)
+        module.get_all(api_setup)        
+
+
+@admin.action(description=ACTION_LOAD)
+def fiscal_period_get(modeladmin, request, queryset):
+    __ = modeladmin  # disable pylint warning
+    # Check
+    api_setup, module = get_api_setup(queryset)
+    ctrl = module.FiscalPeriodConn(api_setup)        
+    ctrl.get()
 
 
 @admin.action(description=_('12 Check accounting positions'))
@@ -203,30 +221,6 @@ def position_insert(modeladmin, request, queryset):
         msg = _('Not allowed to copy this record. {e}').format(e=e)
         messages.warning(request, msg)
         return
-
-
-# FiscalPeriod
-@admin.action(description=_('3. Set selected period as current'))
-def fiscal_period_set_current(modeladmin, request, queryset):
-    """
-    Insert row of a model that has a field position
-    """
-    __ = modeladmin  # disable pylint warning
-    # Check
-    if action_check_nr_selected(request, queryset, 1):
-        obj = queryset.first()
-    else:
-        return
-
-    # Deselect all objects, make sure only `is_current=False` on others
-    FiscalPeriod.objects.all().update(is_current=False)
-
-    # Set selected object as the current one
-    obj.is_current = True
-    obj.save()
-
-    msg = _('Set {obj.name} as current.').format(obj=obj)
-    messages.success(request, msg)
 
 
 # ChartOfAccountsTemplate (coac)

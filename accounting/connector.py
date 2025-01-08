@@ -6,9 +6,18 @@ from scerp.mixins import get_admin, make_timeaware
 from .models import APPLICATION
 
 
+DJANGO_KEYS = [
+    '_state', 'id', 'created_at', 'created_by_id', 'modified_at', 
+    'modified_by_id', 'notes', 'attachment', 'version_id', 'is_protected', 
+    'tenant_id', 'setup_id'
+]
+
+
+# helpers
 def get_connector_module(instance=None, api_setup=None):
     '''
     Import right connector
+        instance has either a field setup or api_setup is given
     '''
     if not api_setup:
         # get from instance
@@ -30,6 +39,20 @@ def get_connector_module(instance=None, api_setup=None):
     raise ValidationError("No application specified")
 
 
+def extract_fields_to_dict(instance, fields):
+    """
+    Extract specified fields from a Django model instance to a dictionary.
+
+    Args:
+        instance (Model): The model instance to extract data from.
+        fields (list): List of field names to extract.
+
+    Returns:
+        dict: Dictionary containing field names and their corresponding values.
+    """
+    return {field: getattr(instance, field, None) for field in fields}
+
+
 class ConnectorBase(object):
 
     def __init__(self, api_setup):
@@ -37,7 +60,8 @@ class ConnectorBase(object):
         '''
         self.api_setup = api_setup
         self.admin = get_admin()
-
+        self.model = getattr(self, 'MODEL', None)
+        
     def add_logging(self, data):
         data['setup'] = self.api_setup
 
@@ -49,6 +73,8 @@ class ConnectorBase(object):
 
         if not data.get('modified_by'):
             data['modified_by'] = self.admin
+            
+        return data
 
 
 class ConnectorGeneric(ConnectorBase):

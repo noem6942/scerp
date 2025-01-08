@@ -7,7 +7,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from scerp.locales import CANTON_CHOICES
-from .mixins import validate_tenant, validate_tenant_setup
 
 
 class CITY_CATEGORY(models.TextChoices):
@@ -143,10 +142,6 @@ class Tenant(LogAbstract, NotesAbstract):
     def __str__(self):
         return self.name
 
-    def clean(self):
-        validate_tenant(self)
-        super().clean()  # Call the parent's clean method
-
     class Meta:
         ordering = ['name']
         verbose_name = _('tenant')
@@ -226,25 +221,58 @@ class TenantSetup(TenantAbstract):
     users = models.ManyToManyField(
         UserProfile, verbose_name=_('users'),
         help_text=_('users for this organization'))
-    logo = models.ImageField(
-        _('logo'), upload_to='profile_photos/',
-        blank=True, null=True,
-        help_text=_('logo used in website'))
     formats = models.JSONField(
         _('formats'), null=True, blank=True,
         help_text=_('format definitions'))
 
     def __str__(self):
-        return self.tenant.name + self.symbols
+        return self.tenant.name
 
-    def clean(self):
-        validate_tenant_setup(self)
-        super().clean()
+    @property
+    def logo(self):
+        logo = TenantLogo.objects.filter(
+            tenant=self.tenant, type=TenantLogo.Type.MAIN).first()
+        if logo:
+            return logo.logo
+        return None
 
     class Meta:
         ordering = ['tenant__name']
         verbose_name = _('tenant setup')
         verbose_name_plural =  _('tenant setups')
+
+
+class TenantLogo(TenantAbstract):
+    '''used for logos for all apps 
+        has signals
+    '''
+    class Type(models.TextChoices):
+        MAIN = "MAIN", _("Main")
+        OTHER = "OTHER", _("Other")
+        
+    name = models.CharField(
+        _('name'), max_length=100, unique=True)
+    type = models.CharField(
+        _("Type"), max_length=50, choices=Type.choices, default=Type.MAIN,
+        help_text=_("The type of logo. Defaults to MAIN."))
+    logo = models.ImageField(
+        _('logo'), upload_to='profile_photos/',
+        blank=True, null=True,
+        help_text=_('logo used in website'))
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['tenant__name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'name'],
+                name='unique_tenant_name'
+            )
+        ]           
+        verbose_name = _('tenant logo')
+        verbose_name_plural =  _('tenant logos')
 
 
 class Year(TenantAbstract):

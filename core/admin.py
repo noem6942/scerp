@@ -5,7 +5,7 @@ from django.contrib.auth.models import User, Group
 from django.utils.translation import gettext_lazy as _
 
 from scerp.admin import admin_site, BaseAdmin, display_photo as display_photo_h
-from .models import Message, Tenant, TenantSetup, UserProfile
+from .models import Message, Tenant, TenantSetup, TenantLogo, UserProfile
 
 
 # Register User, Group
@@ -90,12 +90,12 @@ class TenantAdmin(BaseAdmin):
 @admin.register(TenantSetup, site=admin_site) 
 class TenantSetupAdmin(BaseAdmin):    
     has_tenant_field = True
-    list_display = ('tenant', 'display_logo', 'display_apps')
+    list_display = ('tenant', 'display_apps')
     search_fields = ('tenant',)
     fieldsets = (
         (None, {
             'fields': (
-                'canton', 'category', 'formats', 'logo', 
+                'canton', 'category', 'formats', 
                 'apps', 'groups', 'users'),
             'classes': ('expand',),            
         }),
@@ -104,6 +104,19 @@ class TenantSetupAdmin(BaseAdmin):
     @admin.display(description=_('apps'))
     def display_apps(self, obj):
         return ', '.join([x.name for x in obj.apps.all()])
+
+
+@admin.register(TenantLogo, site=admin_site) 
+class TenantLogoAdmin(BaseAdmin):    
+    has_tenant_field = True
+    list_display = ('tenant', 'name', 'type', 'display_logo')
+    search_fields = ('tenant', 'name')
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'type', 'logo'),
+            'classes': ('expand',),            
+        }),
+    )
     
     @admin.display(description=_('logo'))
     def display_logo(self, obj):

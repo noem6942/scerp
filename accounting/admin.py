@@ -8,12 +8,12 @@ from django.utils.translation import gettext_lazy as _
 from core.safeguards import get_tenant
 
 from scerp.admin import (
-    admin_site, BaseAdmin, display_empty, display_verbose_name,
+    admin_site, BaseAdmin, display_verbose_name,
     display_datetime, display_big_number, display_json, display_name_w_levels)
 
 from .models import (
     APISetup, Setting, Location, FiscalPeriod, Currency, Unit, Tax,
-    CostCenter, ChartOfAccountsTemplate,
+    CostCenter, Article, ChartOfAccountsTemplate,
     AccountPositionTemplate, ChartOfAccounts, AccountPosition,
     ACCOUNT_TYPE, CATEGORY_HRM
 )
@@ -47,7 +47,7 @@ class APISetupAdmin(BaseAdmin):
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
     readonly_fields = ('display_data',)
-    actions = [a.init_setup]
+    actions = [a.init_setup, a.api_setup_get]
 
     fieldsets = (
         (None, {
@@ -77,7 +77,7 @@ class CashCtrlAdmin(BaseAdmin):
     
     def get_cash_ctrl_fields(self):
         fields = CASH_CTRL.FIELDS
-        if getattr(self, 'has_revenue_id'):
+        if getattr(self, 'has_revenue_id', False):
             for field in CASH_CTRL.REVENUE_FIELDS:
                 if field not in fields:
                     fields.append(field)
@@ -144,10 +144,11 @@ class Setting(BaseAdmin):
 @admin.register(Location, site=admin_site)
 class Location(CashCtrlAdmin):
     has_tenant_field = True
-    is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
+    is_readonly = False
+    # warning = CASH_CTRL.WARNING_READ_ONLY
 
-    list_display = ('name', 'type', 'vat_uid', 'display_last_update')
+    list_display = (
+        'name', 'type', 'vat_uid', 'logo', 'address', 'display_last_update')
     search_fields = ('name', 'vat_uid')
     list_filter = ('setup', 'type')
 
@@ -185,7 +186,7 @@ class FiscalPeriodAdmin(CashCtrlAdmin):
     list_display = ('name', 'start', 'end', 'is_current', 'display_last_update')
     search_fields = ('name', 'start', 'end', 'is_current')
     list_filter = ('setup',)
-    actions = [a.fiscal_period_set_current]
+    actions = [a.fiscal_period_get]
 
     fieldsets = (
         (None, {
@@ -288,6 +289,38 @@ class CostCenterAdmin(CashCtrlAdmin):
         return obj.local_name
 
 
+@admin.register(Article, site=admin_site)
+class ArticleAdmin(CashCtrlAdmin):
+    has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    readonly_fields = ('display_name',)
+
+    list_display = ('nr', 'display_name', 'sales_price')
+    search_fields = ('name', 'nr')
+    list_filter = ('is_stock_article', 'category_id')
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'name', 'description', 'nr', 'category_id', 'currency_id',
+                'sales_price', 'last_purchase_price', 'is_stock_article',
+                'min_stock', 'max_stock', 'stock', 'bin_location', 'location_id'
+            ),
+            'classes': ('expand',),
+        }),
+        (_('Advanced'), {
+            'fields': ('is_purchase_price_gross', 'is_sales_price_gross', 
+                'sequence_number_id', 'custom'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    @admin.display(description=_('name'))
+    def display_name(self, obj):
+        return obj.local_name
+
+
 @admin.register(ChartOfAccountsTemplate, site=admin_site)
 class ChartOfAccountsTemplateAdmin(BaseAdmin):
     has_tenant_field = False
@@ -349,11 +382,11 @@ class AccountPositionTemplateAdmin(BaseAdmin):
 
     @admin.display(description=_('Subject Nr.'))
     def category_number(self, obj):
-        return obj.account_number if obj.is_category else display_empty()
+        return obj.account_number if obj.is_category else ''
 
     @admin.display(description=_('Position Nr.'))
     def position_number(self, obj):
-        return display_empty() if obj.is_category else obj.account_number
+        return '' if obj.is_category else obj.account_number
 
     @admin.display(
         description=verbose_name_field(AccountPosition, 'name'))
@@ -408,14 +441,14 @@ class AccountPositionAdmin(CashCtrlAdmin):
     list_display_links = ('display_name',)
     list_filter = ('account_type', 'chart', 'responsible')
     search_fields = ('function', 'account_number', 'number', 'name')
-    readonly_fields = ('balance', 'budget', 'previous')
+    readonly_fields = ('balance', 'budget', 'previous', 'number')
     list_per_page = 1000  # Show 1000 (i.e. all most probably) results per page
 
     fieldsets = (
         (None, {
             'fields': ('account_type', 'account_number', 'function',
                        'is_category', 'name', 'description', 'chart',
-                       'parent'),
+                       'parent', 'number'),
             'classes': ('expand',),
         }),
         (_('Edit'), {
@@ -441,39 +474,39 @@ class AccountPositionAdmin(CashCtrlAdmin):
     @admin.display(
         description=verbose_name_field(AccountPosition, 'function'))
     def display_function(self, obj):
-        return obj.account_number if obj.is_category else display_empty()
+        return obj.account_number if obj.is_category else ' '
 
     @admin.display(description=_('position nr.'))
     def position_number(self, obj):
-        return display_empty() if obj.is_category else obj.account_number
+        return ' ' if obj.is_category else obj.account_number
 
     @admin.display(description=_('actual +'))
     def display_end_amount_credit(self, obj):
         if obj.category_hrm in (CATEGORY_HRM.EXPENSE, CATEGORY_HRM.ASSET):
             balance = 0 if obj.end_amount is None else obj.end_amount
             return display_big_number(balance)
-        return display_empty()
+        return ' '
 
     @admin.display(description=_('actual -'))
     def display_end_amount_debit(self, obj):
         if obj.category_hrm in (CATEGORY_HRM.REVENUE, CATEGORY_HRM.LIABILITY):
             balance = 0 if obj.end_amount is None else obj.end_amount
             return display_big_number(balance)
-        return display_empty()
+        return ' '
 
     @admin.display(description=_('balance +'))
     def display_balance_credit(self, obj):
         if obj.category_hrm in (CATEGORY_HRM.EXPENSE, CATEGORY_HRM.ASSET):
             balance = 0 if obj.balance is None else obj.balance
             return display_big_number(balance)
-        return display_empty()
+        return ' '
 
     @admin.display(description=_('balance -'))
     def display_balance_debit(self, obj):
         if obj.category_hrm in (CATEGORY_HRM.REVENUE, CATEGORY_HRM.LIABILITY):
             balance = 0 if obj.balance is None else obj.balance
             return display_big_number(balance)
-        return display_empty()
+        return ' '
 
     @admin.display(description=_('balance'))
     def display_balance(self, obj):
@@ -492,4 +525,4 @@ class AccountPositionAdmin(CashCtrlAdmin):
     def display_cashctrl(self, obj):
         if obj.c_id or obj.c_rev_id:
             return '🪙'  # (Coin): \U0001FA99
-        return display_empty()
+        return ' '
