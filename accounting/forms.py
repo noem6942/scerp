@@ -19,6 +19,15 @@ from scerp.admin import verbose_name_field
 LABEL_BACK = _("Back")
 
 
+# AccountSetup
+class ConfirmForm(AdminActionForm):
+    # Show data
+    class Meta:
+        list_objects = False
+        help_text = _(
+            "Are you sure you want proceed with this action?")
+
+
 # ChartOfAccountsCanton
 class ChartOfAccountsTemplateForm(AdminActionForm):
     # Show data

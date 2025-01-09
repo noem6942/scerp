@@ -3,7 +3,7 @@
 '''
 import importlib
 from scerp.mixins import get_admin, make_timeaware
-from .models import APPLICATION
+from .models import APPLICATION, MappingId
 
 
 DJANGO_KEYS = [
@@ -75,6 +75,33 @@ class ConnectorBase(object):
             data['modified_by'] = self.admin
             
         return data
+
+    def get_mapping_id(self, mapping_type, key):
+        mapping = MappingId.objects.filter(
+            setup=self.api_setup, name=key, type=mapping_type)
+        if mapping:
+            return mapping.first().c_id
+        return None
+
+    def register(self, mapping_type, key, c_id, description=None):
+        '''Register ids in MappingId
+        '''
+        # Prepare
+        data = {
+            'c_id': c_id,
+            'description': description
+        }
+        self.add_logging(data)
+
+        # store
+        obj, created = MappingId.objects.update_or_create(
+            tenant=self.api_setup.tenant,
+            setup=self.api_setup,
+            name=key,
+            type=mapping_type,
+            defaults=data)  
+            
+        return obj, created
 
 
 class ConnectorGeneric(ConnectorBase):

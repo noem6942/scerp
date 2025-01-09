@@ -48,7 +48,7 @@ def get_api_setup(queryset):
     messages.error(request, _("No account setup found"))
 
 
-@admin.action(description=_('Init setup'))
+@admin.action(description=('Admin: Init setup'))
 def init_setup(modeladmin, request, queryset):
     # Check
     if action_check_nr_selected(request, queryset, 1):
@@ -65,6 +65,73 @@ def api_setup_get(modeladmin, request, queryset):
         instance = queryset.first()
         api_setup, module = get_connector_module(api_setup=instance)
         module.get_all(api_setup)        
+
+
+@action_with_form(
+    forms.ConfirmForm, description="Admin: delete HRM accounting positions")
+def api_setup_delete_hrm_accounts(modeladmin, request, queryset, data):
+    __ = modeladmin  # disable pylint warning
+    if action_check_nr_selected(request, queryset, 1):
+        instance = queryset.first()
+        api_setup, module = get_connector_module(api_setup=instance)
+        acc = module.Account(api_setup) 
+
+        try:
+            count = acc.delete_hrm()
+            msg = _("Deleted {count} accounts").format(count=count)
+            messages.success(request, msg)
+        except Exception as e:
+            error_msg = _("An error occurred while deleting accounts: {error}").format(error=str(e))
+            messages.error(request, error_msg)
+
+
+@action_with_form(
+    forms.ConfirmForm, description="Admin: delete system accounting positions")
+def api_setup_delete_system_accounts(modeladmin, request, queryset, data):
+    __ = modeladmin  # disable pylint warning
+    if action_check_nr_selected(request, queryset, 1):
+        instance = queryset.first()
+        api_setup, module = get_connector_module(api_setup=instance)
+        acc = module.Account(api_setup) 
+
+        try:
+            count = acc.delete_system_accounts()
+            msg = _("Deleted {count} accounts").format(count=count)
+            messages.success(request, msg)
+        except Exception as e:
+            error_msg = _("An error occurred while deleting accounts: {error}").format(error=str(e))
+            messages.error(request, error_msg)
+
+
+def api_setup_delete_categories(request, queryset, method):
+    if action_check_nr_selected(request, queryset, 1):
+        instance = queryset.first()
+        api_setup, module = get_connector_module(api_setup=instance)
+        acc = module.AccountCategory(api_setup) 
+
+        try:
+            count = getattr(acc, method)()
+            msg = _("Deleted {count} categories").format(count=count)
+            messages.success(request, msg)
+        except Exception as e:
+            error_msg = _("An error occurred while deleting accounts: {error}").format(error=str(e))
+            messages.error(request, error_msg)   
+
+
+@action_with_form(
+    forms.ConfirmForm, description="Admin: delete HRM accounting categories")
+def api_setup_delete_hrm_categories(modeladmin, request, queryset, data):
+    __ = modeladmin  # disable pylint warning
+    method = 'delete_hrm'
+    api_setup_delete_categories(request, queryset, method)
+
+
+@action_with_form(
+    forms.ConfirmForm, description="Admin: delete system categories")
+def api_setup_delete_system_categories(modeladmin, request, queryset, data):
+    __ = modeladmin  # disable pylint warning
+    method = 'delete_system'
+    api_setup_delete_categories(request, queryset, method)
 
 
 @admin.action(description=ACTION_LOAD)

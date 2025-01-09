@@ -44,7 +44,7 @@ class CATEGORY_HRM(Enum):
     ASSET = [1], "ASSET"
     LIABILITY = [2], "LIABILITY"
     EXPENSE = [3, 5], "EXPENSE" 
-    REVENUE = [4, 6],  "REVENUE" 
+    REVENUE = [4, 6], "REVENUE" 
     BALANCE = [9], "BALANCE"
     
     def get_scope(category):
@@ -78,10 +78,8 @@ class APISetup(TenantAbstract):
     )        
     account_plan_loaded = models.BooleanField(
         _('Account plan loaded'), default=False,
-        help_text=_('gets set to True if account plan uploaded to accounting system'))
-    data = models.JSONField(
-        _('Setup Data'), blank=True, null=True,
-        help_text=_('Internal use'))
+        help_text=_(
+            'gets set to True if account plan uploaded to accounting system'))
 
     def __str__(self):
         return self.org_name
@@ -89,27 +87,6 @@ class APISetup(TenantAbstract):
     @property
     def api_key_hidden(self):
         return '*' * len(self.api_key)
-
-    def get_data(self, field, key):
-        ''' does only set but not save data ! '''
-        # Init
-        if self.data:
-            data = self.data.get(field)
-            if data:
-                return data.get(key)
-        return None
-
-    def set_data(self, field, key, value):
-        ''' does only set but not save data ! '''
-        # Init
-        if not self.data:
-            self.data = {}
-        if field not in self.data:
-            self.data[field] = {}
-            
-        # Set
-        self.data[field][key] = value
-        self.save()
 
     class Meta:
         constraints = [
@@ -191,8 +168,12 @@ class MappingId(AcctApp):
         ACCOUNT = 'account'
 
     # Mandatory field
-    type = models.CharField( _("Type"), max_length=50, choices=TYPE)
-    name = models.CharField(max_length=100)
+    type = models.CharField(_("Type"), max_length=50, choices=TYPE)
+    name = models.CharField(_("Name"), max_length=100)
+    description = models.TextField(_("Description"), null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.type}-{self.name}: {self.c_id}'
 
     class Meta:
         constraints = [

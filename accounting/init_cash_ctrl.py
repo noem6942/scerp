@@ -109,20 +109,20 @@ ACCOUNT_CATEGORIES = [{
 # PERSON CATEGORIES are always top level
 PERSON_CATEGORIES = [{
     'key': 'subscriber',
-    'name': {
-        'de': 'Abonnent',
-        'en': 'Subscriber',
-        'fr': 'Subscriber',
-        'it': 'Subscriber'
-    },
+    'name': {'values': {
+        'de': '*Abonnenten',
+        'en': '*Subscribers',
+        'fr': '*Subscribers',
+        'it': '*Subscribers'
+    }},
 }, {
     'key': 'disclaimer',
-    'name': {
+    'name': {'values': {
         'de': '__in scerp zu erfassen__',
         'en': '__enter in scerp__',
         'fr': '__enter in scerp__',
         'it': '__enter in scerp__'
-    },
+    }},
 }]
 
 
@@ -136,6 +136,15 @@ UNITS = [{
 }]
 
 
+LOCATION_MAIN = {
+    'name':  {'values': {
+        'de': 'Hauptsitz',
+        'en': 'Headquarter',
+        'fr': 'Headquarter',
+        'it': 'Headquarter'}
+    },
+    'type': 'MAIN'
+} 
 LOCATIONS = [{
     'name':  {'values': {
         'de': f'MWST {i}',

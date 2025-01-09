@@ -60,6 +60,12 @@ class STANDARD_ACCOUNT(Enum):
     PAYABLES = '2000'  # Kreditoren
     VAT_RECONCILIATION = '2202'  # Umsatzsteuerausgleich Abrechnungsmethode
     INPUT_TAX_RECONCILIATION = '1172'  # Vorsteuerausgleich Abrechnungsmethode
+    
+    # not directly in settings
+    PRAE_TAX = '1170' # Vorsteuer
+    REVENUE_TAX = '2200'  # Umsatzsteuer
+    SERVICE_REVENUE = '3400'  # Dienstleistungsertrag
+    ROUNDING = '6961'  # Rundungsdifferenzen
 
 
 # class COUNTRY
@@ -349,12 +355,9 @@ class CashCtrl():
                     )
 
                 content = response.json()
-                if not content.get('success', True):
-                    errors = "; ".join(
-                        f"{err.get('field', 'Unknown')}: {err.get('message', '')}"
-                        for err in content.get('errors', [])
-                    )
-                    raise Exception(f"POST request error in '{url}': {errors}")
+                if not content.get('success', False):
+                    raise Exception(
+                        f"POST request error in '{url}': {content['message']}")
 
                 # Clean and return response content
                 return self.clean_dict(content)
@@ -605,7 +608,7 @@ class AccountCategory(CashCtrl):
         return {
             x['account_class']: x
             for x in self.data
-            if not x['parent_id'] and isinstance(x['name'], dict)
+            if not x['parent_id']
         }
 
     def get_leaves(self):

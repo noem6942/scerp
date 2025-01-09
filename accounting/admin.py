@@ -12,7 +12,7 @@ from scerp.admin import (
     display_datetime, display_big_number, display_json, display_name_w_levels)
 
 from .models import (
-    APISetup, Setting, Location, FiscalPeriod, Currency, Unit, Tax,
+    APISetup, Setting, MappingId, Location, FiscalPeriod, Currency, Unit, Tax,
     CostCenter, Article, ChartOfAccountsTemplate,
     AccountPositionTemplate, ChartOfAccounts, AccountPosition,
     ACCOUNT_TYPE, CATEGORY_HRM
@@ -41,13 +41,32 @@ class CASH_CTRL:
     WARNING_READ_ONLY = _("Read only model. <i>Use cashControl for edits!</i>")
 
 
+
+class MappingIdInline(admin.TabularInline):
+    model = MappingId
+    extra = 0  # Number of empty forms to display for new inlines
+    fields = ('type', 'name', 'c_id', 'description')
+    # readonly_fields = ('type', 'name', 'c_id', 'description')
+    # can_delete = False  # Prevent deletion of inline objects
+
+    def has_add_permission(self, request, obj=None):
+        # Disable add permission for this inline
+        return False
+        
 @admin.register(APISetup, site=admin_site)
 class APISetupAdmin(BaseAdmin):
     has_tenant_field = True
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
     readonly_fields = ('display_data',)
-    actions = [a.init_setup, a.api_setup_get]
+    actions = [
+        a.api_setup_get, 
+        a.init_setup, 
+        a.api_setup_delete_hrm_accounts,
+        a.api_setup_delete_system_accounts,
+        a.api_setup_delete_hrm_categories,
+        a.api_setup_delete_system_categories
+    ]
 
     fieldsets = (
         (None, {
@@ -59,13 +78,9 @@ class APISetupAdmin(BaseAdmin):
             ),
             'classes': ('expand',),
         }),
-        (_('Edit data'), {
-            'fields': (
-                'data',
-            ),
-            'classes': ('collapse',),
-        })
     )
+    
+    inlines = [MappingIdInline]
 
     @admin.display(description=_('settings'))
     def display_data(self, obj):

@@ -40,16 +40,7 @@ class Connector(ConnectorBase):
         # Ctrl
         cls = getattr(self, 'CLASS', None)
         self.ctrl = self.init_class(cls) if cls else None
-
-        # Custom Fields
-        custom_field = self.api_setup.data.get('custom_field')
-        if custom_field:
-            self.hrm_id = custom_field.get('account_hrm')
-            self.function_id = custom_field.get('account_function')
-        else:
-            self.hrm_id = None
-            self.function_id = None
-
+        
     # Helpers
     def init_class(self, cash_ctrl_cls):
         # assign cash control class within api_cash_ctrl
@@ -111,7 +102,6 @@ class Connector(ConnectorBase):
             c_ids.append(c_id)
 
             # Update or create
-            print("*", data)
             _obj, created = self.model.objects.update_or_create(
                 tenant=self.api_setup.tenant, setup=setup, c_id=c_id,
                 defaults=data)
@@ -148,7 +138,7 @@ class CustomFieldGroupConn(Connector):
                 group_def['name'], group_def['type'])
             if group:
                 msg = _('Group {name} of type {type} already existing.').format(
-                    name=name, type=type_)
+                    name=group_def['name'], type=group_def['type'])
                 logger.warning(msg)
             else:
                 # Create group
@@ -156,11 +146,16 @@ class CustomFieldGroupConn(Connector):
                     'name': dict(values=group_def['name']),
                     'type': group_def['type']
                 }
-                group = self.ctrl.create(data)
+                response = self.ctrl.create(data)
 
                 # Register group
-                self.api_setup.set_data(
-                    'custom_field_group', group_def['key'], group['insert_id'])
+                if response.pop('success', False):
+                    self.register(
+                        models.MappingId.TYPE.CUSTOM_FIELD_GROUP,
+                        group_def['key'], response['insert_id'])  
+                else:
+                    raise ValueError(
+                        f"Could not register field {group_def['type']}.")           
 
                 # Msg
                 msg = _("Created group {name} of type {type}.").format(
@@ -175,13 +170,13 @@ class CustomFieldConn(Connector):
         # Check and create fields
         for field_def in init_cash_ctrl.CUSTOM_FIELDS:
             # Init
-            key = field_def.pop('key')
             group_key = field_def.pop('group_key')
 
             # Get group id
-            group_id = self.api_setup.get_data('custom_field_group', group_key)
+            group_id = self.get_mapping_id(
+                models.MappingId.TYPE.CUSTOM_FIELD_GROUP, group_key)
             if not group_id:
-                raise Exception(f"No group with {group_key} found.")
+                raise ValueError(f"Not register group '{group_key}'")
 
             # Get group type
             type_c = next((
@@ -207,11 +202,15 @@ class CustomFieldConn(Connector):
                     'type': type_c,
                     'group_id': group_id
                 })
-                customfield = self.ctrl.create(field_def)
+                response = self.ctrl.create(field_def)
 
                 # Register field
-                self.api_setup.set_data(
-                    'custom_field', key, customfield['insert_id'])
+                if response.pop('success', False):
+                    self.register(
+                        models.MappingId.TYPE.CUSTOM_FIELD,
+                        field_def['key'], response['insert_id']) 
+                else:
+                    raise ValueError(f"Could not register field '{name}'")
 
                 # Msg
                 msg = _('Created customfield {name} of type {type}')
@@ -229,15 +228,13 @@ class PersonConn(Connector):
         
         # Add new categories
         for category in init_cash_ctrl.PERSON_CATEGORIES:
-            ctrl.create(category)
-        
-        # Register top categories
-        DATA_KEY = 'person_category'
-        categories = ctrl.list()
-
-        # Register top categories
-        for key, value in ctrl.top_category.items():
-            self.api_setup.set_data(DATA_KEY, key, value['id'])
+            response = ctrl.create(category)
+            if response.pop('success', False):
+                self.register(
+                    models.MappingId.TYPE.PERSON_CATEGORY,
+                    category['key'], response['insert_id'])  
+            else:
+                raise ValueError(f"Could not register field '{key}'")                    
 
 
 # reading classes
@@ -308,9 +305,9 @@ class UnitConn(Connector):
         units = self.ctrl.list()
         for data in init_cash_ctrl.UNITS:
             if not next((x for x in units if x['name'] == data['name']), None):
-                unit = self.ctrl.create(data)
-                if unit.pop('success', None):
-                    logger.info(f"created {unit}")        
+                response = self.ctrl.create(data)
+                if response.pop('success', False):
+                    logger.info(f"created {response}")        
     
 def get_all(api_setup):
     CLASSES = [
@@ -455,31 +452,43 @@ class Account(Connector):
         9: 'BALANCE',
     }
 
+    def __init__(self, api_setup):
+        '''messages is admin.py messanger; if not giving logger is used
+        '''
+        # Init
+        super().__init__(api_setup)
+
+        # Cache fields
+        self.hrm_id = self.get_mapping_id(
+            models.MappingId.TYPE.CUSTOM_FIELD, 'account_hrm')
+        self.function_id = self.get_mapping_id(
+            models.MappingId.TYPE.CUSTOM_FIELD, 'account_function')
+
     # Make account ready to import accounts
     def init(self, overwrite=False):
         # Init Accounts
-        DATA_KEY = 'account'
         _accounts = self.ctrl.list()
         standard_account = self.ctrl.standard_account
 
         # Register standard accounts
         for key, value in standard_account.items():
-            self.api_setup.set_data(DATA_KEY, key, value['id'])        
+            self.register(models.MappingId.TYPE.ACCOUNT, key, value['id'])
         
         # Init Categories
-        DATA_KEY = 'account_category'
         ctrl = self.init_class(api_cash_ctrl.AccountCategory)
         _categories = ctrl.list()
         top_category = ctrl.top_category
 
         # Register top categories
         for key, value in top_category.items():
-            self.api_setup.set_data(DATA_KEY, key, value['id'])
+            self.register(
+                models.MappingId.TYPE.ACCOUNT_CATEGORY, key, value['id'])
 
-        # Create top classes
+        # Create top categories
         for number, category in enumerate(
                 init_cash_ctrl.ACCOUNT_CATEGORIES, start=1):
-            if self.api_setup.get_data(DATA_KEY, category['key']):
+            if self.get_mapping_id(
+                    models.MappingId.TYPE.ACCOUNT, category['key']):
                 logger.info(f"{category['key']} already existing")
                 if not overwrite:
                     continue  # we don't overwrite categories
@@ -488,16 +497,17 @@ class Account(Connector):
             top = top_category[category['top']]
             data = {
                 'name': dict(values=category['name']),
-                'number': number,
+                'number': f'10000000000{number}',  # to categorize as hrm number
                 'parent_id': top['id']
             }
 
             # Create
-            response = self.ctrl.create(data)
+            response = ctrl.create(data)
             if response.get('success', False):
                 # register top categories
-                self.api_setup.set_data(
-                    DATA_KEY, category['key'], response['insert_id'])
+                self.register(
+                    models.MappingId.TYPE.ACCOUNT,
+                    category['key'], response['insert_id'])                    
                 logger.info(f"created {data['name']}")
 
     # Init Account Positions
@@ -509,13 +519,13 @@ class Account(Connector):
     
     def _check_top_categories(self):
         # init
-        DATA_KEY = 'account_category'
         ctrl = self.init_class(api_cash_ctrl.AccountCategory)
         categories = ctrl.list()
         
         # Check
         for name in self.TOP_CATEGORY_MAP.values():
-            id = self.api_setup.get_data(DATA_KEY, name)
+            id = self.get_mapping_id(
+                models.MappingId.TYPE.ACCOUNT_CATEGORY, name)            
             if not id:
                 raise KeyError(f"'{name}' not found")
             category = next(
@@ -584,7 +594,6 @@ class Account(Connector):
         # Init
         ctrl_account = self.ctrl
         ctrl_category = self.init_class(api_cash_ctrl.AccountCategory)
-        account_category = self.api_setup.data['account_category']
 
         # Loop
         if ordered_positions[0].account_type == ACCOUNT_TYPE.BALANCE:
@@ -596,7 +605,8 @@ class Account(Connector):
                         # Get top level
                         first_digit = int(position.account_number[0])
                         key = self.TOP_CATEGORY_MAP[first_digit]
-                        position.c_id = account_category.get(key)
+                        position.c_id = self.get_mapping_id(
+                            models.MappingId.TYPE.ACCOUNT, key)
                         position.parent = None
                     else:
                         # Parent
@@ -674,8 +684,8 @@ class Account(Connector):
         upload balances from django to cashCtrl, use opening account
         '''
         # Get opening account
-        account_open_id = self.api_setup.data['account'].get(
-            STANDARD_ACCOUNT.OPENING_BALANCE)
+        account_open_id =  self.get_mapping_id(
+            models.MappingId.TYPE.ACCOUNT, STANDARD_ACCOUNT.OPENING_BALANCE)
         if not account_open_id:
             raise ValueError(_("Could not find opening account"))
         
@@ -810,9 +820,11 @@ class Account(Connector):
         Returns:
             int: The count of successfully updated positions.
         """
+        # Prepare
         ctrl = self.init_class(api_cash_ctrl.Account)
-        
         count = 0
+        
+        # Perform
         for position in queryset:
             if not position.is_category:
                 id = position.c_id or position.c_rev_id
@@ -824,24 +836,79 @@ class Account(Connector):
         
         return count
 
+    def delete_system_accounts(self):
+        # Prepare
+        restricted_accounts = models.MappingId.objects.filter(
+            setup=self.api_setup,
+            type=models.MappingId.TYPE.ACCOUNT,
+            name__gte='0000',
+            name__lte='9999'
+        ).exclude(c_id=None)
+        exclude_numbers = [x.name for x in restricted_accounts.all()]
+        
+        # Perform
+        ids = []
+        accounts = self.ctrl.list() 
+        for account in accounts:
+            if not account['custom']:
+                if str(account['number']) not in exclude_numbers:
+                    ids.append(account['id'])
 
-    def delete_accounts_not_used(self):
-        # Init
-        ctrl = self.init_class(api_cash_ctrl.Account)
-         
-        # Get all accounts
-        accounts = ctrl.list()
-        
-        # Eliminate the hrm-2 and standard_ids
-        standard_ids = [int(x.value) for x in api_cash_ctrl.STANDARD_ACCOUNT]
-        
-        accounts_filtered = [
-            x for x in accounts
-            if x['custom'] is None and int(x['number']) not in standard_ids
-        ]
-        
         # Delete
-        delete_ids = [x['id'] for x in accounts_filtered]
-        response = ctrl.delete(*delete_ids)
-        print("*deleted with result ", response) 
+        self.ctrl.delete(*ids)
+        return len(ids)
+
+    def delete_hrm(self):
+        # Prepare
+        accounts = self.ctrl.list()
+        if self.hrm_id:
+            customfield = f'customField{self.hrm_id}'
+        else:
+            raise ValueError('hrm field not defined')
         
+        # Perform
+        ids = []
+        for account in accounts:
+            if account['custom']:
+                if account['custom']['values'].get(customfield):
+                    ids.append(account['id'])
+
+        # Delete
+        self.ctrl.delete(*ids)
+        return len(ids)
+
+
+class AccountCategory(Connector):
+    CLASS = api_cash_ctrl.AccountCategory
+  
+    def delete(self, max_tries, min_length=None, max_length=None):
+        # Perform
+        count = 0
+        for nr_try in range(max_tries):      
+            # Prepare
+            categories = self.ctrl.list()
+            leaves = [
+                x for x in self.ctrl.get_leaves()
+                if (
+                    (min_length and len(str(x['number'])) >= min_length
+                        or max_length and len(str(x['number'])) <= max_length)
+                )
+            ]
+            if leaves:
+                ids = [x['id'] for x in leaves]
+                for id in ids:
+                    try:
+                        self.ctrl.delete(id)
+                        count += 1
+                    except:
+                        continue
+            else:
+                break
+           
+        return count    
+  
+    def delete_hrm(self, max_tries=10):
+        return self.delete(max_tries, min_length=5)    
+    
+    def delete_system(self, max_tries=5):
+        return self.delete(max_tries, max_length=4)
