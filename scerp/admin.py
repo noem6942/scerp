@@ -194,6 +194,13 @@ def display_verbose_name(def_cls, field):
     return getattr(f_cls, field)['verbose_name']
 
 
+def make_multilanguage(field_name):
+    return [
+        f'{field_name}_{lang_code}' 
+        for lang_code, _lang in settings.LANGUAGES
+    ]
+
+
 # Standard formatted fields
 def display_name_w_levels(obj):
     '''obj needs to have name, is_category, level

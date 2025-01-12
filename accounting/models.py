@@ -11,6 +11,12 @@ from enum import Enum
 
 from core.models import (
     LogAbstract, NotesAbstract, TenantAbstract, TenantLogo, CITY_CATEGORY)
+from crm.models import (
+    PersonCategory as CrmPersonCategory,
+    Title as CrmTitle,
+    PhysicalPerson as CrmPerson,
+    Employee as CrmEmployee
+)
 from scerp.locales import CANTON_CHOICES
 
 
@@ -100,7 +106,7 @@ class APISetup(TenantAbstract):
         verbose_name_plural = _('Accounting Setups')
 
 
-class AcctApp(TenantAbstract):
+class Acct(models.Model):
     '''id_cashctrl gets set after first synchronization
     '''
     # CashCtrl
@@ -129,6 +135,13 @@ class AcctApp(TenantAbstract):
             return values[language]
         return str(value_dict)            
         
+    class Meta:
+        abstract = True
+
+
+class AcctApp(TenantAbstract, Acct):
+    '''id_cashctrl gets set after first synchronization
+    '''        
     class Meta:
         abstract = True
 
@@ -847,3 +860,44 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
             'account_number']
         verbose_name = ('Account Position (Municipality)')
         verbose_name_plural = _('Account Positions')        
+
+
+# CRM models ------------------------------------------------------------
+class PersonCategory(Acct):
+    '''store categories
+    '''
+    crm = models.OneToOneField(
+        CrmPersonCategory, 
+        on_delete=models.CASCADE, 
+        related_name="person_category",
+        help_text="internal use for mapping")      
+        
+
+class Title(Acct):
+    '''store titles
+    '''
+    crm = models.OneToOneField(
+        CrmTitle, 
+        on_delete=models.CASCADE, 
+        related_name="title",
+        help_text="internal use for mapping")      
+        
+
+class Person(Acct):
+    '''store categories
+    '''
+    crm = models.OneToOneField(
+        CrmPerson, 
+        on_delete=models.CASCADE, 
+        related_name="person",
+        help_text="internal use for mapping")      
+        
+
+class Employee(Acct):
+    '''store categories
+    '''
+    crm = models.OneToOneField(
+        CrmEmployee, 
+        on_delete=models.CASCADE, 
+        related_name="employee",
+        help_text="internal use for mapping")      

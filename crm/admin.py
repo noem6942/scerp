@@ -1,15 +1,19 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
+
+from scerp.admin import make_multilanguage
+from . import forms
 
 from scerp.admin import (
     admin_site, BaseAdmin, display_verbose_name, display_datetime)
 
 from .models import (
-    PersonAccount, AddressPerson, Contact, PersonCategory, Building)
+    Address, Contact, Title, PersonCategory, Building)
 
 
 # Define inline for AddressPerson
 class AddressInline(admin.TabularInline):
-    model = AddressPerson
+    model = Address
     extra = 1  # Specifies number of blank forms displayed for new Addresses
 
 
@@ -19,22 +23,16 @@ class ContactInline(admin.TabularInline):
     extra = 1  # Specifies number of blank forms displayed for new Contacts
 
 
-# Admin for PersonAccount, including AddressPerson and Contact inlines
-@admin.register(PersonAccount, site=admin_site) 
-class PersonAccountAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'company', 'birth_date', 'isInactive')
-    search_fields = ('first_name', 'last_name', 'company')
-    inlines = [AddressInline, ContactInline]
+@admin.register(Title, site=admin_site)
+class TitleAdmin(BaseAdmin):
+    has_tenant_field = True
+    form = forms.TitleAdminForm    
+    list_display = ('name',)    
     
-
-# Register PersonCategory model separately
-@admin.register(PersonCategory, site=admin_site) 
-class PersonCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'discount_percentage', 'parent_id', 'sequence_nr_id')
-
-
-
-# Register Building
-@admin.register(Building, site=admin_site) 
-class BuildingAdmin(admin.ModelAdmin):
-    list_display = ('name', 'zip', 'city', 'address')
+    fieldsets = (
+        (_('Name'), {
+            'fields': (
+                *make_multilanguage('name'), *make_multilanguage('sentence')),
+            'classes': ('expand',),
+        }),
+    )

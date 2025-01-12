@@ -23,6 +23,7 @@ env = environ.Env()
 # Explicitly specify the path to the .env file
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
+# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRET_KEY", default=None)
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -42,12 +43,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_admin_action_forms',  # Extension for the Django admin panel
-    'core',
+    'core',    
     'home',
     'accounting',
     'billing',
     'crm',
     'meeting',
+    'time_app',
     'vault'
 ]
 
@@ -94,7 +96,7 @@ if 'sqlite' in env('ENGINE'):
     }
 else:
     DATABASES = {
-            'default': {
+        'default': {
             'ENGINE': env('ENGINE'),
             'NAME': env('DB_NAME'),
             'USER': env('DB_USER'),

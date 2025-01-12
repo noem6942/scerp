@@ -40,6 +40,10 @@ APP_MODEL_ORDER = {
         'symbol': 'C',
         'is_mandatory': True,
         'models': {
+            'Title': ('1', None),
+            'Subscriber': ('2', None),
+            'Employee': ('3', None),
+            'BusinessPartner': ('4', None)
         }
     },
     'meeting': {
