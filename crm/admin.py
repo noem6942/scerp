@@ -4,8 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from scerp.admin import make_multilanguage
 from . import forms
 
-from scerp.admin import (
-    admin_site, BaseAdmin, display_verbose_name, display_datetime)
+from scerp.admin import admin_site, BaseAdmin
 
 from .models import (
     Address, Contact, Title, PersonCategory, Building)
@@ -28,6 +27,7 @@ class TitleAdmin(BaseAdmin):
     has_tenant_field = True
     form = forms.TitleAdminForm    
     list_display = ('name',)    
+    read_only = ('name')    
     
     fieldsets = (
         (_('Name'), {

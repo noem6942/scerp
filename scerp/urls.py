@@ -19,6 +19,7 @@ else:
     media_patterns = []  # In production, served by the web server
 
 urlpatterns = media_patterns + [
+    path('api/time/', include('time_app.urls')),
     path(GUI_ROOT + '/', admin_site.urls),  # Custom admin site
     path('meeting/page/', include('meeting.urls')),
     path('login.html', RedirectView.as_view(

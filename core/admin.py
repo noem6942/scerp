@@ -4,7 +4,7 @@ from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import User, Group
 from django.utils.translation import gettext_lazy as _
 
-from scerp.admin import admin_site, BaseAdmin, display_photo as display_photo_h
+from scerp.admin import admin_site, BaseAdmin, Display
 from .models import Message, Tenant, TenantSetup, TenantLogo, UserProfile
 
 
@@ -38,7 +38,7 @@ class UserProfileAdmin(BaseAdmin):
 
     @admin.display(description=_('Groups'))
     def display_photo(self, obj):
-        return display_photo_h(obj.photo)
+        return Display.photo_h(obj.photo)
 
     @admin.display(description=_('Groups'))
     def group_names(self, obj):
@@ -120,4 +120,4 @@ class TenantLogoAdmin(BaseAdmin):
     
     @admin.display(description=_('logo'))
     def display_logo(self, obj):
-        return display_photo_h(obj.logo)    
+        return Display.photo_h(obj.logo)    

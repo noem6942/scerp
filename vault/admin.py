@@ -5,9 +5,7 @@ from django.utils.translation import gettext as _
 
 from core.safeguards import get_tenant
 
-from scerp.admin import (
-    admin_site, BaseAdmin, display_verbose_name,
-    display_datetime, verbose_name_field, format_hierarchy)
+from scerp.admin import admin_site, BaseAdmin, Display, verbose_name_field
     
 from .models import (
     RegistrationPlanCanton, RegistrationPositionCanton,
@@ -42,7 +40,7 @@ class RegistrationPlanCantonAdmin(BaseAdmin):
     @admin.display(
         description=verbose_name_field(RegistrationPlanCanton, 'exported_at'))        
     def display_exported_at(self, obj):
-        return display_datetime(obj.exported_at)        
+        return Display.datetime(obj.exported_at)        
 
 
 @admin.register(LeadAgencyCanton, site=admin_site) 
@@ -95,7 +93,7 @@ class RegistrationPositionCantonAdmin(BaseAdmin):
     @admin.display(description=_('#cat'))
     def heading_number(self, obj):     
         if obj.is_category:
-            return format_hierarchy(obj.level, obj.number)    
+            return Display.hierarchy(obj.level, obj.number)    
         else:
             return ' '
  
@@ -110,6 +108,6 @@ class RegistrationPositionCantonAdmin(BaseAdmin):
         description=verbose_name_field(RegistrationPositionCanton, 'name'))
     def hierarchy_name(self, obj):    
         if obj.is_category:    
-            return format_hierarchy(obj.level, obj.name)    
+            return Display.hierarchy(obj.level, obj.name)    
         else:
             return obj.name

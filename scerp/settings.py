@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_admin_action_forms',  # Extension for the Django admin panel
+    'rest_framework',
     'core',    
     'home',
     'accounting',

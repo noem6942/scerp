@@ -105,6 +105,18 @@ def format_big_number(value, thousand_separator=None):
     return f"{value:,.2f}".replace(',', thousand_separator)
 
 
+def format_percent(value, precision):
+    """
+    use settings.THOUSAND_SEPARATOR and 2 commas for big numbers
+    value: float
+    """
+    if value is None:
+        return None
+
+    # Format number
+    return f"{value:,.{precision}f}%"
+
+
 def get_help_text(model, field_name):
     """
     Get help text from model
@@ -121,77 +133,109 @@ def verbose_name_field(model, field_name):
     return model._meta.get_field(field_name).verbose_name
 
 
-def display_datetime(value, default='-'):
-    """
-    Display date time nice
-    """
-    if value is None:
-        return default
-    return date_format(value, format='DATETIME_FORMAT')
+class Display:
+    
+    def datetime(value, default='-'):
+        """
+        Display date time nice
+        """
+        if value is None:
+            return default
+        return date_format(value, format='DATETIME_FORMAT')
 
+    def big_number(value):
+        """
+        use settings.THOUSAND_SEPARATOR and 2 commas for big numberss
+        """
+        if value is None:
+            return None
 
-def display_big_number(value):
-    """
-    use settings.THOUSAND_SEPARATOR and 2 commas for big numberss
-    """
-    if value is None:
-        return None
+        # Format number
+        number_str = format_big_number(value)
+        html = '<span style="text-align: right; display: block;">{}</span>'
+        return format_html(html, number_str)
 
-    # Format number
-    number_str = format_big_number(value)
-    html = '<span style="text-align: right; display: block;">{}</span>'
-    return format_html(html, number_str)
+    def percentage(value, precision=1):
+        """
+        show percenate with{ precision} commas
+        """
+        if value is None:
+            return None
 
+        # Format number
+        number_str = format_percent(value, precision)
+        html = '<span style="text-align: right; display: block;">{}</span>'
+        return format_html(html, number_str)
 
-def display_json(value, sort=False):
-    """
-    Print string for json
-    """
-    if not value:
+    def hierarchy(level, name):
+        '''Function to print out hierarchy names nice;
+            add spaces before the string if is_category == False
+        '''
+        if level == 1:
+            return format_html(f"<b>{name.upper()}</b>")
+        if level == 2:
+            return format_html(f"<b>{name}</b>")
+        return format_html(f"<i>{name}</i>")
+
+    def json(value, sort=False):
+        """
+        Print string for json
+        """
+        if not value:
+            return ''
+            
+        try:
+            # Format JSON data with indentation and render it as preformatted text
+            formatted_json = json.dumps(value, indent=4, ensure_ascii=False)
+            return format_html(
+                '<pre style="font-family: monospace;">{}</pre>', formatted_json)
+        except ValueError as e:
+            return f"Value Error displaying data: {e}"
+        except (KeyError, TypeError) as e:  # Catch specific exceptions
+            return f"Key or Type Error displaying data: {e}"
+        except Exception as e:  # pylint: disable=W0718
+            # Last resort: Catch any other exceptions
+            return f"Unexpected error displaying data: {e}"
+
+    def link(url, name):
+        """
+        Generates a clickable link for the Django admin interface.
+
+        Args:
+            url (str): The URL to link to.
+            name (str): The text to display for the link.
+
+        Returns:
+            str: HTML string with a clickable link.
+        """
+        return format_html('<a href="{}" target="_blank">{}</a>', url, name)
+
+    def photo(url_field):
+        """
+        Display photo
+        """
+        if url_field:
+            return mark_safe(
+                f'<img src="{url_field.url}" width="60" height="60" '
+                f'style="object-fit: cover;" />')
         return ''
-        
-    try:
-        # Format JSON data with indentation and render it as preformatted text
-        formatted_json = json.dumps(value, indent=4, ensure_ascii=False)
-        return format_html(
-            '<pre style="font-family: monospace;">{}</pre>', formatted_json)
-    except ValueError as e:
-        return f"Value Error displaying data: {e}"
-    except (KeyError, TypeError) as e:  # Catch specific exceptions
-        return f"Key or Type Error displaying data: {e}"
-    except Exception as e:  # pylint: disable=W0718
-        # Last resort: Catch any other exceptions
-        return f"Unexpected error displaying data: {e}"
 
+    def verbose_name(def_cls, field):
+        """
+        Display verbose name from field
+        """
+        f_cls = getattr(def_cls, 'Field')
+        return getattr(f_cls, field)['verbose_name']
 
-def format_hierarchy(level, name):
-    '''Function to print out hierarchy names nice;
-        add spaces before the string if is_category == False
-    '''
-    if level == 1:
-        return format_html(f"<b>{name.upper()}</b>")
-    if level == 2:
-        return format_html(f"<b>{name}</b>")
-    return format_html(f"<i>{name}</i>")
-
-
-def display_photo(url_field):
-    """
-    Display photo
-    """
-    if url_field:
-        return mark_safe(
-            f'<img src="{url_field.url}" width="60" height="60" '
-            f'style="object-fit: cover;" />')
-    return ''
-
-
-def display_verbose_name(def_cls, field):
-    """
-    Display verbose name from field
-    """
-    f_cls = getattr(def_cls, 'Field')
-    return getattr(f_cls, field)['verbose_name']
+    def name_w_levels(obj):
+        '''obj needs to have name, is_category, level
+        '''
+        name = format_name(obj)
+        if obj.is_category:
+            level = obj.level
+            if level < 3:
+                return format_hierarchy(obj.level, name)
+        return name
 
 
 def make_multilanguage(field_name):
@@ -199,18 +243,6 @@ def make_multilanguage(field_name):
         f'{field_name}_{lang_code}' 
         for lang_code, _lang in settings.LANGUAGES
     ]
-
-
-# Standard formatted fields
-def display_name_w_levels(obj):
-    '''obj needs to have name, is_category, level
-    '''
-    name = format_name(obj)
-    if obj.is_category:
-        level = obj.level
-        if level < 3:
-            return format_hierarchy(obj.level, name)
-    return name
 
 
 # Widgets

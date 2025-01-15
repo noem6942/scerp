@@ -87,6 +87,13 @@ APP_MODEL_ORDER = {
         'models': {
         }
     },
+    'time_app': {
+        'symbol': 'T',
+        'is_mandatory': False,
+        'models': {
+            'Project': ('1', None),
+        }
+    },
 }
 
 
