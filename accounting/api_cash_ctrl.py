@@ -4,7 +4,6 @@ accounting/api_cash_ctrl.py
 central file for communication to cash ctrl
 '''
 from datetime import datetime
-from enum import Enum
 from time import sleep
 
 import json
@@ -14,6 +13,61 @@ import xmltodict
 
 
 DECODE = 'utf-8'
+URL_ROOT = "https://{org}.cashctrl.com"
+    
+
+# Standard Accounts    
+"""
+Standard account definitions with descriptive English names, numeric codes,
+and German descriptions as comments.
+"""
+STANDARD_ACCOUNT = dict(
+    OPENING_BALANCE='9100',  # Eröffnungsbilanz
+    EXCHANGE_DIFFERENCES='6960',  # Kursdifferenzen
+    ANNUAL_PROFIT_OR_LOSS='9200',  # Jahresgewinn oder -verlust
+    TRADING_INCOME='3200',  # Handelsertrag
+    COST_OF_GOODS_SOLD='4200',  # Warenaufwand
+    DEPRECIATION='6800',  # Abschreibungen
+    ASSET_DISPOSALS='6801',  # Anlagenabgänge
+    REVENUE_FROM_MOBILE_ASSETS='7900',  # Ertrag Mobile Sachanlagen
+    RECEIVABLES='1100',  # Debitoren
+    PAYABLES='2000',  # Kreditoren
+    VAT_RECONCILIATION='2202',  # Umsatzsteuerausgleich Abrechnungsmethode
+    INPUT_TAX_RECONCILIATION='1172',  # Vorsteuerausgleich Abrechnungsmethode
+    
+    # not directly in settings
+    PRAE_TAX='1170',  # Vorsteuer
+    REVENUE_TAX='2200',  # Umsatzsteuer
+    SERVICE_REVENUE='3400',  # Dienstleistungsertrag
+    ROUNDING='6961',  # Rundungsdifferenzen
+)
+
+
+# class COUNTRY
+COUNTRY_CODES = [
+    'AFG', 'ALA', 'ALB', 'DZA', 'ASM', 'AND', 'AGO', 'AIA', 'ATG', 'ARG', 'ARM',
+    'ABW', 'AUS', 'AUT', 'AZE', 'BHS', 'BHR', 'BGD', 'BRB', 'BLR', 'BEL', 'BLZ',
+    'BEN', 'BMU', 'BTN', 'BOL', 'BES', 'BIH', 'BWA', 'BVT', 'BRA', 'IOT', 'BRN',
+    'BGR', 'BFA', 'BDI', 'KHM', 'CMR', 'CAN', 'CPV', 'CYM', 'CAF', 'TCD', 'CHL',
+    'CHN', 'CXR', 'CCK', 'COL', 'COM', 'COG', 'COK', 'CRI', 'CIV', 'HRV', 'CUB',
+    'CUW', 'CYP', 'CZE', 'DNK', 'DJI', 'DOM', 'DMA', 'ECU', 'EGY', 'SLV', 'GNQ',
+    'ERI', 'EST', 'ETH', 'FLK', 'FRO', 'FJI', 'FIN', 'FRA', 'GUF', 'GUY', 'PYF',
+    'GAB', 'GMB', 'GEO', 'DEU', 'GHA', 'GIB', 'GRC', 'GRL', 'GRD', 'GLP', 'GUM',
+    'GTM', 'GGY', 'GNB', 'GIN', 'HTI', 'HMD', 'VAT', 'HND', 'HKG', 'HUN', 'IND',
+    'IDN', 'IRN', 'IRQ', 'IRL', 'IMN', 'ISR', 'ITA', 'JAM', 'JPN', 'JEY', 'JOR',
+    'KAZ', 'KEN', 'KIR', 'PRK', 'KOR', 'KWT', 'KGZ', 'LAO', 'LVA', 'LBN', 'LSO',
+    'LBR', 'LBY', 'LIE', 'LTU', 'LUX', 'MAC', 'MKD', 'MDG', 'MWI', 'MYS', 'MDV',
+    'SOM', 'MLI', 'MLT', 'MHL', 'MTQ', 'MRT', 'MUS', 'MYT', 'MEX', 'FSM', 'MDA',
+    'MCO', 'MNG', 'MNE', 'MSR', 'MAR', 'MOZ', 'MMR', 'NAM', 'NRU', 'NPL', 'NLD',
+    'NCL', 'NZL', 'NIC', 'NGA', 'NER', 'NIU', 'NFK', 'MNP', 'NOR', 'OMN', 'PAK',
+    'PLW', 'PSE', 'PAN', 'PNG', 'PRY', 'PER', 'PHL', 'PCN', 'POL', 'PRT', 'PRI',
+    'QAT', 'REU', 'ROU', 'RUS', 'RWA', 'BLM', 'SHN', 'KNA', 'LCA', 'MAF', 'SPM',
+    'VCT', 'WSM', 'SMR', 'STP', 'SAU', 'SEN', 'SRB', 'SYC', 'SLE', 'SGP', 'SXM',
+    'SVK', 'SVN', 'SLB', 'ZAF', 'SGS', 'SSD', 'ESP', 'LKA', 'SDN', 'SUR', 'SJM',
+    'SWZ', 'SWE', 'CHE', 'SYR', 'TWN', 'TJK', 'TZA', 'THA', 'TLS', 'TGO', 'TKL',
+    'TON', 'TTO', 'TUN', 'TUR', 'TKM', 'TCA', 'TUV', 'UGA', 'UKR', 'ARE', 'GBR',
+    'USA', 'URY', 'UZB', 'VUT', 'VEN', 'VNM', 'VIR', 'VGB', 'WLF', 'YEM', 'ZMB',
+    'ZWE', 'ISL']
 
 
 # mixins, we change right at down and uploading of data
@@ -32,72 +86,20 @@ def snake_to_camel(snake_str):
     return camel_case_str[0].lower() + camel_case_str[1:]
 
 
-def create_enum(name, items):
-    ''' see COUNTRY '''
-    return Enum(name, {item: item for item in items})
-
-
-# Standard Accounts
-class ACCOUNT_SIDE(Enum):
-    CREDIT = 'C'
-    DEBIT = 'D'
-    
-
-class STANDARD_ACCOUNT(Enum):
-    """
-    Standard account definitions with descriptive English names, numeric codes,
-    and German descriptions as comments.
-    """
-    OPENING_BALANCE = '9100'  # Eröffnungsbilanz
-    EXCHANGE_DIFFERENCES = '6960'  # Kursdifferenzen
-    ANNUAL_PROFIT_OR_LOSS = '9200'  # Jahresgewinn oder -verlust
-    TRADING_INCOME = '3200'  # Handelsertrag
-    COST_OF_GOODS_SOLD = '4200'  # Warenaufwand
-    DEPRECIATION = '6800'  # Abschreibungen
-    ASSET_DISPOSALS = '6801'  # Anlagenabgänge
-    REVENUE_FROM_MOBILE_ASSETS = '7900'  # Ertrag Mobile Sachanlagen
-    RECEIVABLES = '1100'  # Debitoren
-    PAYABLES = '2000'  # Kreditoren
-    VAT_RECONCILIATION = '2202'  # Umsatzsteuerausgleich Abrechnungsmethode
-    INPUT_TAX_RECONCILIATION = '1172'  # Vorsteuerausgleich Abrechnungsmethode
-    
-    # not directly in settings
-    PRAE_TAX = '1170' # Vorsteuer
-    REVENUE_TAX = '2200'  # Umsatzsteuer
-    SERVICE_REVENUE = '3400'  # Dienstleistungsertrag
-    ROUNDING = '6961'  # Rundungsdifferenzen
-
-
-# class COUNTRY
-COUNTRY_CODES = [
-	'AFG', 'ALA', 'ALB', 'DZA', 'ASM', 'AND', 'AGO', 'AIA', 'ATG', 'ARG', 'ARM',
-	'ABW', 'AUS', 'AUT', 'AZE', 'BHS', 'BHR', 'BGD', 'BRB', 'BLR', 'BEL', 'BLZ',
-	'BEN', 'BMU', 'BTN', 'BOL', 'BES', 'BIH', 'BWA', 'BVT', 'BRA', 'IOT', 'BRN',
-	'BGR', 'BFA', 'BDI', 'KHM', 'CMR', 'CAN', 'CPV', 'CYM', 'CAF', 'TCD', 'CHL',
-	'CHN', 'CXR', 'CCK', 'COL', 'COM', 'COG', 'COK', 'CRI', 'CIV', 'HRV', 'CUB',
-	'CUW', 'CYP', 'CZE', 'DNK', 'DJI', 'DOM', 'DMA', 'ECU', 'EGY', 'SLV', 'GNQ',
-	'ERI', 'EST', 'ETH', 'FLK', 'FRO', 'FJI', 'FIN', 'FRA', 'GUF', 'GUY', 'PYF',
-	'GAB', 'GMB', 'GEO', 'DEU', 'GHA', 'GIB', 'GRC', 'GRL', 'GRD', 'GLP', 'GUM',
-	'GTM', 'GGY', 'GNB', 'GIN', 'HTI', 'HMD', 'VAT', 'HND', 'HKG', 'HUN', 'IND',
-	'IDN', 'IRN', 'IRQ', 'IRL', 'IMN', 'ISR', 'ITA', 'JAM', 'JPN', 'JEY', 'JOR',
-	'KAZ', 'KEN', 'KIR', 'PRK', 'KOR', 'KWT', 'KGZ', 'LAO', 'LVA', 'LBN', 'LSO',
-	'LBR', 'LBY', 'LIE', 'LTU', 'LUX', 'MAC', 'MKD', 'MDG', 'MWI', 'MYS', 'MDV',
-	'SOM', 'MLI', 'MLT', 'MHL', 'MTQ', 'MRT', 'MUS', 'MYT', 'MEX', 'FSM', 'MDA',
-	'MCO', 'MNG', 'MNE', 'MSR', 'MAR', 'MOZ', 'MMR', 'NAM', 'NRU', 'NPL', 'NLD',
-	'NCL', 'NZL', 'NIC', 'NGA', 'NER', 'NIU', 'NFK', 'MNP', 'NOR', 'OMN', 'PAK',
-	'PLW', 'PSE', 'PAN', 'PNG', 'PRY', 'PER', 'PHL', 'PCN', 'POL', 'PRT', 'PRI',
-	'QAT', 'REU', 'ROU', 'RUS', 'RWA', 'BLM', 'SHN', 'KNA', 'LCA', 'MAF', 'SPM',
-	'VCT', 'WSM', 'SMR', 'STP', 'SAU', 'SEN', 'SRB', 'SYC', 'SLE', 'SGP', 'SXM',
-	'SVK', 'SVN', 'SLB', 'ZAF', 'SGS', 'SSD', 'ESP', 'LKA', 'SDN', 'SUR', 'SJM',
-	'SWZ', 'SWE', 'CHE', 'SYR', 'TWN', 'TJK', 'TZA', 'THA', 'TLS', 'TGO', 'TKL',
-	'TON', 'TTO', 'TUN', 'TUR', 'TKM', 'TCA', 'TUV', 'UGA', 'UKR', 'ARE', 'GBR',
-	'USA', 'URY', 'UZB', 'VUT', 'VEN', 'VNM', 'VIR', 'VGB', 'WLF', 'YEM', 'ZMB',
-	'ZWE', 'ISL']
-COUNTRY = Enum('COUNTRY', {item: item for item in sorted(COUNTRY_CODES)})
+def value_to_xml(value):
+    ''' use cashctrl <values> xml '''
+    # Check if value is a dictionary
+    if isinstance(value, dict) and 'values' in value:
+        xmlstr = xmltodict.unparse(value['values'], full_document=False)
+        return '<values>' + xmlstr + '</values>'
+    elif isinstance(value, dict) or isinstance(value, list):
+        return json.dumps(value)
+    # Return original value
+    return value
 
 
 # pylint: disable=invalid-name
-class ADDRESS_TYPE(Enum):
+class ADDRESS_TYPE:
     '''see public api desc'''
     MAIN = 'MAIN'
     INVOICE = 'INVOICE'
@@ -105,8 +107,42 @@ class ADDRESS_TYPE(Enum):
     OTHER = 'OTHER'
 
 
+class CONTACT_TYPE:
+    EMAIL_INVOICE = 'EMAIL_INVOICE'
+    EMAIL_WORK = 'EMAIL_WORK'
+    EMAIL_PRIVATE = 'EMAIL_PRIVATE'
+    PHONE_RECEPTION = 'PHONE_RECEPTION'
+    PHONE_WORK = 'PHONE_WORK'
+    PHONE_PRIVATE = 'PHONE_PRIVATE'
+    MOBILE_WORK = 'MOBILE_WORK'
+    MOBILE_PRIVATE = 'MOBILE_PRIVATE'
+    FAX = 'FAX'
+    WEBSITE = 'WEBSITE'
+    MESSENGER = 'MESSENGER'
+    OTHER = 'OTHER'
+
+
+class COLOR:
+    BLUE = 'BLUE'
+    GREEN = 'GREEN'
+    RED = 'RED'
+    YELLOW = 'YELLOW'
+    ORANGE = 'ORANGE'
+    BLACK = 'BLACK'
+    GRAY = 'GRAY'
+    BROWN = 'BROWN'
+    VIOLET = 'VIOLET'
+    PINK = 'PINK'
+
+
 # pylint: disable=invalid-name
-class DATA_TYPE(Enum):
+class BOOK_TYPE:
+    CREDIT = 'CREDIT'
+    DEBIT = 'DEBIT'
+
+
+# pylint: disable=invalid-name
+class DATA_TYPE:
     '''see public api desc'''
     TEXT = 'TEXT'
     TEXTAREA = 'TEXTAREA'
@@ -119,7 +155,7 @@ class DATA_TYPE(Enum):
 
 
 # pylint: disable=invalid-name
-class ELEMENT_TYPE(Enum):
+class ELEMENT_TYPE:
     '''see public api desc'''
     JOURNAL = 'JOURNAL'
     BALANCE = 'BALANCE'
@@ -154,7 +190,7 @@ class ELEMENT_TYPE(Enum):
 
 
 # pylint: disable=invalid-name
-class FIELD_TYPE(Enum):
+class FIELD_TYPE:
     '''see public api desc'''
     JOURNAL = 'JOURNAL'
     ACCOUNT = 'ACCOUNT'
@@ -166,68 +202,26 @@ class FIELD_TYPE(Enum):
 
 
 # pylint: disable=invalid-name
-class GENDER(Enum):
+class GENDER:
     '''see public api desc'''
     FEMALE = 'FEMALE'
     MALE = 'MALE'
 
 
+class ORDER_TYPE:
+    '''see public api desc'''
+    SALES = 'SALES'
+    PURCHASE = 'PURCHASE'
+
+
 # pylint: disable=invalid-name
-class ACCOUNT_CATEGORY_TYPE(Enum):
+class ACCOUNT_CATEGORY_TYPE:
     '''Used for cashctrl, see public api desc'''
-    ASSET = 1  # Aktiven
-    LIABILITY = 2  # Passiven
-    EXPENSE = 3  # Aufwand (INCOME), Ausgaben (INVEST),
-    REVENUE = 4  # Ertrag (INCOME), Einnahmen (INVEST),
-    BALANCE = 5  #
-
-
-LANGUAGES = ['de', 'fr', 'it', 'en']
-NAME_TAB = 'sc-erp'
-NAME_TABS = {'values': {lang: NAME_TAB for lang in LANGUAGES}}
-
-CUSTOM_FIELD_GROUPS = [
-    {'type': FIELD_TYPE.ACCOUNT, 'name': NAME_TABS},
-    {'type': FIELD_TYPE.INVENTORY_ARTICLE, 'name': NAME_TABS},
-    {'type': FIELD_TYPE.INVENTORY_ASSET, 'name': NAME_TABS},
-    {'type': FIELD_TYPE.ORDER, 'name': NAME_TABS},
-    {'type': FIELD_TYPE.PERSON, 'name': NAME_TABS},
-    {'type': FIELD_TYPE.FILE, 'name': NAME_TABS}
-]
-
-GROUP_NAME = 'sc-erp'
-
-
-CUSTOM_FIELDS = [
-    {'type': FIELD_TYPE.ACCOUNT, 'group_name': GROUP_NAME,
-      'field': 'customField{i}', 'name': 'HRM 2', 'data_type': DATA_TYPE.TEXT
-    },
-    {'type': FIELD_TYPE.ACCOUNT, 'group_name': GROUP_NAME,
-      'field': 'customField{i}', 'name': 'HRM 2 kurz', 'data_type': DATA_TYPE.TEXT
-    },
-    {'type': FIELD_TYPE.ACCOUNT, 'group_name': GROUP_NAME,
-      'field': 'customField{i}', 'name': 'Budget', 'data_type': DATA_TYPE.NUMBER
-    },
-    {'type': FIELD_TYPE.ORDER, 'group_name': GROUP_NAME,
-     'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.TEXT,
-     'values': ['Gebühren Werke']
-    },
-    {'type': FIELD_TYPE.PERSON, 'group_name': GROUP_NAME,
-     'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.COMBOBOX,
-     'values': ['Abonnent Werke', 'Einwohner'], 'is_multi': True
-    },
-    {'type': FIELD_TYPE.FILE, 'group_name': GROUP_NAME,
-     'field': 'customField{i}', 'name': 'Kategorie', 'data_type': DATA_TYPE.COMBOBOX,
-     'values': ['Abonnent Werke', 'Einwohner'], 'is_multi': True
-    }
-]
-
-class API_PROJECT(Enum):
-    ''' Report, not implemented yet
-    '''
-    report = {'url': 'report/', 'actions': ['tree']}
-    element = {'url': 'element/', 'actions': ['tree']}
-    set = {'url': 'set/', 'actions': ['read']}
+    ASSET = (1, 'ASSET')  # Aktiven
+    LIABILITY = (2, 'LIABILITY')  # Passiven
+    EXPENSE = (3, 'EXPENSE')  # Aufwand (INCOME), Ausgaben (INVEST),
+    REVENUE = (4, 'REVENUE')  # Ertrag (INCOME), Einnahmen (INVEST),
+    BALANCE = (5, 'BALANCE')  #
 
 
 class CashCtrl():
@@ -235,7 +229,7 @@ class CashCtrl():
         BASE: used for almost all queries
         BASE_DIR: used for queries not have not .json at end of url
     '''
-    BASE_DIR = "https://{org}.cashctrl.com/api/v1/{url}{action}"
+    BASE_DIR = URL_ROOT + "/api/v1/{url}{action}"
     BASE = BASE_DIR + '.json'  # default
     
     # Rate-limiting constants
@@ -266,16 +260,6 @@ class CashCtrl():
         if isinstance(value, str) and value.startswith('<values>'):
             # XML
             return xmltodict.parse(value)
-        # Return original value
-        return value
-
-    @staticmethod
-    def value_to_xml(value):
-        ''' use cashctrl <values> xml '''
-        # Check if value is a dictionary
-        if isinstance(value, dict) and 'values' in value:
-            xmlstr = xmltodict.unparse(value['values'], full_document=False)
-            return '<values>' + xmlstr + '</values>'
         # Return original value
         return value
 
@@ -332,7 +316,7 @@ class CashCtrl():
             if camel_key in ('start', 'end'):
                 value = value.strftime('%Y-%m-%d')
             else:
-                value = self.value_to_xml(value)
+                value = value_to_xml(value)
             post_data[camel_key] = value
 
         # Retry mechanism for rate-limiting
@@ -574,12 +558,11 @@ class Account(CashCtrl):
         '''        
         if self.data is None:
             raise Exception("data is None")
-
-        STANDARD_ACCOUNTS = [x.value for x in STANDARD_ACCOUNT]
+        
         return {
             x['number']: x
             for x in self.data
-            if x['number'] in STANDARD_ACCOUNTS
+            if x['number'] in STANDARD_ACCOUNTS.values()
         }    
 
 
@@ -711,12 +694,12 @@ class OrderCategory(CashCtrl):
     url = 'order/category/'
     actions = ['list']
 
-class Document(CashCtrl):
+class OrderDocument(CashCtrl):
     '''see public api desc'''
     url = 'order/document/'
     actions = ['read']  # The ID of the order.
 
-class Template(CashCtrl):
+class OrderTemplate(CashCtrl):
     '''see public api desc'''
     url = 'order/template/'
     actions = ['read']  # The ID of the entry.
@@ -760,234 +743,3 @@ class Element(CashCtrl):
     '''see public api desc'''
     url = 'report/element/'
     actions = ['list', 'create']
-
-
-# main
-if __name__ == "__main__":
-    ORG = 'test167'
-    KEY = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
-    
-    ORG_B = 'bdo'
-    KEY_B = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'
-    
-    PARAMS =  {}
-
-    # get all accounts
-    ctrl = Account(ORG, KEY)
-    
-    accounts = ctrl.list()
-    for account in accounts:
-        if account['number'] == '37101003130.05':
-            balance = ctrl.get_balance(id=account['id'])
-            print("*acc", account['number'], balance)
-    
-    
-    '''
-    ctrl = Article(ORG, KEY)
-    articles = ctrl.list()
-    print("*articles", articles)
-    
-    ctrl = PersonCategory(ORG, KEY)
-    data = {
-        'name': '<values><de>*Abonnenten</de></values>'
-    }
-    response = ctrl.create(data)
-    if response.get('success', False):
-        person_category_id = response.get('insert_id')
-    print("*response", response)
-    
-    ctrl = Person(ORG, KEY)
-    data = {
-        'category_id': person_category_id,
-        'first_name': 'Anton',
-        'last_name': 'Meier',
-        'notes': '<values><de>*Export SC-ERP, dort bearbeiten</de></values>'
-    }
-    response = ctrl.create(data)
-    print("*response", response)   # 6
-      
-    '''
-  
-    """"     
-  
-    ""  
-    # eliminate the hrm-2 and standard_ids
-    standard_ids = [int(x.value) for x in STANDARD_ACCOUNT]
-    
-    accounts_filtered = [
-        x for x in accounts
-        if x['custom'] is None and int(x['number']) not in standard_ids
-    ]
-    
-    delete_ids = [x['id'] for x in accounts_filtered]
-    #print("*", x['number'])
-    response = ctrl.delete(*[delete_ids[-1]])
-    print("*", response)
-    
-    ctrl = AccountCategory(ORG, KEY)
-    account_categories = ctrl.list()
-    leaves = ctrl.get_leaves()
-    
-    print("*", [x['name'] for x in leaves])
-    
-    top_categories = ctrl.top_categories()
-
-    leaves = ctrl.leaves()
-    print("*leaves\n\n\n")
-    for leave in leaves:
-        if leave is None:
-            print("*")
-            continue
-        print("*", leave['name'])
-
-
-    ids = [109, 110]
-    response = ctrl.delete(account_category.value['url'], *ids)
-    print("*response", response)
-
-    articles = ctrl.list(Article.url)
-    print("article", articles)
-
-
-    for api in API:
-        print(api.name)
-        for action in api.value['actions']:
-            def_ = getattr(ctrl, action)
-            params =  api.value.get('params', {})
-            response = def_(api.value['url'], params)
-            print(response, "\n")
-
-
-
-
-    ctrl = AccountCategory(org, key)
-    top_categories = ctrl.get_top()
-    print("*top_categories", top_categories)
-
-    # add P&L
-    ACCOUNT_CATEGORIES = {
-        'P&L':{
-            'de': 'Erfolgsrechnung',
-            'en': 'P&L',
-            'fr': 'Compte de résultat',
-            'it': 'Conto economico'
-        },
-        'IS': {
-            'de': 'Investitionsrechnung',
-            'en': 'Investment Statement',
-            'fr': 'Compte d’investissement',
-            'it': 'Conto degli investimenti'
-        }
-    }
-
-    for category in ['EXPENSE', 'REVENUE']:
-        for number, name in enumerate(ACCOUNT_CATEGORIES.values(), start=1):
-            data = {
-                'name': {'values': name},
-                'number': number,
-                'parent_id': top_categories[category]['id']
-            }
-            response = ctrl.create(data)
-            print("*response", response)
-
-    ""|
-    ctrl = Account(org, key)
-    accounts = ctrl.list()
-    top_accounts = [x for x in accounts if not x['category_id']]
-    print("*account", len(accounts), top_accounts, "\n")
-    print("*account last key", accounts[-1].keys(), "\n")
-
-    fiscal_periods = ctrl.list(fiscalperiod.value['url'])
-    fiscal_period = next(x for x in fiscal_periods if x['is_current'] is True)
-    print(fiscal_period, "\n")
-
-    params={
-        'fiscalPeriodId': fiscal_period['id'],
-        # not working: 'filter': [{'comparison': 'eq', 'field': 'createdBy', 'value': 'SYSTEM4'}]
-        'filter': json.dumps([{'comparison': 'eq', 'field': 'categoryId', 'value': 109}])
-    }
-    accounts_1 = ctrl.list(account.value['url'], params=params)
-
-    params={
-        'fiscalPeriodId': fiscal_period['id'],
-        # not working: 'filter': [{'comparison': 'eq', 'field': 'createdBy', 'value': 'SYSTEM4'}]
-        'filter': json.dumps([{'comparison': 'eq', 'field': 'categoryId', 'value': 110}])
-    }
-    accounts_2 = ctrl.list(account.value['url'], params=params)
-    accounts = accounts_1 + accounts_2
-
-    ids = [x['id'] for x in accounts]
-    print(len(accounts), accounts, ids, "\n")
-
-
-    # Store custom field group
-    data = {
-        'name': {'values': {'de': 'Custom Test A'}},
-        'type': FIELD_TYPE.ACCOUNT.value
-    }
-    customfield_group = ctrl.create(customfield_group.value['url'], data)
-    print("*customfield_group", customfield_group)
-
-    # Store custom field
-    group_id = customfield_group['insert_id']
-    data = {
-        'data_type': DATA_TYPE.TEXT.value,
-        'name': {'values': {'de': 'Field Test A'}},
-        'type': FIELD_TYPE.ACCOUNT.value,
-        'group_id': group_id,
-    }
-    customfield = ctrl.create(customfield.value['url'], data)
-    print("*customfield", customfield)
-
-
-    # Get all information of custom field
-    field_id = customfield['insert_id']
-    params =  {
-        'id': field_id
-    }
-    customfield = ctrl.read(customfield.value['url'], params)
-    print("*customfield", customfield)
-    variable = customfield['variable']
-
-    # Read accounts
-    accounts = ctrl.list(account.value['url'])
-    account = next(x for x in accounts if x['number'] == '102604210.01')
-    print("*account", account, "\n")
-
-    # Update account
-    id = account['id']
-    account['custom']['values']['customField59'] = 'Test Content A'
-    account['target_min'] = 1000.0
-    account = ctrl.update(account.value['url'], account)
-    print("*account", account, "\n")
-
-
-    # Make custom fields
-
-    # Create Groups
-    for group in CUSTOM_FIELD_GROUPS:
-        group['type'] = group['type'].value
-        customfield_group = ctrl.create(customfield_group.value['url'], group)
-        group['id'] = customfield_group['insert_id']
-        print("group['id']", group['id'])
-
-    # Create Fields
-    for field in CUSTOM_FIELDS:
-        field['type'] = field['type'].value
-        field['data_type'] = field['data_type'].value
-        field['group_id'] = next(
-            x['id'] for x in CUSTOM_FIELD_GROUPS
-            if x['type'] == field['type'])
-        if field.get('values'):
-            field['values'] = json.dumps(field['values'])
-        customfield = ctrl.create(customfield.value['url'], field)
-        print("*customfield", customfield)
-
-
-    files = ctrl.list(file.value['url'])
-    print("*", files)
-    '''
-
-    # init cashctrl
-
-    """

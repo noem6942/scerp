@@ -6,10 +6,24 @@ Definition of all data that is used for a new api setup,
     
 pylint check: 2024-12-24
 '''
+from .api_cash_ctrl import (
+    value_to_xml, ADDRESS_TYPE, CONTACT_TYPE, BOOK_TYPE, COLOR, ORDER_TYPE,
+    FIELD_TYPE, DATA_TYPE, ACCOUNT_CATEGORY_TYPE
+)
 
+# RUN 1 - no other data needed -------------------------------------------
 CUSTOM_FIELD_GROUPS = [{
     'key': 'account_tab',
-    'type': 'ACCOUNT',
+    'type': FIELD_TYPE.ACCOUNT,
+    'name': {
+        'de': 'SC-ERP',
+        'en': 'SC-ERP',
+        'fr': 'SC-ERP',
+        'it': 'SC-ERP'
+    }
+}, {
+    'key': 'order_tab',
+    'type': FIELD_TYPE.ORDER,
     'name': {
         'de': 'SC-ERP',
         'en': 'SC-ERP',
@@ -18,7 +32,7 @@ CUSTOM_FIELD_GROUPS = [{
     }
 }, {
     'key': 'person_tab',
-    'type': 'PERSON',
+    'type': FIELD_TYPE.PERSON,
     'name': {
         'de': 'SC-ERP',
         'en': 'SC-ERP',
@@ -37,7 +51,7 @@ CUSTOM_FIELDS = [{
         'fr': 'HRM',
         'it': 'HRM'
     },
-    'data_type': 'TEXT',
+    'data_type': DATA_TYPE.TEXT,
     'is_multi': False,
     'values': []
 }, {
@@ -49,7 +63,67 @@ CUSTOM_FIELDS = [{
         'fr': 'Fonction',
         'it': 'Funzione'
     },
-    'data_type': 'TEXT',
+    'data_type': DATA_TYPE.TEXT,
+    'is_multi': False,
+    'values': []
+}, {
+    'key': 'order_period',
+    'group_key': 'order_tab',
+    'name': {
+        'de': 'Abrechnungsperiode',
+        'en': 'Period',
+        'fr': 'Period',
+        'it': 'Period'
+    },
+    'data_type': DATA_TYPE.TEXT,
+    'is_multi': False,
+    'values': []
+}, {
+    'key': 'order_counter_id',
+    'group_key': 'order_tab',
+    'name': {
+        'de': 'Zähler-ID',
+        'en': 'Function',
+        'fr': 'Fonction',
+        'it': 'Funzione'
+    },
+    'data_type': DATA_TYPE.TEXT,
+    'is_multi': False,
+    'values': []
+}, {
+    'key': 'order_counter_actual',
+    'group_key': 'order_tab',
+    'name': {
+        'de': 'Zählerstand aktuell',
+        'en': 'Function',
+        'fr': 'Fonction',
+        'it': 'Funzione'
+    },
+    'data_type': DATA_TYPE.NUMBER,
+    'is_multi': False,
+    'values': []
+}, {
+    'key': 'order_counter_past',
+    'group_key': 'order_tab',
+    'name': {
+        'de': 'Zählerstand vorher',
+        'en': 'Function',
+        'fr': 'Fonction',
+        'it': 'Funzione'
+    },
+    'data_type': DATA_TYPE.NUMBER,
+    'is_multi': False,
+    'values': []
+}, {
+    'key': 'order_object',
+    'group_key': 'order_tab',
+    'name': {
+        'de': 'Objekt',
+        'en': 'Function',
+        'fr': 'Fonction',
+        'it': 'Funzione'
+    },
+    'data_type': DATA_TYPE.TEXT,
     'is_multi': False,
     'values': []
 }, {
@@ -61,15 +135,15 @@ CUSTOM_FIELDS = [{
         'fr': 'Fonction',
         'it': 'Funzione'
     },
-    'data_type': 'TEXT',
-    'is_multi': False,
+    'data_type': DATA_TYPE.ACCOUNT,
+    'is_multi': True,
     'values': []
 }]
 
 
 ACCOUNT_CATEGORIES = [{
     'key': 'p&l_expense',
-    'top':'EXPENSE',
+    'top': ACCOUNT_CATEGORY_TYPE.EXPENSE[1],
     'name': {
         'de': 'Erfolgsrechnung',
         'en': 'P&L',
@@ -78,7 +152,7 @@ ACCOUNT_CATEGORIES = [{
     }
 }, {
     'key':'p&l_revenue',
-    'top':'REVENUE',
+    'top': ACCOUNT_CATEGORY_TYPE.REVENUE[1],
     'name': {
         'de': 'Erfolgsrechnung',
         'en': 'P&L',
@@ -87,7 +161,7 @@ ACCOUNT_CATEGORIES = [{
     }
 }, {
     'key':'is_expense',
-    'top':'EXPENSE',
+    'top': ACCOUNT_CATEGORY_TYPE.EXPENSE[1],
     'name': {
         'de': 'Investitionsrechnung',
         'en': 'Investment Statement',
@@ -96,7 +170,7 @@ ACCOUNT_CATEGORIES = [{
     }
 }, {
     'key':'is_revenue',
-    'top':'REVENUE',
+    'top': ACCOUNT_CATEGORY_TYPE.REVENUE[1],
     'name': {
         'de': 'Investitionsrechnung',
         'en': 'Investment Statement',
@@ -112,6 +186,14 @@ PERSON_CATEGORIES = [{
     'name': {'values': {
         'de': '*Abonnenten',
         'en': '*Subscribers',
+        'fr': '*Subscribers',
+        'it': '*Subscribers'
+    }},
+}, {
+    'key': 'sac',
+    'name': {'values': {
+        'de': 'Kundenservice',
+        'en': 'Customer Service',
         'fr': '*Subscribers',
         'it': '*Subscribers'
     }},
@@ -154,3 +236,86 @@ LOCATIONS = [{
     },
     'type': 'OTHER'
 } for i in range(1,3)]
+
+
+# RUN 2 - previous data needed -------------------------------------------
+def persons(**kwargs):
+    category_id = kwargs.get('category_id')  # Sachbearbeiter
+
+    return [{
+        'category_id': category_id, 
+        'first_name': None, 
+        'last_name': 'BDO AG, 4600 Olten', 
+        'company': 'BDO', 
+        'addresses': [{
+            'type': ADDRESS_TYPE.MAIN,
+            'zip': '4600', 
+            'city': 'Olten', 
+            'country': 'CHE', 
+        }],
+        'contacts': [{
+            'address': 'bz-gunzgen@bdo.ch',
+            'type': CONTACT_TYPE.EMAIL_WORK,
+        }, {
+            'address': '062 387 95 29',
+            'type': CONTACT_TYPE.PHONE_WORK,
+        }],
+        'color': COLOR.BLUE
+    }]
+
+
+def order_categories(**kwargs):
+    account_id = kwargs.get('account_id')  # 714
+    rounding_id = kwargs.get('rounding_id')  #  1
+    sequence_nr_id = kwargs.get('sequence_nr_id')  #  1
+    responsible_person_id = kwargs.get('responsible_person_id')  #  3
+    template_id = kwargs.get('template_id')  #  1000
+
+    return [{
+        'account_id': account_id, 
+        'name_singular': {'values': {
+            'de': 'Rechnung Test',
+            'en': 'Invoice', 
+            'fr': 'Facture', 
+            'it': 'Fattura'}}, 
+        'name_plural': {'values': {
+            'de': 'Rechnungen Test', 
+            'en': 'Invoices', 
+            'fr': 'Factures', 
+            'it': 'Fatture'}},
+        'status': [{
+            'icon': COLOR.GRAY,
+            'name': value_to_xml({'values': {
+                'de': 'Entwurf',
+                'en': 'Draft', 
+                'fr': 'Projet', 
+                'it': 'Progetto'}}) 
+        }, {
+            'icon': COLOR.BLUE,
+            'name': value_to_xml({'values': {
+                'de': 'Gewonnen',
+                'en': 'Won', 
+                'fr': 'Won', 
+                'it': 'Won'}})
+        }],
+        'address_type': ADDRESS_TYPE.INVOICE,  # default is 'MAIN', ensure there is always an INVOICE address
+        # 'book_templates, 
+        'book_type': BOOK_TYPE.DEBIT, 
+        'due_days': 30, 
+        'footer': '<i>Rechtsmittel: Wasser - schriftlich innert 10 Tagen an die Wasserkommission der BürgergemeindeGunzgenAbwasser - schriftlich innert 10 Tagen an den Einwohnergemeinderat Gunzgen</i>',
+        'header': '''Kontakt:<br>
+            Tel. 062 387 95 29<br>
+            E-Mail: bz-gunzgen@bdo.ch<br>
+            <br>
+            Abrechnungsperiode: $customField27<br>
+            Objekt: $customField30<br>
+            Zählernummer: $customField30<br>
+            Zählerstand neu: $customField28 m³ (alt $customField29 m³)''', 
+        'is_display_prices': True, 
+        'is_display_item_gross': False, 
+        'responsible_person_id': responsible_person_id,  # Sachbearbeiter
+        'rounding_id': rounding_id,  # auf 0.05 runden
+        'sequence_nr_id': sequence_nr_id,  # RE ...
+        'template_id': template_id, 
+        'type': ORDER_TYPE.SALES
+    }] 

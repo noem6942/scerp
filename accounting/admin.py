@@ -1,4 +1,3 @@
-# from django_admin_action_forms import action_with_form, AdminActionForm
 from django.contrib import admin, messages
 from django.contrib.admin import ModelAdmin
 from django.utils import formats
@@ -7,9 +6,7 @@ from django.utils.translation import gettext_lazy as _
 
 from core.safeguards import get_tenant
 
-from scerp.admin import (
-    admin_site, BaseAdmin, display_verbose_name,
-    display_datetime, display_big_number, display_json, display_name_w_levels)
+from scerp.admin import admin_site, BaseAdmin, Display
 
 from .models import (
     APISetup, Setting, MappingId, Location, FiscalPeriod, Currency, Unit, Tax,
@@ -84,7 +81,7 @@ class APISetupAdmin(BaseAdmin):
 
     @admin.display(description=_('settings'))
     def display_data(self, obj):
-        return display_json(obj.data)
+        return Display.json(obj.data)
 
 
 class CashCtrlAdmin(BaseAdmin):
@@ -153,7 +150,7 @@ class Setting(BaseAdmin):
 
     @admin.display(description=_('settings'))
     def display_data(self, obj):
-        return display_json(obj.data)
+        return Display.json(obj.data)
 
 
 @admin.register(Location, site=admin_site)
@@ -163,7 +160,8 @@ class Location(CashCtrlAdmin):
     # warning = CASH_CTRL.WARNING_READ_ONLY
 
     list_display = (
-        'name', 'type', 'vat_uid', 'logo', 'address', 'display_last_update')
+        'name', 'type', 'vat_uid', 'logo', 'address', 'display_last_update',
+        'url')
     search_fields = ('name', 'vat_uid')
     list_filter = ('setup', 'type')
 
@@ -191,6 +189,12 @@ class Location(CashCtrlAdmin):
         }),
     )
 
+    @admin.display(description=_('Applikation link'))
+    def url(self, obj):
+        if obj.type == obj.TYPE.MAIN:
+            link = obj.setup.url
+            return Display.link(link, link)
+
 
 @admin.register(FiscalPeriod, site=admin_site)
 class FiscalPeriodAdmin(CashCtrlAdmin):
@@ -214,7 +218,7 @@ class FiscalPeriodAdmin(CashCtrlAdmin):
 @admin.register(Currency, site=admin_site)
 class CurrencyAdmin(CashCtrlAdmin):
     has_tenant_field = True
-    is_readonly = True
+    is_readonly = False
     warning = CASH_CTRL.WARNING_READ_ONLY
     readonly_fields = ('display_description',)
 
@@ -225,7 +229,8 @@ class CurrencyAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'display_description', 'is_default', 'rate', 'index'),
+                'code', 'display_description', 'is_default', 'rate', 'index',
+                'description'),
             'classes': ('expand',),
         }),
     )
@@ -263,22 +268,35 @@ class TaxAdmin(CashCtrlAdmin):
     has_tenant_field = True
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
-    readonly_fields = ('display_name',)
+    readonly_fields = ('local_name', 'local_document_name')
 
-    list_display = ('display_name', 'percentage', 'display_last_update')
+    list_display = (
+        'local_name', 'local_document_name', 'display_percentage', 
+        'display_last_update')
     search_fields = ('name',)
     list_filter = ('setup',)
+    actions = [a.tax_get]
 
     fieldsets = (
         (None, {
-            'fields': ('display_name', 'percentage'),
+            'fields': (
+                'local_name', 'local_document_name', 'percentage',
+                'calc_type', 'percentage_flat', 'account_id'),
             'classes': ('expand',),
         }),
     )
 
     @admin.display(description=_('name'))
-    def display_name(self, obj):
+    def local_name(self, obj):
         return obj.local_name
+
+    @admin.display(description=_('show as'))
+    def local_document_name(self, obj):
+        return obj.local_document_name
+
+    @admin.display(description=_("Percentage"))
+    def display_percentage(self, obj):
+        return Display.percentage(obj.percentage, 1)
 
 
 @admin.register(CostCenter, site=admin_site)
@@ -406,7 +424,7 @@ class AccountPositionTemplateAdmin(BaseAdmin):
     @admin.display(
         description=verbose_name_field(AccountPosition, 'name'))
     def display_name(self, obj):
-        return display_name_w_levels(obj)
+        return Display.name_w_levels(obj)
 
 
 @admin.register(ChartOfAccounts, site=admin_site)
@@ -484,7 +502,7 @@ class AccountPositionAdmin(CashCtrlAdmin):
     @admin.display(
         description=verbose_name_field(AccountPosition, 'name'))
     def display_name(self, obj):
-        return display_name_w_levels(obj)
+        return Display.name_w_levels(obj)
 
     @admin.display(
         description=verbose_name_field(AccountPosition, 'function'))
@@ -499,42 +517,42 @@ class AccountPositionAdmin(CashCtrlAdmin):
     def display_end_amount_credit(self, obj):
         if obj.category_hrm in (CATEGORY_HRM.EXPENSE, CATEGORY_HRM.ASSET):
             balance = 0 if obj.end_amount is None else obj.end_amount
-            return display_big_number(balance)
+            return Display.big_number(balance)
         return ' '
 
     @admin.display(description=_('actual -'))
     def display_end_amount_debit(self, obj):
         if obj.category_hrm in (CATEGORY_HRM.REVENUE, CATEGORY_HRM.LIABILITY):
             balance = 0 if obj.end_amount is None else obj.end_amount
-            return display_big_number(balance)
+            return Display.big_number(balance)
         return ' '
 
     @admin.display(description=_('balance +'))
     def display_balance_credit(self, obj):
         if obj.category_hrm in (CATEGORY_HRM.EXPENSE, CATEGORY_HRM.ASSET):
             balance = 0 if obj.balance is None else obj.balance
-            return display_big_number(balance)
+            return Display.big_number(balance)
         return ' '
 
     @admin.display(description=_('balance -'))
     def display_balance_debit(self, obj):
         if obj.category_hrm in (CATEGORY_HRM.REVENUE, CATEGORY_HRM.LIABILITY):
             balance = 0 if obj.balance is None else obj.balance
-            return display_big_number(balance)
+            return Display.big_number(balance)
         return ' '
 
     @admin.display(description=_('balance'))
     def display_balance(self, obj):
         balance = 0 if obj.balance is None else obj.balance
-        return display_big_number(balance)
+        return Display.big_number(balance)
 
     @admin.display(description=_('budget'))
     def display_budget(self, obj):
-        return display_big_number(obj.budget)
+        return Display.big_number(obj.budget)
 
     @admin.display(description=_('previous'))
     def display_previous(self, obj):
-        return display_big_number(obj.previous)
+        return Display.big_number(obj.previous)
 
     @admin.display(description=_(''))
     def display_cashctrl(self, obj):

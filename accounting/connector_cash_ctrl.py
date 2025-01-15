@@ -236,6 +236,8 @@ class PersonConn(Connector):
             else:
                 raise ValueError(f"Could not register field '{key}'")                    
 
+        # Add new persons, esp. "Sachbearbeiter"
+
 
 # reading classes
 class CostCenterConn(Connector):
@@ -258,7 +260,7 @@ class LocationConn(Connector):
     MODEL = models.Location
 
 
-class TaxPeriodConn(Connector):
+class TaxConn(Connector):
     CLASS = api_cash_ctrl.Tax
     MODEL = models.Tax
 
@@ -314,7 +316,7 @@ def get_all(api_setup):
         CostCenterConn,
         CurrencyConn,
         FiscalPeriodConn,
-        TaxPeriodConn,
+        TaxConn,
         SettingConn,
         UnitConn,
         LocationConn,

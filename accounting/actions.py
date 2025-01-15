@@ -134,12 +134,22 @@ def api_setup_delete_system_categories(modeladmin, request, queryset, data):
     api_setup_delete_categories(request, queryset, method)
 
 
+# Load actual data ----------------------------------------------------------
 @admin.action(description=ACTION_LOAD)
 def fiscal_period_get(modeladmin, request, queryset):
     __ = modeladmin  # disable pylint warning
     # Check
     api_setup, module = get_api_setup(queryset)
     ctrl = module.FiscalPeriodConn(api_setup)        
+    ctrl.get()
+
+
+@admin.action(description=ACTION_LOAD)
+def tax_get(modeladmin, request, queryset):
+    __ = modeladmin  # disable pylint warning
+    # Check
+    api_setup, module = get_api_setup(queryset)
+    ctrl = module.TaxConn(api_setup)        
     ctrl.get()
 
 

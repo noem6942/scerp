@@ -1,4 +1,6 @@
 # accounting/models.py
+from enum import Enum
+
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
@@ -7,10 +9,11 @@ from django.db.models import UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
 
-from enum import Enum
+from .api_cash_ctrl import URL_ROOT
 
 from core.models import (
-    LogAbstract, NotesAbstract, TenantAbstract, TenantLogo, CITY_CATEGORY)
+    LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantLogo,
+    CITY_CATEGORY)
 from crm.models import (
     PersonCategory as CrmPersonCategory,
     Title as CrmTitle,
@@ -86,6 +89,7 @@ class APISetup(TenantAbstract):
         _('Account plan loaded'), default=False,
         help_text=_(
             'gets set to True if account plan uploaded to accounting system'))
+    readonly_fields = ('api_key_hidden',)
 
     def __str__(self):
         return self.org_name
@@ -93,6 +97,10 @@ class APISetup(TenantAbstract):
     @property
     def api_key_hidden(self):
         return '*' * len(self.api_key)
+
+    @property
+    def url(self):
+        return URL_ROOT.format(org=self.org_name)
 
     class Meta:
         constraints = [
@@ -203,7 +211,7 @@ class MappingId(AcctApp):
 class Location(AcctApp):
     '''Read - only
     '''
-    class Type(models.TextChoices):
+    class TYPE(models.TextChoices):
         MAIN = "MAIN", _("Headquarters")
         BRANCH = "BRANCH", _("Branch Office")
         STORAGE = "STORAGE", _("Storage Facility")
@@ -212,7 +220,7 @@ class Location(AcctApp):
     # Mandatory field
     name = models.CharField(max_length=100)
     type = models.CharField(
-        _("Type"), max_length=50, choices=Type.choices, default=Type.MAIN,
+        _("Type"), max_length=50, choices=TYPE.choices, default=TYPE.MAIN,
         help_text=_("The type of location. Defaults to MAIN."))
 
     # Optional fields
@@ -280,7 +288,7 @@ class Location(AcctApp):
 
 class FiscalPeriod(AcctApp):
     '''Read - only        
-    '''
+    '''      
     name = models.CharField(
         max_length=30,
         blank=True,
@@ -388,23 +396,41 @@ class Tax(AcctApp):
     '''    
     name = models.JSONField(
         _('name'),  help_text=_("The name of the tax rate."), null=True)
-    number = models.CharField(
-        max_length=20,
+    account_id = models.PositiveIntegerField(
         blank=True,
         null=True,
-        help_text="A name to describe and identify the tax rate."
+        help_text="The ID of the account in cashCtrl which collects the taxes."
     )
     percentage = models.DecimalField(max_digits=5, decimal_places=2)
-    document_name = models.CharField(
-        max_length=50,
+    document_name = models.JSONField(
+        _('invoice tax name'), null=True, blank=True,
+        help_text=_(
+            "Invoice tax name as shown on the invoice. Use format like "
+            "'CHE-112.793.129 MWST, Abwasser, 8.1%'"))     
+    calc_type = models.CharField(
+        _('calculation basis'),
+        max_length=10, default='NET',
         help_text=(
-            "The name for the tax rate displayed on documents (seen by "
-            "customers). Leave empty to use the name instead."))
+            """The calculation basis of the tax rate. NET means the tax rate is
+            based on the net revenue and GROSS means the tax rate is based on 
+            the gross revenue. Note that this only applies to the regular 
+            tax rate percentage, not the flat tax rate percentage 
+            (where always GROSS is used). 
+            Defaults to NET. Possible values: NET, GROSS."""))
+    percentage_flat = models.DecimalField(
+        _('percentage flat'), null=True, blank=True,
+        max_digits=5, decimal_places=2,
+        help_text=_(
+            "The flat tax rate percentage (Saldo-/Pauschalsteuersatz)."))
 
     @property
     def local_name(self):
         return self.get_multi_language(self.name)
-        
+  
+    @property
+    def local_document_name(self):
+        return self.get_multi_language(self.document_name)
+  
     def __str__(self):
         return self.local_name
 
@@ -415,7 +441,7 @@ class Tax(AcctApp):
                 name='unique_c_id_per_tenant_setup__tax'
             )
         ]        
-        ordering = ['number']
+        ordering = ['name']
         verbose_name = _("Tax Rate")
         verbose_name_plural = f"{_('Tax Rates')}"
 
@@ -863,7 +889,17 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
 
 
 # CRM models ------------------------------------------------------------
-class PersonCategory(Acct):
+class CRM(Acct):
+    tenant = models.ForeignKey(
+        Tenant, verbose_name=_('tenant'), 
+        on_delete=models.CASCADE,
+        help_text=_('assignment of tenant / client'))
+        
+    class Meta:
+        abstract = True
+        
+        
+class PersonCategory(CRM):
     '''store categories
     '''
     crm = models.OneToOneField(
@@ -873,7 +909,7 @@ class PersonCategory(Acct):
         help_text="internal use for mapping")      
         
 
-class Title(Acct):
+class Title(CRM):
     '''store titles
     '''
     crm = models.OneToOneField(
@@ -883,7 +919,7 @@ class Title(Acct):
         help_text="internal use for mapping")      
         
 
-class Person(Acct):
+class Person(CRM):
     '''store categories
     '''
     crm = models.OneToOneField(
@@ -893,7 +929,7 @@ class Person(Acct):
         help_text="internal use for mapping")      
         
 
-class Employee(Acct):
+class Employee(CRM):
     '''store categories
     '''
     crm = models.OneToOneField(

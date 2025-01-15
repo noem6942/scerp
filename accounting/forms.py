@@ -12,7 +12,7 @@ from django_admin_action_forms import action_with_form, AdminActionForm
 from core.safeguards import get_tenant
 from .models import (
     ACCOUNT_TYPE_TEMPLATE, AccountPositionTemplate, ChartOfAccountsTemplate,
-    ChartOfAccounts, AccountPosition
+    ChartOfAccounts, AccountPosition, Currency
 )
 from scerp.admin import verbose_name_field
 
