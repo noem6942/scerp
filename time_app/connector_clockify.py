@@ -1,3 +1,6 @@
+'''
+app_time/connector_clockify.py
+'''
 import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -50,7 +53,7 @@ class Clock:
         response.raise_for_status()
         return response.json()
 
-    def get_projects(self):
+    def get_projects(self, start_date=None, end_date=None):
         """Fetch all projects in the workspace."""
         response = requests.get(f"{self.base_url}/workspaces/{self.workspace_id}/projects", headers=self.headers)
         response.raise_for_status()
@@ -92,6 +95,7 @@ class Clock:
             self, project_name, client_id=None, billable=True, color=None,
             tags=None):
         """Create a new project."""
+        print("*project_name, client_id", project_name, client_id)
         url = f"{self.base_url}/workspaces/{self.workspace_id}/projects"
 
         data = {
@@ -126,7 +130,7 @@ class Clock:
         response.raise_for_status()  # Raise error for bad responses
         return response.json()
 
-    def get_time_entries(self):
+    def get_time_entries(self, start_date=None, end_date=None):
         """Fetch all time entries for the user."""
         user = self.get_user()
         user_id = user["id"]
@@ -183,18 +187,18 @@ if __name__ == "__main__":
         clock.create_time_entry(example_project_id)
 
     # Create Tag
-    if True:
+    if False:
         new_tag = clock.create_tag("Testing")
         print("Created tag:", new_tag)
 
     # Create Project
-    if False:
-        new_project = clock.create_project("Default Project")
+    if True:
+        new_project = clock.create_project("Default Project 2")
         print("Created project:", new_project)
 
     # View ----
     # Display projects and time entries
-    clock.display_projects()
+    data = clock.get_time_entries()
 
     clock.display_time_entries()
-    print("*", clock.tags)
+    print("*", data)
