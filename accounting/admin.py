@@ -10,6 +10,7 @@ from scerp.admin import admin_site, BaseAdmin, Display
 
 from .models import (
     APISetup, Setting, MappingId, Location, FiscalPeriod, Currency, Unit, Tax,
+    Rounding, SequenceNumber, OrderCategory, OrderTemplate,
     CostCenter, Article, ChartOfAccountsTemplate,
     AccountPositionTemplate, ChartOfAccounts, AccountPosition,
     ACCOUNT_TYPE, CATEGORY_HRM
@@ -164,6 +165,7 @@ class Location(CashCtrlAdmin):
         'url')
     search_fields = ('name', 'vat_uid')
     list_filter = ('setup', 'type')
+    actions = [a.location_get]
 
     fieldsets = (
         # Organization Details
@@ -225,6 +227,7 @@ class CurrencyAdmin(CashCtrlAdmin):
     list_display = ('code', 'is_default', 'rate', 'display_last_update')
     search_fields = ('code',)
     list_filter = ('setup',)
+    actions = [a.currency_get]
 
     fieldsets = (
         (None, {
@@ -237,7 +240,7 @@ class CurrencyAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('description'))
     def display_description(self, obj):
-        return obj.local_description
+        return Display.multi_language(obj.description)
 
 
 @admin.register(Unit, site=admin_site)
@@ -250,6 +253,8 @@ class UnitAdmin(CashCtrlAdmin):
     list_display = ('display_name', 'is_default', 'display_last_update')
     search_fields = ('name',)
     list_filter = ('setup',)
+    
+    actions = [a.unit_get]
 
     fieldsets = (
         (None, {
@@ -260,7 +265,7 @@ class UnitAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def display_name(self, obj):
-        return obj.local_name
+        return Display.multi_language(obj.name)
 
 
 @admin.register(Tax, site=admin_site)
@@ -288,15 +293,111 @@ class TaxAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def local_name(self, obj):
-        return obj.local_name
+        return Display.multi_language(obj.name)
 
     @admin.display(description=_('show as'))
     def local_document_name(self, obj):
-        return obj.local_document_name
+        return Display.multi_language(obj.document_name)
 
     @admin.display(description=_("Percentage"))
     def display_percentage(self, obj):
         return Display.percentage(obj.percentage, 1)
+
+
+@admin.register(Rounding, site=admin_site)
+class RoundingAdmin(CashCtrlAdmin):
+    has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    readonly_fields = ('local_name',)
+
+    list_display = (
+        'local_name', 'rounding', 'display_last_update')
+    search_fields = ('name',)
+    list_filter = ('setup',)
+    actions = [a.rounding_get]
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'local_name', 'rounding', 'mode', 'account_id'),
+            'classes': ('expand',),
+        }),
+    )
+
+    @admin.display(description=_('name'))
+    def local_name(self, obj):
+        return Display.multi_language(obj.name)
+
+
+@admin.register(SequenceNumber, site=admin_site)
+class SequenceNumberAdmin(CashCtrlAdmin):
+    has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    readonly_fields = ('local_name',)
+
+    list_display = ('local_name', 'pattern', 'display_last_update')
+    search_fields = ('name',)
+    list_filter = ('setup',)
+    actions = [a.sequence_number_get]
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'local_name', 'pattern'),
+            'classes': ('expand',),
+        }),
+    )
+
+    @admin.display(description=_('name'))
+    def local_name(self, obj):
+        return Display.multi_language(obj.name)
+
+
+@admin.register(OrderCategory, site=admin_site)
+class OrderCategoryAdmin(CashCtrlAdmin):
+    has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+    readonly_fields = ('display_name',)
+
+    list_display = ['display_name', 'due_days', 'display_last_update']
+    search_fields = ['display_name', 'number']
+    list_filter = ('setup',)
+    actions = [a.order_category_get]
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'display_name', 'account_id', 'status', 'address_type',
+                'due_days'),
+            'classes': ('expand',),
+        }),
+    )
+
+    @admin.display(description=_('name'))
+    def display_name(self, obj):
+        return Display.multi_language(obj.name_plural)
+
+
+@admin.register(OrderTemplate, site=admin_site)
+class OrderTemplateAdmin(CashCtrlAdmin):
+    has_tenant_field = True
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
+
+    list_display = ('name', 'is_default', 'display_last_update')
+    search_fields = ('name',)
+    list_filter = ('setup',)
+    actions = [a.order_template_get]
+
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'is_default'),
+            'classes': ('expand',),
+        }),
+    )
 
 
 @admin.register(CostCenter, site=admin_site)
@@ -306,9 +407,10 @@ class CostCenterAdmin(CashCtrlAdmin):
     warning = CASH_CTRL.WARNING_READ_ONLY
     readonly_fields = ('display_name',)
 
-    list_display = ['display_name', 'number', 'display_last_update']
-    search_fields = ['display_name', 'number']
+    list_display = ('display_name', 'number', 'display_last_update')
+    search_fields = ('name', 'number')
     list_filter = ('setup',)
+    actions = [a.cost_center_get]
 
     fieldsets = (
         (None, {
@@ -319,7 +421,7 @@ class CostCenterAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def display_name(self, obj):
-        return obj.local_name
+        return Display.multi_language(obj.name)
 
 
 @admin.register(Article, site=admin_site)
@@ -327,17 +429,19 @@ class ArticleAdmin(CashCtrlAdmin):
     has_tenant_field = True
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
-    readonly_fields = ('display_name',)
+    readonly_fields = ('display_name', 'display_sales_price')
 
-    list_display = ('nr', 'display_name', 'sales_price')
+    list_display = (
+        'nr', 'display_name', 'display_sales_price', 'display_last_update')
     search_fields = ('name', 'nr')
     list_filter = ('is_stock_article', 'category_id')
+    actions = [a.article_get]
 
     fieldsets = (
         (None, {
             'fields': (
                 'name', 'description', 'nr', 'category_id', 'currency_id',
-                'sales_price', 'last_purchase_price', 'is_stock_article',
+                'display_sales_price', 'last_purchase_price', 'is_stock_article',
                 'min_stock', 'max_stock', 'stock', 'bin_location', 'location_id'
             ),
             'classes': ('expand',),
@@ -351,7 +455,11 @@ class ArticleAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def display_name(self, obj):
-        return obj.local_name
+        return Display.multi_language(obj.name)
+
+    @admin.display(description=_('price in CHF'))
+    def display_sales_price(self, obj):
+        return Display.big_number(obj.sales_price)
 
 
 @admin.register(ChartOfAccountsTemplate, site=admin_site)

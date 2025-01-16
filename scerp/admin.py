@@ -17,7 +17,7 @@ from django.http import HttpResponseForbidden
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.formats import date_format
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import get_language, gettext_lazy as _
 
 from core.models import Message
 from core.safeguards import filter_query_for_tenant, save_logging
@@ -209,6 +209,19 @@ class Display:
             str: HTML string with a clickable link.
         """
         return format_html('<a href="{}" target="_blank">{}</a>', url, name)
+
+    def multi_language(value_dict):
+        if isinstance(value_dict, str):
+            return value_dict      
+        
+        # get languages
+        language = get_language().split('-')[0]        
+        values = value_dict.get('values')
+        if values and language in values:
+            return values[language]
+        elif values and settings.LANGUAGE_CODE_PRIMARY in values:
+            return values[language]
+        return str(value_dict)    
 
     def photo(url_field):
         """
@@ -466,12 +479,14 @@ class BaseAdmin(ModelAdmin):
         """
         Show warning for a model if specified
         """
-        if getattr(self, 'warning', ''):
-            messages.warning(request, mark_safe(self.warning))
-        if getattr(self, 'info', ''):
-            messages.info(request, mark_safe(self.info))
-        if getattr(self, 'error', ''):
-            messages.error(request, mark_safe(self.error))
+        if not request.session.get('_messages_shown', False):  
+            # Check if messages were already displayed
+            if getattr(self, 'warning', ''):
+                messages.warning(request, mark_safe(self.warning))
+            if getattr(self, 'info', ''):
+                messages.info(request, mark_safe(self.info))
+            if getattr(self, 'error', ''):
+                messages.error(request, mark_safe(self.error))
         return super().changelist_view(request, extra_context=extra_context)
 
     # security

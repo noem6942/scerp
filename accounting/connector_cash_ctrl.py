@@ -83,7 +83,7 @@ class Connector(ConnectorBase):
         # Parse
         c_ids = []
         for data in data_list:
-            # Load basics
+            # Load basics            
             self.prepare_data(data)
 
             # Convert data, remove keys not needed
@@ -101,7 +101,7 @@ class Connector(ConnectorBase):
             c_id = data.pop('c_id')
             c_ids.append(c_id)
 
-            # Update or create
+            # Update or create            
             _obj, created = self.model.objects.update_or_create(
                 tenant=self.api_setup.tenant, setup=setup, c_id=c_id,
                 defaults=data)
@@ -240,29 +240,54 @@ class PersonConn(Connector):
 
 
 # reading classes
-class CostCenterConn(Connector):
-    CLASS = api_cash_ctrl.AccountCostCenter
-    MODEL = models.CostCenter
-    
-
-class CurrencyConn(Connector):
-    CLASS = api_cash_ctrl.Currency
-    MODEL = models.Currency
+class LocationConn(Connector):
+    CLASS = api_cash_ctrl.Location
+    MODEL = models.Location    
 
 
 class FiscalPeriodConn(Connector):
     CLASS = api_cash_ctrl.FiscalPeriod
     MODEL = models.FiscalPeriod
+    
 
+class CurrencyConn(Connector):
+    CLASS = api_cash_ctrl.Currency
+    MODEL = models.Currency
+    
 
-class LocationConn(Connector):
-    CLASS = api_cash_ctrl.Location
-    MODEL = models.Location
-
+class UnitConn(Connector):
+    CLASS = api_cash_ctrl.Unit
+    MODEL = models.Unit
+    
 
 class TaxConn(Connector):
     CLASS = api_cash_ctrl.Tax
     MODEL = models.Tax
+    
+    
+class RoundingConn(Connector):
+    CLASS = api_cash_ctrl.Rounding
+    MODEL = models.Rounding
+    
+
+class SequenceNumberConn(Connector):
+    CLASS = api_cash_ctrl.SequenceNumber
+    MODEL = models.SequenceNumber
+    
+
+class OrderCategoryConn(Connector):
+    CLASS = api_cash_ctrl.OrderCategory
+    MODEL = models.OrderCategory
+    
+
+class OrderTemplateConn(Connector):
+    CLASS = api_cash_ctrl.OrderTemplate
+    MODEL = models.OrderTemplate
+    
+
+class CostCenterConn(Connector):
+    CLASS = api_cash_ctrl.AccountCostCenter
+    MODEL = models.CostCenter
 
 
 class ArticleConn(Connector):
@@ -310,19 +335,26 @@ class UnitConn(Connector):
                 response = self.ctrl.create(data)
                 if response.pop('success', False):
                     logger.info(f"created {response}")        
-    
+ 
+ 
 def get_all(api_setup):
+    # List of connection classes
     CLASSES = [
-        CostCenterConn,
+        ArticleConn,
+        # CostCenterConn,
         CurrencyConn,
         FiscalPeriodConn,
-        TaxConn,
-        SettingConn,
-        UnitConn,
         LocationConn,
-        ArticleConn
+        OrderCategoryConn,
+        OrderTemplateConn,
+        RoundingConn,
+        SequenceNumberConn,
+        SettingConn,
+        TaxConn,
+        UnitConn
     ]
     
+    # Loop through each class in the CLASSES list and call the appropriate method
     for cls in CLASSES:
         ctrl = cls(api_setup)
         ctrl.get()

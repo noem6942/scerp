@@ -7,9 +7,11 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import UniqueConstraint
 from django.utils import timezone
-from django.utils.translation import get_language, gettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from .api_cash_ctrl import URL_ROOT
+from scerp.admin import Display
+
 
 from core.models import (
     LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantLogo,
@@ -132,16 +134,6 @@ class Acct(models.Model):
         APISetup, verbose_name=_('Accounting Setup'),
         on_delete=models.CASCADE, related_name='%(class)s_setup',
         help_text=_('Account Setup used')) 
-        
-    def get_multi_language(self, value_dict):
-        # move to admin.py ?
-        language = get_language().split('-')[0]
-        values = value_dict.get('values')
-        if values and language in values:
-            return values[language]
-        elif values and settings.LANGUAGE_CODE_PRIMARY in values:
-            return values[language]
-        return str(value_dict)            
         
     class Meta:
         abstract = True
@@ -345,10 +337,6 @@ class Currency(AcctApp):
     rate = models.FloatField(_('Rate'), blank=True, null=True)
     is_default = models.BooleanField(default=False)
 
-    @property
-    def local_description(self):
-        return self.get_multi_language(self.description)
-
     def __str__(self):
         return self.code
 
@@ -371,13 +359,9 @@ class Unit(AcctApp):
         _('name'), null=True, 
         help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
     is_default = models.BooleanField(_("Is default"), default=False)
-
-    @property
-    def local_name(self):
-        return self.get_multi_language(self.name)
         
     def __str__(self):
-        return self.local_name
+        return Display.multi_language(self.name)
 
     class Meta:
         constraints = [
@@ -422,17 +406,9 @@ class Tax(AcctApp):
         max_digits=5, decimal_places=2,
         help_text=_(
             "The flat tax rate percentage (Saldo-/Pauschalsteuersatz)."))
-
-    @property
-    def local_name(self):
-        return self.get_multi_language(self.name)
-  
-    @property
-    def local_document_name(self):
-        return self.get_multi_language(self.document_name)
   
     def __str__(self):
-        return self.local_name
+        return Display.multi_language(self.name)
 
     class Meta:
         constraints = [
@@ -446,6 +422,148 @@ class Tax(AcctApp):
         verbose_name_plural = f"{_('Tax Rates')}"
 
 
+class Rounding(AcctApp):
+    '''Read - only        
+    '''    
+    name = models.JSONField(
+        _('name'),  help_text=_("The name of the rounding."), null=True)
+    account_id = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text="The ID of the account in cashCtrl which collects the roundings."
+    )
+    rounding = models.DecimalField(
+        _('rounding'), max_digits=5, decimal_places=2)    
+    mode = models.CharField(
+        _('mode'),
+        max_length=20, default='HALF_UP',
+        help_text=(
+            "The rounding mode. Defaults to HALF_UP. Possible values: "
+            "UP, DOWN, CEILING, FLOOR, HALF_UP, HALF_DOWN, HALF_EVEN, "
+            "UNNECESSARY."))
+  
+    def __str__(self):
+        return Display.multi_language(self.name)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__rounding'
+            )
+        ]        
+        ordering = ['name']
+        verbose_name = _("Rounding")
+        verbose_name_plural = f"{_('Roundings')}"
+
+
+class SequenceNumber(AcctApp):
+    '''Read - only        
+    '''    
+    name = models.JSONField(
+        _('name'),  help_text=_("The name of the sequence number."), null=True)
+    pattern = models.CharField(
+        _('pattern'),
+        max_length=50,
+        help_text=_(
+            """The sequence number pattern, which consists of variables and 
+            arbitrary text from which a sequence number will be generated. 
+            Possible variables: $y = Current year. $m = Current month. 
+            $d = Current day. $ny = Sequence number, resets annually 
+            (on Jan 1st). $nm = Sequence number, resets monthly. 
+            $nd = Sequence number, resets daily. $nn = Sequence number, 
+            never resets. Example pattern: RE-$y$m$d$nd which may 
+            generate 'RE-2007151' (on July 15, 2020)."""))
+  
+    def __str__(self):
+        return Display.multi_language(self.name)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__sequence_number'
+            )
+        ]        
+        ordering = ['name']
+        verbose_name = _("Sequence Number")
+        verbose_name_plural = f"{_('Sequence Numbers')}"
+
+
+class OrderCategory(AcctApp):
+    '''Read - only        
+    '''    
+    name_plural = models.JSONField(
+        _('name'),  
+        help_text=_("he plural name of the category (e.g. 'Invoices')."))
+    account_id = models.PositiveIntegerField(
+        _('Account Id'), blank=True, null=True,
+        help_text=_(
+            """The ID of the account, which is typically the debtors 
+            account for sales and the creditors account for purchase. """))
+    status = models.JSONField(
+        _('status'),  
+        help_text=_(
+            "The status list (like 'Draft', 'Open', 'Paid', etc.) for this "
+            "order category."))        
+    address_type = models.CharField(
+        _('address type'), max_length=20,
+        help_text=(
+            """Which address of the recipient to use in the order document. 
+            Defaults to MAIN. Possible values: MAIN, INVOICE, DELIVERY, 
+            OTHER."""))
+    due_days =  models.PositiveIntegerField(
+        _('Due Days'), null=True, blank=True,
+        help_text=_(
+            """The due days used by default for order objects in this category. 
+            The order date + due days equals the due date."""))
+            
+    @property
+    def local_name(self):        
+        return Display.multi_language(self.name_plural)
+  
+    def __str__(self):
+        return self.local_name
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__order_category'
+            )
+        ]        
+        ordering = ['name_plural']
+        verbose_name = _("Order Category")
+        verbose_name_plural = f"{_('Order Categories')}"
+
+
+class OrderTemplate(AcctApp):
+    '''Read - only        
+    '''    
+    name = models.TextField(
+        _('name'),
+        help_text=_("The name to describe and identify the template."))
+    is_default = models.BooleanField(
+        _('is default'), 
+        help_text=_(
+            "Mark the template as the default template to use. Defaults to "
+            "false.  "))
+              
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'c_id'],
+                name='unique_c_id_per_tenant_setup__order_template'
+            )
+        ]        
+        ordering = ['name']
+        verbose_name = _("Order Template")
+        verbose_name_plural = f"{_('Order Templates')}"
+
+
 class CostCenter(AcctApp):
     '''Read - only        
     '''    
@@ -454,10 +572,10 @@ class CostCenter(AcctApp):
 
     @property
     def local_name(self):
-        return self.get_multi_language(self.name)
+        return self.multi_language(self.name)
         
     def __str__(self):
-        return self.local_name
+        return Display.multi_language(self.name)
 
     class Meta:
         constraints = [
@@ -603,10 +721,9 @@ class Article(AcctApp):
         blank=True,
         help_text=_("The ID of the unit (like pcs., meters, liters)."),
     )
-
-    @property
-    def local_name(self):
-        return self.get_multi_language(self.name)
+    
+    def __str__(self):
+        return Display.multi_language(self.name)
 
     class Meta:
         ordering = ['nr']

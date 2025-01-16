@@ -135,24 +135,59 @@ def api_setup_delete_system_categories(modeladmin, request, queryset, data):
 
 
 # Load actual data ----------------------------------------------------------
+def api_get(modeladmin, request, queryset, cls):
+    __, __ = modeladmin, request  # disable pylint warning    
+    api_setup, module = get_api_setup(queryset)
+    ctrl = getattr(module, cls)(api_setup)  # e.g. module.LocationConn(api_setup) 
+    ctrl.get()
+    
+@admin.action(description=ACTION_LOAD)
+def location_get(modeladmin, request, queryset):
+    api_get(modeladmin, request, queryset, 'LocationConn')
+    
 @admin.action(description=ACTION_LOAD)
 def fiscal_period_get(modeladmin, request, queryset):
-    __ = modeladmin  # disable pylint warning
-    # Check
-    api_setup, module = get_api_setup(queryset)
-    ctrl = module.FiscalPeriodConn(api_setup)        
-    ctrl.get()
+    api_get(modeladmin, request, queryset, 'FiscalPeriodConn')
 
+@admin.action(description=ACTION_LOAD)
+def currency_get(modeladmin, request, queryset):
+    api_get(modeladmin, request, queryset, 'CurrencyConn')
+
+@admin.action(description=ACTION_LOAD)
+def unit_get(modeladmin, request, queryset):
+    api_get(modeladmin, request, queryset, 'UnitConn')
 
 @admin.action(description=ACTION_LOAD)
 def tax_get(modeladmin, request, queryset):
-    __ = modeladmin  # disable pylint warning
-    # Check
-    api_setup, module = get_api_setup(queryset)
-    ctrl = module.TaxConn(api_setup)        
-    ctrl.get()
+    api_get(modeladmin, request, queryset, 'TaxConn')
+
+@admin.action(description=ACTION_LOAD)
+def rounding_get(modeladmin, request, queryset):  # Corrected function name
+    api_get(modeladmin, request, queryset, 'RoundingConn')  # Corrected 'RoundingyConn' to 'RoundingConn'
+
+@admin.action(description=ACTION_LOAD)
+def sequence_number_get(modeladmin, request, queryset):  # Corrected function name
+    api_get(modeladmin, request, queryset, 'SequenceNumber')
+
+@admin.action(description=ACTION_LOAD)
+def order_category_get(modeladmin, request, queryset):  # Corrected function name
+    api_get(modeladmin, request, queryset, 'OrderCategory')
+
+@admin.action(description=ACTION_LOAD)
+def order_template_get(modeladmin, request, queryset):  # Corrected function name
+    api_get(modeladmin, request, queryset, 'OrderTemplate')
 
 
+@admin.action(description=ACTION_LOAD)
+def cost_center_get(modeladmin, request, queryset):
+    api_get(modeladmin, request, queryset, 'CostCenterConn')
+
+@admin.action(description=ACTION_LOAD)
+def article_get(modeladmin, request, queryset):
+    api_get(modeladmin, request, queryset, 'ArticleConn')
+
+
+# Mixins ----------------------------------------------------------
 @admin.action(description=_('12 Check accounting positions'))
 def check_accounts(modeladmin, request, queryset):
     __ = modeladmin  # disable pylint warning
