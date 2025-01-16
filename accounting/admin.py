@@ -360,7 +360,7 @@ class OrderCategoryAdmin(CashCtrlAdmin):
     has_tenant_field = True
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
-    readonly_fields = ('display_name',)
+    readonly_fields = ('display_name', 'display_status')
 
     list_display = ['display_name', 'due_days', 'display_last_update']
     search_fields = ['display_name', 'number']
@@ -370,7 +370,7 @@ class OrderCategoryAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'display_name', 'account_id', 'status', 'address_type',
+                'display_name', 'account_id', 'display_status', 'address_type',
                 'due_days'),
             'classes': ('expand',),
         }),
@@ -379,6 +379,13 @@ class OrderCategoryAdmin(CashCtrlAdmin):
     @admin.display(description=_('name'))
     def display_name(self, obj):
         return Display.multi_language(obj.name_plural)
+
+    @admin.display(description=_('Stati'))
+    def display_status(self, obj):       
+        stati = [
+            f"<li>{Display.multi_language(x['name'])}</li>"
+            for x in obj.status]
+        return format_html(''.join(stati))
 
 
 @admin.register(OrderTemplate, site=admin_site)

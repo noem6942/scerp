@@ -693,7 +693,18 @@ class OrderCategory(CashCtrl):
     '''see public api desc'''
     url = 'order/category/'
     actions = ['list']
-
+    
+    def list(self, params=None, **filter_kwargs):
+        # Get data
+        categories = super().list(params=None, **filter_kwargs)
+        
+        # Convert stati names 
+        for category in categories:
+            for status in category['status']:
+                status['name'] = xmltodict.parse(status['name'])
+                
+        return categories
+        
 class OrderDocument(CashCtrl):
     '''see public api desc'''
     url = 'order/document/'

@@ -167,15 +167,15 @@ def rounding_get(modeladmin, request, queryset):  # Corrected function name
 
 @admin.action(description=ACTION_LOAD)
 def sequence_number_get(modeladmin, request, queryset):  # Corrected function name
-    api_get(modeladmin, request, queryset, 'SequenceNumber')
+    api_get(modeladmin, request, queryset, 'SequenceNumberConn')
 
 @admin.action(description=ACTION_LOAD)
 def order_category_get(modeladmin, request, queryset):  # Corrected function name
-    api_get(modeladmin, request, queryset, 'OrderCategory')
+    api_get(modeladmin, request, queryset, 'OrderCategoryConn')
 
 @admin.action(description=ACTION_LOAD)
 def order_template_get(modeladmin, request, queryset):  # Corrected function name
-    api_get(modeladmin, request, queryset, 'OrderTemplate')
+    api_get(modeladmin, request, queryset, 'OrderTemplateConn')
 
 
 @admin.action(description=ACTION_LOAD)
