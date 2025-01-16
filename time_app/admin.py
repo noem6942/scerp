@@ -13,8 +13,11 @@ class ProjectAdmin(BaseAdmin):
     fieldsets = (
         (_('Name'), {
             'fields': (
-                'person', 'name', 'client_id', 'billable', 'color',
-                'tags'),
+                'person', 'name', 'client_id', 'billable', 'color', 'tags'),
             'classes': ('expand',),
         }),
+        (_('Accounting'), {
+            'fields': ('type', 'project', 'position', 'c_id'),
+            'classes': ('expand',),
+        })        
     )
