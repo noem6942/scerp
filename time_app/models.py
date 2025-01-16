@@ -5,6 +5,7 @@ from django.db import models
 
 from core.models import NotesAbstract, LogAbstract
 
+
 class Person(NotesAbstract, LogAbstract):  
     name = models.CharField(
         max_length=100, default="Michael")
@@ -42,7 +43,13 @@ class Project(NotesAbstract, LogAbstract):
         RED = "#F44336", "Red"
         TEAL = "#009688", "Teal"
         YELLOW = "#FFEB3B", "Yellow"
-        
+    
+    class TYPE(models.TextChoices):
+        PRESENCE = 'Ab-/Anwesenheit'
+        ENTRY = 'Freie Eingabe'
+        CLIENT = 'Kundenauftrag'
+    
+    # Time
     name = models.CharField(max_length=255)
     client_id = models.CharField(
         max_length=100, null=True, blank=True,
@@ -53,11 +60,29 @@ class Project(NotesAbstract, LogAbstract):
         choices=ClockifyColors.choices,
         default=ClockifyColors.BLUE
     )    
-    tags = models.JSONField(null=True, blank=True)
+    tags = models.JSONField(null=True, blank=True)    
     person = models.ForeignKey(
         Person, verbose_name=('person'),
         on_delete=models.CASCADE, related_name='person',
         help_text=('Project Setup')) 
+        
+    # project_id in clockify    
+    c_id = models.CharField(max_length=24, null=True, blank=True)
+        
+    # Accounting
+    type = models.CharField(
+        max_length=20,
+        choices=TYPE.choices,
+        default=TYPE.ENTRY
+    )    
+    project = models.CharField(
+        max_length=100, default='PR',  # 'Ab-/Anwesenheit'
+        help_text="e.g. 21902412"
+    )    
+    position = models.CharField(
+        max_length=100, null=True, blank=True,
+        help_text="e.g. 10-outsourcing"
+    )    
 
     def __str__(self):
         return self.name

@@ -75,3 +75,4 @@ class TimeEntrySerializer(serializers.Serializer):
     hourlyRate = HourlyRateSerializer()
     costRate = HourlyRateSerializer()
     isLocked = serializers.BooleanField()
+
