@@ -19,17 +19,17 @@ from . import actions as a
 class RegistrationPlanCantonAdmin(BaseAdmin):
     has_tenant_field = False
     list_display = (
-        'name', 'canton', 'category', 'plan_version', 
+        'name', 'canton', 'type', 'plan_version', 
         'display_exported_at')
-    search_fields = ('name', 'canton', 'category')
-    list_filter = ('category', 'canton', 'plan_version')    
-    readonly_fields = ('exported_at',)
+    search_fields = ('name', 'canton', 'type')
+    list_filter = ('type', 'canton', 'plan_version')    
+    readonly_fields = ('type',)
     actions = [a.canton_positions_check, a.canton_positions_create]
     
     fieldsets = (
         (None, {
-            'fields': ('name', 'canton', 'category', 'plan_version', 'date'),
-            'classes': ('expand',),            
+            'fields': ('name', 'canton', 'type', 'plan_version', 'date'),
+            'classes': ('expandf',),            
         }),
         (_('content'), {
             'fields': ('excel', 'exported_at', 'website_url'),

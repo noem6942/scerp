@@ -1,23 +1,11 @@
 # core/models.py
 from django.conf import settings
-from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.contrib.auth.models import Group, User
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from scerp.locales import CANTON_CHOICES
-
-
-class CITY_CATEGORY(models.TextChoices):
-    CITIZEN = ('B', _('Bürgergemeinde'))
-    INHABITANTS = ('E', _('Einwohnergemeinde'))
-    MUNICIPITY = ('G', _('Gemeinde'))
-    CHURCH = ('K', _('Kirchgemeinde'))
-    CITY = ('S', _('Stadt'))
-    CORPORATION = ('Z', _('Zweckverband'))
-    CANTON = ('C', _('Bürgergemeinde'))
-    FEDERATION = ('F', _('Bund'))
 
 
 class LogAbstract(models.Model):
@@ -31,7 +19,7 @@ class LogAbstract(models.Model):
     modified_at = models.DateTimeField(
         _('modified at'), auto_now=True)
     modified_by = models.ForeignKey(
-        User, verbose_name=_('modified by'),
+        User, verbose_name=_('modified by'), null=True, blank=True,
         on_delete=models.CASCADE, related_name='%(class)s_modified')
 
     class Meta:
@@ -79,6 +67,50 @@ class NotesAbstract(models.Model):
         abstract = True  # This makes it an abstract model
 
 
+class App(LogAbstract, NotesAbstract):
+    ''' all available Apps
+    '''
+    MANDATORY_APPS = ['core', 'crm']    
+    name = models.CharField(max_length=100, unique=True)
+    verbose_name = models.CharField(max_length=100, blank=True, null=True)
+    
+    @property
+    def is_mandatory(self):
+        return self.name in self.MANDATORY_APPS
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
+
+class Tenant(LogAbstract, NotesAbstract):
+    '''only admin and trustees are allowed to create Tenants
+        sends signals after creation!
+    '''
+    name = models.CharField(
+        _('name'), max_length=100, unique=True)
+    code = models.CharField(
+        _('code'), max_length=32, unique=True,
+        help_text=_(
+            'code of tenant / client, unique, max 32 characters, '
+            'only small letters, should only contains characters that '
+            'can be displayed in an url)'))
+    apps = models.ManyToManyField(
+        App, verbose_name=_('apps'), 
+        related_name='%(class)s_apps', 
+        help_text=_('apps subscribed'))
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = _('tenant')
+        verbose_name_plural = _('tenants')
+
+
 class Message(LogAbstract, NotesAbstract):
     '''only admin and trustees are allowed to create Tenants
         sends signals after creation!
@@ -96,7 +128,11 @@ class Message(LogAbstract, NotesAbstract):
         verbose_name=_("Severity"),
         help_text=_("Current status of the meeting.")
     )
-
+    recepients = models.ManyToManyField(
+        Tenant, verbose_name=_('recepients'), 
+        related_name='%(class)s_tenant', 
+        help_text=_('empty if all recepients'))
+        
     def __str__(self):
         return f"{self.name}, {self.modified_at}"
 
@@ -109,43 +145,6 @@ class Message(LogAbstract, NotesAbstract):
         ordering = ['is_inactive', '-modified_at']
         verbose_name = _('Message')
         verbose_name_plural = _('Messages')
-
-
-class Tenant(LogAbstract, NotesAbstract):
-    '''only admin and trustees are allowed to create Tenants
-        sends signals after creation!
-    '''
-    name = models.CharField(
-        _('name'), max_length=100, unique=True)
-    code = models.CharField(
-        _('code'), max_length=32, unique=True,
-        help_text=_(
-            'code of tenant / client, unique, max 32 characters, '
-            'only small letters, should only contains characters that '
-            'can be displayed in an url)'))
-    is_trustee = models.BooleanField(
-        _('is trustee'), default=False,
-        help_text=_('Check if this is the trustee account that can created new tenants'))
-    initial_user_email = models.EmailField(
-        _('Email of initial user'), max_length=254, unique=True,
-        help_text=_('Enter for creating initial user / admin'))
-    initial_user_first_name = models.CharField(
-        _('initial user first name'), max_length=30,
-        help_text=_('Gets entered by system'))        
-    initial_user_last_name = models.CharField(
-        _('initial username last name'), max_length=30,
-        help_text=_('Gets entered by system'))   
-    initial_user_password = models.CharField(
-        _('initial username password'), max_length=64, blank=True, null=True,
-        help_text=_('Filled out by system'))
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        ordering = ['name']
-        verbose_name = _('tenant')
-        verbose_name_plural = _('tenants')
 
 
 class UserProfile(LogAbstract, NotesAbstract):
@@ -161,8 +160,9 @@ class UserProfile(LogAbstract, NotesAbstract):
     def __str__(self):
         return f'{self.user.last_name.upper()}, {self.user.first_name}'
         
-    def get_group_names(self):
-        return [x.name for x in self.user.groups.all().order_by('name')]
+    @property    
+    def groups(self):
+        return self.user.groups.all().order_by('name')
 
     class Meta:
         ordering = ['user__last_name', 'user__first_name']
@@ -171,7 +171,7 @@ class UserProfile(LogAbstract, NotesAbstract):
 
 
 class TenantAbstract(LogAbstract, NotesAbstract):
-    ''' basic core model; for simplicity why make ALL models shown in the admin
+    ''' basic core model; for simplicity we make ALL models shown in the admin
         GUI Tenant Models
     '''
     tenant = models.ForeignKey(
@@ -183,24 +183,21 @@ class TenantAbstract(LogAbstract, NotesAbstract):
         abstract = True
 
 
-class App(LogAbstract, NotesAbstract):
-    ''' all available Apps
-    '''
-    name = models.CharField(max_length=100, unique=True)
-    is_mandatory = models.BooleanField(default=False)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        ordering = ['name']
-
-
 class TenantSetup(TenantAbstract):
     '''used for assign technical stuff
-        gets automatically created after a Tenant has been created,
-        see signals.py
+        gets automatically created after a Tenant has been created,        
     '''
+    class TYPE(models.TextChoices):
+        CITIZEN = ('B', _('Bürgergemeinde'))
+        INHABITANTS = ('E', _('Einwohnergemeinde'))
+        MUNICIPITY = ('G', _('Gemeinde'))
+        CHURCH = ('K', _('Kirchgemeinde'))
+        CITY = ('S', _('Stadt'))
+        CORPORATION = ('Z', _('Zweckverband'))
+        CANTON = ('C', _('Bürgergemeinde'))
+        FEDERATION = ('F', _('Bund'))
+        TRUSTEE = ('T', _('Trustee'))    
+        
     canton = models.CharField(
          _('canton'), max_length=2, choices=CANTON_CHOICES,
          null=True, blank=True)
@@ -208,22 +205,17 @@ class TenantSetup(TenantAbstract):
         _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
         help_text=_('The main language of the person. May be used for documents.')
     )
-    category = models.CharField(
-         _('category'), max_length=1, choices=CITY_CATEGORY.choices,
+    type = models.CharField(
+         _('Type'), max_length=1, choices=TYPE.choices,
         null=True, blank=True,
-        help_text=_('category, add new one of no match'))
-    apps = models.ManyToManyField(
-        App, verbose_name=_('apps'), related_name='apps',
-        help_text=_('all apps the tenant bought licences for'))
-    groups = models.ManyToManyField(
-        Group, verbose_name=_('groups'),
-        help_text=_('groups used in this organization'))
-    users = models.ManyToManyField(
-        UserProfile, verbose_name=_('users'),
-        help_text=_('users for this organization'))
+        help_text=_('Type, add new one of no match'))
     formats = models.JSONField(
         _('formats'), null=True, blank=True,
-        help_text=_('format definitions'))
+        help_text=_('Format definitions'))
+    users = models.ManyToManyField(
+        User, verbose_name=_('Users'), 
+        related_name='%(class)s_users', 
+        help_text=_('users subscribed'))        
 
     def __str__(self):
         return self.tenant.name
@@ -235,6 +227,14 @@ class TenantSetup(TenantAbstract):
         if logo:
             return logo.logo
         return None
+        
+    @property    
+    def groups(self):        
+        groups = set()
+        for user in self.users.all():
+            for group in user.groups.all():
+                groups.add(group)
+        return groups
 
     class Meta:
         ordering = ['tenant__name']
@@ -273,25 +273,3 @@ class TenantLogo(TenantAbstract):
         ]           
         verbose_name = _('tenant logo')
         verbose_name_plural =  _('tenant logos')
-
-
-class Year(TenantAbstract):
-    # Define the year range directly with Min and Max validators
-    year = models.PositiveSmallIntegerField(
-        _("Year"),
-        validators=[MinValueValidator(1900), MaxValueValidator(2099)],        
-        help_text=_("Year available for data inputs, usually equal fiscal year")
-    )
-
-    def __str__(self):
-        return str(self.year)
-    
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['year', 'tenant'],
-                name='unique_year'
-            )]    
-        ordering = ('year',)
-        verbose_name = _("Year")
-        verbose_name_plural = _("Years")

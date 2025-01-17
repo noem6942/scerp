@@ -5,6 +5,7 @@ from django.contrib.auth.models import User, Group
 from django.utils.translation import gettext_lazy as _
 
 from scerp.admin import admin_site, BaseAdmin, Display
+from . import actions as a
 from .models import Message, Tenant, TenantSetup, TenantLogo, UserProfile
 
 
@@ -28,82 +29,68 @@ class MessageAdmin(BaseAdmin):
 @admin.register(UserProfile, site=admin_site) 
 class UserProfileAdmin(BaseAdmin):
     list_display = ('user', 'display_photo', 'group_names')
-    search_fields = ('user__username',)    
+    search_fields = ('user__username',)   
+    readonly_fields = ('user', 'group_names')
     fieldsets = (
         (None, {
-            'fields': ('user', 'photo'),
+            'fields': ('user', 'photo', 'group_names'),
             'classes': ('expand',),            
         }),
     )  
 
-    @admin.display(description=_('Groups'))
+    @admin.display(description=_('Photo'))
     def display_photo(self, obj):
-        return Display.photo_h(obj.photo)
+        return Display.photo(obj.photo)
 
     @admin.display(description=_('Groups'))
     def group_names(self, obj):
-        return obj.get_group_names()
-
+        return Display.list([x.name for x in obj.groups])
+        
 
 @admin.register(Tenant, site=admin_site) 
 class TenantAdmin(BaseAdmin):
-    list_display = ('name', 'code', 'is_trustee')
+    list_display = ('name', 'code', 'created_at')
     search_fields = ('name', 'code')
-    list_filter = ('is_trustee',)    
-    read_only_fields = ('initial_user_password',)
     
     fieldsets = (
         (None, {
-            'fields': ('name', 'code', 'is_trustee', 'initial_user_email',
-                       'initial_user_first_name', 'initial_user_last_name'),
+            'fields': ('name', 'code'),
             'classes': ('expand',),            
         }),
     )        
-    
-    def save_model(self, request, obj, form, change):
-        """
-        Save the Tenant model and handle additional actions for new tenants.
-        """
-        created = obj._state.adding  # Check if this is a new object
-                
-        # Save the object (this triggers the post_save signal)
-        super().save_model(request, obj, form, change)
-        
-        # Post-save actions for new tenants
-        if created:
-            # Display messages in the admin interface
-            msg = _("TenantSetup instance initiated.")
-            messages.success(request, msg)
-            
-            # Check if password
-            queryset = Tenant.objects.filter(pk=obj.pk)
-            initial_password = queryset.first().initial_user_password
-            msg = _("Created user '{username}' with password '{password}'.")
-            messages.success(request, msg.format(
-                username=obj.initial_user_email,
-                password=initial_password))
-            
-            # Clear the password field without triggering another save
-            queryset.update(initial_user_password=None)
 
 
-@admin.register(TenantSetup, site=admin_site) 
-class TenantSetupAdmin(BaseAdmin):    
+@admin.register(TenantSetup, site=admin_site)
+class TenantSetupAdmin(BaseAdmin):
     has_tenant_field = True
-    list_display = ('tenant', 'display_apps')
+    list_display = (
+        'tenant', 'display_users', 'group_names', 'display_apps', 'created_at')
     search_fields = ('tenant',)
+    readonly_fields = ('display_users', )
+    actions = [a.tenant_setup_create_user]
+
+    # Define which fields are in the form
     fieldsets = (
         (None, {
-            'fields': (
-                'canton', 'category', 'formats', 
-                'apps', 'groups', 'users'),
+            'fields': ('canton', 'type', 'display_users'),  # Including the display method here is okay for readonly display
             'classes': ('expand',),            
         }),
-    )    
-    
-    @admin.display(description=_('apps'))
+    )
+
+    @admin.display(description=_('Apps'))
     def display_apps(self, obj):
-        return ', '.join([x.name for x in obj.apps.all()])
+        return Display.list(
+            sorted([x.verbose_name for x in obj.tenant.apps.all()]))
+
+    @admin.display(description=_('Users'))
+    def display_users(self, obj):
+        # Custom method to display users as a read-only field in the admin
+        users = [x.username for x in obj.users.all()]
+        return Display.list(users)
+
+    @admin.display(description=_('Groups'))
+    def group_names(self, obj):
+        return Display.list(sorted([x.name for x in obj.groups]))
 
 
 @admin.register(TenantLogo, site=admin_site) 

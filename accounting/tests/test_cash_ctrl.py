@@ -1,8 +1,11 @@
 # accounting/tests/test_person.py
+import logging
 from django.test import TestCase
 
 from .. import api_cash_ctrl as api
 from .credentials import ORG, KEY
+
+logger = logging.getLogger(__name__)
 
 
 class PersonTests(TestCase):
@@ -11,7 +14,7 @@ class PersonTests(TestCase):
     '''
     def setUp(self):
         """Set up any initial test data or configurations."""
-        self.ctrl = Person(ORG, KEY)
+        self.ctrl = api.Person(ORG, KEY)
 
     def test_create_person(self):
         """Test the creation of a person."""
@@ -77,10 +80,27 @@ class TaxTests(TestCase):
         }
 
         response = self.ctrl.create(data)
-        print("*response", response)
+        logger.info(f"Response: '{ response }'")        
         
         # Use assertions to validate the response
         self.assertIsNotNone(
             response, "Response should not be None")        
         self.assertEqual(
             response.get('success'), True, f"success: {response}")
+
+
+class PersonTitle(TestCase):
+    '''
+    python manage.py test accounting.tests.test_cash_ctrl.PersonTitle
+    '''
+    def setUp(self):
+        """Set up any initial test data or configurations."""
+        self.ctrl = api.PersonTitle(ORG, KEY)
+
+    def test_list_person_title(self):
+        """Test the creation of a person."""
+        titles = self.ctrl.list()
+        logger.info(f"Response: '{ titles }'")
+        # Use assertions to validate the response
+        self.assertIsNotNone(
+            titles, "Response should not be None")        

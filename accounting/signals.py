@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
+from crm.models import Title
 from .models import (
     APPLICATION, ACCOUNT_TYPE, APISetup, AccountPosition, 
     AccountPositionTemplate, Location, FiscalPeriod
@@ -75,3 +76,10 @@ def account_position_template(sender, instance, *args, **kwargs):
         instance.account_number,
         instance.is_category)
     instance.number = Decimal(number)
+
+
+# CRM
+@receiver(post_save, sender=Title)
+def api_setup_post_save(sender, instance, created, **kwargs):
+    print("*", instance)
+    

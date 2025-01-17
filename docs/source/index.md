@@ -15,3 +15,9 @@ intro.md
 usage.md
 accounting.md
 crm.md
+admin.md
+authentifizierung-und-autorisierung.md
+billing.md
+meeting.md
+vault.md
+login.md

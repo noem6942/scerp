@@ -103,7 +103,7 @@ else:
             'USER': env('DB_USER'),
             'PASSWORD': env('DB_PASSWORD'),
             'HOST': env('DB_HOST'),
-            'PORT': env('DB_PORT', default=5432),
+            'PORT': env('DB_PORT', default='3306')
         }
     }
 
@@ -135,7 +135,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
 LANGUAGE_CODE = 'de-ch'
-LANGUAGE_CODE_PRIMARY = 'de'  # used for accounting
+LANGUAGE_CODE_PRIMARY = 'de'  # used for multi language display
 
 TIME_ZONE = 'Europe/Zurich'
 
@@ -235,5 +235,8 @@ CKEDITOR_CONFIGS = {
 
 # mine
 ADMIN_ROOT = 'scerp'
+APPLICATION_NAME = 'SC-ERP'
 ADMIN_ACCESS_ALL = True  # Admin can access all clients
 LOGO = '/static/img/default-logo.png'
+TENANT_CODE = env('TENANT_CODE')
+PASSWORD_LENGTH = 16

@@ -4,22 +4,49 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils.translation import gettext_lazy as _
 
-from scerp.locales import COUNTRY_CHOICES
-from core.models import TenantAbstract
 
-from django.db import models
-from django.core.validators import ValidationError
+from core.models import LogAbstract, TenantAbstract
+from scerp.admin import Display
 
 
 '''
 We lean the title and person model to cashctrl so we easily store it there.
 '''
+class Country(LogAbstract):
+    """Model to represent a person's category.
+    not used: parentId
+    """
+    code = models.CharField(
+        _('Country'),
+        max_length=3, help_text=_("3-letter country code")
+    )
+    name = models.JSONField(
+        _('Name'), 
+        help_text=_("The name of the country")
+    )    
+    is_default = models.BooleanField(
+        _('Is default'), default=False, 
+        help_text=_("Default for data entry"))
+
+    def get_default_id():
+        default = Country.objects.filter(is_default=True).first()
+        return default.id if default else None
+
+    def __str__(self):
+        return f'{self.code}, {Display.multi_language(self.name)}'
+
+    class Meta:
+        ordering = ['-is_default', 'code']
+        verbose_name = _('Country')
+        verbose_name_plural = _('Countries')
+
+
 class PersonCategory(TenantAbstract):
     """Model to represent a person's category.
     not used: parentId
     """
     name = models.JSONField(
-        _('name'), 
+        _('Name'), 
         help_text=_("The name of the category.")
     )
     discount_percentage = models.FloatField(
@@ -57,7 +84,7 @@ class Title(TenantAbstract):
         # Others        
 
     name = models.JSONField(
-        _('name'), 
+        _('Name'), 
         blank=True,  null=True,  # null necessary to handle multi languages
         help_text=_("The name of the title (i.e. the actual title).")
     )
@@ -107,7 +134,13 @@ class Address(TenantAbstract):
         max_length=100, blank=True, null=True, 
         help_text=_("City of the address")
     )
-    country = models.CharField(
+    country = models.ForeignKey(
+        Country, on_delete=models.PROTECT, related_name="country",
+        verbose_name=_('Country'), default=Country.get_default_id,
+        help_text=_("Country")
+    ) 
+    
+    models.CharField(
         max_length=3, blank=True, null=True, default='CHE',
         help_text=_("3-letter country code")
     )

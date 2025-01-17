@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
 
 
-from core.models import LogAbstract, NotesAbstract, Tenant, CITY_CATEGORY
+from core.models import LogAbstract, NotesAbstract, Tenant, TenantSetup
 from scerp.locales import CANTON_CHOICES
 
 '''
@@ -166,10 +166,10 @@ class RegistrationPlanCanton(RegistrationPlanAbstract):
     canton = models.CharField(
         _('Canton'), max_length=2, choices=CANTON_CHOICES,
         help_text=_('Select the associated canton for this registration plan.'))
-    category = models.CharField(
-        _('Category'), max_length=1, choices=CITY_CATEGORY.choices,
+    type = models.CharField(
+        _('Type'), max_length=1, choices=TenantSetup.TYPE.choices,
         null=True, blank=True,
-        help_text=_('Choose the category from the available city options.'))
+        help_text=_('Choose the category from the available type options.'))
 
     class Meta:
         ordering = ['canton', 'name']

@@ -1,5 +1,5 @@
-<!-- source/admin.md -->
-# admin
+<!-- source/{name}.md -->
+# {name}
 
 ## Vorstellung
 ** App-Name und Ziel **

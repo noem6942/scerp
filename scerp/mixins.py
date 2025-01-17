@@ -1,11 +1,14 @@
 """
 scerp/mixins.py
 """
+import secrets
+import string
+from openpyxl import load_workbook
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.utils.text import slugify
-
-from openpyxl import load_workbook
 
 
 # helpers, use this for all models in all apps
@@ -56,7 +59,33 @@ def is_url_friendly(name):
     return slugified_name == name.lower() and bool(slugified_name)
 
 
+def generate_random_password(length=settings.PASSWORD_LENGTH):
+    """Generate a secure random password."""
+    alphabet = string.ascii_letters + string.digits + string.punctuation
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
 def make_timeaware(naive_datetime):
     '''used to save datetimes from external data
     '''
     return timezone.make_aware(naive_datetime, current_timezone)
+
+
+def multi_language(value_dict):
+    '''show language default instead of all values
+    '''
+    if isinstance(value_dict, str):
+        return value_dict      
+    
+    # get languages
+    try:
+        language = get_language().split('-')[0]        
+    except:
+        language = settings.LANGUAGE_CODE_PRIMARY
+        
+    values = value_dict.get('values')
+    if values and language in values:
+        return values[language]
+    elif values and settings.LANGUAGE_CODE_PRIMARY in values:
+        return values[language]
+    return str(value_dict)    

@@ -102,12 +102,13 @@ class Connector(ConnectorBase):
             c_ids.append(c_id)
 
             # Update or create            
-            _obj, created = self.model.objects.update_or_create(
+            instance, created = self.model.objects.update_or_create(
                 tenant=self.api_setup.tenant, setup=setup, c_id=c_id,
                 defaults=data)
             if created:
                 created += 1
             else:
+                self.add_modified(instance)
                 updated += 1
 
         # Update deleted
@@ -308,13 +309,14 @@ class SettingConn(Connector):
 
         # Update or create   
         updated, created = 0, 0
-        _obj, created = self.model.objects.update_or_create(
+        instance, created = self.model.objects.update_or_create(
             tenant=self.api_setup.tenant,
             setup=data.pop('setup'),
             defaults=data)
         if created:
             created += 1
         else:
+            self.add_modified(instance)
             updated += 1
 
         # Message

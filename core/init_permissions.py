@@ -1,10 +1,10 @@
-# core/init_user_groups.py
-
-ADMIN_GROUP_NAME = 'Admin'
+'''core/init_permissions.py
+'''
+USER_GROUP_TRUSTEE = 'Extern Treuhand'
+USER_GROUP_TEST = 'zzz_test~'
 
 USER_GROUPS = [
-    # Intern
-    {'name': ADMIN_GROUP_NAME, 'permissions': []},  # must be first
+    # Intern    
     {'name': 'Intern Leitung', 'permissions': []},
     {'name': 'Intern Kanzlei', 'permissions': []},
     {'name': 'Intern Einwohnerdienste', 'permissions': []},
@@ -50,27 +50,33 @@ USER_GROUPS = [
     {'name': 'Externer Experte', 'permissions': []},
     {'name': 'Externer Expertin', 'permissions': []},
     {'name': 'Extern IT', 'permissions': []},
-    {'name': 'Extern Revision', 'permissions': []},
-    {'name': 'Extern Treuhand', 'permissions': []},
+    {'name': 'Extern Revision', 'permissions': []},    
 
-    # Testing
-    {'name': 'local_user', 'permissions': []},
+    # Special
+    {'name': USER_GROUP_TRUSTEE, 'permissions': []},
+    {'name': USER_GROUP_TEST, 'permissions': []},
 ]
 
-'''
-    {'name': 'local_admin', 'permissions': [
-    'core.add_person',
-    'core.change_person',
-    'core.delete_person',
-    'core.view_person',
 
-    'core.add_userprofile',
-    'core.change_userprofile',
-    'core.delete_userprofile',
-    'core.view_userprofile',
-
-    'auth.add_user',
-    'auth.change_user',
-    'auth.delete_user',
-    'auth.view_user',]},
-'''
+class PERMISSIONS:
+    TRUSTEE = {
+        'exceptions': [
+            ('Model', 'apisetup'),
+            ('Model', 'app'),
+            ('Model', 'mappingid'),
+            ('Permission', 'add_group'),
+            ('Permission', 'change_group'),
+            ('Permission', 'delete_group'),
+            ('Permission', 'add_permission'),
+            ('Permission', 'change_permission'),
+            ('Permission', 'delete_permission'),
+            ('Permission', 'delete_user'),
+            ('Permission', 'change_logentry'),
+            ('Permission', 'delete_logentry'),
+            ('Permission', 'delete_message'),
+            ('Permission', 'add_tenant'),
+            ('Permission', 'change_tenant'),
+            ('Permission', 'delete_tenant'),
+            ('Permission', 'delete_tenantsetup'),
+        ]
+    }

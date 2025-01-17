@@ -10,12 +10,12 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .api_cash_ctrl import URL_ROOT
-from scerp.admin import Display
+from scerp.mixins import multi_language
 
 
 from core.models import (
-    LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantLogo,
-    CITY_CATEGORY)
+    LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantSetup,
+    TenantLogo)    
 from crm.models import (
     PersonCategory as CrmPersonCategory,
     Title as CrmTitle,
@@ -361,7 +361,7 @@ class Unit(AcctApp):
     is_default = models.BooleanField(_("Is default"), default=False)
         
     def __str__(self):
-        return Display.multi_language(self.name)
+        return multi_language(self.name)
 
     class Meta:
         constraints = [
@@ -408,7 +408,7 @@ class Tax(AcctApp):
             "The flat tax rate percentage (Saldo-/Pauschalsteuersatz)."))
   
     def __str__(self):
-        return Display.multi_language(self.name)
+        return multi_language(self.name)
 
     class Meta:
         constraints = [
@@ -443,7 +443,7 @@ class Rounding(AcctApp):
             "UNNECESSARY."))
   
     def __str__(self):
-        return Display.multi_language(self.name)
+        return multi_language(self.name)
 
     class Meta:
         constraints = [
@@ -476,7 +476,7 @@ class SequenceNumber(AcctApp):
             generate 'RE-2007151' (on July 15, 2020)."""))
   
     def __str__(self):
-        return Display.multi_language(self.name)
+        return multi_language(self.name)
 
     class Meta:
         constraints = [
@@ -520,7 +520,7 @@ class OrderCategory(AcctApp):
             
     @property
     def local_name(self):        
-        return Display.multi_language(self.name_plural)
+        return multi_language(self.name_plural)
   
     def __str__(self):
         return self.local_name
@@ -575,7 +575,7 @@ class CostCenter(AcctApp):
         return self.multi_language(self.name)
         
     def __str__(self):
-        return Display.multi_language(self.name)
+        return multi_language(self.name)
 
     class Meta:
         constraints = [
@@ -723,7 +723,7 @@ class Article(AcctApp):
     )
     
     def __str__(self):
-        return Display.multi_language(self.name)
+        return multi_language(self.name)
 
     class Meta:
         ordering = ['nr']
@@ -756,10 +756,10 @@ class ChartOfAccountsTemplate(LogAbstract, NotesAbstract):
     canton = models.CharField(
         _('Canton'), max_length=2, choices=CANTON_CHOICES,
         help_text=_('Select the associated canton for this chart of accounts.'))
-    category = models.CharField(
-        _('Category'), max_length=1, choices=CITY_CATEGORY.choices,
+    type = models.CharField(
+        _('Type'), max_length=1, choices=TenantSetup.TYPE.choices,
         null=True, blank=True,
-        help_text=_('Choose the category from the available city options.'))
+        help_text=_('Choose the type from the available city options.'))
     chart_version = models.CharField(
         _('Chart Version'), max_length=100,
         help_text=_('Specify the version of the chart of accounts.'))
@@ -778,7 +778,7 @@ class ChartOfAccountsTemplate(LogAbstract, NotesAbstract):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['name', 'canton', 'category', 'chart_version'],
+                fields=['name', 'canton', 'type', 'chart_version'],
                 name='unique_chart_template'
             )
         ]        

@@ -5,9 +5,10 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from core.safeguards import get_tenant
-
-from scerp.admin import admin_site, BaseAdmin, Display
-
+from scerp.admin import (
+     admin_site, BaseAdmin, Display, verbose_name_field,
+     set_inactive, set_protected)
+from . import actions as a
 from .models import (
     APISetup, Setting, MappingId, Location, FiscalPeriod, Currency, Unit, Tax,
     Rounding, SequenceNumber, OrderCategory, OrderTemplate,
@@ -15,10 +16,6 @@ from .models import (
     AccountPositionTemplate, ChartOfAccounts, AccountPosition,
     ACCOUNT_TYPE, CATEGORY_HRM
 )
-
-from scerp.admin import (
-    format_name, verbose_name_field, set_inactive, set_protected)
-from . import actions as a
 
 
 class CASH_CTRL:
@@ -39,7 +36,6 @@ class CASH_CTRL:
     WARNING_READ_ONLY = _("Read only model. <i>Use cashControl for edits!</i>")
 
 
-
 class MappingIdInline(admin.TabularInline):
     model = MappingId
     extra = 0  # Number of empty forms to display for new inlines
@@ -50,7 +46,7 @@ class MappingIdInline(admin.TabularInline):
     def has_add_permission(self, request, obj=None):
         # Disable add permission for this inline
         return False
-        
+
 @admin.register(APISetup, site=admin_site)
 class APISetupAdmin(BaseAdmin):
     has_tenant_field = True
@@ -58,8 +54,8 @@ class APISetupAdmin(BaseAdmin):
     search_fields = ('tenant', 'org_name')
     readonly_fields = ('display_data',)
     actions = [
-        a.api_setup_get, 
-        a.init_setup, 
+        a.api_setup_get,
+        a.init_setup,
         a.api_setup_delete_hrm_accounts,
         a.api_setup_delete_system_accounts,
         a.api_setup_delete_hrm_categories,
@@ -77,7 +73,7 @@ class APISetupAdmin(BaseAdmin):
             'classes': ('expand',),
         }),
     )
-    
+
     inlines = [MappingIdInline]
 
     @admin.display(description=_('settings'))
@@ -87,7 +83,7 @@ class APISetupAdmin(BaseAdmin):
 
 class CashCtrlAdmin(BaseAdmin):
     has_tenant_field = True
-    
+
     def get_cash_ctrl_fields(self):
         fields = CASH_CTRL.FIELDS
         if getattr(self, 'has_revenue_id', False):
@@ -253,7 +249,7 @@ class UnitAdmin(CashCtrlAdmin):
     list_display = ('display_name', 'is_default', 'display_last_update')
     search_fields = ('name',)
     list_filter = ('setup',)
-    
+
     actions = [a.unit_get]
 
     fieldsets = (
@@ -276,7 +272,7 @@ class TaxAdmin(CashCtrlAdmin):
     readonly_fields = ('local_name', 'local_document_name')
 
     list_display = (
-        'local_name', 'local_document_name', 'display_percentage', 
+        'local_name', 'local_document_name', 'display_percentage',
         'display_last_update')
     search_fields = ('name',)
     list_filter = ('setup',)
@@ -381,11 +377,9 @@ class OrderCategoryAdmin(CashCtrlAdmin):
         return Display.multi_language(obj.name_plural)
 
     @admin.display(description=_('Stati'))
-    def display_status(self, obj):       
-        stati = [
-            f"<li>{Display.multi_language(x['name'])}</li>"
-            for x in obj.status]
-        return format_html(''.join(stati))
+    def display_status(self, obj):
+        stati = [Display.multi_language(x['name']) for x in obj.status]
+        return Display.list(stati)
 
 
 @admin.register(OrderTemplate, site=admin_site)
@@ -454,7 +448,7 @@ class ArticleAdmin(CashCtrlAdmin):
             'classes': ('expand',),
         }),
         (_('Advanced'), {
-            'fields': ('is_purchase_price_gross', 'is_sales_price_gross', 
+            'fields': ('is_purchase_price_gross', 'is_sales_price_gross',
                 'sequence_number_id', 'custom'),
             'classes': ('collapse',),
         }),
@@ -473,14 +467,14 @@ class ArticleAdmin(CashCtrlAdmin):
 class ChartOfAccountsTemplateAdmin(BaseAdmin):
     has_tenant_field = False
     list_display = ('name', 'chart_version', 'link_to_positions')
-    search_fields = ('name', 'account_type', 'canton', 'category')
-    list_filter = ('account_type', 'category', 'canton', 'chart_version')
+    search_fields = ('name', 'account_type', 'canton', 'type')
+    list_filter = ('account_type', 'type', 'canton', 'chart_version')
     readonly_fields = ('exported_at',)
     actions = [a.coac_positions_check, a.coac_positions_create]
 
     fieldsets = (
         (None, {
-            'fields': ('name', 'account_type', 'canton', 'category', 'chart_version',
+            'fields': ('name', 'account_type', 'canton', 'type', 'chart_version',
                        'date'),
             'classes': ('expand',),
         }),
@@ -509,9 +503,9 @@ class AccountPositionTemplateAdmin(BaseAdmin):
         'chart__account_type',
         'chart__canton', 'chart__chart_version', 'chart')
     list_display_links = ('display_name',)
-    search_fields = ('account_number', 'name', 'notes', 'number')    
+    search_fields = ('account_number', 'name', 'notes', 'number')
     readonly_fields = ('chart', 'number')
-    
+
     actions = [a.apc_export_balance, a.apc_export_function_to_income,
                a.apc_export_function_to_invest, a.position_insert]
 
@@ -609,7 +603,7 @@ class AccountPositionAdmin(CashCtrlAdmin):
         a.apm_add_income, a.apm_add_invest,
         a.check_accounts, a.account_names_convert_upper_case,
         a.upload_accounts, a.download_balances, a.get_balances,
-        a.upload_balances, 
+        a.upload_balances,
         a.assign_responsible,
         set_inactive, set_protected, a.position_insert
     ]

@@ -64,17 +64,15 @@ class ConnectorBase(object):
         
     def add_logging(self, data):
         data['setup'] = self.api_setup
-
         if not data.get('tenant'):
             data['tenant'] = self.api_setup.tenant
-
         if not data.get('created_by'):
-            data['created_by'] = self.admin
-
-        if not data.get('modified_by'):
-            data['modified_by'] = self.admin
-            
+            data['created_by'] = self.admin            
         return data
+      
+    def add_modified(self, instance):        
+        instance.modified_by = self.admin        
+        instance.save()
 
     def get_mapping_id(self, mapping_type, key):
         mapping = MappingId.objects.filter(
@@ -95,7 +93,6 @@ class ConnectorBase(object):
 
         # store
         obj, created = MappingId.objects.update_or_create(
-            tenant=self.api_setup.tenant,
             setup=self.api_setup,
             name=key,
             type=mapping_type,

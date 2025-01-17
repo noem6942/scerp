@@ -1,13 +1,11 @@
 # core/management/commands/process_core.py
 '''usage:
-    python manage.py process_core update-or-create-apps
-    python manage.py process_core update-or-create-groups
-    python manage.py process_core create-markdown
+    python manage.py process_core core__init_first
 '''
 from django.core.management.base import BaseCommand
 from django.core.management import CommandError
 
-from core.process import AppSetup, UserGroupSetup, DocumentationSetup
+from core.process import Core
 
 
 class Command(BaseCommand):
@@ -15,15 +13,19 @@ class Command(BaseCommand):
 
     # Define an array of possible values for the action
     ACTION_CHOICES = {
-        'update-or-create-apps': 'Update or create apps',
-        'update-or-create-groups': 'Update or create user groups',
-        'create-markdown': 'Create markdown file',
+        'test': None,
+        'core__init_first': 'Core (first usage): add admin, setup tenant',
+        'core__update_apps': 'Update Apps',
+        'core__update_countries': 'Update country names',
+        'core__update_documentation': 'Update apps for documentation',
+        'core__update_groups': 'Update or create user groups',
+        'update_group_trustee': 'Update or create trustee group',
     }
 
     def add_arguments(self, parser):
         # Add options for different actions
         parser.add_argument(
-            'action', type=str, 
+            'action', type=str,
             choices=self.ACTION_CHOICES.keys(),
             help=f'Specify the action: {self.ACTION_CHOICES}'
         )
@@ -34,36 +36,26 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         action = options['action']
 
-        # Handling the action of creating/updating apps
-        if action == 'update-or-create-apps':
-            a = AppSetup()
-            a.update_or_create()
-            self.stdout.write(self.style.SUCCESS('Apps setup complete.'))
-        
-        elif action == 'update-or-create-groups':
-            confirmation = input(
-                f'Are you sure you want to delete existing permissions and '
-                f'set new user_groups? (y/N)'
-            )
-            if confirmation.lower() != 'y':
-                self.stdout.write(self.style.WARNING('Operation canceled.'))
-                return
-            
-            g = UserGroupSetup()
-            if g.update_or_create():
-                self.stdout.write(self.style.SUCCESS(
-                    'User group setup complete.'))
-            else:
-                self.stdout.write(self.style.ERROR(
-                    'Invalid action specified. Use "create".'))
+        # Core
+        if action == 'test':
+            return
 
-        # Handling the action of creating a markdown file
-        elif action == 'create-markdown':            
+        if action == 'core__init_first':
+            c = Core()
+            c.init_first()
+        elif action == 'core__update_apps':
+            c = Core()
+            c.update_apps()
+        elif action == 'core__update_countries':
+            c = Core()
+            c.update_countries()
+        elif action == 'core__update_documentation':
             name = options.get('name')
-            d = DocumentationSetup(name)            
-            d.create_markdown()
-            self.stdout.write(self.style.SUCCESS(
-                f'Markdown file for {name} created successfully.'))
-
-        else:
-            raise CommandError('Invalid action. Use "update-or-create-groups" or "create-markdown".')
+            c = Core()
+            c.update_documentation(name)
+        elif action == 'core__update_groups':
+            c = Core()
+            c.update_groups(name)
+        elif action == 'update_group_trustee':
+            c = Core()
+            c.update_group_trustee(name)

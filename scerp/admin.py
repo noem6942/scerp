@@ -125,6 +125,13 @@ def get_help_text(model, field_name):
     return model._meta.get_field(field_name).help_text
 
 
+def make_multilanguage(field_name):
+    return [
+        f'{field_name}_{lang_code}' 
+        for lang_code, _lang in settings.LANGUAGES
+    ]
+
+
 def verbose_name_field(model, field_name):
     """
     Get verbose_name from model
@@ -210,18 +217,9 @@ class Display:
         """
         return format_html('<a href="{}" target="_blank">{}</a>', url, name)
 
-    def multi_language(value_dict):
-        if isinstance(value_dict, str):
-            return value_dict      
-        
-        # get languages
-        language = get_language().split('-')[0]        
-        values = value_dict.get('values')
-        if values and language in values:
-            return values[language]
-        elif values and settings.LANGUAGE_CODE_PRIMARY in values:
-            return values[language]
-        return str(value_dict)    
+    def list(items):
+        output_list = [f"<li>{item}</li>" for item in items]
+        return format_html(''.join(output_list))        
 
     def photo(url_field):
         """
@@ -249,13 +247,6 @@ class Display:
             if level < 3:
                 return format_hierarchy(obj.level, name)
         return name
-
-
-def make_multilanguage(field_name):
-    return [
-        f'{field_name}_{lang_code}' 
-        for lang_code, _lang in settings.LANGUAGES
-    ]
 
 
 # Widgets

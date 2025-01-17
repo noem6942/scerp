@@ -23,24 +23,24 @@ def filter_query_for_tenant(request, query, recheck_from_db=False):
         tenant = set_tenant(request)
     else:
         tenant = get_tenant(request)
-        
+
     # filter query
     if tenant['id']:
-        return query.filter(tenant__id=tenant['id']) 
+        return query.filter(tenant__id=tenant['id'])
     else:
         return query.none()
-    
+
 
 def set_tenant(request, tenant_setup_id=None):
     '''set tenant data on request.session
         use tenant_setup_id if user has access to more than one tenant
     '''
-    # Get available tenants    
+    # Get available tenants
     queries = get_available_tenants(request)
     if tenant_setup_id:
         queries = queries.filter(id=tenant_setup_id)
-        
-    # Check for failure    
+
+    # Check for failure
     if not queries:
         raise ValidationError(_('No appropriate tenant assigned'))
     elif queries.count() > 1:
@@ -48,9 +48,9 @@ def set_tenant(request, tenant_setup_id=None):
     else:
         # Set first
         tenant_setup = queries.first()
-        
+
         # Save
-        request.session['tenant'] = {        
+        request.session['tenant'] = {
             'id': tenant_setup.tenant.id,
             'setup_id': tenant_setup.id,
             'name': tenant_setup.tenant.name,
@@ -58,7 +58,7 @@ def set_tenant(request, tenant_setup_id=None):
             'logo': (
                 tenant_setup.logo.url if tenant_setup.logo else settings.LOGO)
         }
-        
+
         # promote
         request.session.modified = True  # Ensure the session is saved immediately
         return request.session['tenant']
@@ -78,13 +78,13 @@ def get_available_tenants(request):
 
     try:
         return TenantSetup.objects.filter(users__user=request.user).order_by(
-            'tenant__name')            
+            'tenant__name')
     except ObjectDoesNotExist:
         return False  # Or handle this case accordingly
 
 
 def get_tenant(request):
-    '''get tenant data from request.session        
+    '''get tenant data from request.session
     '''
     tenant = request.session.get('tenant')
     if tenant:
@@ -92,18 +92,21 @@ def get_tenant(request):
     else:
         # try to get one, raises errors
         return set_tenant(request)
-    
+
 
 def save_logging(request, obj, add_tenant=False, recheck_from_db=False):
     # set created_by, modified_by
-    if not obj.pk:  # New object, set the creator
+    if obj.pk:
+        # Set the user who modified it
+        obj.modified_by = request.user
+    else:
+        # New object, set the creator
         obj.created_by = request.user
-    obj.modified_by = request.user  # Set the user who modified it
-    
+
     if add_tenant and not getattr(obj, 'tenant', None):
         if recheck_from_db:
             set_tenant(request)
-    
+
         tenant_data = get_tenant(request)
         obj.tenant = Tenant.objects.filter(id=tenant_data['id']).first()
         if not obj.tenant:
