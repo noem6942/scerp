@@ -5,8 +5,7 @@
 from django.core.management.base import BaseCommand
 from django.core.management import CommandError
 
-from core.process import Core
-
+from core.process import AppAdmin, GroupAdmin, Core
 
 class Command(BaseCommand):
     help = 'Create or update user groups, or create a markdown file with specific details'
@@ -44,18 +43,18 @@ class Command(BaseCommand):
             c = Core()
             c.init_first()
         elif action == 'core__update_apps':
-            c = Core()
+            c = AppAdmin()
             c.update_apps()
         elif action == 'core__update_countries':
-            c = Core()
+            c = AppAdmin()
             c.update_countries()
         elif action == 'core__update_documentation':
             name = options.get('name')
-            c = Core()
+            c = AppAdmin()
             c.update_documentation(name)
         elif action == 'core__update_groups':
-            c = Core()
-            c.update_groups(name)
+            c = AdminGroup()
+            c.update_groups()
         elif action == 'update_group_trustee':
             c = Core()
-            c.update_group_trustee(name)
+            c.update_group_trustee()
