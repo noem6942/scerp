@@ -128,6 +128,7 @@ class CashCtrlAdmin(BaseAdmin):
 
 @admin.register(Setting, site=admin_site)
 class Setting(BaseAdmin):
+    related_tenant_fields = ['setup']
     has_tenant_field = True
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
@@ -161,6 +162,7 @@ class LocationResource(resources.ModelResource):
 
 @admin.register(Location, site=admin_site)
 class Location(ImportExportModelAdmin, CashCtrlAdmin):
+    related_tenant_fields = ['logo']
     resource_class = LocationResource
     has_tenant_field = True
     is_readonly = False
@@ -507,6 +509,7 @@ class ChartOfAccountsTemplateAdmin(BaseAdmin):
 
 @admin.register(AccountPositionTemplate, site=admin_site)
 class AccountPositionTemplateAdmin(BaseAdmin):
+    related_tenant_fields = ['parent']
     has_tenant_field = False
     list_display = ('category_number', 'position_number', 'display_name', )
     list_filter = (
@@ -582,6 +585,8 @@ class ChartOfAccountsAdmin(BaseAdmin):
 
 @admin.register(AccountPosition, site=admin_site)
 class AccountPositionAdmin(CashCtrlAdmin):
+    related_tenant_fields = [
+        'parent', 'chart', 'allocations', 'currency' ]
     has_tenant_field = True
     has_revenue_id = True
     is_readonly = False
