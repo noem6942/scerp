@@ -3,7 +3,7 @@ import logging
 from django.test import TestCase
 
 from .. import api_cash_ctrl as api
-from .credentials import ORG, KEY
+from .credentials import ORG, KEY, ORG_B, KEY_B
 
 logger = logging.getLogger(__name__)
 
@@ -104,3 +104,22 @@ class PersonTitle(TestCase):
         # Use assertions to validate the response
         self.assertIsNotNone(
             titles, "Response should not be None")        
+
+
+
+class FiscalPeriod(TestCase):
+    '''
+    python manage.py test accounting.tests.test_cash_ctrl.FiscalPeriod
+    '''
+    def setUp(self):
+        """Set up any initial test data or configurations."""
+        self.ctrl = api.FiscalPeriod(ORG_B, KEY_B)
+
+    def test_list_person_title(self):
+        """Test the creation of a person."""
+        items = self.ctrl.list()
+        logger.info(f"Response: '{ items }'")
+        # Use assertions to validate the response
+        self.assertIsNotNone(
+            items, "Response should not be None")        
+

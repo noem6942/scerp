@@ -4,7 +4,8 @@ from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import User, Group
 from django.utils.translation import gettext_lazy as _
 
-from scerp.admin import admin_site, BaseAdmin, Display
+from scerp.admin import BaseAdmin, Display
+from scerp.admin_site import admin_site
 from . import actions as a
 from .models import Message, Tenant, TenantSetup, TenantLogo, UserProfile
 
@@ -54,7 +55,7 @@ class TenantAdmin(BaseAdmin):
     
     fieldsets = (
         (None, {
-            'fields': ('name', 'code'),
+            'fields': ('name', 'code', 'is_app_time_trustee'),
             'classes': ('expand',),            
         }),
     )        

@@ -95,7 +95,12 @@ APP_MODEL_ORDER = {
         'symbol': 'T',
         'is_mandatory': False,
         'models': {
-            'Project': ('1', None),
+            'Workspace': ('1', None),
+            'ClockifyUser': ('2', None),
+            'Tag': ('3', None),
+            'Client': ('4', None),
+            'Project': ('5', None),
+            'TimeEntry': ('6', None)
         }
     },
 }

@@ -3,11 +3,14 @@ from django.contrib.admin import ModelAdmin
 from django.utils import formats
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+from import_export import resources
+from import_export.admin import ExportMixin, ImportExportModelAdmin
 
 from core.safeguards import get_tenant
 from scerp.admin import (
-     admin_site, BaseAdmin, Display, verbose_name_field,
-     set_inactive, set_protected)
+     BaseAdmin, Display, verbose_name_field, set_inactive, set_protected)
+from scerp.admin_site import admin_site     
+from scerp.mixins import multi_language
 from . import actions as a
 from .models import (
     APISetup, Setting, MappingId, Location, FiscalPeriod, Currency, Unit, Tax,
@@ -150,8 +153,15 @@ class Setting(BaseAdmin):
         return Display.json(obj.data)
 
 
+class LocationResource(resources.ModelResource):
+    class Meta:
+        model = Location
+        fields = ('id', 'name', 'type', 'address', 'zip', 'city')
+
+
 @admin.register(Location, site=admin_site)
-class Location(CashCtrlAdmin):
+class Location(ImportExportModelAdmin, CashCtrlAdmin):
+    resource_class = LocationResource
     has_tenant_field = True
     is_readonly = False
     # warning = CASH_CTRL.WARNING_READ_ONLY
@@ -236,7 +246,7 @@ class CurrencyAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('description'))
     def display_description(self, obj):
-        return Display.multi_language(obj.description)
+        return multi_language(obj.description)
 
 
 @admin.register(Unit, site=admin_site)
@@ -261,7 +271,7 @@ class UnitAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def display_name(self, obj):
-        return Display.multi_language(obj.name)
+        return multi_language(obj.name)
 
 
 @admin.register(Tax, site=admin_site)
@@ -289,11 +299,11 @@ class TaxAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def local_name(self, obj):
-        return Display.multi_language(obj.name)
+        return multi_language(obj.name)
 
     @admin.display(description=_('show as'))
     def local_document_name(self, obj):
-        return Display.multi_language(obj.document_name)
+        return multi_language(obj.document_name)
 
     @admin.display(description=_("Percentage"))
     def display_percentage(self, obj):
@@ -323,7 +333,7 @@ class RoundingAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def local_name(self, obj):
-        return Display.multi_language(obj.name)
+        return multi_language(obj.name)
 
 
 @admin.register(SequenceNumber, site=admin_site)
@@ -348,7 +358,7 @@ class SequenceNumberAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def local_name(self, obj):
-        return Display.multi_language(obj.name)
+        return multi_language(obj.name)
 
 
 @admin.register(OrderCategory, site=admin_site)
@@ -374,11 +384,11 @@ class OrderCategoryAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def display_name(self, obj):
-        return Display.multi_language(obj.name_plural)
+        return multi_language(obj.name_plural)
 
     @admin.display(description=_('Stati'))
     def display_status(self, obj):
-        stati = [Display.multi_language(x['name']) for x in obj.status]
+        stati = [multi_language(x['name']) for x in obj.status]
         return Display.list(stati)
 
 
@@ -422,7 +432,7 @@ class CostCenterAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def display_name(self, obj):
-        return Display.multi_language(obj.name)
+        return multi_language(obj.name)
 
 
 @admin.register(Article, site=admin_site)
@@ -456,7 +466,7 @@ class ArticleAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('name'))
     def display_name(self, obj):
-        return Display.multi_language(obj.name)
+        return multi_language(obj.name)
 
     @admin.display(description=_('price in CHF'))
     def display_sales_price(self, obj):
@@ -538,6 +548,7 @@ class AccountPositionTemplateAdmin(BaseAdmin):
 
 @admin.register(ChartOfAccounts, site=admin_site)
 class ChartOfAccountsAdmin(BaseAdmin):
+    related_tenant_fields = ['period']
     has_tenant_field = True
     list_display = (
         'display_name', 'chart_version', 'period', 'link_to_positions')

@@ -370,7 +370,7 @@ def coac_positions(request, queryset, overwrite):
                         setattr(account_instance, key, value)
 
                     # Add Logging
-                    save_logging(request, account_instance, add_tenant)
+                    save_logging(account_instance, request, add_tenant)
 
                     # Try to save (here the validity checks get performed
                     account_instance.save(check_only=check_only)
@@ -474,7 +474,7 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
         # As we create an AbstractTenant instance from a non tenant obj we
         # do the update of tenant and logging ourselves instead of using
         # save_logging
-        save_logging(request, account_instance, add_tenant=True)
+        save_logging(account_instance, request, add_tenant=True)
         account_instance.save()
 
     # Message
@@ -585,7 +585,7 @@ def apm_add(request, queryset, data, account_type):
                     setattr(account_instance, key, value)
 
             # Save
-            save_logging(request, account_instance, add_tenant=True)
+            save_logging(account_instance, request, add_tenant=True)
             account_instance.save()
 
     # Message

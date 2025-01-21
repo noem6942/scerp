@@ -17,7 +17,7 @@ from crm.models import Country
 from scerp.locales import APP_CONFIG, APP_MODEL_ORDER, COUNTRY_CHOICES
 from scerp.mixins import get_admin, generate_random_password
 
-from .init_user_groups import USER_GROUPS, USER_GROUP_TRUSTEE, PERMISSIONS
+from .init_permissions import USER_GROUPS, USER_GROUP_TRUSTEE, PERMISSIONS
 from .models import App, Message, Tenant, TenantSetup, UserProfile
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
@@ -76,12 +76,9 @@ class GroupAdmin:
         # Assign the permission to the group
         self.group.permissions.add(permission)
 
-    def assign_permissions(self, cls=None):        
-        permission_objs = self.get_all_permissions()
-        if cls.get('exceptions'):
-            # Assign
-            permissions = [p for p in permission_objs]
-            
+    def assign_permissions(self, permissions=[], cls=None):        
+        permissions_all = [p for p in self.get_all_permissions()]                
+        if cls and cls.get('exceptions'):            
             # Remove
             for permission in permissions:
                 model = ('Model', permission.content_type.model) 
@@ -118,7 +115,7 @@ class UserAdmin:
         # Create user
         if kwargs.get('is_superuser'):
             self.user = User.objects.create_superuser(**kwargs)
-            logger.info(f"Superuser '{username}' created successfully!")
+            logger.info(f"Superuser {kwargs['username']} created successfully!")
         else:
             self.user = User.objects.create_user(**kwargs)
 
@@ -275,7 +272,7 @@ class AppAdmin:
             names = [app_name]
         else:
             names = []
-            for app_name in APP.APP_MODEL_ORDER.keys():
+            for app_name in APP_MODEL_ORDER.keys():
                 app_config = apps.get_app_config(app_name)
                 names.append(app_config.verbose_name)
 
@@ -307,12 +304,13 @@ class Core:
         app.create_message()
 
         # Groups
-        group = AdminGroup()
-        group.update_groups()
+        group = GroupAdmin()
+        self.update_groups()
         
         # Group Trustee
-        group = AdminGroup(USER_GROUP_TRUSTEE)
-        group.assign_permissions(PERMISSIONS.TRUSTEE)
+        group = GroupAdmin()
+        group.create(USER_GROUP_TRUSTEE)
+        group.assign_permissions(cls=PERMISSIONS.TRUSTEE)
 
         # Tenant
         code = settings.TENANT_CODE
@@ -323,5 +321,11 @@ class Core:
         tenant_obj = tenant.create(name, code, tenant_type=tenant_type)
         
         # Tenant Setup User
-        tenant_setup = TenantSetup.objects.filter(tenant=tenant)
+        tenant_setup = TenantSetup.objects.filter(tenant=tenant_obj).first()
         tenant_setup.users.add(admin)
+
+    def update_groups(self):
+        for group in USER_GROUPS:
+            group_obj = GroupAdmin()
+            group_obj.create(group['name'])
+            group_obj.assign_permissions(group['permissions'])

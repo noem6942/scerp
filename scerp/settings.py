@@ -43,7 +43,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_admin_action_forms',  # Extension for the Django admin panel
+    'import_export',
     'rest_framework',
+    'asset',
     'core',    
     'home',
     'accounting',
@@ -88,7 +90,14 @@ WSGI_APPLICATION = 'scerp.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-if 'sqlite' in env('ENGINE'):
+if env.bool("TESTING", default=False):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:'
+        }
+    }
+elif 'sqlite' in env('ENGINE'):
     DATABASES = {
         'default': {
             'ENGINE': env('ENGINE'),
@@ -103,7 +112,10 @@ else:
             'USER': env('DB_USER'),
             'PASSWORD': env('DB_PASSWORD'),
             'HOST': env('DB_HOST'),
-            'PORT': env('DB_PORT', default='3306')
+            'PORT': env('DB_PORT', default='3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+            },            
         }
     }
 

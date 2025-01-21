@@ -7,10 +7,9 @@ This module contains the configuration for models and views that manage the admi
 """
 import json
 
-from django.apps import apps
 from django.conf import settings
 from django.contrib import admin, messages
-from django.contrib.admin import AdminSite, ModelAdmin
+from django.contrib.admin import ModelAdmin
 from django.db import models
 from django.forms import Textarea
 from django.http import HttpResponseForbidden
@@ -20,8 +19,7 @@ from django.utils.formats import date_format
 from django.utils.translation import get_language, gettext_lazy as _
 
 from core.models import Message
-from core.safeguards import filter_query_for_tenant, save_logging
-from .locales import APP_CONFIG, APP_MODEL_ORDER
+from core.safeguards import get_tenant, filter_query_for_tenant, save_logging
 
 GUI_ROOT = settings.ADMIN_ROOT
 SPACE = '\u00a0'  # invisible space
@@ -65,8 +63,8 @@ def set_inactive(modeladmin, request, queryset):
     queryset.update(is_inactive=True)
     msg = _("Set {count} records as inactive.").format(count=queryset.count())
     messages.success(request, msg)
-  
-  
+
+
 @admin.action(description=_('Set protected'))
 def set_protected(modeladmin, request, queryset):
     queryset.update(is_protected=True)
@@ -87,17 +85,22 @@ def format_name(obj, fieldname='name'):
     if obj.is_protected:
         value += ' \U0001F512'
     if obj.is_inactive:
-        value += ' \U0001F6AB'  
+        value += ' \U0001F6AB'
     return value
-    
 
-def format_big_number(value, thousand_separator=None):
+
+def format_big_number(value, thousand_separator=None, round_digits=None):
     """
     use settings.THOUSAND_SEPARATOR and 2 commas for big numbers
     value: float
     """
     if value is None:
         return None
+
+    # Round
+    if round_digits:
+        value = round(value, round_digits)
+        print("*", value)
 
     # Format number
     if thousand_separator is None:
@@ -127,7 +130,7 @@ def get_help_text(model, field_name):
 
 def make_multilanguage(field_name):
     return [
-        f'{field_name}_{lang_code}' 
+        f'{field_name}_{lang_code}'
         for lang_code, _lang in settings.LANGUAGES
     ]
 
@@ -141,7 +144,7 @@ def verbose_name_field(model, field_name):
 
 
 class Display:
-    
+
     def datetime(value, default='-'):
         """
         Display date time nice
@@ -150,7 +153,7 @@ class Display:
             return default
         return date_format(value, format='DATETIME_FORMAT')
 
-    def big_number(value):
+    def big_number(value, round_digits=None):
         """
         use settings.THOUSAND_SEPARATOR and 2 commas for big numberss
         """
@@ -158,7 +161,7 @@ class Display:
             return None
 
         # Format number
-        number_str = format_big_number(value)
+        number_str = format_big_number(value, round_digits=round_digits)
         html = '<span style="text-align: right; display: block;">{}</span>'
         return format_html(html, number_str)
 
@@ -190,7 +193,7 @@ class Display:
         """
         if not value:
             return ''
-            
+
         try:
             # Format JSON data with indentation and render it as preformatted text
             formatted_json = json.dumps(value, indent=4, ensure_ascii=False)
@@ -219,7 +222,7 @@ class Display:
 
     def list(items):
         output_list = [f"<li>{item}</li>" for item in items]
-        return format_html(''.join(output_list))        
+        return format_html(''.join(output_list))
 
     def photo(url_field):
         """
@@ -262,119 +265,6 @@ def override_textfields_default(attrs=None):
     }
 
 
-class Site(AdminSite):
-    """
-    Customized AdminSite; get's called with every Model in admin.py
-    """
-    site_header = APP_CONFIG['site_header']  # Default site header
-    site_title = APP_CONFIG['site_title']  # Default site title
-    index_title = APP_CONFIG['index_title']  # Default index title
-
-    DEFAULT_ORDER = '\u00A0'  # Non-visible space character for late-order apps
-    SEPARATOR_APP = '. '
-    SEPARATOR_MODEL = '.'
-
-    def get_app_list(self, request, app_label=None):
-        '''Build the side menu left (the app list)'''
-
-        # Get the default app list from the superclass
-        app_list = super().get_app_list(request)
-
-        if app_label is None:
-            # Process the general admin index page
-            if 'login' in request.path:
-                pass  # don't show on login screen
-            elif not request.session.get('tenant_message_shown', False):
-                # Get messages
-                queryset = Message.objects.filter(
-                    is_inactive=False).order_by('-modified_at')
-
-                # Display messages
-                for message in queryset:
-                    call = (
-                        messages.warning
-                        if message.severity == Message.Severity.WARNING
-                        else messages.info
-                    )
-                    call(request, message.text)
-
-                # Set session variables
-                request.session['tenant_message_shown'] = True  # Mark message as shown
-            return self._get_ordered_app_list(app_list)
-
-        # Else render a specific app's models
-        return self._get_app_detail_list(app_list, app_label)
-
-    def _get_ordered_app_list(self, app_list):
-        '''Generate an ordered list of all apps.'''
-        ordered_app_list = []
-
-        for app_label, app_info in APP_MODEL_ORDER.items():
-            app = self._find_app(app_list, app_label)
-            if app:
-                self._process_app(app, app_info)
-                ordered_app_list.append(app)
-
-        # Append remaining apps
-        remaining_apps = [
-            app for app in app_list
-            if app['app_label'] not in APP_MODEL_ORDER
-        ]
-        ordered_app_list.extend(remaining_apps)
-
-        return ordered_app_list
-
-    def _get_app_detail_list(self, app_list, app_label):
-        '''Generate a detailed list of models for a specific app.'''
-        app_info = APP_MODEL_ORDER.get(app_label)
-        if not app_info:
-            return []
-
-        app = self._find_app(app_list, app_label)
-        if app:
-            self._process_app(app, app_info)
-            return [app]
-
-        return []
-
-    def _find_app(self, app_list, app_label):
-        '''Find an app in the app list by its label.'''
-        return next(
-            (app for app in app_list if app['app_label'] == app_label), None
-        )
-
-    def _process_app(self, app, app_info):
-        '''Process the app and its models.'''
-        symbol = app_info.get('symbol', self.DEFAULT_ORDER)
-        app_config = apps.get_app_config(app['app_label'])
-        verbose_name = app_config.verbose_name
-        app['name'] = f"{symbol}{self.SEPARATOR_APP}{verbose_name}"
-
-        model_order_dict = app_info.get('models', {})
-        app['models'] = sorted(
-            app['models'],
-            key=lambda model: (
-                model_order_dict.get(
-                    model['object_name'], (self.DEFAULT_ORDER, None))[0],
-                model_order_dict.get(
-                    model['object_name'], (self.DEFAULT_ORDER, None))[1]
-            )
-        )
-
-        for model in app['models']:
-            order, postfix = model_order_dict.get(
-                model['object_name'], (self.DEFAULT_ORDER, None)
-            )
-            postfix = postfix or ''
-            name = f"{order} {model['name']}".strip()
-            model['name'] = (
-                f"{symbol}{self.SEPARATOR_MODEL}{name}{postfix}")
-
-
-# Initialize the custom admin site
-admin_site = Site(name='admin_site')
-
-
 # Customize classes
 class BaseAdmin(ModelAdmin):
     """
@@ -388,7 +278,7 @@ class BaseAdmin(ModelAdmin):
 
     # list_display_links = None  # Removes the links from list display
     # empty_value_display = _('-empty-')  # can be defined individually
-    
+
     def get_list_display(self, request):
         ''' Automatically append 'has_notes' and 'has_attachment' etc. to list_display '''
         # Get the original list_display from any child class
@@ -470,7 +360,7 @@ class BaseAdmin(ModelAdmin):
         """
         Show warning for a model if specified
         """
-        if not request.session.get('_messages_shown', False):  
+        if not request.session.get('_messages_shown', False):
             # Check if messages were already displayed
             if getattr(self, 'warning', ''):
                 messages.warning(request, mark_safe(self.warning))
@@ -511,13 +401,27 @@ class BaseAdmin(ModelAdmin):
 
         return queryset
 
-    def save_model(self, request, obj, form, change):
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # We only want to filter the `period` field (ForeignKey to FiscalPeriod)
+        if db_field.name in getattr(self, 'related_tenant_fields'):
+            tenant_data = get_tenant(request)  # Get the tenant from the request
+            
+            # Dynamically get the related model using db_field.remote_field.model
+            related_model = db_field.remote_field.model            
+            
+            # Filter the queryset of the `period` field by tenant
+            kwargs['queryset'] = related_model.objects.filter(
+                tenant__id=tenant_data['id'])
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, instance, form, change):
         """
         Override save to include additional logging or other custom logic.
         """
         # Proceed with logging
         add_tenant = getattr(self, 'has_tenant_field', False)
-        queryset = save_logging(request, obj, add_tenant=add_tenant)
+        queryset = save_logging(instance, request, add_tenant=add_tenant)
 
         # Handle forbidden response from logging
         if isinstance(queryset, HttpResponseForbidden):
@@ -525,4 +429,4 @@ class BaseAdmin(ModelAdmin):
             return  # Early return to prevent further processing
 
         # Only save the model if there are no errors
-        super().save_model(request, obj, form, change)
+        super().save_model(request, instance, form, change)

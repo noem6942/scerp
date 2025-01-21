@@ -7,7 +7,7 @@ from rest_framework import status
 from datetime import datetime, date
 from django.http import JsonResponse
 
-from .models import Person
+from .models import UserProfile
 from .connector_clockify import Clock
 from .serializers import ProjectSerializer, TimeEntrySerializer
 
@@ -33,7 +33,7 @@ class Base(APIView):
     
     def get(self, request, *args, **kwargs):
         person_id = request.query_params.get('person_id', None)
-        person = Person.objects.filter(id=person_id).first()
+        person = UserProfile.objects.filter(id=person_id).first()
         start_date = request.query_params.get('start_date', None)
         end_date = request.query_params.get('end_date', None)
 

@@ -2,7 +2,8 @@ from django.contrib import admin
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
 
-from scerp.admin import verbose_name_field, admin_site, BaseAdmin
+from scerp.admin import verbose_name_field, BaseAdmin
+from scerp.admin_site import admin_site
 
 from .models import Counter, Subscription
 

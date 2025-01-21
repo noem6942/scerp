@@ -4,6 +4,7 @@ accounting/api_cash_ctrl.py
 central file for communication to cash ctrl
 '''
 from datetime import datetime
+from enum import Enum
 from time import sleep
 
 import json
@@ -21,26 +22,26 @@ URL_ROOT = "https://{org}.cashctrl.com"
 Standard account definitions with descriptive English names, numeric codes,
 and German descriptions as comments.
 """
-STANDARD_ACCOUNT = dict(
-    OPENING_BALANCE='9100',  # Eröffnungsbilanz
-    EXCHANGE_DIFFERENCES='6960',  # Kursdifferenzen
-    ANNUAL_PROFIT_OR_LOSS='9200',  # Jahresgewinn oder -verlust
-    TRADING_INCOME='3200',  # Handelsertrag
-    COST_OF_GOODS_SOLD='4200',  # Warenaufwand
-    DEPRECIATION='6800',  # Abschreibungen
-    ASSET_DISPOSALS='6801',  # Anlagenabgänge
-    REVENUE_FROM_MOBILE_ASSETS='7900',  # Ertrag Mobile Sachanlagen
-    RECEIVABLES='1100',  # Debitoren
-    PAYABLES='2000',  # Kreditoren
-    VAT_RECONCILIATION='2202',  # Umsatzsteuerausgleich Abrechnungsmethode
-    INPUT_TAX_RECONCILIATION='1172',  # Vorsteuerausgleich Abrechnungsmethode
+class STANDARD_ACCOUNT(Enum):
+    # settings
+    OPENING_BALANCE = '9100'  # Eröffnungsbilanz
+    EXCHANGE_DIFFERENCES = '6960'  # Kursdifferenzen
+    ANNUAL_PROFIT_OR_LOSS = '9200'  # Jahresgewinn oder -verlust
+    TRADING_INCOME = '3200'  # Handelsertrag
+    COST_OF_GOODS_SOLD = '4200'  # Warenaufwand
+    DEPRECIATION = '6800'  # Abschreibungen
+    ASSET_DISPOSALS = '6801'  # Anlagenabgänge
+    REVENUE_FROM_MOBILE_ASSETS = '7900'  # Ertrag Mobile Sachanlagen
+    RECEIVABLES = '1100'  # Debitoren
+    PAYABLES = '2000'  # Kreditoren
+    VAT_RECONCILIATION = '2202'  # Umsatzsteuerausgleich Abrechnungsmethode
+    INPUT_TAX_RECONCILIATION = '1172'  # Vorsteuerausgleich Abrechnungsmethode
     
     # not directly in settings
-    PRAE_TAX='1170',  # Vorsteuer
-    REVENUE_TAX='2200',  # Umsatzsteuer
-    SERVICE_REVENUE='3400',  # Dienstleistungsertrag
-    ROUNDING='6961',  # Rundungsdifferenzen
-)
+    PRAE_TAX = '1170'  # Vorsteuer
+    REVENUE_TAX = '2200'  # Umsatzsteuer
+    SERVICE_REVENUE = '3400'  # Dienstleistungsertrag
+    ROUNDING = '6961'  # Rundungsdifferenzen
 
 
 # class COUNTRY
@@ -558,12 +559,13 @@ class Account(CashCtrl):
         '''        
         if self.data is None:
             raise Exception("data is None")
-        
+            
+        standard_accounts = [x.value for x in STANDARD_ACCOUNT]
         return {
             x['number']: x
             for x in self.data
-            if x['number'] in STANDARD_ACCOUNTS.values()
-        }    
+            if x['number'] in standard_accounts
+        }
 
 
 class AccountCategory(CashCtrl):

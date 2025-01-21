@@ -5,8 +5,9 @@ from django.utils.translation import gettext as _
 
 from core.safeguards import get_tenant
 
-from scerp.admin import admin_site, BaseAdmin, Display, verbose_name_field
-    
+from scerp.admin import BaseAdmin, Display, verbose_name_field
+from scerp.admin_site import admin_site    
+
 from .models import (
     RegistrationPlanCanton, RegistrationPositionCanton,
     LeadAgencyCanton, RetentionPeriodCanton, LegalBasisCanton, 

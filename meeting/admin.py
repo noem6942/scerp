@@ -4,7 +4,8 @@ from django.utils.translation import gettext_lazy as _
 
 from crm.models import Building
 from core.safeguards import get_tenant
-from scerp.admin import admin_site, BaseAdmin
+from scerp.admin import BaseAdmin
+from scerp.admin_site import admin_site
 
 from .actions import show_agenda, make_minutes
 from .models import (

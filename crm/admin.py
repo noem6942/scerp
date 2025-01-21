@@ -1,10 +1,10 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from scerp.admin import make_multilanguage
 from . import forms
+from scerp.admin import BaseAdmin, make_multilanguage
+from scerp.admin_site import admin_site
 
-from scerp.admin import admin_site, BaseAdmin
 
 from .models import (
     Address, Contact, Title, PersonCategory, Building)

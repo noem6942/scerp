@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)  # Using the app name for logging
 @receiver(pre_save, sender=Tenant)
 def tenant_pre_save(sender, instance, **kwargs):
     """Check before new Tenant is created."""
+    __ = sender  # not used    
     if not is_url_friendly(instance.code):
         msg = _("Code cannot be displayed in an url.")
         raise ValidationError(msg)
@@ -35,17 +36,16 @@ def tenant_post_save(sender, instance, created, **kwargs):
     """Perform follow-up actions when a new Tenant is created."""
     __ = sender  # not used
     if created:
-        # Create TenantSetup
-        setup = TenantSetup.objects.create(
-            tenant=instance,
-            created_by=instance.created_by)
-
         # Add default apps
         for app in App.objects.order_by('name'):
             if app.is_mandatory:
-                tenant_setup.apps.add(app)
+                instance.apps.add(app)
 
-        logger.info(f"Tenant Setup '{tenant.code}' created.")
+        logger.info(f"Tenant Setup '{instance.code}' created.")        
+        # Create TenantSetup
+        tenant_setup = TenantSetup.objects.create(
+            tenant=instance,
+            created_by=instance.created_by)
 
 
 @receiver(pre_save, sender=TenantSetup)

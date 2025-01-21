@@ -1,9 +1,20 @@
 '''
 app_time/connector_clockify.py
 '''
+import logging
 import requests
+import re
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from datetime import datetime
+
+from django.core.exceptions import ValidationError
+from django.utils.timezone import make_aware
+
+from .models import (
+    Workspace, ClockifyUser, Tag, Client, Project, TimeEntry
+)
 
 # Define Swiss Holidays (example dates)
 SWISS_HOLIDAYS = [
@@ -15,16 +26,53 @@ SWISS_HOLIDAYS = [
     "2025-12-25",  # Christmas Day
 ]
 
-# Mandatory working hours (e.g., 8 hours per day)
-MANDATORY_HOURS = 8
+logger = logging.getLogger(__name__)  # Using the app name for logging
+
+
+# mixins, we change right at down and uploading of data
+def camel_to_snake(name):
+    ''' we don't use cashCtrl camel field names '''
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+
+
+def snake_to_camel(snake_str):
+    ''' we don't use cashCtrl camel field names '''
+    components = snake_str.split('_')
+    camel_case_str = ''.join(x.title() for x in components)
+
+    # ensure the first letter is lowercase and return
+    return camel_case_str[0].lower() + camel_case_str[1:]
+
+
+def convert_to_utc(time):
+    """Convert a given datetime to UTC."""
+    if isinstance(time, str):
+        time = datetime.fromisoformat(time)
+    local_time = time.replace(tzinfo=ZoneInfo(self.timezone))
+    return local_time.astimezone(ZoneInfo("UTC"))
+
+
+def make_datetime(iso_datetime):
+    '''Input datetime string:
+        iso_datetime = '2025-01-11T09:00:00Z'
+    '''
+    # Convert string to a naive datetime object
+    naive_datetime = datetime.strptime(iso_datetime, '%Y-%m-%dT%H:%M:%SZ')
+
+    # Make it timezone-aware using UTC
+    aware_datetime = naive_datetime.replace(tzinfo=ZoneInfo('UTC'))
+
+    return aware_datetime
 
 
 class Clock:
-
+    
     def __init__(self, api_key, workspace_id):
         self.api_key = api_key
         self.workspace_id = workspace_id
         self.base_url = "https://api.clockify.me/api/v1"
+        self.workspace_url = f"{self.base_url}/workspaces/{self.workspace_id}"
         self.headers = {
             "X-Api-Key": api_key,
             "Content-Type": "application/json"
@@ -57,20 +105,22 @@ class Clock:
         """Fetch all projects in the workspace."""
         response = requests.get(f"{self.base_url}/workspaces/{self.workspace_id}/projects", headers=self.headers)
         response.raise_for_status()
-        return response.json()
-
-    def convert_to_utc(self, time):
-        """Convert a given datetime to UTC."""
-        if isinstance(time, str):
-            time = datetime.fromisoformat(time)
-        local_time = time.replace(tzinfo=ZoneInfo(self.timezone))
-        return local_time.astimezone(ZoneInfo("UTC"))
+        data = response.json()
+        obj, created = Project.objects.update_or_create(
+            c_id=id, defaults = dict(
+                hourly_rate=data['hourlyRate']['amount'],
+                currency=data['hourlyRate']['currency'],
+                client_name=data['clientName'],
+                billable=data['billable']
+            ))
+        
+        return 
 
     def create_time_entry(self, project_id, description, start_time, end_time):
         """Log a time entry."""
         # Convert to UTC
-        start_time_utc = self.convert_to_utc(start_time)
-        end_time_utc = self.convert_to_utc(end_time)
+        start_time_utc = convert_to_utc(make_datetime(start_time))
+        end_time_utc = convert_to_utc(make_datetime(end_time))
 
         # Format as ISO 8601 (Clockify expects this format)
         start_time_str = start_time_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -91,44 +141,67 @@ class Clock:
         response.raise_for_status()
         return response.json()
 
-    def create_project(
-            self, project_name, client_id=None, billable=True, color=None,
-            tags=None):
+    # project
+    def create_project(self, data):
         """Create a new project."""
-        print("*project_name, client_id", project_name, client_id)
-        url = f"{self.base_url}/workspaces/{self.workspace_id}/projects"
-
-        data = {
-            "name": project_name,
-            "clientId": client_id,  # Optional: client ID if you have clients in your workspace
-            "billable": billable,
-            "color": color,  # Optional: Project color in hex format, e.g., "#FF5733"
-            "tags": tags  # Optional: List of tag IDs to associate with this project
-        }
-
+        url = f"{self.base_url}/workspaces/{self.workspace_id}/projects"        
         response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()  # Raise error for bad responses
-        return response.json()
+        if response.status_code == 201:
+            # Successfully created project
+            logging.info(f"Project `{data['name']}` created successfully!")
+            return response.json()  # This will return the created project data
+        else:
+            logging.error(f"Error creating project: {response.status_code}")
+            return None
 
-    def create_tag(self, tag_name):
+    def update_project(self, project_id, data):
+        url = f"{self.base_url}/workspaces/{self.workspace_id}/projects/{project_id}"
+        response = requests.patch(url, json=data, headers=self.headers)
+        if response.status_code == 200:
+            # Successfully updated project
+            logging.info(f"Project '{project_id}' updated successfully!")
+            return response.json()  # This will return the updated project data
+        else:
+            logging.error(f"Error updating project: {response.status_code}")
+            return None
+
+    def delete_project(self, project_id):
+        url = f"{self.workspace_url}/projects/{project_id}"
+        response = requests.delete(url, headers=self.headers)        
+        if response.status_code == 200:
+            # Successfully deleted the project
+            print(f"Project '{project_id}' deleted successfully!")
+            return response.json()  # This will return the response data if needed
+        else:
+            raise Exception(
+                f"Failed to delete project '{project_id}'. "
+                f"HTTP Status Code: {response.status_code}, "
+                f"Response: {response.text}"
+            )
+
+    def create_client(self, data):
         """Create a new tag only if it doesn't already exist."""
-        # First, get all tags in the workspace to check if the tag already exists
-        existing_tags = self.get_workspace_tags()
-        existing_tag_names = [tag['name'] for tag in existing_tags]
-
-        if tag_name in existing_tag_names:
-            print(f"Tag '{tag_name}' already exists.")
-            return None  # Return None or an appropriate response indicating no new tag created
-
-        # If tag doesn't exist, create a new one
-        url = f"{self.base_url}/workspaces/{self.workspace_id}/tags"
-        data = {
-            "name": tag_name
-        }
-
+        url = f"{self.base_url}/workspaces/{self.workspace_id}/clients"        
         response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()  # Raise error for bad responses
-        return response.json()
+        if response.status_code == 201:
+            # Successfully created client
+            logging.info(f"Client `{data['name']}` created successfully!")
+            return response.json()  # This will return the created client data
+        else:
+            logging.error(f"Error creating client: {response.status_code}")
+            return None
+
+    def create_tag(self, data):
+        """Create a new tag only if it doesn't already exist."""
+        url = f"{self.base_url}/workspaces/{self.workspace_id}/tags"        
+        response = requests.post(url, json=data, headers=self.headers)        
+        if response.status_code == 201:
+            # Successfully created client
+            logging.info(f"Tag `{data['name']}` created successfully!")
+            return response.json()  # This will return the created client data
+        else:
+            logging.error(f"Error creating tag: {response.status_code}")
+            return None
 
     def get_time_entries(self, start_date=None, end_date=None):
         """Fetch all time entries for the user."""
@@ -171,6 +244,65 @@ class Clock:
         for entry in time_entries:
             print(f"- {entry['description']}: {entry['timeInterval']['start']} to {entry['timeInterval']['end']}")
 
+
+class ClockConnector:
+    
+    def __init__(self, workspace, admin):
+        if not workspace.tenant.is_app_time_trustee:
+            raise ValidationError("Only Trustees can create workspaces")
+        self.workspace = workspace        
+        self.admin = admin
+
+    def load_timesheets(self):
+        # Init
+        count, warnings = 0, []
+        clock = Clock(self.workspace.api_key, self.workspace.c_id)
+        
+        data_list = clock.get_time_entries()
+        for data in data_list:
+            data = {camel_to_snake(key): value for key, value in data.items()}
+            
+            # Check User
+            user_id = data.pop('user_id')
+            clockify_user = ClockifyUser.objects.filter(c_id=user_id).first()
+            if not clockify_user:
+                msg = f"User '{user_id}' not existing."
+                warnings.append(msg)                
+                logger.warning(msg)
+                continue            
+            
+            # Check Project            
+            project_id = data.pop('project_id')
+            project = Project.objects.filter(c_id=project_id).first()
+            if not project:   
+                msg = (
+                    f"{data['time_interval']['start']}: Project '{project_id}'"
+                    f"{data['description']} not existing.")
+                warnings.append(msg)
+                logger.warning(msg)
+                continue            
+                                
+            # TimeEntry
+            time, created = TimeEntry.objects.get_or_create(
+                c_id=data.pop('id'),
+                defaults={
+                    'description': data['description'],
+                    'start_time': make_datetime(
+                        data['time_interval']['start']),
+                    'end_time': make_datetime(
+                        data['time_interval']['end']),
+                    'project': project,
+                    'clockify_user': clockify_user,
+                    'tenant': project.tenant,
+                    'created_by': self.admin
+                })
+            if created:
+                count += 1
+                
+        logger.info(f"{count} time entries created.")
+        return count, warnings
+
+
 # Main Execution
 if __name__ == "__main__":
     # Init
@@ -180,6 +312,12 @@ if __name__ == "__main__":
     # Create a Clock instance
     clock = Clock(api_key, workspace_id)
 
+    # Get
+    if False:  # Set to True to log a time entry
+        data_list = clock.get_projects()
+        for data in data_list:
+            print("*data", data)
+
     # Create ----
     # Example: Log a sample time entry (modify as needed)
     if False:  # Set to True to log a time entry
@@ -187,18 +325,19 @@ if __name__ == "__main__":
         clock.create_time_entry(example_project_id)
 
     # Create Tag
-    if False:
-        new_tag = clock.create_tag("Testing")
+    if True:
+        new_tag = clock.create_tag("Testing2")
         print("Created tag:", new_tag)
 
     # Create Project
-    if True:
+    if False:
         new_project = clock.create_project("Default Project 2")
         print("Created project:", new_project)
 
     # View ----
     # Display projects and time entries
-    data = clock.get_time_entries()
+    if False:
+        data = clock.get_time_entries()
 
-    clock.display_time_entries()
-    print("*", data)
+        clock.display_time_entries()
+        print("*", data)

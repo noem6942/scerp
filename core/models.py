@@ -97,6 +97,10 @@ class Tenant(LogAbstract, NotesAbstract):
             'code of tenant / client, unique, max 32 characters, '
             'only small letters, should only contains characters that '
             'can be displayed in an url)'))
+    is_app_time_trustee = models.BooleanField(
+        _('Is AppTime Trustee'), default=False,
+        help_text=_(
+            'only trustees are allowed to download time entries'))
     apps = models.ManyToManyField(
         App, verbose_name=_('apps'), 
         related_name='%(class)s_apps', 

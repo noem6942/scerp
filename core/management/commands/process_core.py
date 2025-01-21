@@ -53,7 +53,7 @@ class Command(BaseCommand):
             c = AppAdmin()
             c.update_documentation(name)
         elif action == 'core__update_groups':
-            c = AdminGroup()
+            c = Core()
             c.update_groups()
         elif action == 'update_group_trustee':
             c = Core()

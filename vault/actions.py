@@ -161,7 +161,7 @@ def positions(request, queryset, action, is_canton=True):
                         if not foreign:
                             foreign = foreign_key_setup[key](name=value)
                             foreign.retention_period = None                          
-                            save_logging(request, foreign, add_tenant)
+                            save_logging(foreign, request, add_tenant)
                             foreign.save()
                     value = foreign                    
                     
@@ -171,7 +171,7 @@ def positions(request, queryset, action, is_canton=True):
             # Save
             if action == 'create':            
                 # Add Logging
-                save_logging(request, position_obj, add_tenant)
+                save_logging(position_obj, request, add_tenant)
                 position_obj.save()
         
     # Message
