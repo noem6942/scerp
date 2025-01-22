@@ -179,9 +179,18 @@ class AppAdmin:
     def update_apps(self):
         '''Get all apps
         '''        
+        # get mandatory
+        mandatories = [
+            app_name for app_name, def_ in APP_MODEL_ORDER.items()
+            if def_['is_mandatory']
+        ]
         for app_config in apps.get_app_configs():
+            # Init
             data = add_logging(
                 {'verbose_name': app_config.verbose_name}, self.admin)
+            data['is_mandatory'] = app_config.name in mandatories
+            
+            # Update or create
             obj, created = App.objects.update_or_create(
                 name=app_config.name,
                 defaults=data)

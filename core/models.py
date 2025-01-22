@@ -70,13 +70,9 @@ class NotesAbstract(models.Model):
 class App(LogAbstract, NotesAbstract):
     ''' all available Apps
     '''
-    MANDATORY_APPS = ['core', 'crm']    
     name = models.CharField(max_length=100, unique=True)
+    is_mandatory = models.BooleanField(default=False)
     verbose_name = models.CharField(max_length=100, blank=True, null=True)
-    
-    @property
-    def is_mandatory(self):
-        return self.name in self.MANDATORY_APPS
 
     def __str__(self):
         return self.name
@@ -175,8 +171,7 @@ class UserProfile(LogAbstract, NotesAbstract):
 
 
 class TenantAbstract(LogAbstract, NotesAbstract):
-    ''' basic core model; for simplicity we make ALL models shown in the admin
-        GUI Tenant Models
+    ''' used for all models that refer to one tenant
     '''
     tenant = models.ForeignKey(
         Tenant, verbose_name=_('tenant'), on_delete=models.CASCADE,
