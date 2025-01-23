@@ -1,0 +1,43 @@
+# tenant_init.yaml
+#
+# This YAML file defines the initialization values for cash_ctrl
+# It includes information about various categories and their respective codes.
+
+INIT_VALUES:
+
+  CustomFieldGroup:
+    - code: account
+      name:
+        de: SC-ERP
+        en: SC-ERP
+        fr: SC-ERP
+        it: SC-ERP
+      type: ACCOUNT
+      
+    - code: order
+      name:
+        de: SC-ERP
+        en: SC-ERP
+        fr: SC-ERP
+        it: SC-ERP
+      type: ORDER
+      
+    - code: person
+      name:
+        de: SC-ERP
+        en: SC-ERP
+        fr: SC-ERP
+        it: SC-ERP
+      type: PERSON
+      
+  CustomField:
+    - code: account_hrm
+      group_ref: account
+      name:
+        de: HRM
+        en: HRM
+        fr: SHRM
+        it: HRM
+      type: TEXT
+      is_multi: False
+      values: []

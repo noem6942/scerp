@@ -9,7 +9,7 @@ from django.db.models import UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from .api_cash_ctrl import URL_ROOT
+from .api_cash_ctrl import URL_ROOT, FIELD_TYPE, DATA_TYPE
 from scerp.mixins import multi_language
 
 
@@ -200,6 +200,90 @@ class MappingId(AcctApp):
         verbose_name_plural = _("Mapping Ids")
 
 
+class CustomFieldGroup(AcctApp):
+    '''
+    Create custom field group that is then sent to cashCtrl via signals
+    '''
+    TYPE = [(x.value, x.value) for x in FIELD_TYPE]
+    code = models.CharField(
+        _('Code'), max_length=50,
+        help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('Name'), help_text="The name of the group.")    
+    type = models.CharField(
+        _("Type"), max_length=50, choices=TYPE,
+        help_text='''
+            The type of group, meaning: which module the group belongs to. 
+            Possible values: JOURNAL, ACCOUNT, INVENTORY_ARTICLE, 
+            INVENTORY_ASSET, ORDER, PERSON, FILE.''')
+
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_custom_field_group_code'
+            )
+        ]      
+        ordering = ['type', 'name']
+        verbose_name = _("Custom Field Group")
+        verbose_name_plural = _("Custom Field Groups")
+        
+        
+class CustomField(AcctApp):
+    '''
+    Create custom field that is then sent to cashCtrl via signals
+    
+        group is None allows the group field to be set to None temporarily 
+        if it starts as a string, so the pre_save signal can resolve and
+        assign the correct instance.
+    '''
+    TYPE = [(x.value, x.value) for x in DATA_TYPE]
+    code = models.CharField(
+        _('Code'), max_length=50,
+        help_text='Internal code for scerp')
+    group_ref = models.CharField(
+        _('Custom Field Group'), max_length=50, blank=True, null=True,
+        help_text='internal reference for scerp used for getting foreign key')
+    name = models.JSONField(
+        _('Name'), help_text="The name of the field.")    
+    type = models.CharField(
+        _("Type"), max_length=50, choices=TYPE,
+        help_text='''
+            The data type of the custom field. Possible values: TEXT, TEXTAREA,
+            CHECKBOX, DATE, COMBOBOX, NUMBER, ACCOUNT, PERSON.''')
+    description = models.JSONField(
+        _('Description'), blank=True, null=True,
+        help_text="Description of the field.") 
+    group = models.ForeignKey(
+        CustomFieldGroup, verbose_name=_('Custom Field Group'),
+        null=True, blank=True,
+        on_delete=models.CASCADE, related_name='%(class)s_group',
+        help_text=_('Internal reference'))
+    is_multi = models.BooleanField(
+        _("Is multi"), default=False,
+        help_text="Is the custom field a multi-field?")    
+    values = models.JSONField(
+        _('Values'), blank=True, null=True,
+        help_text="Values the user can choose from, if the data type is COMBOBOX.") 
+   
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_custom_field_code'
+            )
+        ]       
+        ordering = ['type', 'name']
+        verbose_name = _("Custom Field")
+        verbose_name_plural = _("Custom Field")
+   
+        
 class Location(AcctApp):
     '''Read - only
     '''

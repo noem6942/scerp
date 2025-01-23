@@ -10,3 +10,4 @@ class AccountingConfig(AppConfig):
     def ready(self):
         # Import signal handlers to register them
         import accounting.signals
+        import accounting.signals_cash_ctrl

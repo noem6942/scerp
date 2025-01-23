@@ -56,7 +56,17 @@ def init_setup(modeladmin, request, queryset):
         api_setup_post_save(
             modeladmin.model, instance, created=False, init=True) 
         messages.success(request, _("Accounting API initialized"))
-    
+  
+
+@admin.action(description=('Admin: Test Init setup'))
+def test_setup(modeladmin, request, queryset):
+    # Check
+    if action_check_nr_selected(request, queryset, 1):
+        instance = queryset.first()
+        api_setup_post_save(
+            modeladmin.model, instance, created=False, test=True) 
+        messages.success(request, _("Accounting API tested"))
+  
 
 @admin.action(description=ACTION_LOAD)
 def api_setup_get(modeladmin, request, queryset):

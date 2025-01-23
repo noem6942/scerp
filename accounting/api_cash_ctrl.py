@@ -143,7 +143,7 @@ class BOOK_TYPE:
 
 
 # pylint: disable=invalid-name
-class DATA_TYPE:
+class DATA_TYPE(Enum):
     '''see public api desc'''
     TEXT = 'TEXT'
     TEXTAREA = 'TEXTAREA'
@@ -191,7 +191,7 @@ class ELEMENT_TYPE:
 
 
 # pylint: disable=invalid-name
-class FIELD_TYPE:
+class FIELD_TYPE(Enum):
     '''see public api desc'''
     JOURNAL = 'JOURNAL'
     ACCOUNT = 'ACCOUNT'

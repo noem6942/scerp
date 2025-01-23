@@ -59,6 +59,7 @@ class APISetupAdmin(BaseAdmin):
     actions = [
         a.api_setup_get,
         a.init_setup,
+        a.test_setup,
         a.api_setup_delete_hrm_accounts,
         a.api_setup_delete_system_accounts,
         a.api_setup_delete_hrm_categories,
@@ -586,7 +587,7 @@ class ChartOfAccountsAdmin(BaseAdmin):
 @admin.register(AccountPosition, site=admin_site)
 class AccountPositionAdmin(CashCtrlAdmin):
     related_tenant_fields = [
-        'parent', 'chart', 'allocations', 'currency' ]
+        'setup', 'parent', 'chart', 'allocations', 'currency' ]
     has_tenant_field = True
     has_revenue_id = True
     is_readonly = False
@@ -604,9 +605,10 @@ class AccountPositionAdmin(CashCtrlAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('account_type', 'account_number', 'function',
-                       'is_category', 'name', 'description', 'chart',
-                       'parent', 'number'),
+            'fields': (
+                'setup', 'chart', 'account_type', 'account_number', 'name', 
+                'function', 'is_category', 'description', 
+                'parent', 'number'),
             'classes': ('expand',),
         }),
         (_('Edit'), {

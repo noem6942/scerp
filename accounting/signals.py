@@ -1,19 +1,25 @@
 '''
 accounting/signals.py
 '''
+import os
+import yaml
 from decimal import Decimal
+from pathlib import Path
 
 from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from crm.models import Title
+from scerp.mixins import init_yaml_data
 from .models import (
     APPLICATION, ACCOUNT_TYPE, APISetup, AccountPosition, 
-    AccountPositionTemplate, Location, FiscalPeriod
+    AccountPositionTemplate, Location, FiscalPeriod,
+    CustomFieldGroup, CustomField
 )
 from .connector import get_connector_module
 from .mixins import account_position_calc_number
+
 
 
 @receiver(post_save, sender=APISetup)
@@ -38,7 +44,31 @@ def api_setup_post_save(sender, instance, created, **kwargs):
             ctrl.init()
 
         # Get initial data
-        module.get_all(api_setup)        
+        module.get_all(api_setup)   
+        
+    if created or kwargs.get('test', False):
+        # Testing
+        api_setup, module = get_connector_module(api_setup=instance)
+                
+        # Load the YAML file        
+        init_yaml_data(
+            'accounting', 
+            tenant=instance.tenant, 
+            created_by=instance.created_by, 
+            filename_yaml='setup_init.yaml',
+            accounting_setup=instance)
+    
+
+@receiver(pre_save, sender=CustomField)
+def custom_field_pre_save(sender, instance, **kwargs):
+    if instance.group_ref and not instance.group :    
+        try:
+            # Find corresponding CustomFieldGroup instance
+            instance.group = CustomFieldGroup.objects.get(
+                tenant=instance.tenant, code=instance.group_ref
+            )
+        except CustomFieldGroup.DoesNotExist:
+            raise ValidationError(f"Invalid group code: {instance.group}")
 
 
 @receiver(post_save, sender=FiscalPeriod)
@@ -76,10 +106,3 @@ def account_position_template(sender, instance, *args, **kwargs):
         instance.account_number,
         instance.is_category)
     instance.number = Decimal(number)
-
-
-# CRM
-@receiver(post_save, sender=Title)
-def api_setup_post_save(sender, instance, created, **kwargs):
-    print("*", instance)
-    
