@@ -85,6 +85,21 @@ APP_MODEL_ORDER = {
             #'AccountPosition': ('C 33', None),
         }
     },
+    'asset': {
+        'symbol': 'AT',
+        'is_mandatory': False,
+        'models': {
+            'Department': ('1', None),
+            'DeviceLocation': ('2', None),
+            'Customer': ('3', None),
+            'Category': ('4', None),
+            'Model': ('5', None),
+            'Device': ('6', None),
+            'CounterCategory': ('7', None),
+            'UnitCategory': ('8', None),
+            'CounterLog': ('9', None)
+        }
+    },    
     'billing': {
         'symbol': 'B',
         'is_mandatory': False,

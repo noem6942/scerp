@@ -25,8 +25,9 @@ GUI_ROOT = settings.ADMIN_ROOT
 SPACE = '\u00a0'  # invisible space
 
 # helpers
-LOGGING_FIELDS = [
-    'created_at', 'created_by', 'modified_at', 'modified_by']
+LOGGING_FIELDS = ['created_at', 'created_by', 'modified_at', 'modified_by']
+REQUIRED_LOGGING_FIELDS = ['tenant', 'created_by']
+
 NOTES_FIELDS = [
     'notes', 'attachment', 'is_protected', 'is_inactive']
 TENANT_FIELD = 'tenant'
@@ -266,9 +267,53 @@ def override_textfields_default(attrs=None):
 
 
 # Customize classes
+
+# Constraints    
+def filter_foreignkeys(modeladmin, db_field, request, kwargs):
+    """
+    Limit availabe foreign keys to items you are allowed to choose from 
+    """
+    if db_field.name in getattr(modeladmin, 'related_tenant_fields', []):
+        tenant_data = get_tenant(request)  # Get the tenant from the request
+        
+        # Dynamically get the related model using db_field.remote_field.model
+        related_model = db_field.remote_field.model            
+        
+        # Filter the queryset of the `period` field by tenant
+        kwargs['queryset'] = related_model.objects.filter(
+            tenant__id=tenant_data['id'])     
+        print("*+*")
+
+    
+def filter_queryset(modeladmin, request, queryset):
+    """
+    Limit queryset based on user or other criteria.
+    """
+    if getattr(modeladmin, 'has_tenant_field', False):
+        # Filter queryset        
+        try:
+            queryset = filter_query_for_tenant(request, queryset)
+        except Exception as e:
+            # Catch unexpected errors and log them
+            msg = _("Unexpected error filtering tenant: {e}").format(e=e)
+            messages.error(request, msg)
+            raise  # Re-raise the exception to propagate it
+
+    return queryset
+
+
+class BaseTabularInline(admin.TabularInline):
+    """
+    Constrains for TabularInline classes
+    """ 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):        
+        filter_foreignkeys(self, db_field, request, kwargs)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)  
+
+
 class BaseAdmin(ModelAdmin):
     """
-    A base admin class that contains reusable functionality.
+    Constrains for ModelAdmin classes
     """
     # format
     formfield_overrides = override_textfields_default(
@@ -370,50 +415,13 @@ class BaseAdmin(ModelAdmin):
                 messages.error(request, mark_safe(self.error))
         return super().changelist_view(request, extra_context=extra_context)
 
-    # security
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):        
+        filter_foreignkeys(self, db_field, request, kwargs)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs) 
+
     def get_queryset(self, request):
-        """
-        Limit queryset based on user or other criteria.
-        """
         queryset = super().get_queryset(request)
-
-        if getattr(self, 'has_tenant_field', False):
-            # Filter queryset
-            try:
-                queryset = filter_query_for_tenant(request, queryset)
-            except ValueError as e:
-                # Handle known ValueError
-                msg = _("Value Error filtering tenant: {e}").format(e=e)
-                messages.error(request, msg)
-            except KeyError as e:
-                # Handle KeyError if expected
-                msg = _("Key Error filtering tenant: {e}").format(e=e)
-                messages.error(request, msg)
-            except TypeError as e:
-                # Handle TypeError if expected
-                msg = _("Type Error filtering tenant: {e}").format(e=e)
-                messages.error(request, msg)
-            except Exception as e:
-                # Catch unexpected errors and log them
-                msg = _("Unexpected error filtering tenant: {e}").format(e=e)
-                messages.error(request, msg)
-                raise  # Re-raise the exception to propagate it
-
-        return queryset
-
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        # We only want to filter the `period` field (ForeignKey to FiscalPeriod)
-        if db_field.name in getattr(self, 'related_tenant_fields'):
-            tenant_data = get_tenant(request)  # Get the tenant from the request
-            
-            # Dynamically get the related model using db_field.remote_field.model
-            related_model = db_field.remote_field.model            
-            
-            # Filter the queryset of the `period` field by tenant
-            kwargs['queryset'] = related_model.objects.filter(
-                tenant__id=tenant_data['id'])
-
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+        return filter_queryset(self, request, queryset)
 
     def save_model(self, request, instance, form, change):
         """
@@ -430,3 +438,27 @@ class BaseAdmin(ModelAdmin):
 
         # Only save the model if there are no errors
         super().save_model(request, instance, form, change)
+        
+    def save_related(self, request, form, formsets, change):        
+        """
+        Used for inlines
+        Loop through each formset to check if we have some required fields
+        that can be derived from form.instance
+        """
+        for formset in formsets:                        
+            # Save the related EventLog instances without committing them to
+            # the DB yet
+            field_names = [x.name for x in formset.model._meta.get_fields()]
+            for obj in formset.save(commit=False):
+                # Check related must fields
+                for field_name in REQUIRED_LOGGING_FIELDS:
+                    if field_name in field_names:
+                        value = getattr(form.instance, field_name)
+                        setattr(obj, field_name, value)
+                
+                # Save the obj
+                # obj.save()                
+
+        # Call the default save_related method to save the inline models
+        super().save_related(request, form, formsets, change)     
+        

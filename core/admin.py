@@ -8,6 +8,7 @@ from scerp.admin import BaseAdmin, Display
 from scerp.admin_site import admin_site
 from . import actions as a
 from .models import Message, Tenant, TenantSetup, TenantLogo, UserProfile
+from .safeguards import get_available_tenants, set_tenant
 
 
 # Register User, Group
@@ -59,6 +60,20 @@ class TenantAdmin(BaseAdmin):
             'classes': ('expand',),            
         }),
     )        
+
+    def save_model(self, request, obj, form, change):
+        """
+        Override save_model to perform session update
+        """
+        # Save the object first
+        super().save_model(request, obj, form, change)
+        
+        # Perform your post-save action
+        if not change:  # If this is a new object being created
+            # Set session variables
+            get_available_tenants(request, recheck_from_db=True)
+            set_tenant(request, obj.id)
+            messages.success(request, _("Session updated."))
 
 
 @admin.register(TenantSetup, site=admin_site)

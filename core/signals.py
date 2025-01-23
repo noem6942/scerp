@@ -2,9 +2,12 @@
 import logging
 from PIL import Image
 
+from django.apps import apps
+from django.conf import settings
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
-from django.db.models.signals import pre_save, post_save
+from django.db import transaction
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.crypto import get_random_string
 from django.utils.translation import gettext_lazy as _
@@ -17,7 +20,8 @@ from scerp.mixins import is_url_friendly
 PASSWORD_LENGTH = 32
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
-
+from scerp.mixins import init_yaml_data
+     
 
 @receiver(pre_save, sender=Tenant)
 def tenant_pre_save(sender, instance, **kwargs):
@@ -29,8 +33,8 @@ def tenant_pre_save(sender, instance, **kwargs):
     elif instance.code != instance.code.lower():
         msg = _("Code contains upper letters")
         raise ValidationError(msg)
-
-
+        
+        
 @receiver(post_save, sender=Tenant)
 def tenant_post_save(sender, instance, created, **kwargs):
     """Perform follow-up actions when a new Tenant is created."""
@@ -40,12 +44,20 @@ def tenant_post_save(sender, instance, created, **kwargs):
         for app in App.objects.order_by('name'):
             if app.is_mandatory:
                 instance.apps.add(app)
-
-        logger.info(f"Tenant Setup '{instance.code}' created.")        
+                        
         # Create TenantSetup
         tenant_setup = TenantSetup.objects.create(
             tenant=instance,
-            created_by=instance.created_by)
+            created_by=instance.created_by)    
+        logger.info(f"Tenant Setup '{instance.code}' created.")            
+            
+        # Init Data    
+        for app_name in ['asset']:
+            init_yaml_data(
+                app_name, 
+                tenant=instance, 
+                created_by=instance.created_by, 
+                filename_yaml='tenant_init.yaml')
 
 
 @receiver(pre_save, sender=TenantSetup)

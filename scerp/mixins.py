@@ -1,15 +1,22 @@
 """
 scerp/mixins.py
 """
+import logging
+import os
 import secrets
 import string
+import yaml
+from pathlib import Path
 from openpyxl import load_workbook
 
+from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
+logger = logging.getLogger(__name__)  # Using the app name for logging
 
 # helpers, use this for all models in all apps
 current_timezone = timezone.get_current_timezone()
@@ -89,3 +96,42 @@ def multi_language(value_dict):
     elif values and settings.LANGUAGE_CODE_PRIMARY in values:
         return values[language]
     return str(value_dict)    
+
+# signals, load and init yaml data
+def init_yaml_data(
+        app_name, tenant, created_by, filename_yaml, accounting_setup=None):
+    
+    # Load the YAML file    
+    file_path = os.path.join(
+        settings.BASE_DIR, app_name, filename_yaml)
+    with open(file_path, 'r', encoding='utf-8') as file:        
+        data = yaml.safe_load(file)
+    
+    # Create data        
+    try:
+        with transaction.atomic():
+            for model_name, data_list in data['INIT_VALUES'].items():
+                for data in data_list:
+                    # Prepare data
+                    data.update({
+                        'tenant': tenant,
+                        'created_by': created_by
+                    })
+                    if accounting_setup:
+                        data['setup'] = accounting_setup
+                    
+                    # Create data
+                    model = apps.get_model(
+                        app_label=app_name, model_name=model_name)                    
+                    obj = model.objects.create(**data)
+                    
+                    logger.info(f"Created {obj}")  
+                    
+        # At this point, all operations are successful and committed
+        logger.info("All operations completed successfully!")
+    except Exception as e:
+        # If any exception occurs, the transaction is rolled back
+        logger.error(f"Transaction failed: {e}")    
+
+        # Re-raise the exception to propagate it further
+        raise  # This will raise the same exception that was caught
