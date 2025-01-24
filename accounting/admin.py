@@ -13,7 +13,8 @@ from scerp.admin_site import admin_site
 from scerp.mixins import multi_language
 from . import actions as a
 from .models import (
-    APISetup, Setting, MappingId, Location, FiscalPeriod, Currency, Unit, Tax,
+    APISetup, Setting, CustomFieldGroup, CustomField,
+    MappingId, Location, FiscalPeriod, Currency, Unit, Tax,
     Rounding, SequenceNumber, OrderCategory, OrderTemplate,
     CostCenter, Article, ChartOfAccountsTemplate,
     AccountPositionTemplate, ChartOfAccounts, AccountPosition,
@@ -24,6 +25,7 @@ from .models import (
 class CASH_CTRL:
     FIELDS = [
         'c_id',
+        'message',
         'c_created',
         'c_created_by',
         'c_last_updated',
@@ -89,6 +91,7 @@ class CashCtrlAdmin(BaseAdmin):
     has_tenant_field = True
 
     def get_cash_ctrl_fields(self):
+        # do we really need it?
         fields = CASH_CTRL.FIELDS
         if getattr(self, 'has_revenue_id', False):
             for field in CASH_CTRL.REVENUE_FIELDS:
@@ -104,7 +107,7 @@ class CashCtrlAdmin(BaseAdmin):
         readonly_fields = list(readonly_fields)  # Ensure it's mutable
 
         # Adjust readonly_fields
-        if getattr(self, 'is_readonly'):
+        if getattr(self, 'is_readonly', None):
             all_fields = [
                 field.name for field in self.model._meta.get_fields()]
             readonly_fields.extend(all_fields)
@@ -153,6 +156,39 @@ class Setting(BaseAdmin):
     @admin.display(description=_('settings'))
     def display_data(self, obj):
         return Display.json(obj.data)
+
+
+@admin.register(CustomFieldGroup, site=admin_site)
+class CustomFieldGroupAdmin(CashCtrlAdmin):    
+    has_tenant_field = True
+    related_tenant_fields = ['setup']
+    list_display = ('code', 'name', 'c_id', 'message')
+    search_fields = ('code', 'name')
+    actions = [a.custom_group_field_get]
+
+    fieldsets = (
+        # Organization Details
+        (None, {
+            'fields': ('code', 'name', 'type'),
+            'classes': ('expand',),
+        }),
+    )
+
+@admin.register(CustomField, site=admin_site)
+class CustomFieldAdmin(CashCtrlAdmin):    
+    has_tenant_field = True
+    list_display = ('code', 'type', 'name', 'c_id', 'message')
+    search_fields = ('code', 'name')
+
+    fieldsets = (
+        # Organization Details
+        (None, {
+            'fields': (
+                'code', 'group', 'name', 'type', 'description',
+                'is_multi', 'values'),
+            'classes': ('expand',),
+        }),
+    )
 
 
 class LocationResource(resources.ModelResource):

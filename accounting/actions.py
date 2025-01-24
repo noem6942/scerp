@@ -2,6 +2,7 @@
 accounting/actions.py
 '''
 from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -11,11 +12,13 @@ from core.safeguards import save_logging
 from scerp.admin import action_check_nr_selected
 
 from .models import (
-    ACCOUNT_TYPE_TEMPLATE, APISetup,
+    APPLICATION, ACCOUNT_TYPE_TEMPLATE, APISetup,
     AccountPositionTemplate,
     ChartOfAccounts, AccountPosition, FiscalPeriod
 )
 from . import connector_cash_ctrl, forms
+from . import connector_cash_ctrl_new as conn
+from . import signals, signals_cash_ctrl
 from .import_accounts_canton import Import
 from .mixins import AccountPositionCheck
 from .connector import get_connector_module
@@ -48,6 +51,17 @@ def get_api_setup(queryset):
     messages.error(request, _("No account setup found"))
 
 
+def get_handler(modeladmin, request, queryset, cls):
+    if action_check_nr_selected(request, queryset, min_count=1):        
+        setup = queryset.first().setup        
+        if setup.application == APPLICATION.CASH_CTRL:     
+            return cls(
+                modeladmin.model, setup.org_name, setup.api_key,
+                request=request)
+        else:
+            messages.error(request, _("No accounting system defined."))
+
+
 @admin.action(description=('Admin: Init setup'))
 def init_setup(modeladmin, request, queryset):
     # Check
@@ -57,6 +71,14 @@ def init_setup(modeladmin, request, queryset):
             modeladmin.model, instance, created=False, init=True) 
         messages.success(request, _("Accounting API initialized"))
   
+  
+@admin.action(description=('Get data from account system'))
+def custom_group_field_get(modeladmin, request, queryset):
+    ''' load data '''    
+    handler = get_handler(
+        modeladmin, request, queryset, conn.CustomFieldGroup)
+    handler.load()
+
 
 @admin.action(description=('Admin: Test Init setup'))
 def test_setup(modeladmin, request, queryset):

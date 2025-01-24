@@ -10,4 +10,4 @@ class CrmConfig(AppConfig):
     def ready(self):
         # Import signal handlers to register them
         import crm.signals  # inform CRM about changes
-        import accounting.signals  # inform accounting about changes
+        # import accounting.signals  # inform accounting about changes

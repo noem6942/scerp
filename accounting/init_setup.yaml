@@ -1,0 +1,661 @@
+# init_setup.yaml
+#
+# This YAML file defines the initialization values for cash_ctrl
+# It includes information about various categories and their respective codes.
+
+# Custom Fields ----------------------------------------------------------
+CustomFieldGroup:
+  - code: account
+    name:
+      de: HRM
+      en: HRM
+      fr: MCH
+      it: HRM
+    type: ACCOUNT
+
+  - code: order_incoming
+    name:
+      de: Eingehend
+      en: Incoming
+      fr: Entrant
+      it: In entrata
+    type: ORDER
+
+  - code: order_outgoing
+    name:
+      de: Ausgehend
+      en: Outgoing
+      fr: Sortant
+      it: In uscita
+    type: ORDER
+
+  - code: order_procurement
+    name:
+      de: Beschaffung/Vertrag
+      en: Procurement/Contract
+      fr: Approvisionnement/Contrat
+      it: Approvvigionamento/Contratto
+    type: ORDER
+
+  - code: person
+    name:
+      de: Person
+      en: Person
+      fr: Personne
+      it: Persona
+    type: PERSON
+
+CustomField:
+  - code: account_hrm
+    group_ref: account
+    name:
+      de: HRM
+      en: HRM
+      fr: MCH
+      it: HRM
+    type: TEXT
+    is_multi: false
+    values: []
+
+  - code: account_function
+    group_ref: account
+    name:
+      de: Funktion
+      en: Function
+      fr: Fonction
+      it: Funzione
+    type: TEXT
+    is_multi: false
+    values: []
+
+  - code: order_incoming_approval
+    group_ref: order_incoming
+    name:
+      de: Unterzeichnet / Bewilligt
+      en: Signed / Approved
+      fr: Signé / Approuvé
+      it: Firmato / Approvato
+    type: PERSON
+    is_multi: true
+    values: []
+
+  - code: order_outgoing_approval
+    group_ref: order_outgoing
+    name:
+      de: Unterzeichnet / Bewilligt
+      en: Signed / Approved
+      fr: Signé / Approuvé
+      it: Firmato / Approvato
+    type: PERSON
+    is_multi: true
+    values: []
+
+  - code: order_outgoing_counter_id
+    group_ref: order_outgoing
+    name:
+      de: Zähler-ID
+      en: Meter ID
+      fr: ID du compteur
+      it: ID del contatore
+    type: TEXT
+    is_multi: false
+    values: []
+
+  - code: order_outgoing_period
+    group_ref: order_outgoing
+    name:
+      de: Abrechnungsperiode
+      en: Fiscal Period
+      fr: Période fiscale
+      it: Periodo fiscale
+    type: TEXT
+    is_multi: false
+    values: []
+
+  - code: order_outgoing_counter_actual
+    group_ref: order_outgoing
+    name:
+      de: Zählerstand aktuell
+      en: Current Meter Reading
+      fr: Relevé actuel du compteur
+      it: Lettura corrente del contatore
+    type: NUMBER
+    is_multi: false
+    values: []
+
+  - code: order_outgoing_counter_previous
+    group_ref: order_outgoing
+    name:
+      de: Zählerstand vorher
+      en: Previous Meter Reading
+      fr: Relevé précédent du compteur
+      it: Lettura precedente del contatore
+    type: NUMBER
+    is_multi: false
+    values: []
+
+  - code: order_outgoing_object
+    group_ref: order_outgoing
+    name:
+      de: Objekt
+      en: Object
+      fr: Objet
+      it: Oggetto
+    type: TEXT
+    is_multi: false
+    values: []
+    
+  - code: order_procurement_approval
+    group_ref: order_procurement
+    name:
+      de: Unterzeichnet / Bewilligt
+      en: Signed / Approved
+      fr: Signé / Approuvé
+      it: Firmato / Approvato
+    type: PERSON
+    is_multi: true
+    values: []    
+
+  - code: order_procurement_validity
+    group_ref: order_procurement
+    name:
+      de: Vertrag gültig bis
+      en: Contract valid until
+      fr: Contrat valable jusqu'au
+      it: Contratto valido fino al
+    type: DATE
+    is_multi: false
+    values: []
+
+  - code: order_procurement_notice
+    group_ref: order_procurement
+    name:
+      de: Kündigungsfrist Anzahl Monate
+      en: Notice Period in Months
+      fr: Délai de préavis en mois
+      it: Periodo di preavviso in mesi
+    type: NUMBER
+    is_multi: false
+    values: []
+
+  # - code: person_category
+  #  group_ref: person
+  #    name:
+  #      de: Kategorie
+  #      en: Category
+  #      fr: Catégorie
+  #      it: Categoria
+  #    type: ACCOUNT
+  #    is_multi: true
+  #    values: []
+
+
+# Config Data --------------------------------------------------------
+Location:
+  - name: Hauptsitz
+    type: MAIN
+  - name: MWST 1
+    type: OTHER
+  - name: MWST 2
+    type: OTHER
+
+FiscalPeriod: []
+
+Currency: []
+
+Rounding: []
+
+SequenceNumber: []
+
+Tax:
+  - account_ref: 2200  # Umsatzsteuer
+    name:
+      de: "MWST-Umsatzsteuer ER - SF Wasser"
+      en: "VAT Sales Tax ER - Water"
+      fr: "TVA Taxe sur les ventes ER - Eau"
+      it: "IVA Tassa sulle vendite ER - Acqua"
+    percentage: 2.6
+    document_name:
+      de: "CHE-108.964.801 MWST, SF Wasser, 2.6%"
+      en: "CHE-108.964.801 VAT, Water, 2.6%"
+      fr: "CHE-108.964.801 TVA, Eau, 2.6%"
+      it: "CHE-108.964.801 IVA, Acqua, 2.6%"
+
+  - account_ref: 2200  # Umsatzsteuer
+    name:
+      de: "MWST-Umsatzsteuer ER - Abwasser"
+      en: "VAT Sales Tax ER - Wastewater"
+      fr: "TVA Taxe sur les ventes ER - Eaux usées"
+      it: "IVA Tassa sulle vendite ER - Acque reflue"
+    percentage: 8.1
+    document_name:
+      de: "CHE-112.793.129 MWST, Abwasser, 8.1%"
+      en: "CHE-112.793.129 VAT, Wastewater, 8.1%"
+      fr: "CHE-112.793.129 TVA, Eaux usées, 8.1%"
+      it: "CHE-112.793.129 IVA, Acque reflue, 8.1%"
+
+Units:
+  - code: m3
+    name:
+      de: 'm³'
+      en: 'm³'
+      fr: 'm³'
+      it: 'm³'
+
+Texts:
+  - code: legal_water
+    name: Rechtmittel Wasser
+    type: ORDER_FOOTER
+    value: Wasser - schriftlich innert 10 Tagen an die Wasserkommission der Bürgergemeinde Gunzgen
+    
+  - code: legal_dispoasl
+    name: Rechtmittel Abwasser
+    type: ORDER_FOOTER
+    value: Abwasser - schriftlich innert 10 Tagen an den Einwohnergemeinderat Gunzgen
+
+# Categories ---------------------------------------------------------------
+AccountCategories:
+  - code: p&l_expense
+    parent_ref: EXPENSE
+    name:
+      de: Erfolgsrechnung
+      en: P&L
+      fr: Compte de résultat
+      it: Conto economico
+
+  - code: p&l_revenue
+    parent_ref: REVENUE
+    name:
+      de: Erfolgsrechnung
+      en: P&L
+      fr: Compte de résultat
+      it: Conto economico
+
+  - code: is_expense
+    parent_ref: EXPENSE
+    parent: p&l_expense
+    name:
+      de: Investitionsrechnung
+      en: Investment Statement
+      fr: Compte d’investissement
+      it: Conto degli investimenti
+
+  - code: is_revenue
+    parent_ref: REVENUE
+    parent: p&l_revenue
+    name:
+      de: Investitionsrechnung
+      en: Investment Statement
+      fr: Compte d’investissement
+      it: Conto degli investimenti
+
+PersonCategories:
+  - code: subscriber
+    parent_ref: None
+    name:
+      de: '*Abonnenten'
+      en: '*Subscribers'
+      fr: '*Abonnés'
+      it: '*Abbonati'
+
+  - code: customer_service
+    parent_ref: None
+    name:
+      de: 'Kundenservice'
+      en: 'Customer Service'
+      fr: 'Service Client'
+      it: 'Servizio Clienti'
+
+  - code: disclaimer
+    parent_ref: None
+    name:
+      de: '__in scerp zu erfassen__'
+      en: '__enter in scerp__'
+      fr: '__entrer dans scerp__'
+      it: '__inserire in scerp__'
+
+# Entities --------------------------------------------------------------------
+Persons:
+  - category_ref: customer_service
+    first_name: null
+    last_name: BDO AG, 4600 Olten
+    company: BDO
+    addresses:
+      - type: MAIN
+        zip: 4600
+        city: Olten
+        country: CHE
+    contacts:
+      - address: bz-gunzgen@bdo.ch
+        type: EMAIL_WORK
+      - address: 062 387 95 29
+        type: PHONE_WORK
+    color: BLUE
+
+# Outgoing Orders ------------------------------------------------------------
+OrderCategories:
+  - code: order_outgoing
+    account_ref: 1100   # Debitoren
+    name_singular:
+      de: "Rechnung, ausgehend"
+      en: "Outgoing Invoice"
+      fr: "Facture sortante"
+      it: "Fattura in uscita"
+    name_plural:
+      de: "Rechnungwn, ausgehend"
+      en: "Outgoing Invoices"
+      fr: "Factures sortantes"
+      it: "Fatture in uscita"
+    status:
+      # Status: Entwurf (Draft)
+      # Represents a document or invoice in the draft phase. Color is GRAY.
+      - icon: GRAY
+        name:
+          de: Entwurf
+          en: Draft
+          fr: Projet
+          it: Progetto
+      
+      # Status: Offen (Open)
+      # Represents an open invoice or document. Color is ORANGE.
+      - icon: ORANGE
+        name:
+          de: Offen
+          en: Open
+          fr: Ouvert
+          it: Aperto
+      
+      # Status: Versandt (Sent)
+      # Represents a document that has been sent. Color is BLUE.
+      - icon: BLUE
+        name:
+          de: Versandt
+          en: Sent
+          fr: Envoyé
+          it: Inviato
+      
+      # Status: Erinnert 1 (Reminder 1)
+      # The first reminder for an unpaid invoice. Color is YELLOW.
+      - icon: YELLOW
+        name:
+          de: Erinnert 1
+          en: Reminder 1
+          fr: Rappel 1
+          it: Promemoria 1
+      
+      # Status: Erinnert 2 (Reminder 2)
+      # The second reminder for an unpaid invoice. Color is YELLOW.
+      - icon: YELLOW
+        name:
+          de: Erinnert 2
+          en: Reminder 2
+          fr: Rappel 2
+          it: Promemoria 2
+      
+      # Status: Betreibung (Collection)
+      # Represents a collection or legal action phase. Color is RED.
+      - icon: RED
+        name:
+          de: Betreibung
+          en: Collection
+          fr: Recouvrement
+          it: Recupero
+      
+      # Status: Bezahlt (Paid)
+      # Represents an invoice that has been paid. Color is GREEN.
+      - icon: GREEN
+        name:
+          de: Bezahlt
+          en: Paid
+          fr: Payé
+          it: Pagato
+      
+      # Status: Storniert (Cancelled)
+      # Represents a cancelled invoice or document. Color is BLACK.
+      - icon: BLACK
+        name:
+          de: Storniert
+          en: Cancelled
+          fr: Annulé
+          it: Annullato
+
+    address_type: INVOICE
+    book_type: DEBIT
+    due_days: 30
+    footer: <i>{{ order_legal }}</i>
+    header: |
+      Kontakt:<br>
+      Tel. 062 387 95 29<br>
+      E-Mail: bz-gunzgen@bdo.ch<br>
+      <br>
+      Abrechnungsperiode: {{ order_period }}<br>
+      Objekt: {{ order_object }}<br>
+      Zählernummer: {{ order_counter_id }}<br>
+      Zählerstand neu: {{ order_counter_actual}} m³ (alt order_counter_previous m³)
+    is_display_prices: true
+    is_display_item_gross: false
+    responsible_person_ref: 3 # check
+    rounding_id: 1 # check
+    sequence_nr_id: 1 # check
+    template_id: 1000  # check
+    type: SALES
+
+# Incoming Orders ------------------------------------------------------------
+  - code: order_incoming
+    account_ref: 2000  # Kreditoren
+    name_singular:
+      de: "Rechnung, eingehend"
+      en: "Incoming Invoice"
+      fr: "Facture entrante"
+      it: "Fattura in entrata"
+    name_plural:
+      de: "Rechnungen, eingehend"
+      en: "Incoming Invoices"
+      fr: "Factures entrantes"
+      it: "Fatture in entrata"
+      status:
+      # Statuses for Incoming Invoice (Rechnung, eingehend)
+      # Each status includes the name (in multiple languages) and the appropriate color
+      - icon: GRAY
+        name:
+          de: "Offen"
+          en: "Open"
+          fr: "Ouvert"
+          it: "Aperto"
+      - icon: GREEN
+        name:
+          de: "Genehmigt 1"
+          en: "Approved 1"
+          fr: "Approuvé 1"
+          it: "Approvato 1"
+      - icon: GREEN
+        name:
+          de: "Genehmigt 2"
+          en: "Approved 2"
+          fr: "Approuvé 2"
+          it: "Approvato 2"
+      - icon: BLUE
+        name:
+          de: "Verbucht"
+          en: "Posted"
+          fr: "Comptabilisé"
+          it: "Registrato"
+      - icon: BLUE
+        name:
+          de: "Übermittelt"
+          en: "Submitted"
+          fr: "Soumis"
+          it: "Inviato"
+      - icon: ORANGE
+        name:
+          de: "Erinnert 1"
+          en: "Reminder 1"
+          fr: "Rappel 1"
+          it: "Promemoria 1"
+      - icon: ORANGE
+        name:
+          de: "Erinnert 2"
+          en: "Reminder 2"
+          fr: "Rappel 2"
+          it: "Promemoria 2"
+      - icon: GREEN
+        name:
+          de: "Bezahlt"
+          en: "Paid"
+          fr: "Payé"
+          it: "Pagato"
+      - icon: BLACK
+        name:
+          de: "Archiviert"
+          en: "Archived"
+          fr: "Archivé"
+          it: "Archiviato"
+      - icon: RED
+        name:
+          de: "Storniert"
+          en: "Cancelled"
+          fr: "Annulé"
+          it: "Annullato"
+
+      address_type: INVOICE
+      book_type: CREDIT
+      type: PURCHASE
+
+  - code: order_procurement
+    account_ref: 2000  # Kreditoren
+    name_singular:
+      de: Beschaffung und Vertrag
+      en: Procurement and Contract
+      fr: Achat et Contrat
+      it: Acquisto e Contratto
+    name_plural:
+      de: Beschaffungen und Verträge
+      en: Procurements and Contracts
+      fr: Achats et Contrats
+      it: Acquisti e Contratti
+    status:
+    # Procurement and Contracts Statuses
+    # Status: Entwurf (Draft)
+    # Represents a document or contract in the draft phase. Color is GRAY.
+    - icon: GRAY
+      name:
+        de: Entwurf
+        en: Draft
+        fr: Projet
+        it: Progetto    
+    # Status: Anfrage (Request)
+    # Represents a procurement request. Color is ORANGE.
+    - icon: ORANGE
+      name:
+        de: Anfrage
+        en: Request
+        fr: Demande
+        it: Richiesta
+    
+    # Status: Offerte erhalten (Offer Received)
+    # Represents a received offer. Color is BLUE.
+    - icon: BLUE
+      name:
+        de: Offerte erhalten
+        en: Offer Received
+        fr: Offre reçue
+        it: Offerta ricevuta
+    
+    # Status: Shortlisted (Shortlisted)
+    # Represents a procurement item that has been shortlisted. Color is YELLOW.
+    - icon: YELLOW
+      name:
+        de: Shortlisted
+        en: Shortlisted
+        fr: Sélectionné
+        it: Selezionato
+    
+    # Status: Zuschlag (Awarded)
+    # Represents a procurement item that has been awarded. Color is VIOLET.
+    - icon: VIOLET
+      name:
+        de: Zuschlag
+        en: Awarded
+        fr: Attribué
+        it: Aggiudicato
+
+    # Status: Verfügung (Ruling)
+    # Represents an official ruling or decree. Color is ORANGE.
+    - icon: ORANGE
+      name:
+        de: Verfügung
+        en: Ruling
+        fr: Décision
+        it: Disposizione
+
+    # Status: Einsprache (Appeal)
+    # Represents a situation where an appeal has been made. Color is RED.
+    - icon: RED
+      name:
+        de: Einsprache
+        en: Appeal
+        fr: Appel
+        it: Ricorso
+
+    # Status: Vertrag erhalten (Contract Received)
+    # Represents a contract that has been received. Color is BLUE.
+    - icon: BLUE
+      name:
+        de: Vertrag erhalten
+        en: Contract Received
+        fr: Contrat reçu
+        it: Contratto ricevuto
+    
+    # Status: Vertrag unterzeichnet (Contract Signed)
+    # Represents a contract that has been signed. Color is GREEN.
+    - icon: GREEN
+      name:
+        de: Vertrag unterzeichnet
+        en: Contract Signed
+        fr: Contrat signé
+        it: Contratto firmato
+
+    # Status: Abgesagt (Cancelled)
+    # Represents a cancelled procurement process or contract. Color is BLACK.
+    - icon: BLACK
+      name:
+        de: Abgesagt
+        en: Cancelled
+        fr: Annulé
+        it: Annullato
+      address_type: INVOICE
+      book_type: CREDIT
+      type: PURCHASE
+    
+    # Status: Gekündigt (Terminated)
+    # Represents a contract or agreement that has been terminated. Color is RED.
+    - icon: RED
+      name:
+        de: Gekündigt
+        en: Terminated
+        fr: Résilié
+        it: Rescisso
+      address_type: INVOICE
+      book_type: CREDIT
+      type: PURCHASE
+
+    # Status: Kündigung bestätigt (Termination Confirmed)
+    # Represents a confirmation of termination for a contract or agreement. Color is BROWN.
+    - icon: BROWN
+      name:
+        de: Kündigung bestätigt
+        en: Termination Confirmed
+        fr: Résiliation confirmée
+        it: Risoluzione confermata
+      address_type: INVOICE
+      book_type: CREDIT
+      type: PURCHASE
+    
+    # Status: Archiviert (Archived)
+    # Represents an archived procurement item or contract. Color is GRAY.
+    - icon: GRAY
+      name:
+        de: Archiviert
+        en: Archived
+        fr: Archivé
+        it: Archiviato

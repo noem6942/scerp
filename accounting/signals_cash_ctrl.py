@@ -1,109 +1,80 @@
 '''
 accounting/signals_cash_ctrl.py
 '''
-from django.core.exceptions import ValidationError
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save, pre_save, pre_delete
 from django.dispatch import receiver
 
-from . import api_cash_ctrl
+from . import connector_cash_ctrl_new as conn
 from .models import CustomFieldGroup, CustomField
 
 
 # Helpers
-class IGNORE_KEYS:
-    BASE =  [
-        '_state', 'id', 'created_at', 'created_by_id', 'modified_at', 
-        'modified_by_id', 'attachment', 'version_id', 
-        'is_protected', 'tenant_id', 'c_id', 'c_created', 'c_created_by', 
-        'c_last_updated', 'c_last_updated_by', 'setup_id'
-    ]
-    ALL = BASE + ['notes', 'is_inactive']
+def handle_custom_field_signal(cls, sender, instance, action):
+    '''
+    Generic handler for CustomField-related signals.
 
-
-class cashCtrl:
+    This function performs actions based on the specified signal type 
+    (create, update, delete).
     
-    def __init__(self, sender, **kwargs):
-        # from kwargs
-        self.model = sender
-        org_name = kwargs.get('org_name')  
-        api_key = kwargs.get('api_key')
-        
-        # from instance
-         self.instance = kwargs.get('instance')
-         if self.instance:            
-            org_name = instance.setup.org_name
-            api_key = instance.setup.api_key
-                
-        self.cls = self.ctrl(org_name, api_key)
-        self.data = {}   
-        
-        # c_id
-        if self.instance.c_id:
-            data['id'] = c_id
-            
-        # ignore_keys
-        if hasattr(self, 'ignore_keys'):
-            self.data = {
-                key: value 
-                for key, value in instance.__dict__.items()
-                if key not in self.ignore_keys
-            }
-        
-        # json_fields
-        if hasattr(self, 'json_fields'):
-            for field in self.json_fields:
-                if isinstance(self.data[field]):
-                    value = self.data.pop(field)
-                    if value:
-                        self.data[field] = dict(values=value)
-
-    def create(self):
-        # Send to cashCtrl
-        response = group.create(self.data)
-        if response.get('success', False):
-            self.instance.c_id = response['insert_id']
-        else:
-            raise ValidationError(response)   
-
-    def update(self):
-        # Send to cashCtrl
-        response = group.create(self.data)
-        if not response.get('success', False):            
-            raise ValidationError(response)  
+    :cls: connector_cash_ctrl cls
+    :param sender: The model class sending the signal.
+    :param instance: The model instance being affected by the signal.
+    :param action: The action to perform - one of 'create', 'update', or 'delete'.
+    '''
+    handler = cls(sender, instance=instance)
+    if action == "save":
+        handler.create() if instance.pk else handler.update()
+    elif action == "delete" and instance.c_id:
+        handler.delete(instance.c_id)
 
 
-class CustomFieldGroup(cashCtrl):
-    ctrl = api_cash_ctrl.CustomFieldGroup
-    json_fields = ['name']
+def handle_custom_field_signal_save(cls, sender, instance):
+    '''
+    Determine the appropriate action (create or update) for save signals
+    and delegate it to the generic signal handler.
 
-    def __init__(self, sender, instance):
-        super().__init__(self, sender, instance)
-        self.data.update({
-            'type': instance.type
-        })
-
-
-class CustomField(cashCtrl):
-    ctrl = api_cash_ctrl.CustomField
-    ignore_keys = IGNORE_KEYS.ALL + ['code', 'group_ref', 'group_id']
-    json_fields = ['name', 'description']
-    
-    def __init__(self, sender, instance):
-        super().__init__(self, sender, instance)    
-        data.update({            
-            'group_id': instance.group.c_id,
-            'type': instance.group.type,
-            'data_type': instance.type,
-        })
+    :param sender: The model class sending the signal.
+    :param instance: The model instance being saved.
+    '''    
+    handle_custom_field_signal(cls, sender, instance, "save")
 
 
-@receiver(pre_save, sender=CustomFieldGroup)       
+def handle_custom_field_signal_delete(cls, sender, instance):
+    '''
+    Handle delete signals by delegating to the generic signal handler.
+
+    :param sender: The model class sending the signal.
+    :param instance: The model instance being deleted.
+    '''
+    if instance.c_id:
+        handle_custom_field_signal(cls, sender, instance, "delete")
+
+
+# Signal Handlers
+# These handlers connect the appropriate signals to the helper functions.
+
+# APISetup
+
+# cashCtrl classes
+@receiver(pre_save, sender=CustomFieldGroup)
 def custom_field_group_pre_save(sender, instance, **kwargs):
-    cls = CustomFieldGroup(sender, instance)
-    cls.update() if cls.pk else cls.create()
+    '''Signal handler for pre_save signals on CustomFieldGroup. '''    
+    handle_custom_field_signal_save(conn.CustomFieldGroup, sender, instance)
 
-        
+
+@receiver(pre_delete, sender=CustomFieldGroup)
+def custom_field_group_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on CustomFieldGroup. '''
+    handle_custom_field_signal_delete(conn.CustomFieldGroup, sender, instance)
+
+
 @receiver(pre_save, sender=CustomField)
-def custom_field_pre_save(sender, instance, **kwargs):    
-    cls = CustomField(sender, instance)
-    cls.update() if cls.pk else cls.create()
+def custom_field_pre_save(sender, instance, **kwargs):
+    '''Signal handler for pre_save signals on CustomField. '''
+    handle_custom_field_signal_save(conn.CustomField, sender, instance)
+
+
+@receiver(pre_delete, sender=CustomField)
+def custom_field_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on CustomField. '''
+    handle_custom_field_signal_delete(conn.CustomField, sender, instance)

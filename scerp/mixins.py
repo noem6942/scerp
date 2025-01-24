@@ -82,35 +82,38 @@ def multi_language(value_dict):
     '''show language default instead of all values
     '''
     if isinstance(value_dict, str):
-        return value_dict      
-    
+        return value_dict
+
     # get languages
     try:
-        language = get_language().split('-')[0]        
+        language = get_language().split('-')[0]
     except:
         language = settings.LANGUAGE_CODE_PRIMARY
-        
+
     values = value_dict.get('values')
     if values and language in values:
         return values[language]
     elif values and settings.LANGUAGE_CODE_PRIMARY in values:
         return values[language]
-    return str(value_dict)    
+    return str(value_dict)
 
 # signals, load and init yaml data
 def init_yaml_data(
-        app_name, tenant, created_by, filename_yaml, accounting_setup=None):
-    
-    # Load the YAML file    
+        app_name, tenant, created_by, filename_yaml, accounting_setup=None,
+        model_filter=[]):
+
+    # Load the YAML file
     file_path = os.path.join(
         settings.BASE_DIR, app_name, filename_yaml)
-    with open(file_path, 'r', encoding='utf-8') as file:        
+    with open(file_path, 'r', encoding='utf-8') as file:
         data = yaml.safe_load(file)
-    
-    # Create data        
+
+    # Create data
     try:
         with transaction.atomic():
-            for model_name, data_list in data['INIT_VALUES'].items():
+            for model_name, data_list in data.items():
+                if model_filter and model_name not in model_filter:
+                    continue
                 for data in data_list:
                     # Prepare data
                     data.update({
@@ -119,19 +122,19 @@ def init_yaml_data(
                     })
                     if accounting_setup:
                         data['setup'] = accounting_setup
-                    
+
                     # Create data
                     model = apps.get_model(
-                        app_label=app_name, model_name=model_name)                    
+                        app_label=app_name, model_name=model_name)
                     obj = model.objects.create(**data)
-                    
-                    logger.info(f"Created {obj}")  
-                    
+
+                    logger.info(f"{model}: created {obj}.")
+
         # At this point, all operations are successful and committed
         logger.info("All operations completed successfully!")
     except Exception as e:
         # If any exception occurs, the transaction is rolled back
-        logger.error(f"Transaction failed: {e}")    
+        logger.error(f"Transaction failed: {e}")
 
         # Re-raise the exception to propagate it further
         raise  # This will raise the same exception that was caught

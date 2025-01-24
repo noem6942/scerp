@@ -55,8 +55,9 @@ def api_setup_post_save(sender, instance, created, **kwargs):
             'accounting', 
             tenant=instance.tenant, 
             created_by=instance.created_by, 
-            filename_yaml='setup_init.yaml',
-            accounting_setup=instance)
+            filename_yaml='init_setup.yaml',
+            accounting_setup=instance,
+            model_filter=['CustomFieldGroup', 'CustomField'])
     
 
 @receiver(pre_save, sender=CustomField)

@@ -15,7 +15,7 @@ from scerp.mixins import multi_language
 
 from core.models import (
     LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantSetup,
-    TenantLogo)    
+    TenantLogo)
 from crm.models import (
     PersonCategory as CrmPersonCategory,
     Title as CrmTitle,
@@ -33,7 +33,7 @@ class APPLICATION(models.TextChoices):
 class ACCOUNT_SIDE(models.TextChoices):
     CREDIT = 'C', _('Credit')
     DEBIT = 'D', _('Debit')
-    
+
 
 class ACCOUNT_TYPE_TEMPLATE(models.IntegerChoices):
     # Used for Cantonal / Template Charts
@@ -41,7 +41,7 @@ class ACCOUNT_TYPE_TEMPLATE(models.IntegerChoices):
     FUNCTIONAL = (2, _('Funktionale Gliederung'))  # only for template
     INCOME = (3, _('Erfolgsrechnung'))
     INVEST = (5, _('Investitionsrechnung') )
-    
+
 
 class ACCOUNT_TYPE(models.IntegerChoices):
     # Used to display Accounting Charts with bookings, no functionals
@@ -54,10 +54,10 @@ class CATEGORY_HRM(Enum):
     # First digits account_number, name
     ASSET = [1], "ASSET"
     LIABILITY = [2], "LIABILITY"
-    EXPENSE = [3, 5], "EXPENSE" 
-    REVENUE = [4, 6], "REVENUE" 
+    EXPENSE = [3, 5], "EXPENSE"
+    REVENUE = [4, 6], "REVENUE"
     BALANCE = [9], "BALANCE"
-    
+
     def get_scope(category):
         try:
             scope, _label = category.value
@@ -86,11 +86,14 @@ class APISetup(TenantAbstract):
     language = models.CharField(
         _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
         help_text=_('The main language of the person. May be used for documents.')
-    )        
+    )
     account_plan_loaded = models.BooleanField(
         _('Account plan loaded'), default=False,
         help_text=_(
             'gets set to True if account plan uploaded to accounting system'))
+    is_default = models.BooleanField(
+        _('Default setup'), default=True,
+        help_text=_('use this setup for adding accounting data'))
     readonly_fields = ('api_key_hidden',)
 
     def __str__(self):
@@ -110,7 +113,7 @@ class APISetup(TenantAbstract):
                 fields=['application', 'org_name'],
                 name='unique_org_name_per_tenant'
             )
-        ]        
+        ]
         ordering = ['tenant__name',]
         verbose_name = _('Accounting Setup')
         verbose_name_plural = _('Accounting Setups')
@@ -129,32 +132,206 @@ class Acct(models.Model):
     c_last_updated = models.DateTimeField(
         _('CashCtrl last_updated'), null=True, blank=True)
     c_last_updated_by = models.CharField(
-        _('CashCtrl last_updated_by'), max_length=100, null=True, blank=True)   
+        _('CashCtrl last_updated_by'), max_length=100, null=True, blank=True)
     setup = models.ForeignKey(
         APISetup, verbose_name=_('Accounting Setup'),
         on_delete=models.CASCADE, related_name='%(class)s_setup',
-        help_text=_('Account Setup used')) 
-        
+        help_text=_('Account Setup used'))
+    message = models.CharField(
+        _('Message'), max_length=200, null=True, blank=True,
+        help_text=_('Here we show error messages. Just be empty.'))
+
     class Meta:
         abstract = True
 
 
 class AcctApp(TenantAbstract, Acct):
     '''id_cashctrl gets set after first synchronization
-    '''        
+    '''
+    def save(self, *args, **kwargs):
+        ''' save setup if not set '''
+        if not getattr(self, 'setup', None):
+            # Query the default value
+            default_value = APISetup.objects.filter(
+                tenant=self.tenant, is_default=True).first()
+            self.setup = default_value
+        super().save(*args, **kwargs)
+
     class Meta:
         abstract = True
 
 
-class Setting(TenantAbstract):
-    '''Read - only        
+class CustomFieldGroup(AcctApp):
     '''
-    data = models.JSONField(_('Index'), blank=True, null=True)    
+    Create custom field group that is then sent to cashCtrl via signals
+    '''
+    TYPE = [(x.value, x.value) for x in FIELD_TYPE]
+    code = models.CharField(
+        _('Code'), max_length=50,
+        help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('Name'), help_text="The name of the group.")
+    type = models.CharField(
+        _("Type"), max_length=50, choices=TYPE,
+        help_text='''
+            The type of group, meaning: which module the group belongs to.
+            Possible values: JOURNAL, ACCOUNT, INVENTORY_ARTICLE,
+            INVENTORY_ASSET, ORDER, PERSON, FILE.''')
+
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_custom_field_group_code'
+            )
+        ]
+        ordering = ['type', 'code']
+        verbose_name = _("Custom Field Group")
+        verbose_name_plural = _("Custom Field Groups")
+
+
+class CustomField(AcctApp):
+    '''
+    Create custom field that is then sent to cashCtrl via signals
+
+        group is None allows the group field to be set to None temporarily
+        if it starts as a string, so the pre_save signal can resolve and
+        assign the correct instance.
+    '''
+    TYPE = [(x.value, x.value) for x in DATA_TYPE]
+    code = models.CharField(
+        _('Code'), max_length=50,
+        help_text='Internal code for scerp')
+    group_ref = models.CharField(
+        _('Custom Field Group'), max_length=50, blank=True, null=True,
+        help_text='internal reference for scerp used for getting foreign key')
+    name = models.JSONField(
+        _('Name'), help_text="The name of the field.")
+    type = models.CharField(
+        _("Type"), max_length=50, choices=TYPE,
+        help_text='''
+            The data type of the custom field. Possible values: TEXT, TEXTAREA,
+            CHECKBOX, DATE, COMBOBOX, NUMBER, ACCOUNT, PERSON.''')
+    description = models.JSONField(
+        _('Description'), blank=True, null=True,
+        help_text="Description of the field.")
+    group = models.ForeignKey(
+        CustomFieldGroup, verbose_name=_('Custom Field Group'),
+        null=True, blank=True,
+        on_delete=models.CASCADE, related_name='%(class)s_group',
+        help_text=_('Internal reference'))
+    is_multi = models.BooleanField(
+        _("Is multi"), default=False,
+        help_text="Is the custom field a multi-field?")
+    values = models.JSONField(
+        _('Values'), blank=True, null=True,
+        help_text="Values the user can choose from, if the data type is COMBOBOX.")
+
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_custom_field_code'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Custom Field")
+        verbose_name_plural = _("Custom Field")
+
+
+class CostCenterCategory(AcctApp):
+    '''Master
+    '''
+    name = models.JSONField(
+        _('Name'), help_text="The name of the cost center category.")
+    number = models.FloatField(
+        _('Number'), help_text=_("The number of the account category."))
+    parent = models.ForeignKey(
+        'self', verbose_name=_('Parent'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_parent',
+        help_text=_('The parent category.'))
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'number'],
+                name='unique_cost_center_category'
+            )
+        ]
+        ordering = ['number']
+        verbose_name = _("Cost Center")
+        verbose_name_plural = _("Cost Centers")
+
+
+class CostCenter(AcctApp):
+    '''Master
+    '''
+    name = models.CharField(
+        _('Name'), max_length=50, blank=True, null=True,
+        help_text=_("The name of the account category."))
+    name_new = models.JSONField(
+        _('Name'), blank=True, null=True,
+        help_text="The name of the cost center.")
+    number = models.FloatField(
+        _('Number'),
+        help_text=_(
+            '''The cost center number. Must be numeric but can contain
+               a decimal point.'''))
+    category = models.ForeignKey(
+        CostCenterCategory, verbose_name=_('Category'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_category')
+    target_max = models.FloatField(
+        _('Target max'), blank=True, null=True,
+        help_text=_(
+            '''The target maximum balance (aka budget) the cost center
+               should to stay beneath of by the end of the fiscal period.'''))
+    target_min = models.FloatField(
+        _('Target min'), blank=True, null=True,
+        help_text=_(
+            '''The target maximum balance (aka budget) the cost center
+               should to stay beneath of by the end of the fiscal period.'''))
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'number'],
+                name='unique_cost_center'
+            )
+        ]
+        ordering = ['number']
+        verbose_name = _("Cost Center")
+        verbose_name_plural = _("Cost Centers")
+
+
+class AccountCategory(AcctApp):
+    '''Master
+    '''
+    name = models.CharField(
+        _('Name'), max_length=50,
+        help_text=_("The name of the account category."))
+    number = models.FloatField(
+        _('Number'), help_text=_("The name of the account category."))
+    parent = models.ForeignKey(
+        'self', verbose_name=_('Parent'),
+        on_delete=models.CASCADE, related_name='%(class)s_parent',
+        help_text=_('The parent category.'))
+
+
+class Setting(TenantAbstract):
+    '''Read - only
+    '''
+    data = models.JSONField(_('Index'), blank=True, null=True)
     setup = models.ForeignKey(
         APISetup, verbose_name=_('Accounting Setup'),
         on_delete=models.CASCADE, related_name='%(class)s_setup',
-        help_text=_('Account Setup used')) 
-        
+        help_text=_('Account Setup used'))
+
     def __str__(self):
         return self.setup.org_name
 
@@ -164,20 +341,20 @@ class Setting(TenantAbstract):
                 fields=['setup',],
                 name='unique_setup'
             )
-        ]        
+        ]
         ordering = ['setup__org_name']
         verbose_name = _("Settings")
         verbose_name_plural = f"{verbose_name}"
- 
+
 
 class MappingId(AcctApp):
     '''For maintenance only
     '''
     class TYPE(models.TextChoices):
-        CUSTOM_FIELD_GROUP = 'custom_field_group' 
+        CUSTOM_FIELD_GROUP = 'custom_field_group'
         CUSTOM_FIELD = 'custom_field'
         ACCOUNT_CATEGORY = 'account_category'
-        PERSON_CATEGORY = 'person_category' 
+        PERSON_CATEGORY = 'person_category'
         ACCOUNT = 'account'
 
     # Mandatory field
@@ -194,98 +371,14 @@ class MappingId(AcctApp):
                 fields=['setup', 'type', 'name'],
                 name='unique_constants'
             )
-        ]        
+        ]
         ordering = ['type', 'name']
         verbose_name = _("Mapping Id")
         verbose_name_plural = _("Mapping Ids")
 
 
-class CustomFieldGroup(AcctApp):
-    '''
-    Create custom field group that is then sent to cashCtrl via signals
-    '''
-    TYPE = [(x.value, x.value) for x in FIELD_TYPE]
-    code = models.CharField(
-        _('Code'), max_length=50,
-        help_text='Internal code for scerp')
-    name = models.JSONField(
-        _('Name'), help_text="The name of the group.")    
-    type = models.CharField(
-        _("Type"), max_length=50, choices=TYPE,
-        help_text='''
-            The type of group, meaning: which module the group belongs to. 
-            Possible values: JOURNAL, ACCOUNT, INVENTORY_ARTICLE, 
-            INVENTORY_ASSET, ORDER, PERSON, FILE.''')
-
-    def __str__(self):
-        return self.code
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'code'],
-                name='unique_custom_field_group_code'
-            )
-        ]      
-        ordering = ['type', 'name']
-        verbose_name = _("Custom Field Group")
-        verbose_name_plural = _("Custom Field Groups")
-        
-        
-class CustomField(AcctApp):
-    '''
-    Create custom field that is then sent to cashCtrl via signals
-    
-        group is None allows the group field to be set to None temporarily 
-        if it starts as a string, so the pre_save signal can resolve and
-        assign the correct instance.
-    '''
-    TYPE = [(x.value, x.value) for x in DATA_TYPE]
-    code = models.CharField(
-        _('Code'), max_length=50,
-        help_text='Internal code for scerp')
-    group_ref = models.CharField(
-        _('Custom Field Group'), max_length=50, blank=True, null=True,
-        help_text='internal reference for scerp used for getting foreign key')
-    name = models.JSONField(
-        _('Name'), help_text="The name of the field.")    
-    type = models.CharField(
-        _("Type"), max_length=50, choices=TYPE,
-        help_text='''
-            The data type of the custom field. Possible values: TEXT, TEXTAREA,
-            CHECKBOX, DATE, COMBOBOX, NUMBER, ACCOUNT, PERSON.''')
-    description = models.JSONField(
-        _('Description'), blank=True, null=True,
-        help_text="Description of the field.") 
-    group = models.ForeignKey(
-        CustomFieldGroup, verbose_name=_('Custom Field Group'),
-        null=True, blank=True,
-        on_delete=models.CASCADE, related_name='%(class)s_group',
-        help_text=_('Internal reference'))
-    is_multi = models.BooleanField(
-        _("Is multi"), default=False,
-        help_text="Is the custom field a multi-field?")    
-    values = models.JSONField(
-        _('Values'), blank=True, null=True,
-        help_text="Values the user can choose from, if the data type is COMBOBOX.") 
-   
-    def __str__(self):
-        return self.code
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'code'],
-                name='unique_custom_field_code'
-            )
-        ]       
-        ordering = ['type', 'name']
-        verbose_name = _("Custom Field")
-        verbose_name_plural = _("Custom Field")
-   
-        
 class Location(AcctApp):
-    '''Read - only
+    '''Master, currently Read - only
     '''
     class TYPE(models.TextChoices):
         MAIN = "MAIN", _("Headquarters")
@@ -318,7 +411,7 @@ class Location(AcctApp):
     logo = models.ForeignKey(
         TenantLogo, verbose_name=_('Logo'), blank=True, null=True,
         on_delete=models.CASCADE, related_name='%(class)s_logo',
-        help_text=_('Logo to be used for accounting'))         
+        help_text=_('Logo to be used for accounting'))
 
     # Accounting
     bic = models.CharField(
@@ -345,7 +438,7 @@ class Location(AcctApp):
         help_text=_("File ID for the company logo. Supported types: JPG, GIF, PNG."))
     footer = models.TextField(
         _("Footer Text"), blank=True, null=True,
-        help_text=_("Footer text for order documents with limited HTML support."))    
+        help_text=_("Footer text for order documents with limited HTML support."))
 
     def __str__(self):
         return self.name
@@ -356,15 +449,15 @@ class Location(AcctApp):
                 fields=['setup', 'c_id'],
                 name='unique_c_id_per_tenant_setup__location'
             )
-        ]        
+        ]
         ordering = ['name']
         verbose_name = _("Location: Logo, Address, VAT, Codes, Formats etc. ")
         verbose_name_plural = f"{verbose_name}"
 
 
 class FiscalPeriod(AcctApp):
-    '''Read - only        
-    '''      
+    '''Read - only
+    '''
     name = models.CharField(
         max_length=30,
         blank=True,
@@ -385,7 +478,7 @@ class FiscalPeriod(AcctApp):
         _("Is closed"), default=False,
         help_text="Check if fiscal period is closed.")
     is_current = models.BooleanField(
-        _("Is current"), default=False, 
+        _("Is current"), default=False,
         help_text="Check for current fiscal period.")
 
     def __str__(self):
@@ -404,18 +497,18 @@ class FiscalPeriod(AcctApp):
                 fields=['setup', 'c_id'],
                 name='unique_c_id_per_tenant_setup__period'
             )
-        ]        
+        ]
         ordering = ['-start']
         verbose_name = _("Fiscal Period")
         verbose_name_plural = f"{_('Fiscal Periods')}"
 
 
 class Currency(AcctApp):
-    '''Read - only        
+    '''Read - only
     '''
     code = models.CharField(
-        max_length=3, 
-        help_text=_("The 3-characters currency code, like CHF, EUR, etc."))           
+        max_length=3,
+        help_text=_("The 3-characters currency code, like CHF, EUR, etc."))
     description = models.JSONField(_('Description'), blank=True, null=True)
     index = models.JSONField(_('Index'), blank=True, null=True)
     rate = models.FloatField(_('Rate'), blank=True, null=True)
@@ -430,20 +523,20 @@ class Currency(AcctApp):
                 fields=['setup', 'c_id'],
                 name='unique_c_id_per_tenant_setup__currency'
             )
-        ]        
+        ]
         ordering = ['code']
         verbose_name = _("Currency")
         verbose_name_plural = f"{_('Currencies')}"
 
 
 class Unit(AcctApp):
-    '''Read - only        
+    ''' Master
     '''
     name = models.JSONField(
-        _('name'), null=True, 
+        _('name'), null=True,
         help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
     is_default = models.BooleanField(_("Is default"), default=False)
-        
+
     def __str__(self):
         return multi_language(self.name)
 
@@ -453,15 +546,15 @@ class Unit(AcctApp):
                 fields=['setup', 'c_id'],
                 name='unique_c_id_per_tenant_setup__unit'
             )
-        ]        
+        ]
         ordering = ['name']
         verbose_name = _("Unit")
         verbose_name_plural = f"{_('Units')}"
 
 
 class Tax(AcctApp):
-    '''Read - only        
-    '''    
+    ''' Master
+    '''
     name = models.JSONField(
         _('name'),  help_text=_("The name of the tax rate."), null=True)
     account_id = models.PositiveIntegerField(
@@ -474,23 +567,23 @@ class Tax(AcctApp):
         _('invoice tax name'), null=True, blank=True,
         help_text=_(
             "Invoice tax name as shown on the invoice. Use format like "
-            "'CHE-112.793.129 MWST, Abwasser, 8.1%'"))     
+            "'CHE-112.793.129 MWST, Abwasser, 8.1%'"))
     calc_type = models.CharField(
         _('calculation basis'),
         max_length=10, default='NET',
         help_text=(
             """The calculation basis of the tax rate. NET means the tax rate is
-            based on the net revenue and GROSS means the tax rate is based on 
-            the gross revenue. Note that this only applies to the regular 
-            tax rate percentage, not the flat tax rate percentage 
-            (where always GROSS is used). 
+            based on the net revenue and GROSS means the tax rate is based on
+            the gross revenue. Note that this only applies to the regular
+            tax rate percentage, not the flat tax rate percentage
+            (where always GROSS is used).
             Defaults to NET. Possible values: NET, GROSS."""))
     percentage_flat = models.DecimalField(
         _('percentage flat'), null=True, blank=True,
         max_digits=5, decimal_places=2,
         help_text=_(
             "The flat tax rate percentage (Saldo-/Pauschalsteuersatz)."))
-  
+
     def __str__(self):
         return multi_language(self.name)
 
@@ -500,15 +593,15 @@ class Tax(AcctApp):
                 fields=['setup', 'c_id'],
                 name='unique_c_id_per_tenant_setup__tax'
             )
-        ]        
+        ]
         ordering = ['name']
         verbose_name = _("Tax Rate")
         verbose_name_plural = f"{_('Tax Rates')}"
 
 
 class Rounding(AcctApp):
-    '''Read - only        
-    '''    
+    '''Read - only
+    '''
     name = models.JSONField(
         _('name'),  help_text=_("The name of the rounding."), null=True)
     account_id = models.PositiveIntegerField(
@@ -517,7 +610,7 @@ class Rounding(AcctApp):
         help_text="The ID of the account in cashCtrl which collects the roundings."
     )
     rounding = models.DecimalField(
-        _('rounding'), max_digits=5, decimal_places=2)    
+        _('rounding'), max_digits=5, decimal_places=2)
     mode = models.CharField(
         _('mode'),
         max_length=20, default='HALF_UP',
@@ -525,7 +618,7 @@ class Rounding(AcctApp):
             "The rounding mode. Defaults to HALF_UP. Possible values: "
             "UP, DOWN, CEILING, FLOOR, HALF_UP, HALF_DOWN, HALF_EVEN, "
             "UNNECESSARY."))
-  
+
     def __str__(self):
         return multi_language(self.name)
 
@@ -535,30 +628,30 @@ class Rounding(AcctApp):
                 fields=['setup', 'c_id'],
                 name='unique_c_id_per_tenant_setup__rounding'
             )
-        ]        
+        ]
         ordering = ['name']
         verbose_name = _("Rounding")
         verbose_name_plural = f"{_('Roundings')}"
 
 
 class SequenceNumber(AcctApp):
-    '''Read - only        
-    '''    
+    '''Read - only
+    '''
     name = models.JSONField(
         _('name'),  help_text=_("The name of the sequence number."), null=True)
     pattern = models.CharField(
         _('pattern'),
         max_length=50,
         help_text=_(
-            """The sequence number pattern, which consists of variables and 
-            arbitrary text from which a sequence number will be generated. 
-            Possible variables: $y = Current year. $m = Current month. 
-            $d = Current day. $ny = Sequence number, resets annually 
-            (on Jan 1st). $nm = Sequence number, resets monthly. 
-            $nd = Sequence number, resets daily. $nn = Sequence number, 
-            never resets. Example pattern: RE-$y$m$d$nd which may 
+            """The sequence number pattern, which consists of variables and
+            arbitrary text from which a sequence number will be generated.
+            Possible variables: $y = Current year. $m = Current month.
+            $d = Current day. $ny = Sequence number, resets annually
+            (on Jan 1st). $nm = Sequence number, resets monthly.
+            $nd = Sequence number, resets daily. $nn = Sequence number,
+            never resets. Example pattern: RE-$y$m$d$nd which may
             generate 'RE-2007151' (on July 15, 2020)."""))
-  
+
     def __str__(self):
         return multi_language(self.name)
 
@@ -568,44 +661,44 @@ class SequenceNumber(AcctApp):
                 fields=['setup', 'c_id'],
                 name='unique_c_id_per_tenant_setup__sequence_number'
             )
-        ]        
+        ]
         ordering = ['name']
         verbose_name = _("Sequence Number")
         verbose_name_plural = f"{_('Sequence Numbers')}"
 
 
 class OrderCategory(AcctApp):
-    '''Read - only        
-    '''    
+    '''Read - only
+    '''
     name_plural = models.JSONField(
-        _('name'),  
+        _('name'),
         help_text=_("he plural name of the category (e.g. 'Invoices')."))
     account_id = models.PositiveIntegerField(
         _('Account Id'), blank=True, null=True,
         help_text=_(
-            """The ID of the account, which is typically the debtors 
+            """The ID of the account, which is typically the debtors
             account for sales and the creditors account for purchase. """))
     status = models.JSONField(
-        _('status'),  
+        _('status'),
         help_text=_(
             "The status list (like 'Draft', 'Open', 'Paid', etc.) for this "
-            "order category."))        
+            "order category."))
     address_type = models.CharField(
         _('address type'), max_length=20,
         help_text=(
-            """Which address of the recipient to use in the order document. 
-            Defaults to MAIN. Possible values: MAIN, INVOICE, DELIVERY, 
+            """Which address of the recipient to use in the order document.
+            Defaults to MAIN. Possible values: MAIN, INVOICE, DELIVERY,
             OTHER."""))
     due_days =  models.PositiveIntegerField(
         _('Due Days'), null=True, blank=True,
         help_text=_(
-            """The due days used by default for order objects in this category. 
+            """The due days used by default for order objects in this category.
             The order date + due days equals the due date."""))
-            
+
     @property
-    def local_name(self):        
+    def local_name(self):
         return multi_language(self.name_plural)
-  
+
     def __str__(self):
         return self.local_name
 
@@ -615,24 +708,24 @@ class OrderCategory(AcctApp):
                 fields=['setup', 'c_id'],
                 name='unique_c_id_per_tenant_setup__order_category'
             )
-        ]        
+        ]
         ordering = ['name_plural']
         verbose_name = _("Order Category")
         verbose_name_plural = f"{_('Order Categories')}"
 
 
 class OrderTemplate(AcctApp):
-    '''Read - only        
-    '''    
+    '''Read - only
+    '''
     name = models.TextField(
         _('name'),
         help_text=_("The name to describe and identify the template."))
     is_default = models.BooleanField(
-        _('is default'), 
+        _('is default'),
         help_text=_(
             "Mark the template as the default template to use. Defaults to "
             "false.  "))
-              
+
     def __str__(self):
         return self.name
 
@@ -642,35 +735,10 @@ class OrderTemplate(AcctApp):
                 fields=['setup', 'c_id'],
                 name='unique_c_id_per_tenant_setup__order_template'
             )
-        ]        
+        ]
         ordering = ['name']
         verbose_name = _("Order Template")
         verbose_name_plural = f"{_('Order Templates')}"
-
-
-class CostCenter(AcctApp):
-    '''Read - only        
-    '''    
-    name = models.JSONField(_('Cost Center'), null=True)    
-    number = models.DecimalField(max_digits=20, decimal_places=2)
-
-    @property
-    def local_name(self):
-        return self.multi_language(self.name)
-        
-    def __str__(self):
-        return multi_language(self.name)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'c_id'],
-                name='unique_c_id_per_tenant_setup__cost_center'
-            )
-        ]        
-        ordering = ['name']
-        verbose_name = _("Cost Center")
-        verbose_name_plural = f"{_('Cost Centers')}"
 
 
 class Article(AcctApp):
@@ -805,7 +873,7 @@ class Article(AcctApp):
         blank=True,
         help_text=_("The ID of the unit (like pcs., meters, liters)."),
     )
-    
+
     def __str__(self):
         return multi_language(self.name)
 
@@ -865,7 +933,7 @@ class ChartOfAccountsTemplate(LogAbstract, NotesAbstract):
                 fields=['name', 'canton', 'type', 'chart_version'],
                 name='unique_chart_template'
             )
-        ]        
+        ]
         ordering = ['account_type', 'name']
         verbose_name = _('Chart of Accounts (Canton)')
         verbose_name_plural = _('Charts of Accounts (Canton)')
@@ -883,14 +951,14 @@ class ChartOfAccounts(TenantAbstract):
     period = models.ForeignKey(
         FiscalPeriod, verbose_name=_('period'),
         on_delete=models.CASCADE, related_name='%(class)s_chart',
-        help_text=_('Fiscal period, automatically updated in Fiscal Period')) 
+        help_text=_('Fiscal period, automatically updated in Fiscal Period'))
     headings_w_numbers = models.BooleanField(
         _('headings with numbers'), default=True,
-        help_text=_('Show numbers in headings of the accounting system'))       
+        help_text=_('Show numbers in headings of the accounting system'))
 
     def full_name(self):
         return f'{self.name} {self.period.name}, V{self.chart_version}'
-        
+
     def __str__(self):
         return self.full_name()
 
@@ -907,10 +975,10 @@ class ChartOfAccounts(TenantAbstract):
 
 
 # Account Position
-class AccountPositionAbstract(LogAbstract):    
+class AccountPositionAbstract(LogAbstract):
     # Core data (input)
     account_number = models.CharField(
-        _('Account Number'), max_length=8, 
+        _('Account Number'), max_length=8,
         help_text=_('Typically 4 digits for functions / categories, '
                     '4 + 2 for account positions, 5 + 2 for balance'))
     is_category = models.BooleanField(
@@ -923,7 +991,7 @@ class AccountPositionAbstract(LogAbstract):
         help_text=_('Position description'))
     parent = models.ForeignKey(
         'self', verbose_name=_("Parent"), null=True, blank=True,
-        on_delete=models.CASCADE, 
+        on_delete=models.CASCADE,
         related_name='%(class)s_parent',
         help_text="The parent category."
     )
@@ -939,7 +1007,7 @@ class AccountPositionAbstract(LogAbstract):
 
     def __str__(self):
         return f"{self.account_number} {self.name}"
-        
+
     class Meta:
         abstract = True
 
@@ -951,13 +1019,13 @@ class AccountPositionTemplate(
     chart = models.ForeignKey(
         ChartOfAccountsTemplate, verbose_name=_('Chart of Accounts'),
         on_delete=models.CASCADE, related_name='%(class)s_chart',
-        help_text=_('Link to the relevant chart of accounts'))     
-     
+        help_text=_('Link to the relevant chart of accounts'))
+
     def save(self, *args, **kwargs):
         if not kwargs.pop('check_only', False):
             super().save(*args, **kwargs)
-     
-    class Meta:        
+
+    class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=['chart', 'account_number', 'is_category'],
@@ -979,7 +1047,7 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
     '''
     function = models.CharField(
          _('Function'), max_length=8, null=True, blank=True,
-        help_text=_('Function code'))    
+        help_text=_('Function code'))
     account_type = models.PositiveSmallIntegerField(
         _('Account Type'), choices=ACCOUNT_TYPE.choices,
          help_text=_('Account Type: balance, income, invent'))
@@ -997,15 +1065,15 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
         on_delete=models.PROTECT,
         help_text="ID of the currency. Defaults to the system currency if not specified."
     )
-    
+
     # balance
     balance = models.FloatField(
-        _('Balance'), null=True, blank=True, 
+        _('Balance'), null=True, blank=True,
         help_text=_('Acutal Balance'))
     balance_init = models.FloatField(
-        _('Balance, imported'), null=True, blank=True, 
+        _('Balance, imported'), null=True, blank=True,
         help_text=_('Balance, imported'))
-        
+
     # custom fields
     budget = models.FloatField(
         _('Budget'), null=True, blank=True,
@@ -1025,16 +1093,16 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
     c_rev_created = models.DateTimeField(
         _('CashCtrl created, Revenue'), null=True, blank=True)
     c_rev_created_by = models.CharField(
-        _('CashCtrl created_by, Revenue'), max_length=100, 
+        _('CashCtrl created_by, Revenue'), max_length=100,
         null=True, blank=True)
     c_rev_last_updated = models.DateTimeField(
-        _('CashCtrl last_updated, Revenue'), null=True, blank=True)  
+        _('CashCtrl last_updated, Revenue'), null=True, blank=True)
     c_rev_last_updated_by = models.CharField(
-        _('CashCtrl last_updated_by, Revenue'), max_length=100, 
-        null=True, blank=True)   
+        _('CashCtrl last_updated_by, Revenue'), max_length=100,
+        null=True, blank=True)
     c_budget_uploaded = models.DateTimeField(
-        _('CashCtrl budget updated at'), null=True, blank=True)   
- 
+        _('CashCtrl budget updated at'), null=True, blank=True)
+
     # Import accounting
     opening_amount = models.FloatField(
         _('opening amount'), null=True, blank=True,
@@ -1048,15 +1116,15 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
     target_max = models.FloatField(
         _('target max'), null=True, blank=True,
         help_text=_('Target max'))
- 
+
     @property
     def category_hrm(self):
-        for category in CATEGORY_HRM:    
+        for category in CATEGORY_HRM:
             scope, _label = category.value
-            if (self.account_number != '' 
+            if (self.account_number != ''
                     and int(self.account_number[0]) in scope):
                 return category
-        return None   
+        return None
 
     @property
     def side(self):
@@ -1081,60 +1149,60 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
             models.UniqueConstraint(fields=['chart', 'number'],
                 name='unique_account_position_number'
             )
-        ]        
+        ]
         ordering = [
-            'chart', 'account_type', 'function', '-is_category', 
+            'chart', 'account_type', 'function', '-is_category',
             'account_number']
         verbose_name = ('Account Position (Municipality)')
-        verbose_name_plural = _('Account Positions')        
+        verbose_name_plural = _('Account Positions')
 
 
 # CRM models ------------------------------------------------------------
 class CRM(Acct):
     tenant = models.ForeignKey(
-        Tenant, verbose_name=_('tenant'), 
+        Tenant, verbose_name=_('tenant'),
         on_delete=models.CASCADE,
         help_text=_('assignment of tenant / client'))
-        
+
     class Meta:
         abstract = True
-        
-        
+
+
 class PersonCategory(CRM):
     '''store categories
     '''
     crm = models.OneToOneField(
-        CrmPersonCategory, 
-        on_delete=models.CASCADE, 
+        CrmPersonCategory,
+        on_delete=models.CASCADE,
         related_name="person_category",
-        help_text="internal use for mapping")      
-        
+        help_text="internal use for mapping")
+
 
 class Title(CRM):
     '''store titles
     '''
     crm = models.OneToOneField(
-        CrmTitle, 
-        on_delete=models.CASCADE, 
+        CrmTitle,
+        on_delete=models.CASCADE,
         related_name="title",
-        help_text="internal use for mapping")      
-        
+        help_text="internal use for mapping")
+
 
 class Person(CRM):
     '''store categories
     '''
     crm = models.OneToOneField(
-        CrmPerson, 
-        on_delete=models.CASCADE, 
+        CrmPerson,
+        on_delete=models.CASCADE,
         related_name="person",
-        help_text="internal use for mapping")      
-        
+        help_text="internal use for mapping")
+
 
 class Employee(CRM):
     '''store categories
     '''
     crm = models.OneToOneField(
-        CrmEmployee, 
-        on_delete=models.CASCADE, 
+        CrmEmployee,
+        on_delete=models.CASCADE,
         related_name="employee",
-        help_text="internal use for mapping")      
+        help_text="internal use for mapping")

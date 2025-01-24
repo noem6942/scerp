@@ -6,9 +6,24 @@ Role model:
     * users with more than one tenant need to pick the tenant at login
         -> store in session
     * no user is allowed to do action in admin if no session stored
-    * in the session we store:
-        - name, code, id from tenant
-        - id and logo from tenant_setup
+
+    request.session['tenant'] = {
+        'id': tenant_id,
+        'setup_id': tenant_setup.id,
+        'name': tenant_setup.tenant.name,
+        'language': tenant_setup.language,
+        'logo': (
+            tenant_setup.logo.url if tenant_setup.logo else settings.LOGO)
+    }
+
+    request.session['available_tenants'] = [{
+        'id': tenant.id,
+        'name': tenant.name
+    } for tenant in queryset]
+
+    # Store available tenants
+    request.session['available_tenants'] = available_tenants
+
 """
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -25,7 +40,7 @@ def filter_query_for_tenant(request, query):
         x = tenant['id']
     except:
         raise ValidationError(f'No tenant id {tenant}')
-        
+
     if tenant['id']:
         return query.filter(tenant__id=tenant['id'])
     else:
@@ -106,11 +121,11 @@ def save_logging(
     else:
         # New object, set the creator
         instance.created_by = request.user or user
-    
+
     if add_tenant:
         if not tenant:
             # get tenant
-            tenant_data = get_tenant(request)            
+            tenant_data = get_tenant(request)
             tenant = Tenant.objects.filter(id=tenant_data['id']).first()
         if tenant:
             instance.tenant = tenant
