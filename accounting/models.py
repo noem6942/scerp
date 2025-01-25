@@ -107,6 +107,14 @@ class APISetup(TenantAbstract):
     def url(self):
         return URL_ROOT.format(org=self.org_name)
 
+    def get_custom_field_tag(self, code):
+        ''' return xml tag that can be sent to cashCtrl '''
+        try:
+            field = CustomField.objects.get(tenant=self.tenant, code=code)
+            return f"customField{field.c_id}"
+        except:
+            raise ValueError(f"'{code}' not existing.")
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
