@@ -285,14 +285,14 @@ def order_categories(**kwargs):
             'it': 'Fatture'}},
         'status': [{
             'icon': COLOR.GRAY,
-            'name': value_to_xml({'values': {
+            'name': process_to_xml({'values': {
                 'de': 'Entwurf',
                 'en': 'Draft', 
                 'fr': 'Projet', 
                 'it': 'Progetto'}}) 
         }, {
             'icon': COLOR.BLUE,
-            'name': value_to_xml({'values': {
+            'name': process_to_xml({'values': {
                 'de': 'Gewonnen',
                 'en': 'Won', 
                 'fr': 'Won', 

@@ -133,6 +133,9 @@ class Acct(models.Model):
         _('CashCtrl last_updated'), null=True, blank=True)
     c_last_updated_by = models.CharField(
         _('CashCtrl last_updated_by'), max_length=100, null=True, blank=True)
+    last_received = models.DateTimeField(
+        _('Last received'), null=True, blank=True,
+        help_text=_("Last time data has been received from cashCtrl"))
     setup = models.ForeignKey(
         APISetup, verbose_name=_('Accounting Setup'),
         on_delete=models.CASCADE, related_name='%(class)s_setup',
@@ -152,7 +155,11 @@ class AcctApp(TenantAbstract, Acct):
     '''id_cashctrl gets set after first synchronization
     '''
     def save(self, *args, **kwargs):
-        ''' save setup if not set '''
+        '''
+        Get value for foreign key setup if not set. 
+        - Use default value of APISetup.
+        - It is used to check which Account Setup is used
+        '''
         if not getattr(self, 'setup', None):
             # Query the default value
             default_value = APISetup.objects.filter(
@@ -183,6 +190,12 @@ class CustomFieldGroup(AcctApp):
 
     def __str__(self):
         return self.code
+
+    def save(self, *args, **kwargs):
+        ''' New records from cashCtrl have no code '''
+        if not self.code and self.c_id:
+            self.code = str(self.c_id)        
+        super().save(*args, **kwargs)    
 
     class Meta:
         constraints = [

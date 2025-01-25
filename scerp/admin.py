@@ -10,7 +10,8 @@ import json
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import ModelAdmin
-from django.db import models
+from django.core.exceptions import ValidationError
+from django.db import models, IntegrityError, transaction
 from django.forms import Textarea
 from django.http import HttpResponseForbidden
 from django.utils.html import format_html
@@ -436,9 +437,21 @@ class BaseAdmin(ModelAdmin):
             messages.error(request, f"{queryset.content.decode()}")
             return  # Early return to prevent further processing
 
-        # Only save the model if there are no errors
-        super().save_model(request, instance, form, change)
-        
+        # Only save the model if there are no errors        
+        try:
+            # Wrap the database operation in an atomic block
+            with transaction.atomic():
+                super().save_model(request, instance, form, change)
+        except IntegrityError as e:
+            if "Duplicate entry" in str(e):
+                msg = _("Unique constraints violated")    
+                messages.error(request, f"{msg}: {e}")                
+            else:
+                messages.error(request, f"An error occurred: {str(e)}")  
+        except Exception as e:
+            # Catch any exception (IntegrityError, ValueError, etc.)
+            messages.error(request, f'{_("An error occurred")}: {str(e)}')
+ 
     def save_related(self, request, form, formsets, change):        
         """
         Used for inlines

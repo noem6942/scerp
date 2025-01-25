@@ -45,6 +45,36 @@ DONOT_COPY_FIELDS = [
 logger = logging.getLogger(__name__)
 
 
+class Handler:
+    
+    def __init__(self, modeladmin, request, queryset, api_class):
+        # Check if at least one item is selected
+        # error handling not working
+        if action_check_nr_selected(request, queryset, min_count=1):
+            # Get setup
+            setup = queryset.first().setup
+            
+            # Proceed if application is CASH_CTRL
+            if setup.application == APPLICATION.CASH_CTRL:            
+                # Get handler
+                self.handler = api_class(setup.org_name, setup.api_key)
+                            
+                # Init            
+                self.model = modeladmin.model
+                self.tenant = setup.tenant
+                self.user = request.user
+            else:
+                self.handler = None
+                messages.error(request, _("No accounting system defined."))        
+        
+    def load(self):
+        if self.handler:
+            try:
+                self.handler.load(self.model, self.tenant, self.user)
+            except:
+                messages.error(request, _("API Error: cannot retrieve data"))
+
+
 # mixins
 def get_api_setup(queryset):
     '''Get api.setup from queryset
@@ -54,39 +84,14 @@ def get_api_setup(queryset):
         _api_setup, module = get_connector_module(api_setup=api_setup)
         return api_setup, module
     messages.error(request, _("No account setup found"))
+    
 
-
-def get_handler(modeladmin, request, queryset, cls):
-    # Check if at least one item is selected
-    # error handling not working
-    if action_check_nr_selected(request, queryset, min_count=1):
-        setup = queryset.first().setup
-        
-        # Proceed if application is CASH_CTRL
-        if setup.application == APPLICATION.CASH_CTRL:
-            try:
-                handler = cls(
-                    modeladmin.model, setup.org_name, setup.api_key,
-                    request=request
-                )
-                return handler  # Return the handler
-            except ValueError as ve:
-                # Specific exception raised by clean_value or other logic
-                logger.error(f"ValueError: {str(ve)}")  # Log the error for debugging
-                messages.error(request, f"Error: {str(ve)}")  # Inform the user about the specific error
-                return None  # Prevent further execution
-            except Exception as e:
-                # Catch any unforeseen errors and log them
-                logger.error(f"Unexpected error: {str(e)}")  # Log the unexpected error
-                messages.error(request, _("An unexpected error occurred. Please try again later."))
-                return None  # Prevent further execution if any error occurs
-        else:
-            messages.error(request, _("No accounting system defined."))
-            return None  # Prevent further execution if no accounting system is set
-    else:
-        messages.error(request, _("No items selected."))
-        return None  # Prevent execution if nothing is selected
-
+@admin.action(description=f"1. {_('Get data from account system')}")
+def custom_group_field_get(modeladmin, request, queryset):
+    ''' load data '''    
+    handler = Handler(modeladmin, request, queryset, conn.CustomFieldGroup)
+    handler.load()   
+    
 
 @admin.action(description=('Admin: Init setup'))
 def init_setup(modeladmin, request, queryset):
@@ -96,14 +101,6 @@ def init_setup(modeladmin, request, queryset):
         api_setup_post_save(
             modeladmin.model, instance, created=False, init=True) 
         messages.success(request, _("Accounting API initialized"))
-  
-  
-@admin.action(description=f"1. {_('Get data from account system')}")
-def custom_group_field_get(modeladmin, request, queryset):
-    ''' load data '''    
-    handler = get_handler(
-        modeladmin, request, queryset, conn.CustomFieldGroup)
-    handler.load()
 
 
 @admin.action(description=('Admin: Test Init setup'))

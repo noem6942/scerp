@@ -86,7 +86,7 @@ def snake_to_camel(snake_str):
     # ensure the first letter is lowercase and return
     return camel_case_str[0].lower() + camel_case_str[1:]
 
-
+# TEMP use, delete if new connector_cash is ready
 def value_to_xml(value):
     ''' use cashctrl <values> xml '''
     # Check if value is a dictionary
@@ -257,13 +257,53 @@ class CashCtrl():
     # Xml <-> JSON
     @staticmethod
     def clean_value(value):
-        ''' use cashctrl <values> xml '''        
+        ''' use cashctrl <values> xml '''
         if isinstance(value, str) and value.startswith('<values>'):
             try:
                 # XML
                 return xmltodict.parse(value)
             except Exception as e:
-                raise ValueError(f"{value}: Could not parse XML: {str(e)}")  
+                raise ValueError(f"{value}: Could not parse XML: {str(e)}")
+        # Return original value
+        return value
+
+    @staticmethod
+    def process_to_xml(value):
+        '''
+        Converts a dictionary into an XML-formatted string, where each key-value
+        pair is wrapped in a single `<values>` tag.
+
+        If the input `value` is a dictionary, the function iterates over each
+        key-value pair, converts them into an XML string using
+        `xmltodict.unparse`, and wraps the result in `<values>` tags.
+
+        If the input `value` is not a dictionary, it is returned as-is.
+
+        Args:
+            value (dict or any): The input data to be converted to XML. If not a
+                dictionary, it is returned unchanged.
+
+        Returns:
+            str or any: An XML-formatted string if the input is a dictionary, or
+                the original value if it is not.
+
+        Example:
+            Input:
+                value = {
+                    'de': 'Freund',
+                    'en': 'foo'
+                }
+
+            Output:
+                "<values><de>Freund</de><en>foo</en></values>"
+        '''
+        # Check if value is a dictionary
+        if isinstance(value, dict):
+            value = dict(values=value)
+            xmlstr = xmltodict.unparse(value['values'], full_document=False)
+            return '<values>' + xmlstr + '</values>'
+        elif isinstance(value, dict) or isinstance(value, list):
+            return json.dumps(value)
         # Return original value
         return value
 
@@ -320,7 +360,7 @@ class CashCtrl():
             if camel_key in ('start', 'end'):
                 value = value.strftime('%Y-%m-%d')
             else:
-                value = value_to_xml(value)
+                value = self.process_to_xml(value)
             post_data[camel_key] = value
 
         # Retry mechanism for rate-limiting
