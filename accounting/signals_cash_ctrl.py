@@ -21,9 +21,16 @@ def handle_custom_field_signal(cls, sender, instance, action):
     :param instance: The model instance being affected by the signal.
     :param action: The action to perform - one of 'create', 'update', or 'delete'.
     '''
+    if True or not instance.is_enabled_sync:
+        return  # sync is turned off for this record
+        
     handler = cls(sender, instance=instance)
     if action == "save":
-        handler.create() if instance.pk else handler.update()
+        if instance.pk:
+            print("*udpate", instance.__dict__)
+            # handler.update()
+        else:
+            instance.c_id = handler.create()
     elif action == "delete" and instance.c_id:
         handler.delete(instance.c_id)
 
@@ -47,6 +54,7 @@ def handle_custom_field_signal_delete(cls, sender, instance):
     :param instance: The model instance being deleted.
     '''
     if instance.c_id:
+        print("*deld")
         handle_custom_field_signal(cls, sender, instance, "delete")
 
 
@@ -58,7 +66,9 @@ def handle_custom_field_signal_delete(cls, sender, instance):
 # cashCtrl classes
 @receiver(pre_save, sender=CustomFieldGroup)
 def custom_field_group_pre_save(sender, instance, **kwargs):
-    '''Signal handler for pre_save signals on CustomFieldGroup. '''    
+    '''Signal handler for pre_save signals on CustomFieldGroup. '''
+    if not instance.code and instance.c_id:
+        instance.code = str(instance.c_id)
     handle_custom_field_signal_save(conn.CustomFieldGroup, sender, instance)
 
 

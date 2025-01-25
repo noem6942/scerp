@@ -15,9 +15,9 @@ import xmltodict
 
 DECODE = 'utf-8'
 URL_ROOT = "https://{org}.cashctrl.com"
-    
 
-# Standard Accounts    
+
+# Standard Accounts
 """
 Standard account definitions with descriptive English names, numeric codes,
 and German descriptions as comments.
@@ -36,7 +36,7 @@ class STANDARD_ACCOUNT(Enum):
     PAYABLES = '2000'  # Kreditoren
     VAT_RECONCILIATION = '2202'  # Umsatzsteuerausgleich Abrechnungsmethode
     INPUT_TAX_RECONCILIATION = '1172'  # Vorsteuerausgleich Abrechnungsmethode
-    
+
     # not directly in settings
     PRAE_TAX = '1170'  # Vorsteuer
     REVENUE_TAX = '2200'  # Umsatzsteuer
@@ -232,10 +232,10 @@ class CashCtrl():
     '''
     BASE_DIR = URL_ROOT + "/api/v1/{url}{action}"
     BASE = BASE_DIR + '.json'  # default
-    
+
     # Rate-limiting constants
     MAX_TRIES = 5  # Maximum number of retries
-    SLEEP_DURATION = 2  # Sleep duration between retries in second    
+    SLEEP_DURATION = 2  # Sleep duration between retries in second
 
     def __init__(self, org, api_key):
         self.org = org
@@ -257,10 +257,13 @@ class CashCtrl():
     # Xml <-> JSON
     @staticmethod
     def clean_value(value):
-        ''' use cashctrl <values> xml '''
+        ''' use cashctrl <values> xml '''        
         if isinstance(value, str) and value.startswith('<values>'):
-            # XML
-            return xmltodict.parse(value)
+            try:
+                # XML
+                return xmltodict.parse(value)
+            except Exception as e:
+                raise ValueError(f"{value}: Could not parse XML: {str(e)}")  
         # Return original value
         return value
 
@@ -399,7 +402,7 @@ class CashCtrl():
             self.data = self.clean_dict(json.loads(content.decode(DECODE)))
             return self.data
         raise Exception("response has no _content ")
-        
+
     def json_data(self, params=None):
         ''' cash_ctrl read '''
         # Get data
@@ -414,7 +417,7 @@ class CashCtrl():
         if content:
             self.data = self.clean_dict(json.loads(content.decode(DECODE)))
             return self.data
-        raise Exception("response has no _content ")        
+        raise Exception("response has no _content ")
 
     def create(self, data=None):
         ''' cash_ctrl create '''
@@ -532,7 +535,7 @@ class Account(CashCtrl):
     '''see public api desc'''
     url = 'account/'
     actions = ['list']
-    
+
     def get_balance(self, id, date=None):
         ''' cash_ctrl read '''
         # Get params
@@ -541,8 +544,8 @@ class Account(CashCtrl):
             if not isinstance(date, str):
                 date = date.strftime('%Y-%m-%d')
             params['date'] = date
-            
-        # Get data    
+
+        # Get data
         url = self.BASE_DIR.format(
             org=self.org, url=self.url, params=params, action='balance')
         response = self.get(url, params)
@@ -551,15 +554,15 @@ class Account(CashCtrl):
         # Return content
         if content:
             return content.decode(DECODE)
-        raise Exception("response has no _content ")    
-    
+        raise Exception("response has no _content ")
+
     @property
     def standard_account(self):
         '''return dict with top accounts from self.data
-        '''        
+        '''
         if self.data is None:
             raise Exception("data is None")
-            
+
         standard_accounts = [x.value for x in STANDARD_ACCOUNT]
         return {
             x['number']: x
@@ -616,7 +619,7 @@ class AccountCategory(CashCtrl):
             for item in data_list
             if item['parent_id'] is not None
         }
-        
+
         '''
         # Extract all ids that are referenced as parent_id
         acc = Account(self.org, self.api_key)
@@ -626,11 +629,11 @@ class AccountCategory(CashCtrl):
             for item in accounts
             if item['parent_id'] is not None
         }
-        
+
         # union
         all_parent_ids = parent_ids.union(parent_ids_acc)
         '''
-        
+
         # Find all nodes whose id is not in the set of parent_ids
         leaves = [
             item for item in data_list
@@ -695,18 +698,18 @@ class OrderCategory(CashCtrl):
     '''see public api desc'''
     url = 'order/category/'
     actions = ['list']
-    
+
     def list(self, params=None, **filter_kwargs):
         # Get data
         categories = super().list(params=None, **filter_kwargs)
-        
-        # Convert stati names 
+
+        # Convert stati names
         for category in categories:
             for status in category['status']:
                 status['name'] = xmltodict.parse(status['name'])
-                
+
         return categories
-        
+
 class OrderDocument(CashCtrl):
     '''see public api desc'''
     url = 'order/document/'
@@ -727,11 +730,11 @@ class PersonCategory(CashCtrl):
     '''see public api desc'''
     url = 'person/category/'
     actions = ['list']
-    
+
     def get_name(self, values):
         name = values.get('en')
         return name.upper() if name else None
-    
+
     @property
     def top_category(self):
         '''return dict with top categories from self.data
@@ -744,7 +747,7 @@ class PersonCategory(CashCtrl):
             self.get_name(x['name']['values']): x
             for x in self.data
             if not x['parent_id'] and isinstance(x['name'], dict)
-        }    
+        }
 
 class PersonTitle(CashCtrl):
     '''see public api desc'''

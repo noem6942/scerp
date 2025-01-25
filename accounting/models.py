@@ -140,6 +140,9 @@ class Acct(models.Model):
     message = models.CharField(
         _('Message'), max_length=200, null=True, blank=True,
         help_text=_('Here we show error messages. Just be empty.'))
+    is_enabled_sync = models.BooleanField(
+        _("Enable Sync"), default=True,
+        help_text="Disable sync with cashCtrl; useful for admin tasks.")
 
     class Meta:
         abstract = True

@@ -1,6 +1,8 @@
 '''
 accounting/actions.py
 '''
+import logging
+
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -39,6 +41,9 @@ DONOT_COPY_FIELDS = [
     'c_id', 'c_created', 'c_created_by', 'c_last_updated', 'c_last_updated_by'
 ]
 
+# Set up a logger to capture the error details
+logger = logging.getLogger(__name__)
+
 
 # mixins
 def get_api_setup(queryset):
@@ -52,14 +57,35 @@ def get_api_setup(queryset):
 
 
 def get_handler(modeladmin, request, queryset, cls):
-    if action_check_nr_selected(request, queryset, min_count=1):        
-        setup = queryset.first().setup        
-        if setup.application == APPLICATION.CASH_CTRL:     
-            return cls(
-                modeladmin.model, setup.org_name, setup.api_key,
-                request=request)
+    # Check if at least one item is selected
+    # error handling not working
+    if action_check_nr_selected(request, queryset, min_count=1):
+        setup = queryset.first().setup
+        
+        # Proceed if application is CASH_CTRL
+        if setup.application == APPLICATION.CASH_CTRL:
+            try:
+                handler = cls(
+                    modeladmin.model, setup.org_name, setup.api_key,
+                    request=request
+                )
+                return handler  # Return the handler
+            except ValueError as ve:
+                # Specific exception raised by clean_value or other logic
+                logger.error(f"ValueError: {str(ve)}")  # Log the error for debugging
+                messages.error(request, f"Error: {str(ve)}")  # Inform the user about the specific error
+                return None  # Prevent further execution
+            except Exception as e:
+                # Catch any unforeseen errors and log them
+                logger.error(f"Unexpected error: {str(e)}")  # Log the unexpected error
+                messages.error(request, _("An unexpected error occurred. Please try again later."))
+                return None  # Prevent further execution if any error occurs
         else:
             messages.error(request, _("No accounting system defined."))
+            return None  # Prevent further execution if no accounting system is set
+    else:
+        messages.error(request, _("No items selected."))
+        return None  # Prevent execution if nothing is selected
 
 
 @admin.action(description=('Admin: Init setup'))
@@ -72,7 +98,7 @@ def init_setup(modeladmin, request, queryset):
         messages.success(request, _("Accounting API initialized"))
   
   
-@admin.action(description=('Get data from account system'))
+@admin.action(description=f"1. {_('Get data from account system')}")
 def custom_group_field_get(modeladmin, request, queryset):
     ''' load data '''    
     handler = get_handler(

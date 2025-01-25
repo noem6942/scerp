@@ -23,9 +23,12 @@ from .models import (
 
 
 class CASH_CTRL:
+    SUPER_USER_EDITABLE_FIELDS = [
+        'message',
+        'is_enabled_sync',
+    ]
     FIELDS = [
         'c_id',
-        'message',
         'c_created',
         'c_created_by',
         'c_last_updated',
@@ -90,9 +93,8 @@ class APISetupAdmin(BaseAdmin):
 class CashCtrlAdmin(BaseAdmin):
     has_tenant_field = True
 
-    def get_cash_ctrl_fields(self):
-        # do we really need it?
-        fields = CASH_CTRL.FIELDS
+    def get_cash_ctrl_fields(self):        
+        fields = CASH_CTRL.FIELDS + CASH_CTRL.SUPER_USER_EDITABLE_FIELDS
         if getattr(self, 'has_revenue_id', False):
             for field in CASH_CTRL.REVENUE_FIELDS:
                 if field not in fields:
@@ -100,8 +102,7 @@ class CashCtrlAdmin(BaseAdmin):
         return fields
 
     def get_readonly_fields(self, request, obj=None):
-        ''' Extend readonly fields
-        '''
+        ''' Extend readonly fields '''
         # Get readonly fields from parent
         readonly_fields = super().get_readonly_fields(request, obj)
         readonly_fields = list(readonly_fields)  # Ensure it's mutable
@@ -112,7 +113,14 @@ class CashCtrlAdmin(BaseAdmin):
                 field.name for field in self.model._meta.get_fields()]
             readonly_fields.extend(all_fields)
         else:
-            readonly_fields.extend(self.get_cash_ctrl_fields())  # Add custom readonly fields
+            # Add custom readonly fields
+            readonly_fields.extend(self.get_cash_ctrl_fields())
+
+        # Make sure 'disable_sync' is not in readonly_fields
+        if request.user.is_superuser:
+            for field in CASH_CTRL.SUPER_USER_EDITABLE_FIELDS:
+                if field in readonly_fields:
+                    readonly_fields.remove(field)
 
         return readonly_fields
 
@@ -162,7 +170,8 @@ class Setting(BaseAdmin):
 class CustomFieldGroupAdmin(CashCtrlAdmin):    
     has_tenant_field = True
     related_tenant_fields = ['setup']
-    list_display = ('code', 'name', 'c_id', 'message')
+    list_display = (
+        'code', 'name', 'type', 'c_id', 'message', 'is_enabled_sync')
     search_fields = ('code', 'name')
     actions = [a.custom_group_field_get]
 

@@ -26,7 +26,7 @@ class IGNORE_KEYS:
 
 class cashCtrl:
     '''Handle synchronization with cashCtrl
-    
+
     Principle:
     - scerp is master:
         * cashCtrl is informed by signals
@@ -34,7 +34,18 @@ class cashCtrl:
     - scerp is reader:
         * data is retrieved from cashCtrl
         * not matching data is deleted
-        * updates are done if existing        
+        * updates are done if existing
+
+    Params:
+        :api_class: define class in api_cash_ctrl
+        :json_fields: convert into cashCtrl values
+        :ignore_keys: do not upload these key values to cashCtrl
+        :type_filter(Enum): Needed to get type specific classes, .i.e.
+            - api_cash_ctrl.FIELD_TYPE for CustomField and CustomFieldGroup
+        :delete_not_existing
+            the data is freshly loaded from cashCtrl, delete all non
+            matching items in scerp; use with caution!
+
     '''
     def __init__(self, sender, org_name, api_key, instance, request):
         # From kwargs
@@ -48,7 +59,7 @@ class cashCtrl:
             api_key = instance.setup.api_key
 
         # Assign handler
-        self.handler = self.ctrl(org_name, api_key)
+        self.handler = self.api_class(org_name, api_key)
         self.data = {}
         if instance:
             self.tenant = self.instance.setup
@@ -83,29 +94,60 @@ class cashCtrl:
                     self.data['key'] = value
 
         # json_fields
+        '''
         if hasattr(self, 'json_fields'):
             for field in self.json_fields:
                 json_data = getattr(self.instance, field, None)
-                if json_data:
-                    self.data[field] = dict(values=json_data)
+                # if json_data:
+                #    self.data[field] = dict(values=json_data)
+        '''
+        
+    def get_data(self, params={}, **filter_kwargs):
+        """
+        Load data from cashCtrl
+        if self.type_filter by querying for each field type and aggregating
+        the results.
 
-    def load(self, delete_not_existing=True):
-        # Get from cashCtrl
+        :param params: Optional dictionary of parameters to pass to the query.
+        :type_filter(Enum): Needed to get type specific classes, .i.e.
+            - api_cash_ctrl.FIELD_TYPE for CustomField and CustomFieldGroup
+        :return: Aggregated list of data from all field types.
+        """
+        type_filter = getattr(self, 'type_filter', None)
+        if type_filter:
+            data_list = []
+            # Iterate over each field type and fetch data
+            for field_type in type_filter:
+                # Ensure the original params remain unaffected
+                type_params = {**params, 'type': field_type.value}  # Enum
+
+                # Fetch data for the current field type and append it to the
+                # list
+                data_list += self.handler.list(type_params, **filter_kwargs)
+        else:
+            data_list = self.handler.list(params, **filter_kwargs)
+        return data_list
+
+    def load(self, params={}, delete_not_existing=False, **filter_kwargs):
+        # Init
         created, updated, deleted = 0, 0, 0
-        data_list = self.handler.list()
-        c_ids = [x['id'] for x in data_list]        
-        
+
+        # Load data
+        data_list = self.get_data(params, **filter_kwargs)
+        c_ids = [x['id'] for x in data_list]
         tenant = self.get_tenant()
-        queryset = self.model.objects.filter(tenant=tenant)
-        
-        # Delete instances not matching       
-        if delete_not_existing:        
-            deleted = queryset.exclude(c_id__in=c_ids).delete()
-                    
-        # Prepare data
-        model_keys = self.model.__dict__.keys()
+
+        # Delete instances not matching
+        if delete_not_existing:
+            deleted = queryset.filter(
+                tenant=tenant).exclude(c_id__in=c_ids).delete()
+
+        # Check
+        if not data_list:
+            return
 
         # Parse
+        model_keys = self.model.__dict__.keys()
         for data in data_list:
             # Handle cashCtrl specials
             try:
@@ -122,13 +164,17 @@ class cashCtrl:
 
             # Convert data, remove keys not needed
             for key in list(data.keys()):
-                if key in ['start', 'end']:
-                    data[key] = make_timeaware(data[key])
+                value = data[key]                
+                if isinstance(value, dict) and 'values' in value:
+                    # remove "values"
+                    data[key] = value['values']
+                elif key in ['start', 'end']:
+                    data[key] = make_timeaware(value)
                 elif key not in model_keys:
                     data.pop(key)
 
         # Update
-        queryset = queryset.filter(c_id__in=c_ids)
+        queryset = self.model.objects.filter(tenant=tenant, c_id__in=c_ids)
         for instance in queryset.all():
             # prepare
             data = next(x for x in data_list if x['c_id'] == instance.c_id)
@@ -136,14 +182,14 @@ class cashCtrl:
                 'modified_by': self.get_user(),
                 'modified_at': timezone.now()
             })
-            
+
             # save
             for key, value in data.items():
                 setattr(instance, key, value)
             instance.save()
             c_ids.remove(data['c_id'])
             updated += 1
-    
+
         # Create
         for c_id in c_ids:
             # prepare
@@ -156,25 +202,24 @@ class cashCtrl:
             _instance = self.model.objects.create(**data)
             created += 1
 
-        # Message                
+        # Message
         logger.info(
             f'{self.model}: updated {updated}, created {created}, '
             f'deleted {deleted}')
 
     def create(self):
-        print("*++++++++++++++")
         # Send to cashCtrl
         response = self.handler.create(self.data)
         if response.get('success', False):
-            self.instance.c_id = response['insert_id']
-        else:
-            raise ValueError(response)
+            return response['insert_id']
+        raise ValueError(response)
 
     def update(self):
         # Send to cashCtrl
         response = self.handler.create(self.data)
-        if not response.get('success', False):
-            raise ValueError(response)
+        if response.get('success', False):
+            return response['insert_id']
+        raise ValueError(response)
 
     def delete(self, c_id):
         response = self.handler.delete(c_id)
@@ -183,8 +228,9 @@ class cashCtrl:
 
 
 class CustomFieldGroup(cashCtrl):
-    ctrl = api_cash_ctrl.CustomFieldGroup
+    api_class = api_cash_ctrl.CustomFieldGroup
     json_fields = ['name']
+    type_filter = api_cash_ctrl.FIELD_TYPE
 
     def __init__(
             self, sender, org_name=None, api_key=None, instance=None,
@@ -192,12 +238,13 @@ class CustomFieldGroup(cashCtrl):
         super().__init__(sender, org_name, api_key, instance, request)
         if instance:
             self.data.update({
+                'name': instance.name,
                 'type': instance.type
             })
 
 
 class CustomField(cashCtrl):
-    ctrl = api_cash_ctrl.CustomField
+    api_class = api_cash_ctrl.CustomField
     ignore_keys = IGNORE_KEYS.IS_INACTIVE + ['code', 'group_ref', 'group_id']
     json_fields = ['name', 'description']
 
