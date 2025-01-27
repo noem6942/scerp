@@ -38,15 +38,20 @@ class cashCtrl:
         * updates are done if existing
 
     Params:
+        :org_name: cashCtrl org_name
+        :api_key: cashCtrl api_key
+
+    Properties
         :api_class: define class in api_cash_ctrl
         :json_fields: convert into cashCtrl values
         :ignore_keys: do not upload these key values to cashCtrl
+        :get_ignore_keys: do not download these key from cashCtrl as they are
+            used differently in cashCtrl (foreign keys)
         :type_filter(Enum): Needed to get type specific classes, .i.e.
             - api_cash_ctrl.FIELD_TYPE for CustomField and CustomFieldGroup
         :delete_not_existing
             the data is freshly loaded from cashCtrl, delete all non
             matching items in scerp; use with caution!
-
     '''
     def __init__(self, org_name, api_key):
         # Assign handler
@@ -98,7 +103,7 @@ class cashCtrl:
         return data_list
 
     def load(
-            self, model, tenant, user, params={}, delete_not_existing=False, 
+            self, model, tenant, user, params={}, delete_not_existing=False,
             **filter_kwargs):
         # Init
         created, updated, deleted = 0, 0, 0
@@ -117,7 +122,7 @@ class cashCtrl:
             return
 
         # Parse
-        model_keys = model.__dict__.keys()        
+        model_keys = model.__dict__.keys()
         for data in data_list:
             # Handle cashCtrl specials
             try:
@@ -153,7 +158,8 @@ class cashCtrl:
 
             # save
             for key, value in data.items():
-                setattr(instance, key, value)
+                if key not in getattr(self, 'get_ignore_keys', []):
+                    setattr(instance, key, value)
             instance.save()
             c_ids.remove(data['c_id'])
             updated += 1
@@ -202,5 +208,7 @@ class CustomFieldGroup(cashCtrl):
 
 class CustomField(cashCtrl):
     api_class = api_cash_ctrl.CustomField
-    ignore_keys = IGNORE.IS_INACTIVE + IGNORE.CODE + ['group_ref', 'group_id']
+    ignore_keys = IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.CODE + [
+        'group', 'group_ref', 'group_id']
+    get_ignore_keys = ['group_id']
     type_filter = api_cash_ctrl.FIELD_TYPE

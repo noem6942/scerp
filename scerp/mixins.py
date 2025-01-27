@@ -28,7 +28,7 @@ current_timezone = timezone.get_current_timezone()
 User = get_user_model()
 
 
-# excel functions
+# I/O functions
 def read_excel_file(file_path, convert_to_str=True):
     '''read an excel sheet and interprete EVERY cell as string.
         i.e. empty cell -> ''
@@ -52,8 +52,19 @@ def read_excel_file(file_path, convert_to_str=True):
     return rows
 
 
+def read_yaml_file(app_name, filename_yaml):
+    '''
+    Load the YAML file with app_name as parent dir 
+    '''
+    file_path = os.path.join(
+        settings.BASE_DIR, app_name, filename_yaml)
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return yaml.safe_load(file)
+
+
 def get_admin():
-    '''handsome for assigning base logging data to have the admin user
+    '''
+    Handsome for assigning base logging data to have the admin user
     '''
     return User.objects.get(username='admin')
 

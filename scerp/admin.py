@@ -21,6 +21,7 @@ from django.utils.translation import get_language, gettext_lazy as _
 
 from core.models import Message
 from core.safeguards import get_tenant, filter_query_for_tenant, save_logging
+from .exceptions import APIRequestError
 
 GUI_ROOT = settings.ADMIN_ROOT
 SPACE = '\u00a0'  # invisible space
@@ -448,9 +449,9 @@ class BaseAdmin(ModelAdmin):
                 messages.error(request, f"{msg}: {e}")                
             else:
                 messages.error(request, f"An error occurred: {str(e)}")  
-        except Exception as e:
-            # Catch any exception (IntegrityError, ValueError, etc.)
-            messages.error(request, f'{_("An error occurred")}: {str(e)}')
+        except APIRequestError as e:
+            # Catch the custom exception and show a user-friendly message
+            messages.error(request, f"Error: {str(e)}")
  
     def save_related(self, request, form, formsets, change):        
         """

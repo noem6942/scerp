@@ -63,8 +63,7 @@ class APISetupAdmin(BaseAdmin):
     readonly_fields = ('display_data',)
     actions = [
         a.api_setup_get,
-        a.init_setup,
-        a.test_setup,
+        a.init_setup,        
         a.api_setup_delete_hrm_accounts,
         a.api_setup_delete_system_accounts,
         a.api_setup_delete_hrm_categories,
@@ -186,14 +185,15 @@ class CustomFieldGroupAdmin(CashCtrlAdmin):
 @admin.register(CustomField, site=admin_site)
 class CustomFieldAdmin(CashCtrlAdmin):    
     has_tenant_field = True
-    list_display = ('code', 'type', 'name', 'c_id', 'message')
+    list_display = ('code', 'group', 'name', 'data_type', 'c_id', 'message')
     search_fields = ('code', 'name')
+    actions = [a.custom_field_get]
 
     fieldsets = (
         # Organization Details
         (None, {
             'fields': (
-                'code', 'group', 'name', 'type', 'description',
+                'code', 'group', 'name', 'data_type', 'description',
                 'is_multi', 'values'),
             'classes': ('expand',),
         }),

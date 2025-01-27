@@ -5,13 +5,14 @@ import logging
 
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
 
 from core.safeguards import save_logging
 from scerp.admin import action_check_nr_selected
+from scerp.exceptions import APIRequestError
 
 from .models import (
     APPLICATION, ACCOUNT_TYPE_TEMPLATE, APISetup,
@@ -24,7 +25,7 @@ from . import signals, signals_cash_ctrl
 from .import_accounts_canton import Import
 from .mixins import AccountPositionCheck
 from .connector import get_connector_module
-from .signals import api_setup_post_save
+from .signals_cash_ctrl import api_setup_post_save
 
 
 ACTION_LOAD = _('Load actual data from Accounting System')
@@ -67,8 +68,9 @@ class Handler:
                 self.handler = None
                 messages.error(request, _("No accounting system defined."))        
         
-    def load(self):
+    def load(self, request):
         if self.handler:
+            self.handler.load(self.model, self.tenant, self.user)
             try:
                 self.handler.load(self.model, self.tenant, self.user)
             except:
@@ -90,27 +92,39 @@ def get_api_setup(queryset):
 def custom_group_field_get(modeladmin, request, queryset):
     ''' load data '''    
     handler = Handler(modeladmin, request, queryset, conn.CustomFieldGroup)
-    handler.load()   
-    
+    handler.load(request)   
+ 
+
+@admin.action(description=f"1. {_('Get data from account system')}")
+def custom_field_get(modeladmin, request, queryset):
+    ''' load data '''    
+    handler = Handler(modeladmin, request, queryset, conn.CustomField)
+    handler.load(request)   
+ 
 
 @admin.action(description=('Admin: Init setup'))
 def init_setup(modeladmin, request, queryset):
     # Check
     if action_check_nr_selected(request, queryset, 1):
         instance = queryset.first()
-        api_setup_post_save(
-            modeladmin.model, instance, created=False, init=True) 
+
+        # Only perform actions if there are no errors
+        try:
+            # Wrap the database operation in an atomic block
+            with transaction.atomic():
+                api_setup_post_save(
+                    modeladmin.model, instance, created=True, request=request) 
+        except IntegrityError as e:
+            if "Duplicate entry" in str(e):
+                msg = _("Unique constraints violated")    
+                messages.error(request, f"{msg}: {e}")                
+            else:
+                messages.error(request, f"An error occurred: {str(e)}")  
+        except APIRequestError as e:
+            # Catch the custom exception and show a user-friendly message
+            messages.error(request, f"APIRequestError: {str(e)}")        
+        
         messages.success(request, _("Accounting API initialized"))
-
-
-@admin.action(description=('Admin: Test Init setup'))
-def test_setup(modeladmin, request, queryset):
-    # Check
-    if action_check_nr_selected(request, queryset, 1):
-        instance = queryset.first()
-        api_setup_post_save(
-            modeladmin.model, instance, created=False, test=True) 
-        messages.success(request, _("Accounting API tested"))
   
 
 @admin.action(description=ACTION_LOAD)
