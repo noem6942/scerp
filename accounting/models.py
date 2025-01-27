@@ -171,11 +171,11 @@ class AcctApp(TenantAbstract, Acct):
                 tenant=self.tenant, is_default=True).first()
             if not default_value:
                 raise IntegrityError(f"No default_value for {self.org_name}")
-            self.setup = default_value        
-    
+            self.setup = default_value
+
     def save(self, *args, **kwargs):
         '''
-        Get value for foreign key setup if not set. 
+        Get value for foreign key setup if not set.
         - Use default value of APISetup.
         - It is used to check which Account Setup is used
         '''
@@ -192,7 +192,7 @@ class CustomFieldGroup(AcctApp):
     Create custom field group that is then sent to cashCtrl via signals
     '''
     FIELD_TYPE = [(x.value, x.value) for x in FIELD_TYPE]
-    
+
     code = models.CharField(
         _('Code'), max_length=50, help_text='Internal code for scerp')
     name = models.JSONField(
@@ -206,6 +206,12 @@ class CustomFieldGroup(AcctApp):
 
     def __str__(self):
         return self.code
+
+    def save(self, *args, **kwargs):
+        # Check mandatory code
+        if not getattr(self, 'code', None):
+            self.code = self.c_id
+        super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
@@ -226,11 +232,11 @@ class CustomField(AcctApp):
         group is None allows the group field to be set to None temporarily
         if it starts as a string, so the pre_save signal can resolve and
         assign the correct instance.
-                
+
     '''
     FIELD_TYPE = [(x.value, x.value) for x in FIELD_TYPE]
     DATA_TYPE = [(x.value, x.value) for x in DATA_TYPE]
-    
+
     code = models.CharField(
         _('Code'), max_length=50, help_text='Internal code for scerp')
     group_ref = models.CharField(
@@ -243,7 +249,7 @@ class CustomField(AcctApp):
         help_text='''
             The type of group, meaning: which module the group belongs to.
             Possible values: JOURNAL, ACCOUNT, INVENTORY_ARTICLE,
-            INVENTORY_ASSET, ORDER, PERSON, FILE.''')        
+            INVENTORY_ASSET, ORDER, PERSON, FILE.''')
     data_type = models.CharField(
         _("Data Type"), max_length=50, choices=DATA_TYPE,
         help_text='''
@@ -253,7 +259,7 @@ class CustomField(AcctApp):
         _('Description'), blank=True, null=True,
         help_text="Description of the field.")
     group = models.ForeignKey(
-        CustomFieldGroup, verbose_name=_('Custom Field Group'),           
+        CustomFieldGroup, verbose_name=_('Custom Field Group'),
         on_delete=models.CASCADE, blank=True, null=True,
         related_name='%(class)s_group',
         help_text=_('Internal reference'))
@@ -266,25 +272,28 @@ class CustomField(AcctApp):
 
     def __str__(self):
         return self.code
-    
+
     def save(self, *args, **kwargs):
-        '''
-        Get value for foreign key group if not set.         
-        '''
-        # Get setup   
+        # Check mandatory code
+        if not getattr(self, 'code', None):
+            self.code = self.c_id
+        
+        # Check group_ref 
+        # Get setup
         if getattr(self, 'group', None):
             # Assing type from group
             self.type = self.group.type
         else:
             # Get group from group_ref
-            self.assign_setup()            
+            self.assign_setup()
             self.group = CustomFieldGroup.objects.filter(
                 setup=self.setup, code=self.group_ref).first()
             if self.group:
-                self.type = self.group.type   
+                self.type = self.group.type
             else:
                 raise IntegrityError(
                     f"No CustomFieldGroup with code '{self.group_ref}'")
+                                        
         super().save(*args, **kwargs)
 
     class Meta:
@@ -415,11 +424,11 @@ class CostCenterCategory(AcctApp):
 class CostCenter(AcctApp):
     '''Master
     '''
-    name_new = models.JSONField(
+    name = models.JSONField(
         _('Name'), blank=True, null=True,
         help_text="The name of the cost center.")
     number = models.DecimalField(
-        _('Number'), max_digits=20, decimal_places=2,    
+        _('Number'), max_digits=20, decimal_places=2,
         help_text=_(
             '''The cost center number. Must be numeric but can contain
                a decimal point.'''))
@@ -428,16 +437,16 @@ class CostCenter(AcctApp):
         on_delete=models.CASCADE, related_name='%(class)s_category')
     target_max = models.DecimalField(
         _('Target Maximum'),
-        max_digits=20, decimal_places=2, blank=True, null=True,        
-        help_text=_(            
+        max_digits=20, decimal_places=2, blank=True, null=True,
+        help_text=_(
             'The target maximum balance the cost center should to stay beneath '
             'end of the fiscal period. This will be displayed in the Targets '
             'report, comparing your target to the actual balance. Please '
             'first switch to the desired fiscal period to set the target for '
-            'that period.'))             
+            'that period.'))
     target_min = models.DecimalField(
         _('Target min'),
-        max_digits=20, decimal_places=2, blank=True, null=True,  
+        max_digits=20, decimal_places=2, blank=True, null=True,
         help_text=_(
             'The target minimum balance you hope this cost center to hit by the '
             'end of the fiscal period. This will be displayed in the Targets '
@@ -487,7 +496,7 @@ class AccountCategory(AcctApp):
 class Account(AcctApp):
     '''Actual cashCtrl account
         triggers signals.py post_save
-    '''    
+    '''
     category = models.ForeignKey(
         AccountCategory, verbose_name=_('Account Category'),
         on_delete=models.CASCADE, related_name='%(class)s_category',
@@ -502,10 +511,10 @@ class Account(AcctApp):
             'Allocations to cost centers, if this account is either an expense '
             'or revenue account.'))
     currency = models.ForeignKey(
-        Currency, verbose_name=_('Currency'), default=Currency.get_default,        
+        Currency, verbose_name=_('Currency'), default=Currency.get_default,
         on_delete=models.PROTECT, related_name='%(class)s_currency',
         help_text=_(
-            "Link to currency. Defaults to the system currency if not specified."))       
+            "Link to currency. Defaults to the system currency if not specified."))
     custom = models.JSONField(
         _('Custom Fields'), blank=True, null=True,
         help_text=_(
@@ -535,9 +544,9 @@ class Account(AcctApp):
             'first switch to the desired fiscal period to set the target for '
             'that period.'
         )
-    )    
+    )
     tax = models.ForeignKey(
-        'Tax', verbose_name=_('Tax'), 
+        'Tax', verbose_name=_('Tax'),
         on_delete=models.PROTECT, blank=True, null=True,
         related_name='%(class)s_tax',
         help_text=_("Link to tax. Not used."))  # Verify
@@ -561,10 +570,10 @@ class Tax(AcctApp):
         _('Code'), max_length=50, help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'), blank=True, null=True,
-        help_text=_("The name of the tax rate."))   
+        help_text=_("The name of the tax rate."))
     account = models.ForeignKey(
         'self', verbose_name=_('Account'),
-        on_delete=models.CASCADE, null=True, blank=True, 
+        on_delete=models.CASCADE, null=True, blank=True,
         related_name='%(class)s_account',
         help_text=_('The account which collects the taxes.'))
     percentage = models.DecimalField(
@@ -594,17 +603,23 @@ class Tax(AcctApp):
             "The flat tax rate percentage (Saldo-/Pauschalsteuersatz)."))
 
     def __str__(self):
-        return multi_language(self.name)
+        return self.code
+
+    def save(self, *args, **kwargs):
+        # Check mandatory code
+        if not getattr(self, 'code', None):
+            self.code = f"{self.c_id}, {self.percentage}"
+        super().save(*args, **kwargs)
 
     class Meta:
-        '''    
+        '''
         constraints = [
             models.UniqueConstraint(
                 fields=['setup', 'code'],
                 name='unique_setup_tax'
             )
         ]
-        '''    
+        '''
         ordering = ['name']
         verbose_name = _("Tax Rate")
         verbose_name_plural = f"{_('Tax Rates')}"
@@ -760,17 +775,23 @@ class Rounding(AcctApp):
             "UNNECESSARY."))
 
     def __str__(self):
-        return multi_language(self.name)
+        return self.code
+
+    def save(self, *args, **kwargs):
+        # Check mandatory code
+        if not getattr(self, 'code', None):
+            self.code = self.code = f"{self.c_id}, {self.mode}"
+        super().save(*args, **kwargs)
 
     class Meta:
-        '''        
+        '''
         constraints = [
             models.UniqueConstraint(
                 fields=['setup', 'code'],
                 name='unique_setup_rounding'
             )
         ]
-        '''    
+        '''
         ordering = ['name']
         verbose_name = _("Rounding")
         verbose_name_plural = f"{_('Roundings')}"
@@ -780,9 +801,9 @@ class SequenceNumber(AcctApp):
     '''Read - only
     '''
     code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')   
+        _('Code'), max_length=50, help_text='Internal code for scerp')
     name = models.JSONField(
-        _('name'),  help_text=_("The name of the sequence number."), 
+        _('name'),  help_text=_("The name of the sequence number."),
         blank=True, null=True)
     pattern = models.CharField(
         _('pattern'),
@@ -797,8 +818,14 @@ class SequenceNumber(AcctApp):
             never resets. Example pattern: RE-$y$m$d$nd which may
             generate 'RE-2007151' (on July 15, 2020)."""))
 
+    def save(self, *args, **kwargs):
+        # Check mandatory code
+        if not getattr(self, 'code', None):
+            self.code = self.code = f"{self.c_id}, {self.pattern}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return multi_language(self.name)
+        return self.code
 
     class Meta:
         '''
@@ -818,24 +845,30 @@ class Unit(AcctApp):
     ''' Master
     '''
     code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')   
+        _('Code'), max_length=50, help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'), blank=True, null=True,
         help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
     is_default = models.BooleanField(_("Is default"), default=False)
 
     def __str__(self):
-        return multi_language(self.name)
+        return self.code
+
+    def save(self, *args, **kwargs):
+        # Check mandatory code
+        if not getattr(self, 'code', None):
+            self.code = self.code = f"{self.c_id}, {self.name.get('de')}"
+        super().save(*args, **kwargs)
 
     class Meta:
-        '''    
+        '''
         constraints = [
             models.UniqueConstraint(
                 fields=['setup', 'code'],
                 name='unique_setup_unit'
             )
         ]
-        '''    
+        '''
         ordering = ['name']
         verbose_name = _("Unit")
         verbose_name_plural = f"{_('Units')}"
@@ -845,7 +878,7 @@ class OrderCategory(AcctApp):
     '''Read - only
     '''
     name_plural = models.JSONField(
-        _('name'), blank=True, null=True, 
+        _('name'), blank=True, null=True,
         help_text=_("he plural name of the category (e.g. 'Invoices')."))
     account_id = models.PositiveIntegerField(
         _('Account Id'), blank=True, null=True,
@@ -1242,21 +1275,21 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
 
     # balance
     balance = models.DecimalField(
-        _('Balance'), 
-        max_digits=20, decimal_places=2, blank=True, null=True,    
+        _('Balance'),
+        max_digits=20, decimal_places=2, blank=True, null=True,
         help_text=_('Acutal Balance'))
     balance_init = models.DecimalField(
-        _('Balance, imported'), 
-        max_digits=20, decimal_places=2, blank=True, null=True,    
+        _('Balance, imported'),
+        max_digits=20, decimal_places=2, blank=True, null=True,
         help_text=_('Balance, imported'))
 
     # custom fields
     budget = models.DecimalField(
-        _('Budget'), max_digits=20, decimal_places=2, blank=True, null=True,    
+        _('Budget'), max_digits=20, decimal_places=2, blank=True, null=True,
         help_text=_('Budget for period given, fill out manually'))
     previous = models.DecimalField(
-        _('Previous Balance'), 
-        max_digits=20, decimal_places=2, blank=True, null=True,    
+        _('Previous Balance'),
+        max_digits=20, decimal_places=2, blank=True, null=True,
         help_text=_('Balance of previous period'))
     explanation = models.TextField(
         _('Explanation'), null=True, blank=True,

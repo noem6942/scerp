@@ -172,7 +172,7 @@ class CustomFieldGroupAdmin(CashCtrlAdmin):
     list_display = (
         'code', 'name', 'type', 'c_id', 'message', 'is_enabled_sync')
     search_fields = ('code', 'name')
-    actions = [a.custom_group_field_get]
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         # Organization Details
@@ -187,7 +187,7 @@ class CustomFieldAdmin(CashCtrlAdmin):
     has_tenant_field = True
     list_display = ('code', 'group', 'name', 'data_type', 'c_id', 'message')
     search_fields = ('code', 'name')
-    actions = [a.custom_field_get]
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         # Organization Details

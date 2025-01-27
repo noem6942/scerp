@@ -1,6 +1,7 @@
 '''
 accounting/actions.py
 '''
+import importlib
 import logging
 
 from django.contrib import admin, messages
@@ -19,6 +20,7 @@ from .models import (
     AccountPositionTemplate,
     ChartOfAccounts, AccountPosition, FiscalPeriod
 )
+from . import models
 from . import connector_cash_ctrl, forms
 from . import connector_cash_ctrl_new as conn
 from . import signals, signals_cash_ctrl
@@ -89,18 +91,14 @@ def get_api_setup(queryset):
     
 
 @admin.action(description=f"1. {_('Get data from account system')}")
-def custom_group_field_get(modeladmin, request, queryset):
+def accounting_get_data(modeladmin, request, queryset):
     ''' load data '''    
-    handler = Handler(modeladmin, request, queryset, conn.CustomFieldGroup)
-    handler.load(request)   
- 
-
-@admin.action(description=f"1. {_('Get data from account system')}")
-def custom_field_get(modeladmin, request, queryset):
-    ''' load data '''    
-    handler = Handler(modeladmin, request, queryset, conn.CustomField)
-    handler.load(request)   
- 
+    api_class = getattr(conn, modeladmin.model.__name__, None)
+    if api_class:
+        handler = Handler(modeladmin, request, queryset, api_class)
+        handler.load(request)
+    else:
+        messages.warning(request, _("Cannot retrieve data for this list"))
 
 @admin.action(description=('Admin: Init setup'))
 def init_setup(modeladmin, request, queryset):
