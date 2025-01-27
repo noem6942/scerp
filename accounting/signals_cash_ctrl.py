@@ -84,20 +84,18 @@ def api_setup_post_save(sender, instance, created, **kwargs):
     if created:
         # Open yaml
         init_data = read_yaml_file('accounting', yaml_filename)
+    
+        # Create objects, that fire then signals to cashCtrl
 
         # Create CustomFieldGroups
         for data in init_data['CustomFieldGroup']:
             new_instance = create_instance(
                 instance, models.CustomFieldGroup, data, **kwargs)
-            handle_cashctrl_signal(
-                conn.CustomFieldGroup, new_instance, 'save', created)
 
         # Create CustomFields
         for data in init_data['CustomField']:
             new_instance = create_instance(
                 instance, models.CustomField, data, **kwargs)
-            handle_cashctrl_signal(
-                conn.CustomField, new_instance, 'save', created)
 
 
 # cashCtrl classes

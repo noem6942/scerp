@@ -294,7 +294,7 @@ class CustomField(AcctApp):
                 name='unique_custom_setup_field'
             )
         ]
-        ordering = ['code']
+        ordering = ['group__code', 'code']
         verbose_name = _("Custom Field")
         verbose_name_plural = _("Custom Field")
 
