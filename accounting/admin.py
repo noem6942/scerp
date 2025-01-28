@@ -91,6 +91,7 @@ class APISetupAdmin(BaseAdmin):
 
 class CashCtrlAdmin(BaseAdmin):
     has_tenant_field = True
+    setup_model = APISetup
 
     def get_cash_ctrl_fields(self):        
         fields = CASH_CTRL.FIELDS + CASH_CTRL.SUPER_USER_EDITABLE_FIELDS

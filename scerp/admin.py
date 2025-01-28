@@ -433,6 +433,15 @@ class BaseAdmin(ModelAdmin):
         add_tenant = getattr(self, 'has_tenant_field', False)
         queryset = save_logging(instance, request, add_tenant=add_tenant)
 
+        # Proceed with setup
+        setup_model = getattr(self, 'setup_model', False)
+        if setup_model and not getattr(instance, 'setup', None):
+            default_value = setup_model.objects.filter(
+                tenant=instance.tenant, is_default=True).first()
+            if not default_value:
+                raise IntegrityError(f"No default_value for {self.org_name}")
+                instance.setup = default_value
+
         # Handle forbidden response from logging
         if isinstance(queryset, HttpResponseForbidden):
             messages.error(request, f"{queryset.content.decode()}")

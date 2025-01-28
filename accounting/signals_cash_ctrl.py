@@ -19,6 +19,11 @@ MIN_REFRESH_TIME = 5  # seconds
 
 # Helpers
 def create_instance(setup_instance, api_class, data, **kwargs):
+    ''' Create instance from setup_ini.yaml data 
+    
+    params
+    :kwargs: request for getting user
+    '''
     # created_by
     request = kwargs.get('request')
     created_by = request.user if request else setup_instance.created_by
@@ -29,14 +34,6 @@ def create_instance(setup_instance, api_class, data, **kwargs):
         setup=setup_instance,
         tenant=setup_instance.tenant,
         created_by=created_by)
-
-
-def received_from_cash_ctrl(instance):
-    ''' check if sending is necessary '''
-    if instance.last_received:
-        diff = timezone.now() - instance.last_received
-        return diff.seconds > MIN_REFRESH_TIME
-    return True
 
 
 def handle_cash_ctrl_signal(
@@ -59,12 +56,10 @@ def handle_cash_ctrl_signal(
     #try:
     if action == 'save':
         # If record has been updated
-        if not received_from_cash_ctrl(instance):
-            if created:
-                instance.c_id = handler.create(instance)
-                instance.save()
-            else:
-                handler.update(instance)
+        if created:
+            handler.create(instance)            
+        else:
+            handler.update(instance)
     elif action == 'delete' and instance.c_id:
         handler.delete(instance)
     elif action == 'get':
@@ -76,49 +71,25 @@ def handle_cash_ctrl_signal(
     #    raise APIRequestError("Failed to send data to the API.")
 
 
-def handle_cashctrl_check_category(
-        api_class, model, instance, field_name='category'):
-    ''' 
-    assign category and reload if no category found 
-    
-    :api_class: api class of foreign key
-    :model: model of foreign key
-    :field_name: field_name of foreign key
-    '''
-    if not getattr(instance, field_name, None):
-        # Fix category
-        category = models.CostCenterCategory.objects.filter(
-            c_id=instance.c_id).first()
+def received_from_scerp(instance):
+    ''' check if sending is necessary '''
+    if instance.last_received:
+        diff = timezone.now() - instance.last_received
+        return diff.seconds > MIN_REFRESH_TIME
+    return True
 
-        if not category:
-            # Load categories from cashCtrl
-            handle_cash_ctrl_signal(api_class, instance, 'get', model)
-            category = model.objects.filter(
-                setup=instance.setup, c_id=instance.c_id).first()
-
-        if category:
-            # Save
-            instance.category = category
-            instance.save()
 
 # Signal Handlers
 # These handlers connect the appropriate signals to the helper functions.
 
 # APISetup
-def assign_setup(instance):
-    if not getattr(instance, 'setup', None):
-        # Query the default value
-        default_value = models.APISetup.objects.filter(
-            tenant=instance.tenant, is_default=True).first()
-        if not default_value:
-            raise IntegrityError(f"No default_value for {self.org_name}")
-        instance.setup = default_value
-
-
 @receiver(post_save, sender=models.APISetup)
 def api_setup_post_save(sender, instance, created, **kwargs):
     '''Post action for APISetup:
         - init accounting instances
+        
+    params
+    :kwargs: request for getting user 
     '''
     # Init
     yaml_filename = 'init_setup.yaml'
@@ -143,22 +114,12 @@ def api_setup_post_save(sender, instance, created, **kwargs):
 # cashCtrl classes
 
 # CustomFieldGroup
-@receiver(pre_save, sender=models.CustomFieldGroup)
-def custom_field_group_pre_save(sender, instance, **kwargs):
-    '''Signal handler for pre signals on CustomFieldGroup. '''
-    # Assign setup if necessary
-    assign_setup(instance)
-
-
 @receiver(post_save, sender=models.CustomFieldGroup)
 def custom_field_group_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CustomFieldGroup. '''
-    if not getattr(instance, 'code', None):
-        # Record has been created in cashCtrl but not scerp
-        instance.code = str(instance.c_id)
-        instance.save()
-    handle_cash_ctrl_signal(
-        conn.CustomFieldGroup, instance, 'save', created)
+    if received_from_scerp(instance):
+        handle_cash_ctrl_signal(
+            conn.CustomFieldGroup, instance, 'save', created)
 
 
 @receiver(pre_delete, sender=models.CustomFieldGroup)
@@ -171,45 +132,34 @@ def custom_field_group_pre_delete(sender, instance, **kwargs):
 @receiver(pre_save, sender=models.CustomField)
 def custom_field_pre_save(sender, instance, **kwargs):
     '''Signal handler for pre signals on CustomFieldGroup. '''
-    # Assign setup if necessary
-    assign_setup(instance)
-
-    # Check group_ref
-    if getattr(instance, 'group', None):
-        # Assing type from group
+    if received_from_scerp(instance):
+        # Assign type from group
         instance.type = instance.group.type
-    else:
+        '''
         # Get group from group_ref
-        instance.group = models.CustomFieldGroup.objects.filter(
-            setup=instance.setup, code=instance.group_ref).first()
-        if instance.group:
-            instance.type = self.instance.type
-        else:
-            raise IntegrityError(
-                f"No CustomFieldGroup with code '{self.group_ref}'")
-
+        if not getattr(instance, 'group', None):
+            group = models.CustomFieldGroup.objects.filter(
+                setup=instance.setup, code=instance.group_ref).first()
+            if group:
+                instance.group = group
+                instance.type = instance.instance.type
+            else:
+                raise IntegrityError(
+                    f"No CustomFieldGroup with code '{instance.group_ref}'")
+        '''
 
 @receiver(post_save, sender=models.CustomField)
 def custom_field_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CustomField. '''
-    # Align category if necessary
-    handle_cashctrl_check_category(
-        conn.CustomFieldGroup, models.CustomFieldGroup, instance, 'group')    
-    
-    # Align code if necessary
-    if not getattr(instance, 'code', None):
-        # Record has been created in cashCtrl but not scerp
-        instance.code = str(instance.c_id)
-        instance.save()    
-    
-    # Send to cashCtrl if necessary
-    handle_cash_ctrl_signal(conn.CustomField, instance, 'save', created)
+    if received_from_scerp(instance):
+        handle_cash_ctrl_signal(conn.CustomField, instance, 'save', created)
 
 
 @receiver(pre_delete, sender=models.CustomField)
 def custom_field_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CustomField. '''
     handle_cash_ctrl_signal(conn.CustomField, instance, 'delete')
+
 
 """
 # Currency

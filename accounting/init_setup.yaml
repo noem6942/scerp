@@ -144,7 +144,7 @@ CustomField:
     data_type: TEXT
     is_multi: false
     values: []
-    
+
   - code: order_procurement_approval
     group_ref: order_procurement
     name:
@@ -154,7 +154,7 @@ CustomField:
       it: Firmato / Approvato
     data_type: PERSON
     is_multi: true
-    values: []    
+    values: []
 
   - code: order_procurement_validity
     group_ref: order_procurement
@@ -241,13 +241,19 @@ Units:
       en: 'm³'
       fr: 'm³'
       it: 'm³'
+  - code: contract
+    name:
+      de: 'Auftrag'
+      en: 'Contract'
+      fr: 'Contrat'
+      it: 'Contratto'
 
 Texts:
   - code: legal_water
     name: Rechtmittel Wasser
     type: ORDER_FOOTER
     value: Wasser - schriftlich innert 10 Tagen an die Wasserkommission der Bürgergemeinde Gunzgen
-    
+
   - code: legal_dispoasl
     name: Rechtmittel Abwasser
     type: ORDER_FOOTER
@@ -355,7 +361,7 @@ OrderCategories:
           en: Draft
           fr: Projet
           it: Progetto
-      
+
       # Status: Offen (Open)
       # Represents an open invoice or document. Color is ORANGE.
       - icon: ORANGE
@@ -364,7 +370,7 @@ OrderCategories:
           en: Open
           fr: Ouvert
           it: Aperto
-      
+
       # Status: Versandt (Sent)
       # Represents a document that has been sent. Color is BLUE.
       - icon: BLUE
@@ -373,7 +379,7 @@ OrderCategories:
           en: Sent
           fr: Envoyé
           it: Inviato
-      
+
       # Status: Erinnert 1 (Reminder 1)
       # The first reminder for an unpaid invoice. Color is YELLOW.
       - icon: YELLOW
@@ -382,7 +388,7 @@ OrderCategories:
           en: Reminder 1
           fr: Rappel 1
           it: Promemoria 1
-      
+
       # Status: Erinnert 2 (Reminder 2)
       # The second reminder for an unpaid invoice. Color is YELLOW.
       - icon: YELLOW
@@ -391,7 +397,7 @@ OrderCategories:
           en: Reminder 2
           fr: Rappel 2
           it: Promemoria 2
-      
+
       # Status: Betreibung (Collection)
       # Represents a collection or legal action phase. Color is RED.
       - icon: RED
@@ -400,7 +406,7 @@ OrderCategories:
           en: Collection
           fr: Recouvrement
           it: Recupero
-      
+
       # Status: Bezahlt (Paid)
       # Represents an invoice that has been paid. Color is GREEN.
       - icon: GREEN
@@ -409,7 +415,7 @@ OrderCategories:
           en: Paid
           fr: Payé
           it: Pagato
-      
+
       # Status: Storniert (Cancelled)
       # Represents a cancelled invoice or document. Color is BLACK.
       - icon: BLACK
@@ -542,7 +548,7 @@ OrderCategories:
         de: Entwurf
         en: Draft
         fr: Projet
-        it: Progetto    
+        it: Progetto
     # Status: Anfrage (Request)
     # Represents a procurement request. Color is ORANGE.
     - icon: ORANGE
@@ -551,7 +557,7 @@ OrderCategories:
         en: Request
         fr: Demande
         it: Richiesta
-    
+
     # Status: Offerte erhalten (Offer Received)
     # Represents a received offer. Color is BLUE.
     - icon: BLUE
@@ -560,7 +566,7 @@ OrderCategories:
         en: Offer Received
         fr: Offre reçue
         it: Offerta ricevuta
-    
+
     # Status: Shortlisted (Shortlisted)
     # Represents a procurement item that has been shortlisted. Color is YELLOW.
     - icon: YELLOW
@@ -569,7 +575,7 @@ OrderCategories:
         en: Shortlisted
         fr: Sélectionné
         it: Selezionato
-    
+
     # Status: Zuschlag (Awarded)
     # Represents a procurement item that has been awarded. Color is VIOLET.
     - icon: VIOLET
@@ -605,7 +611,7 @@ OrderCategories:
         en: Contract Received
         fr: Contrat reçu
         it: Contratto ricevuto
-    
+
     # Status: Vertrag unterzeichnet (Contract Signed)
     # Represents a contract that has been signed. Color is GREEN.
     - icon: GREEN
@@ -626,7 +632,7 @@ OrderCategories:
       address_type: INVOICE
       book_type: CREDIT
       type: PURCHASE
-    
+
     # Status: Gekündigt (Terminated)
     # Represents a contract or agreement that has been terminated. Color is RED.
     - icon: RED
@@ -650,7 +656,7 @@ OrderCategories:
       address_type: INVOICE
       book_type: CREDIT
       type: PURCHASE
-    
+
     # Status: Archiviert (Archived)
     # Represents an archived procurement item or contract. Color is GRAY.
     - icon: GRAY
