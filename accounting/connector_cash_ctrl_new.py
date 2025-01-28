@@ -44,8 +44,8 @@ class cashCtrl:
     Properties
         :api_class: define class in api_cash_ctrl
         :json_fields: convert into cashCtrl values
-        :ignore_keys: do not upload these key values to cashCtrl
-        :get_ignore_keys: do not download these key from cashCtrl as they are
+        :ignore_keys_post: do not upload these key values to cashCtrl
+        :ignore_keys_get: do not download these key from cashCtrl as they are
             used differently in cashCtrl (foreign keys)
         :type_filter(Enum): Needed to get type specific classes, .i.e.
             - api_cash_ctrl.FIELD_TYPE for CustomField and CustomFieldGroup
@@ -60,14 +60,14 @@ class cashCtrl:
     def prepare_data(self, instance):
         '''
         Copy values from self.instance to data to be sent to cashCtrl
-        self.ignore_keys:
-        if ignore_keys are given we copy all values of the data
-        except self.ignore_keys
+        self.ignore_keys_post:
+        if ignore_keys_post are given we copy all values of the data
+        except self.ignore_keys_post
         '''
         # Copy values
         data = {}
         for key, value in instance.__dict__.items():
-            if key not in self.ignore_keys:
+            if key not in self.ignore_keys_post:
                 data[key] = value
 
         # Add id if existing
@@ -158,7 +158,9 @@ class cashCtrl:
 
             # save
             for key, value in data.items():
-                if key not in getattr(self, 'get_ignore_keys', []):
+                # copy data to instance but skip foreign key typically ending
+                # with _id
+                if key == 'c_id' or not key.string.endswith('_id'):
                     setattr(instance, key, value)
             instance.save()
             c_ids.remove(data['c_id'])
@@ -202,13 +204,13 @@ class cashCtrl:
 
 class CustomFieldGroup(cashCtrl):
     api_class = api_cash_ctrl.CustomFieldGroup
-    ignore_keys = IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE
+    ignore_keys_post = IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE
     type_filter = api_cash_ctrl.FIELD_TYPE
 
 
 class CustomField(cashCtrl):
     api_class = api_cash_ctrl.CustomField
-    ignore_keys = IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.CODE + [
+    ignore_keys_post = IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.CODE + [
         'group', 'group_ref', 'group_id']
-    get_ignore_keys = ['group_id']
+    ignore_keys_get = ['group_id']
     type_filter = api_cash_ctrl.FIELD_TYPE

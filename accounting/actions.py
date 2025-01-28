@@ -73,6 +73,7 @@ class Handler:
     def load(self, request):
         if self.handler:
             self.handler.load(self.model, self.tenant, self.user)
+            return
             try:
                 self.handler.load(self.model, self.tenant, self.user)
             except:
