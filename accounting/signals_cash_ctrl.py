@@ -134,7 +134,8 @@ def custom_field_pre_save(sender, instance, **kwargs):
     '''Signal handler for pre signals on CustomFieldGroup. '''
     if received_from_scerp(instance):
         # Assign type from group
-        instance.type = instance.group.type
+        if instance.group:
+            instance.type = instance.group.type
         '''
         # Get group from group_ref
         if not getattr(instance, 'group', None):

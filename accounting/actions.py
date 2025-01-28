@@ -64,7 +64,7 @@ class Handler:
                             
                 # Init            
                 self.model = modeladmin.model
-                self.tenant = setup.tenant
+                self.setup = setup
                 self.user = request.user
             else:
                 self.handler = None
@@ -72,10 +72,10 @@ class Handler:
         
     def load(self, request):
         if self.handler:
-            self.handler.load(self.model, self.tenant, self.user)
+            self.handler.load(self.model, self.setup, self.user)
             return
             try:
-                self.handler.load(self.model, self.tenant, self.user)
+                self.handler.load(self.model, self.setup, self.user)
             except:
                 messages.error(request, _("API Error: cannot retrieve data"))
 

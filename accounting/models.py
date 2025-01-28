@@ -145,7 +145,9 @@ class Acct(models.Model):
         _('CashCtrl last_updated_by'), max_length=100, null=True, blank=True)
     last_received = models.DateTimeField(
         _('Last received'), null=True, blank=True,
-        help_text=_("Last time data has been received from cashCtrl"))
+        help_text=_(
+            "Last time data has been received from cashCtrl. "
+            "Gets filled out in signals_cash_ctrl.get "))
     setup = models.ForeignKey(
         APISetup, verbose_name=_('Accounting Setup'),
         on_delete=models.CASCADE, related_name='%(class)s_setup',
@@ -173,15 +175,6 @@ class AcctApp(TenantAbstract, Acct):
                 raise IntegrityError(f"No default_value for {self.org_name}")
             self.setup = default_value
 
-    def save(self, *args, **kwargs):
-        '''
-        Get value for foreign key setup if not set.
-        - Use default value of APISetup.
-        - It is used to check which Account Setup is used
-        '''
-        self.assign_setup()
-        super().save(*args, **kwargs)
-
     class Meta:
         abstract = True
 
@@ -206,12 +199,6 @@ class CustomFieldGroup(AcctApp):
 
     def __str__(self):
         return self.code
-
-    def save(self, *args, **kwargs):
-        # Check mandatory code
-        if not getattr(self, 'code', None):
-            self.code = self.c_id
-        super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
@@ -272,29 +259,6 @@ class CustomField(AcctApp):
 
     def __str__(self):
         return self.code
-
-    def save(self, *args, **kwargs):
-        # Check mandatory code
-        if not getattr(self, 'code', None):
-            self.code = self.c_id
-        
-        # Check group_ref 
-        # Get setup
-        if getattr(self, 'group', None):
-            # Assing type from group
-            self.type = self.group.type
-        else:
-            # Get group from group_ref
-            self.assign_setup()
-            self.group = CustomFieldGroup.objects.filter(
-                setup=self.setup, code=self.group_ref).first()
-            if self.group:
-                self.type = self.group.type
-            else:
-                raise IntegrityError(
-                    f"No CustomFieldGroup with code '{self.group_ref}'")
-                                        
-        super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
@@ -605,12 +569,6 @@ class Tax(AcctApp):
     def __str__(self):
         return self.code
 
-    def save(self, *args, **kwargs):
-        # Check mandatory code
-        if not getattr(self, 'code', None):
-            self.code = f"{self.c_id}, {self.percentage}"
-        super().save(*args, **kwargs)
-
     class Meta:
         '''
         constraints = [
@@ -777,12 +735,6 @@ class Rounding(AcctApp):
     def __str__(self):
         return self.code
 
-    def save(self, *args, **kwargs):
-        # Check mandatory code
-        if not getattr(self, 'code', None):
-            self.code = self.code = f"{self.c_id}, {self.mode}"
-        super().save(*args, **kwargs)
-
     class Meta:
         '''
         constraints = [
@@ -853,12 +805,6 @@ class Unit(AcctApp):
 
     def __str__(self):
         return self.code
-
-    def save(self, *args, **kwargs):
-        # Check mandatory code
-        if not getattr(self, 'code', None):
-            self.code = self.code = f"{self.c_id}, {self.name.get('de')}"
-        super().save(*args, **kwargs)
 
     class Meta:
         '''
