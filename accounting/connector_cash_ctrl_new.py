@@ -113,7 +113,6 @@ class cashCtrl:
 
         # Load data
         data_list = self.get_data(params, **filter_kwargs)
-        data_list_copy = {x['id']: dict(x) for x in data_list}
         c_ids = [x['id'] for x in data_list]
 
         # Delete instances not matching
@@ -166,8 +165,7 @@ class cashCtrl:
 
             # Clean
             if getattr(self, 'post_get', None):
-                source = data_list_copy[data['c_id']]
-                self.post_get(instance, source, data, created=False)
+                self.post_get(instance, data, created=False)
 
             instance.save()
             c_ids.remove(data['c_id'])
@@ -176,25 +174,14 @@ class cashCtrl:
         # Create
         for c_id in c_ids:
             # prepare
-            instance = model(
-                tenant=tenant,
-                setup=tenant.setup,
-                created_by=user,
-                modified_at=timezone.now()  # set to check for trigger
-            )
-
-            # Copy values
             data = next(x for x in data_list if x['c_id'] == c_id)
-            for key, value in instance.__dict__.items():
-                if key in data:
-                    setattr(instance, key, data[key])
-
-            # Clean
-            if getattr(self, 'post_get', None):
-                source = data_list_copy[data['c_id']]
-                self.post_get(instance, source, data, created=True)
-
-            # Save
+            data.update({
+                'tenant': tenant,
+                'created_by': user,
+                'modified_at': timezone.now()  # set to check for trigger
+            })
+            instance = model(**data)
+            self.post_get(instance, data, created=True)
             instance.save()
             created += 1
 
@@ -202,19 +189,8 @@ class cashCtrl:
         logger.info(
             f'{model}: updated {updated}, created {created}, deleted {deleted}')
 
-    def update_category(self, instance, source, update, created, field_name):
-        ''' used for uploading categories from cashCtrl
-        procedure:
-        - get category_id:
-            no changed: do nothing
-            change:
-            - look for category
-            - if not found download category
-        '''
-
-        print("*instance", instance.__dict__)
-        print("*data", created, source, update)        
-        return
+    def update_category(self, model, data, created, field_name):
+        ''' used for uploading categories from cashCtrl '''
         category_id = data.pop(field_name)
         if created:
             related_model = model.group.field.related_model
@@ -258,10 +234,10 @@ class CustomFieldGroup(cashCtrl):
     def pre_upload(self, instance, data):
         pass
 
-    def post_get(self, instance, source, update, created):
+    def post_get(self, instance, data, created):
         __ = instance, created
         if created:
-            instance.code = str(source['id'])
+            data['code'] = str(data['c_id'])
 
 
 class CustomField(cashCtrl):
@@ -272,14 +248,13 @@ class CustomField(cashCtrl):
 
     def pre_upload(self, instance, data):
         # Prepare group_id
-        data['code'] = str(data['id'])
+        data['group_id'] = instance.group.c_id
 
-    def post_get(self, instance, source, update, created):
+    def post_get(self, instance, data, created):
         __ = instance, created
-        print("*xx", instance.__dict__)        
         # code
         if created:
-            instance.code = str(source['id'])
+            instance.code = str(data['c_id'])
 
-        # group
-        # self.update_category(instance, source, update, created, 'group_id')
+        # group, currently not activated
+        # self.update_category(instance, data, created, 'group_id')
