@@ -12,7 +12,8 @@ from django_admin_action_forms import action_with_form, AdminActionForm
 from core.safeguards import get_tenant
 from .models import (
     ACCOUNT_TYPE_TEMPLATE, AccountPositionTemplate, ChartOfAccountsTemplate,
-    ChartOfAccounts, AccountPosition, Currency
+    ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
+    CostCenter, Rounding
 )
 from scerp.admin import verbose_name_field
 from scerp.forms import MultilanguageForm, make_multilanguage_form
@@ -27,6 +28,58 @@ class CurrencyAdminForm(MultilanguageForm):
     # Dynamically create fields for each language
     class Meta:
         model = Currency
+        fields = '__all__'
+    
+    # Dynamically create fields for each language   
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+# Rounding
+class RoundingAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name']
+    
+    # Dynamically create fields for each language
+    class Meta:
+        model = Rounding
+        fields = '__all__'
+    
+    # Dynamically create fields for each language   
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+# Title
+class TitleAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name', 'sentence']
+    
+    # Dynamically create fields for each language
+    class Meta:
+        model = Title
+        fields = '__all__'
+    
+    # Dynamically create fields for each language   
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+# CostCenterCategory
+class CostCenterCategoryAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name']
+    
+    # Dynamically create fields for each language
+    class Meta:
+        model = CostCenterCategory
+        fields = '__all__'
+    
+    # Dynamically create fields for each language   
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+# CostCenter
+class CostCenterAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name']
+    
+    # Dynamically create fields for each language
+    class Meta:
+        model = CostCenter
         fields = '__all__'
     
     # Dynamically create fields for each language   

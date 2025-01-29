@@ -82,7 +82,8 @@ class Title(TenantAbstract):
         MALE = 'MALE', _('Male')
         FEMALE = 'FEMALE', _('Female')
         # Others        
-
+    code = models.CharField(
+        _('Code'), max_length=50, help_text='Internal code for scerp')
     name = models.JSONField(
         _('Name'), 
         blank=True,  null=True,  # null necessary to handle multi languages
@@ -107,6 +108,17 @@ class Title(TenantAbstract):
                 return self.name[lang_code]
         return None
      
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code'],
+                name='crm_unique_title'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Title")
+        verbose_name_plural = _("Titles")
+
 
 class Address(TenantAbstract):
     # Address Types Enum (choices for the 'type' field)

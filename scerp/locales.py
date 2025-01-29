@@ -20,84 +20,102 @@ APP_MODEL_ORDER = {
         'symbol': '(A)',
         'is_mandatory': True,
         'models': {  # Models order, postfix
-            'group': ('1', None),
-            'user': ('2', None)
+            'group': ('1', ''),
+            'user': ('2', '')
         }
     },
     'core': {
         'symbol': '@',
         'is_mandatory': True,
         'models': {
-            'Message': ('1', None),
-            'Tenant': ('2', None),
-            'TenantLocation': ('3', None),
-            'TenantSetup': ('4', None),
-            'TenantLogo': ('5', None),
-            'UserProfile': ('6', None)
+            'Message': ('1', ''),
+            'Tenant': ('2', ''),
+            'TenantLocation': ('3', ''),
+            'TenantSetup': ('4', ''),
+            'TenantLogo': ('5', ''),
+            'UserProfile': ('6', '')
         }
     },
     'crm': {
         'symbol': 'C',
         'is_mandatory': True,
         'models': {
-            'Title': ('1', None),
-            'Subscriber': ('2', None),
-            'Employee': ('3', None),
-            'BusinessPartner': ('4', None)
+            'Title': ('1', ''),
+            'Subscriber': ('2', ''),
+            'Employee': ('3', ''),
+            'BusinessPartner': ('4', '')
         }
     },
     'meeting': {
         'symbol': 'M',
         'is_mandatory': False,
         'models': {
-            'Meeting': ('1', None),
-            'Agenda': ('2',  None)
+            'Meeting': ('1', ''),
+            'Agenda': ('2',  '')
         }
     },
     'vault': {
         'symbol': 'V',
         'is_mandatory': False,
         'models': {
-            'RegistrationPlanCanton': ('1', None),
-            'RegistrationPositionCanton': ('2', None)
+            'RegistrationPlanCanton': ('1', ''),
+            'RegistrationPositionCanton': ('2', '')
         }
     },
     'accounting': {
         'symbol': 'A',
         'is_mandatory': False,
         'models': {
-            'APISetup': ('01', None),
-            'Setting': ('10', ' ⬇️'),
-            'Location': ('11', ' ⬇️'),
-            'FiscalPeriod': ('12', ' ⬇️'),
-            'Currency': ('13', ' ⬇️'),
-            'Unit': ('14', ' ⬇️'),
-            'Tax': ('15', ' ⬇️'),
-            'Rounding': ('16', ' ⬇️'),
-            'SequenceNumber': ('17', ' ⬇️'),
-            'OrderCategory': ('18', ' ⬇️'),
-            'OrderTemplate': ('19', ' ⬇️'),
-            'CostCenter': ('21', ' ⬇️'),
-            'Article': ('22', ' ⬇️'),
-            'ChartOfAccountsTemplate': ('C 20', None),
-            'AccountPositionTemplate': ('C 21', None),
-            'ChartOfAccounts': ('C 32', None),
-            #'AccountPosition': ('C 33', None),
+            # Admin
+            'APISetup': ('* 01', ''),
+            'CustomFieldGroup': ('* 02', ''),
+            'CustomField': ('* 03', ''),
+            'Setting': ('* 04', ' ⬇️'),
+            
+            # Accounting Admin
+            'Location': ('* 10', ' ⬇️'),
+            'CostCenterCategory': ('* 11', ''),
+            'CostCenter': ('* 12', ''),
+            
+            'Currency': ('* 13', ''),            
+            'Tax': ('* 14', ''),                        
+            'Rounding': ('* 15', ' ⬇️'),
+            'SequenceNumber': ('* 16', ' ⬇️'),
+            'Unit': ('* 17', ''),            
+            
+            # CRM Admin
+            'Title': ('22', ''),             
+            
+            # Inventory
+            'OrderCategory': ('* 16', ' ⬇️'),
+            'OrderTemplate': ('* 17', ' ⬇️'),            
+            
+            # Accounting
+            'FiscalPeriod': ('* 18', ' ⬇️'),         
+            'AccountCategory': ('* 19', ' ⬇️'),
+            'Account': ('* 20', ' ⬇️'),
+            
+            # Inventory
+            'Article': ('23', ' ⬇️'),            
+            'ChartOfAccountsTemplate': ('C 31', ''),
+            'AccountPositionTemplate': ('C 11', ''),
+            'ChartOfAccounts': ('C 42', ''),
+            #'AccountPosition': ('C 43', ''),
         }
     },
     'asset': {
         'symbol': 'AT',
         'is_mandatory': False,
         'models': {
-            'Department': ('1', None),
-            'DeviceLocation': ('2', None),
-            'Customer': ('3', None),
-            'Category': ('4', None),
-            'Model': ('5', None),
-            'Device': ('6', None),
-            'CounterCategory': ('7', None),
-            'UnitCategory': ('8', None),
-            'CounterLog': ('9', None)
+            'Department': ('1', ''),
+            'DeviceLocation': ('2', ''),
+            'Customer': ('3', ''),
+            'Category': ('4', ''),
+            'Model': ('5', ''),
+            'Device': ('6', ''),
+            'CounterCategory': ('7', ''),
+            'UnitCategory': ('8', ''),
+            'CounterLog': ('9', '')
         }
     },    
     'billing': {
@@ -110,12 +128,12 @@ APP_MODEL_ORDER = {
         'symbol': 'T',
         'is_mandatory': False,
         'models': {
-            'Workspace': ('1', None),
-            'ClockifyUser': ('2', None),
-            'Tag': ('3', None),
-            'Client': ('4', None),
-            'Project': ('5', None),
-            'TimeEntry': ('6', None)
+            'Workspace': ('1', ''),
+            'ClockifyUser': ('2', ''),
+            'Tag': ('3', ''),
+            'Client': ('4', ''),
+            'Project': ('5', ''),
+            'TimeEntry': ('6', '')
         }
     },
 }

@@ -48,34 +48,47 @@ DONOT_COPY_FIELDS = [
 logger = logging.getLogger(__name__)
 
 
+# Load actual data ----------------------------------------------------------
 class Handler:
-    
+
     def __init__(self, modeladmin, request, queryset, api_class):
         # Check if at least one item is selected
         # error handling not working
         if action_check_nr_selected(request, queryset, min_count=1):
             # Get setup
             setup = queryset.first().setup
-            
+
             # Proceed if application is CASH_CTRL
-            if setup.application == APPLICATION.CASH_CTRL:            
+            if setup.application == APPLICATION.CASH_CTRL:
                 # Get handler
                 self.handler = api_class(setup, request.user)
-                            
-                # Init            
+
+                # Init
                 self.model = modeladmin.model
                 self.setup = setup
                 self.user = request.user
             else:
                 self.handler = None
-                messages.error(request, _("No accounting system defined."))        
-        
+                messages.error(request, _("No accounting system defined."))
+
     def load(self, request):
         if self.handler:
+            self.handler.load(self.model)
             try:
                 self.handler.load(self.model)
             except:
                 messages.error(request, _("API Error: cannot retrieve data"))
+
+
+@admin.action(description=f"1. {_('Get data from account system')}")
+def accounting_get_data(modeladmin, request, queryset):
+    ''' load data '''
+    api_class = getattr(conn, modeladmin.model.__name__, None)    
+    if api_class:
+        handler = Handler(modeladmin, request, queryset, api_class)
+        handler.load(request)
+    else:
+        messages.warning(request, _("Cannot retrieve data for this list"))
 
 
 # mixins
@@ -87,19 +100,7 @@ def get_api_setup(queryset):
         _api_setup, module = get_connector_module(api_setup=api_setup)
         return api_setup, module
     messages.error(request, _("No account setup found"))
-    
 
-@admin.action(description=f"1. {_('Get data from account system')}")
-def accounting_get_data(modeladmin, request, queryset):
-    ''' load data '''    
-    api_class = getattr(conn, modeladmin.model.__name__, None)
-    handler = Handler(modeladmin, request, queryset, api_class)
-    
-    if api_class:
-        handler = Handler(modeladmin, request, queryset, api_class)
-        handler.load(request)
-    else:
-        messages.warning(request, _("Cannot retrieve data for this list"))
 
 @admin.action(description=('Admin: Init setup'))
 def init_setup(modeladmin, request, queryset):
@@ -112,19 +113,19 @@ def init_setup(modeladmin, request, queryset):
             # Wrap the database operation in an atomic block
             with transaction.atomic():
                 api_setup_post_save(
-                    modeladmin.model, instance, created=True, request=request) 
+                    modeladmin.model, instance, created=True, request=request)
         except IntegrityError as e:
             if "Duplicate entry" in str(e):
-                msg = _("Unique constraints violated")    
-                messages.error(request, f"{msg}: {e}")                
+                msg = _("Unique constraints violated")
+                messages.error(request, f"{msg}: {e}")
             else:
-                messages.error(request, f"An error occurred: {str(e)}")  
+                messages.error(request, f"An error occurred: {str(e)}")
         except APIRequestError as e:
             # Catch the custom exception and show a user-friendly message
-            messages.error(request, f"APIRequestError: {str(e)}")        
-        
+            messages.error(request, f"APIRequestError: {str(e)}")
+
         messages.success(request, _("Accounting API initialized"))
-  
+
 
 @admin.action(description=ACTION_LOAD)
 def api_setup_get(modeladmin, request, queryset):
@@ -132,7 +133,7 @@ def api_setup_get(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, 1):
         instance = queryset.first()
         api_setup, module = get_connector_module(api_setup=instance)
-        module.get_all(api_setup)        
+        module.get_all(api_setup)
 
 
 @action_with_form(
@@ -142,7 +143,7 @@ def api_setup_delete_hrm_accounts(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, 1):
         instance = queryset.first()
         api_setup, module = get_connector_module(api_setup=instance)
-        acc = module.Account(api_setup) 
+        acc = module.Account(api_setup)
 
         try:
             count = acc.delete_hrm()
@@ -160,7 +161,7 @@ def api_setup_delete_system_accounts(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, 1):
         instance = queryset.first()
         api_setup, module = get_connector_module(api_setup=instance)
-        acc = module.Account(api_setup) 
+        acc = module.Account(api_setup)
 
         try:
             count = acc.delete_system_accounts()
@@ -175,7 +176,7 @@ def api_setup_delete_categories(request, queryset, method):
     if action_check_nr_selected(request, queryset, 1):
         instance = queryset.first()
         api_setup, module = get_connector_module(api_setup=instance)
-        acc = module.AccountCategory(api_setup) 
+        acc = module.AccountCategory(api_setup)
 
         try:
             count = getattr(acc, method)()
@@ -183,7 +184,7 @@ def api_setup_delete_categories(request, queryset, method):
             messages.success(request, msg)
         except Exception as e:
             error_msg = _("An error occurred while deleting accounts: {error}").format(error=str(e))
-            messages.error(request, error_msg)   
+            messages.error(request, error_msg)
 
 
 @action_with_form(
@@ -202,66 +203,13 @@ def api_setup_delete_system_categories(modeladmin, request, queryset, data):
     api_setup_delete_categories(request, queryset, method)
 
 
-# Load actual data ----------------------------------------------------------
-def api_get(modeladmin, request, queryset, cls):
-    __, __ = modeladmin, request  # disable pylint warning    
-    api_setup, module = get_api_setup(queryset)
-    ctrl = getattr(module, cls)(api_setup)  # e.g. module.LocationConn(api_setup) 
-    ctrl.get()
-    
-@admin.action(description=ACTION_LOAD)
-def location_get(modeladmin, request, queryset):
-    api_get(modeladmin, request, queryset, 'LocationConn')
-    
-@admin.action(description=ACTION_LOAD)
-def fiscal_period_get(modeladmin, request, queryset):
-    api_get(modeladmin, request, queryset, 'FiscalPeriodConn')
-
-@admin.action(description=ACTION_LOAD)
-def currency_get(modeladmin, request, queryset):
-    api_get(modeladmin, request, queryset, 'CurrencyConn')
-
-@admin.action(description=ACTION_LOAD)
-def unit_get(modeladmin, request, queryset):
-    api_get(modeladmin, request, queryset, 'UnitConn')
-
-@admin.action(description=ACTION_LOAD)
-def tax_get(modeladmin, request, queryset):
-    api_get(modeladmin, request, queryset, 'TaxConn')
-
-@admin.action(description=ACTION_LOAD)
-def rounding_get(modeladmin, request, queryset):  # Corrected function name
-    api_get(modeladmin, request, queryset, 'RoundingConn')  # Corrected 'RoundingyConn' to 'RoundingConn'
-
-@admin.action(description=ACTION_LOAD)
-def sequence_number_get(modeladmin, request, queryset):  # Corrected function name
-    api_get(modeladmin, request, queryset, 'SequenceNumberConn')
-
-@admin.action(description=ACTION_LOAD)
-def order_category_get(modeladmin, request, queryset):  # Corrected function name
-    api_get(modeladmin, request, queryset, 'OrderCategoryConn')
-
-@admin.action(description=ACTION_LOAD)
-def order_template_get(modeladmin, request, queryset):  # Corrected function name
-    api_get(modeladmin, request, queryset, 'OrderTemplateConn')
-
-
-@admin.action(description=ACTION_LOAD)
-def cost_center_get(modeladmin, request, queryset):
-    api_get(modeladmin, request, queryset, 'CostCenterConn')
-
-@admin.action(description=ACTION_LOAD)
-def article_get(modeladmin, request, queryset):
-    api_get(modeladmin, request, queryset, 'ArticleConn')
-
-
 # Mixins ----------------------------------------------------------
 @admin.action(description=_('12 Check accounting positions'))
 def check_accounts(modeladmin, request, queryset):
     __ = modeladmin  # disable pylint warning
     # Check
     if action_check_nr_selected(request, queryset, min_count=1):
-        # Perform    
+        # Perform
         try:
             apc = AccountPositionCheck(queryset)
             apc.check()
@@ -301,10 +249,10 @@ def upload_accounts(modeladmin, request, queryset):
             # Prepare
             api_setup, module = get_api_setup(queryset)
             ctrl = module.Account(api_setup)
-     
-            # Perform    
+
+            # Perform
             headings_w_numbers = queryset.first().chart.headings_w_numbers
-            ctrl.upload_accounts(queryset, headings_w_numbers) 
+            ctrl.upload_accounts(queryset, headings_w_numbers)
             messages.success(request, _("Accounting positons uploaded"))
 
 
@@ -316,12 +264,12 @@ def download_balances(modeladmin, request, queryset):
         # Prepare
         api_setup, module = get_api_setup(queryset)
         ctrl = module.Account(api_setup)
- 
+
         # Perform
-        count = ctrl.download_balances(queryset) 
+        count = ctrl.download_balances(queryset)
         msg = _("{count} balances downloaded.").format(count=count)
         messages.success(request, msg)
-        
+
 
 @action_with_form(
     forms.ChartOfAccountsDateForm,
@@ -337,14 +285,14 @@ def get_balances(modeladmin, request, queryset, data):
         # Prepare
         api_setup, module = get_api_setup(queryset)
         ctrl = module.Account(api_setup)
- 
+
         # Perform
         count = ctrl.get_balances(queryset, data.get('date'))
-    
+
         # Perform
         msg =  _("{count} positions updated.").format(count=count)
         messages.success(request, msg)
-        
+
         # Download balances to doublecheck
         download_balances(modeladmin, request, queryset)
 
@@ -363,14 +311,14 @@ def upload_balances(modeladmin, request, queryset, data):
         # Prepare
         api_setup, module = get_api_setup(queryset)
         ctrl = module.Account(api_setup)
- 
+
         # Perform
         response = ctrl.upload_balances(queryset, data.get('date'))
-    
+
         # Perform
         msg =  _("Balances uploaded, {response}").format(response=response)
         messages.success(request, msg)
-        
+
         # Download balances to doublecheck
         download_balances(modeladmin, request, queryset)
 

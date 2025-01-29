@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
 from . import forms
+from accounting.models import Title as AcctTitle
 from scerp.admin import BaseAdmin, make_multilanguage
 from scerp.admin_site import admin_site
 
@@ -26,13 +27,18 @@ class ContactInline(admin.TabularInline):
 class TitleAdmin(BaseAdmin):
     has_tenant_field = True
     form = forms.TitleAdminForm    
-    list_display = ('name',)    
+    list_display = ('code', 'name', 'is_in_accounting')    
     read_only = ('name')    
     
-    fieldsets = (
+    fieldsets = (    
         (_('Name'), {
             'fields': (
-                *make_multilanguage('name'), *make_multilanguage('sentence')),
+                'code', *make_multilanguage('name'), 
+                *make_multilanguage('sentence')),
             'classes': ('expand',),
         }),
     )
+    
+    @admin.display(description=_('accounting'))
+    def is_in_accounting(self, obj):
+        return "✔" if AcctTitle.objects.filter(id=obj.id).exists() else "✘"

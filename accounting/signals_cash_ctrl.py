@@ -148,7 +148,6 @@ def custom_field_pre_delete(sender, instance, **kwargs):
     handle_cash_ctrl_signal(conn.CustomField, instance, 'delete')
 
 
-
 # Currency
 @receiver(post_save, sender=models.Currency)
 def currency_post_save(sender, instance, created, **kwargs):
@@ -161,15 +160,8 @@ def currency_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Currency. '''
     handle_cash_ctrl_signal(conn.Currency, instance, 'delete')
 
-"""
+
 # CostCenterCategory
-@receiver(pre_save, sender=models.CostCenterCategory)
-def cost_center_category_pre_save(sender, instance, **kwargs):
-    '''Signal handler for pre signals on CostCenterCategory. '''
-    # Assign setup if necessary
-    assign_setup(instance)
-
-
 @receiver(post_save, sender=models.CostCenterCategory)
 def cost_center_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CostCenterCategory. '''
@@ -183,28 +175,10 @@ def cost_center_category_pre_delete(sender, instance, **kwargs):
 
 
 # CostCenter
-@receiver(pre_save, sender=models.CostCenter)
-def cost_center_pre_save(sender, instance, **kwargs):
-    '''Signal handler for pre signals on CostCenterCategory. '''
-    # Assign setup if necessary
-    assign_setup(instance)
-
-
 @receiver(post_save, sender=models.CostCenter)
 def cost_center_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CostCenter. '''
-    # Align category if necessary
-    handle_cashctrl_check_category(
-        conn.CostCenterCategory, models.CostCenterCategory, instance)    
-    
-    # Align code if necessary
-    if not getattr(instance, 'code', None):
-        # Record has been created in cashCtrl but not scerp
-        instance.code = str(instance.c_id)
-        instance.save()
-    
-    # Send to cashCtrl if necessary
-    handle_cash_ctrl_signal(conn.CustomField, instance, 'save', created)
+    handle_cash_ctrl_signal(conn.CostCenter, instance, 'save', created)
 
 
 @receiver(pre_delete, sender=models.CostCenter)
@@ -212,6 +186,33 @@ def cost_center_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CostCenter. '''
     handle_cash_ctrl_signal(conn.CostCenter, instance, 'delete')
 
+
+# Rounding
+@receiver(post_save, sender=models.Rounding)
+def rounding_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Rounding. '''
+    handle_cash_ctrl_signal(conn.Rounding, instance, 'save', created)
+
+
+@receiver(pre_delete, sender=models.Rounding)
+def rounding_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Rounding. '''
+    handle_cash_ctrl_signal(conn.Rounding, instance, 'delete')
+
+
+# Title
+@receiver(post_save, sender=models.Title)
+def title_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Title. '''
+    handle_cash_ctrl_signal(conn.Title, instance, 'save', created)
+
+
+@receiver(pre_delete, sender=models.Title)
+def title_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Title. '''
+    handle_cash_ctrl_signal(conn.Title, instance, 'delete')
+
+""""
 
 # Tax
 @receiver(pre_save, sender=models.Tax)
@@ -235,24 +236,6 @@ def tax_post_save(sender, instance, created, **kwargs):
 def tax_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Tax. '''
     handle_cash_ctrl_signal(conn.Tax, instance, 'delete')
-
-
-# Rounding
-@receiver(pre_save, sender=models.Rounding)
-def rounding_pre_save(sender, instance, **kwargs):
-    '''Signal handler for pre signals on Rounding. '''
-    # Assign setup if necessary
-    assign_setup(instance)
-
-
-@receiver(post_save, sender=models.Rounding)
-def rounding_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on Rounding. '''
-    if not getattr(instance, 'code', None):
-        # Record has been created in cashCtrl but not scerp
-        instance.code = f"{self.c_id}, {self.mode}"
-        instance.save()
-    handle_cash_ctrl_signal(conn.Rounding, instance, 'save', created)
 
 
 @receiver(pre_delete, sender=models.Rounding)

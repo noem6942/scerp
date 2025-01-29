@@ -1,5 +1,5 @@
 from django.contrib import admin, messages
-from django.contrib.admin import ModelAdmin
+from django.contrib.admin import ModelAdmin, SimpleListFilter
 from django.db import IntegrityError
 from django.utils import formats
 from django.utils.html import format_html
@@ -9,20 +9,13 @@ from import_export.admin import ExportMixin, ImportExportModelAdmin
 
 from core.safeguards import get_tenant
 from scerp.admin import (
-     BaseAdmin, Display, verbose_name_field, make_multilanguage,
+     BaseAdmin, Display, verbose_name_field, make_multilanguage, 
      set_inactive, set_protected)
 from scerp.admin_site import admin_site     
 from scerp.mixins import multi_language
 from . import actions as a
 from . import forms
-from .models import (
-    APISetup, Setting, CustomFieldGroup, CustomField,
-    MappingId, Location, FiscalPeriod, Currency, Unit, Tax,
-    Rounding, SequenceNumber, OrderCategory, OrderTemplate,
-    CostCenter, Article, ChartOfAccountsTemplate,
-    AccountPositionTemplate, ChartOfAccounts, AccountPosition,
-    ACCOUNT_TYPE, CATEGORY_HRM
-)
+from . import models
 
 
 class CASH_CTRL:
@@ -46,10 +39,13 @@ class CASH_CTRL:
         'c_rev_last_updated_by'
     ]
     WARNING_READ_ONLY = _("Read only model. <i>Use cashControl for edits!</i>")
+    
+    LIST_DISPLAY = (
+        'display_last_update', 'c_id', 'message', 'is_enabled_sync')
 
 
 class MappingIdInline(admin.TabularInline):
-    model = MappingId
+    model = models.MappingId
     extra = 0  # Number of empty forms to display for new inlines
     fields = ('type', 'name', 'c_id', 'description')
     # readonly_fields = ('type', 'name', 'c_id', 'description')
@@ -59,9 +55,11 @@ class MappingIdInline(admin.TabularInline):
         # Disable add permission for this inline
         return False
 
-@admin.register(APISetup, site=admin_site)
-class APISetupAdmin(BaseAdmin):
+@admin.register(models.APISetup, site=admin_site)
+class APISetupAdmin(BaseAdmin):    
     has_tenant_field = True
+    related_tenant_fields = ['tenant']
+    
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
     readonly_fields = ('display_data',)
@@ -94,8 +92,7 @@ class APISetupAdmin(BaseAdmin):
 
 
 class CashCtrlAdmin(BaseAdmin):
-    has_tenant_field = True
-    setup_model = APISetup
+    has_tenant_field = True        
 
     def get_cash_ctrl_fields(self):        
         fields = CASH_CTRL.FIELDS + CASH_CTRL.SUPER_USER_EDITABLE_FIELDS
@@ -137,25 +134,65 @@ class CashCtrlAdmin(BaseAdmin):
             }),
         )
         
-    def instance_update(self, instance):    
-        # Ensure setup is assigned; get triggered from save_model
-        setup_model = getattr(self, 'setup_model', False)
-        if  not getattr(instance, 'setup', None):
-            default_value = APISetup.objects.filter(
-                tenant=instance.tenant, is_default=True).first()
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        ''' set default value for setup '''
+        # Get the form from the parent class
+        form = super().get_form(request, obj, change, **kwargs)
+
+        # Only set default value if this is a new instance (obj is None)
+        if not obj:  
+            tenant = get_tenant(request)
+            print("*", tenant)
+            
+            # Fetch the default setup value
+            default_value = models.APISetup.objects.filter(
+                id=tenant['setup_id'], is_default=True).first()
+
+            # If no default value found, raise an error
             if not default_value:
                 raise IntegrityError(f"No default_value for {self.org_name}")
-            instance.setup = default_value             
+            
+            print("**")
+            
+            # Set the default value for the 'setup' field in the form
+            form.base_fields['setup'].initial = default_value
+            print("**")
+
+        return form
 
     @admin.display(description=_('last update'))
     def display_last_update(self, obj):
         return obj.modified_at
 
 
-@admin.register(Setting, site=admin_site)
-class Setting(BaseAdmin):
+class TenantFilteredSetupListFilter(SimpleListFilter):
+    '''Needed as admin.py filter shows all filters values also of foreign
+        tenants
+    '''
+    title = _('Setup')  # Display title in admin
+    parameter_name = 'setup'  # The query parameter name
+
+    def lookups(self, request, model_admin):
+        """Return the available options, filtered by tenant."""
+        tenant_data = get_tenant(request)  # Get the current tenant
+
+        # Get only the setups linked to this tenant
+        queryset = models.APISetup.objects.filter(tenant__id=tenant_data['id'])
+
+        # Return a list of tuples (ID, Display Name)
+        return [(setup.id, str(setup)) for setup in queryset]
+
+    def queryset(self, request, queryset):
+        """Filter queryset based on selected setup in admin filter."""
+        if self.value():
+            return filter_query_for_tenant(request, queryset)            
+        return queryset  # No filter applied
+
+
+@admin.register(models.Setting, site=admin_site)
+class Setting(BaseAdmin):    
     related_tenant_fields = ['setup']
-    has_tenant_field = True
+    
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
 
@@ -180,35 +217,33 @@ class Setting(BaseAdmin):
         return Display.json(obj.data)
 
 
-@admin.register(CustomFieldGroup, site=admin_site)
-class CustomFieldGroupAdmin(CashCtrlAdmin):    
-    has_tenant_field = True
+@admin.register(models.CustomFieldGroup, site=admin_site)
+class CustomFieldGroupAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup']
-    list_display = (
-        'code', 'name', 'type', 'c_id', 'message', 'is_enabled_sync')
+    
+    list_display = ('code', 'name', 'type') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
+    list_filter = ('type', TenantFilteredSetupListFilter)
     actions = [a.accounting_get_data]
 
     fieldsets = (
-        # Organization Details
         (None, {
             'fields': ('code', 'name', 'type'),
             'classes': ('expand',),
         }),
     )
 
-@admin.register(CustomField, site=admin_site)
+@admin.register(models.CustomField, site=admin_site)
 class CustomFieldAdmin(CashCtrlAdmin):    
-    has_tenant_field = True
+    related_tenant_fields = ['setup', 'group']
+    
     list_display = (
-        'code', 'group', 'name', 'data_type', 'c_id', 'message',
-        'is_enabled_sync')
+        'code', 'group', 'name', 'data_type') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = ('group',)
+    list_filter = ('type','data_type', TenantFilteredSetupListFilter)
     actions = [a.accounting_get_data]
 
     fieldsets = (
-        # Organization Details
         (None, {
             'fields': (
                 'code', 'group', 'name', 'data_type', 'description',
@@ -220,13 +255,14 @@ class CustomFieldAdmin(CashCtrlAdmin):
 
 class LocationResource(resources.ModelResource):
     class Meta:
-        model = Location
+        model = models.Location
         fields = ('id', 'name', 'type', 'address', 'zip', 'city')
 
 
-@admin.register(Location, site=admin_site)
+@admin.register(models.Location, site=admin_site)
 class Location(ImportExportModelAdmin, CashCtrlAdmin):
-    related_tenant_fields = ['logo']
+    related_tenant_fields = ['setup', 'logo']
+    
     resource_class = LocationResource
     has_tenant_field = True
     is_readonly = False
@@ -236,8 +272,8 @@ class Location(ImportExportModelAdmin, CashCtrlAdmin):
         'name', 'type', 'vat_uid', 'logo', 'address', 'display_last_update',
         'url')
     search_fields = ('name', 'vat_uid')
-    list_filter = ('setup', 'type')
-    actions = [a.location_get]
+    list_filter = ('type', TenantFilteredSetupListFilter)
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         # Organization Details
@@ -270,16 +306,16 @@ class Location(ImportExportModelAdmin, CashCtrlAdmin):
             return Display.link(link, link)
 
 
-@admin.register(FiscalPeriod, site=admin_site)
+@admin.register(models.FiscalPeriod, site=admin_site)
 class FiscalPeriodAdmin(CashCtrlAdmin):
-    has_tenant_field = True
-    is_readonly = True
+    related_tenant_fields = ['setup']
+    is_readonly = True    
     warning = CASH_CTRL.WARNING_READ_ONLY
 
     list_display = ('name', 'start', 'end', 'is_current', 'display_last_update')
     search_fields = ('name', 'start', 'end', 'is_current')
-    list_filter = ('setup',)
-    actions = [a.fiscal_period_get]
+    list_filter = ('is_current', TenantFilteredSetupListFilter)
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         (None, {
@@ -289,18 +325,16 @@ class FiscalPeriodAdmin(CashCtrlAdmin):
     )
 
 
-@admin.register(Currency, site=admin_site)
+@admin.register(models.Currency, site=admin_site)
 class CurrencyAdmin(CashCtrlAdmin):    
-    has_tenant_field = True
+    related_tenant_fields = ['setup']
     
     form = forms.CurrencyAdminForm  
-    list_display = (
-        'code', 'is_default', 'rate', 'display_last_update', 'c_id', 'message',
-        'is_enabled_sync')
+    list_display = ('code', 'is_default', 'rate') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = ('is_default',)
+    list_filter = ('is_default', TenantFilteredSetupListFilter)    
     readonly_fields = ('display_description',)
-    actions = [a.accounting_get_data]    
+    actions = [a.accounting_get_data]
     
     fieldsets = (
         (None, {
@@ -317,20 +351,47 @@ class CurrencyAdmin(CashCtrlAdmin):
     @admin.display(description=_('description'))
     def display_description(self, obj):
         return multi_language(obj.description)
+   
 
-
-@admin.register(Unit, site=admin_site)
-class UnitAdmin(CashCtrlAdmin):
-    has_tenant_field = True
-    is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
+@admin.register(models.Title, site=admin_site)
+class TitleAdmin(CashCtrlAdmin):  
+    related_tenant_fields = ['setup']  
+    
+    form = forms.TitleAdminForm  
+    list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
+    search_fields = ('code', 'name')
+    list_filter = ('gender', TenantFilteredSetupListFilter)
     readonly_fields = ('display_name',)
+    actions = [a.accounting_get_data]    
+    
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', 'gender', 'display_name', ),
+            'classes': ('expand',),
+        }),
+        (_('Texts'), {
+            'fields': (
+                *make_multilanguage('name'), *make_multilanguage('sentence')),
+            'classes': ('collapse',),
+        }),        
+    )
 
-    list_display = ('display_name', 'is_default', 'display_last_update')
+    @admin.display(description=_('name'))
+    def display_name(self, obj):
+        return multi_language(obj.name)
+   
+
+@admin.register(models.Unit, site=admin_site)
+class UnitAdmin(CashCtrlAdmin):
+    related_tenant_fields = ['setup']
+    is_readonly = True
+        
+    list_display = ('display_name', 'is_default') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name',)
-    list_filter = ('setup',)
-
-    actions = [a.unit_get]
+    list_filter = ('is_default', TenantFilteredSetupListFilter)
+    readonly_fields = ('display_name',)
+    actions = [a.accounting_get_data]  
 
     fieldsets = (
         (None, {
@@ -344,19 +405,20 @@ class UnitAdmin(CashCtrlAdmin):
         return multi_language(obj.name)
 
 
-@admin.register(Tax, site=admin_site)
+@admin.register(models.Tax, site=admin_site)
 class TaxAdmin(CashCtrlAdmin):
-    has_tenant_field = True
+    related_tenant_fields = ['setup']
+
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
     readonly_fields = ('local_name', 'local_document_name')
 
     list_display = (
-        'local_name', 'local_document_name', 'display_percentage',
-        'display_last_update')
+        'local_name', 'local_document_name', 'display_percentage'
+    ) + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name',)
     list_filter = ('setup',)
-    actions = [a.tax_get]
+    actions = [a.accounting_get_data]  
 
     fieldsets = (
         (None, {
@@ -380,43 +442,42 @@ class TaxAdmin(CashCtrlAdmin):
         return Display.percentage(obj.percentage, 1)
 
 
-@admin.register(Rounding, site=admin_site)
+@admin.register(models.Rounding, site=admin_site)
 class RoundingAdmin(CashCtrlAdmin):
-    has_tenant_field = True
-    is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
-    readonly_fields = ('local_name',)
-
-    list_display = (
-        'local_name', 'rounding', 'display_last_update')
-    search_fields = ('name',)
-    list_filter = ('setup',)
-    actions = [a.rounding_get]
-
+    related_tenant_fields = ['setup']  
+    
+    form = forms.RoundingAdminForm
+    list_display = ('code', 'display_name', 'rounding') + CASH_CTRL.LIST_DISPLAY
+    search_fields = ('code', 'name')
+    list_filter = ('mode', TenantFilteredSetupListFilter)
+    readonly_fields = ('display_name',)
+    actions = [a.accounting_get_data]    
+    
     fieldsets = (
         (None, {
             'fields': (
-                'local_name', 'rounding', 'mode', 'account_id'),
+                'code', 'account', 'rounding', 'mode', 
+                *make_multilanguage('name'),),
             'classes': ('expand',),
         }),
     )
 
     @admin.display(description=_('name'))
-    def local_name(self, obj):
+    def display_name(self, obj):
         return multi_language(obj.name)
 
 
-@admin.register(SequenceNumber, site=admin_site)
+@admin.register(models.SequenceNumber, site=admin_site)
 class SequenceNumberAdmin(CashCtrlAdmin):
-    has_tenant_field = True
-    is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
-    readonly_fields = ('local_name',)
+    related_tenant_fields = ['setup']
+    is_readonly = True    
+    warning = CASH_CTRL.WARNING_READ_ONLY    
 
-    list_display = ('local_name', 'pattern', 'display_last_update')
+    list_display = ('local_name', 'pattern') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name',)
     list_filter = ('setup',)
-    actions = [a.sequence_number_get]
+    readonly_fields = ('local_name',)
+    actions = [a.accounting_get_data]  
 
     fieldsets = (
         (None, {
@@ -431,17 +492,17 @@ class SequenceNumberAdmin(CashCtrlAdmin):
         return multi_language(obj.name)
 
 
-@admin.register(OrderCategory, site=admin_site)
+@admin.register(models.OrderCategory, site=admin_site)
 class OrderCategoryAdmin(CashCtrlAdmin):
-    has_tenant_field = True
+    related_tenant_fields = ['setup']
     is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
-    readonly_fields = ('display_name', 'display_status')
+    warning = CASH_CTRL.WARNING_READ_ONLY    
 
-    list_display = ['display_name', 'due_days', 'display_last_update']
+    list_display = ('display_name', 'due_days') + CASH_CTRL.LIST_DISPLAY
     search_fields = ['display_name', 'number']
     list_filter = ('setup',)
-    actions = [a.order_category_get]
+    readonly_fields = ('display_name', 'display_status')
+    actions = [a.accounting_get_data]  
 
     fieldsets = (
         (None, {
@@ -462,16 +523,16 @@ class OrderCategoryAdmin(CashCtrlAdmin):
         return Display.list(stati)
 
 
-@admin.register(OrderTemplate, site=admin_site)
+@admin.register(models.OrderTemplate, site=admin_site)
 class OrderTemplateAdmin(CashCtrlAdmin):
-    has_tenant_field = True
+    related_tenant_fields = ['setup']
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
 
-    list_display = ('name', 'is_default', 'display_last_update')
+    list_display = ('name', 'is_default') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name',)
     list_filter = ('setup',)
-    actions = [a.order_template_get]
+    actions = [a.accounting_get_data]  
 
     fieldsets = (
         (None, {
@@ -481,21 +542,22 @@ class OrderTemplateAdmin(CashCtrlAdmin):
     )
 
 
-@admin.register(CostCenter, site=admin_site)
-class CostCenterAdmin(CashCtrlAdmin):
-    has_tenant_field = True
-    is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
-    readonly_fields = ('display_name',)
+@admin.register(models.CostCenterCategory, site=admin_site)
+class CostCenterCategoryAdmin(CashCtrlAdmin):
+    related_tenant_fields = ['setup', 'parent']    
 
-    list_display = ('display_name', 'number', 'display_last_update')
+    form = forms.CostCenterCategoryAdminForm  
+    list_display = (
+        'display_name', 'number', 'parent') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name', 'number')
     list_filter = ('setup',)
-    actions = [a.cost_center_get]
+    readonly_fields = ('display_name',)
+    actions = [a.accounting_get_data]  
 
     fieldsets = (
         (None, {
-            'fields': ('display_name', 'number'),
+            'fields': (
+                'number', 'parent', *make_multilanguage('name')),
             'classes': ('expand',),
         }),
     )
@@ -505,18 +567,41 @@ class CostCenterAdmin(CashCtrlAdmin):
         return multi_language(obj.name)
 
 
-@admin.register(Article, site=admin_site)
-class ArticleAdmin(CashCtrlAdmin):
-    has_tenant_field = True
-    is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
-    readonly_fields = ('display_name', 'display_sales_price')
+@admin.register(models.CostCenter, site=admin_site)
+class CostCenterAdmin(CashCtrlAdmin):
+    related_tenant_fields = ['setup', 'category']    
 
+    form = forms.CostCenterAdminForm  
     list_display = (
-        'nr', 'display_name', 'display_sales_price', 'display_last_update')
+        'display_name', 'number', 'category') + CASH_CTRL.LIST_DISPLAY
+    search_fields = ('name', 'number')
+    list_filter = ('setup',)
+    readonly_fields = ('display_name',)
+    actions = [a.accounting_get_data]  
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'number', 'category', *make_multilanguage('name')),
+            'classes': ('expand',),
+        }),
+    )
+
+    @admin.display(description=_('name'))
+    def display_name(self, obj):
+        return multi_language(obj.name)
+
+
+@admin.register(models.Article, site=admin_site)
+class ArticleAdmin(CashCtrlAdmin):
+    related_tenant_fields = ['setup']
+        
+    list_display = (
+        'nr', 'display_name', 'display_sales_price') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name', 'nr')
     list_filter = ('is_stock_article', 'category_id')
-    actions = [a.article_get]
+    readonly_fields = ('display_name', 'display_sales_price')
+    actions = [a.accounting_get_data]  
 
     fieldsets = (
         (None, {
@@ -543,7 +628,7 @@ class ArticleAdmin(CashCtrlAdmin):
         return Display.big_number(obj.sales_price)
 
 
-@admin.register(ChartOfAccountsTemplate, site=admin_site)
+@admin.register(models.ChartOfAccountsTemplate, site=admin_site)
 class ChartOfAccountsTemplateAdmin(BaseAdmin):
     has_tenant_field = False
     list_display = ('name', 'chart_version', 'link_to_positions')
@@ -575,7 +660,7 @@ class ChartOfAccountsTemplateAdmin(BaseAdmin):
         return format_html(f'<a href="{url}">{name}</a>', url)
 
 
-@admin.register(AccountPositionTemplate, site=admin_site)
+@admin.register(models.AccountPositionTemplate, site=admin_site)
 class AccountPositionTemplateAdmin(BaseAdmin):
     related_tenant_fields = ['parent']
     has_tenant_field = False
@@ -612,12 +697,12 @@ class AccountPositionTemplateAdmin(BaseAdmin):
         return '' if obj.is_category else obj.account_number
 
     @admin.display(
-        description=verbose_name_field(AccountPosition, 'name'))
+        description=verbose_name_field(models.AccountPosition, 'name'))
     def display_name(self, obj):
         return Display.name_w_levels(obj)
 
 
-@admin.register(ChartOfAccounts, site=admin_site)
+@admin.register(models.ChartOfAccounts, site=admin_site)
 class ChartOfAccountsAdmin(BaseAdmin):
     related_tenant_fields = ['period']
     has_tenant_field = True
@@ -651,7 +736,7 @@ class ChartOfAccountsAdmin(BaseAdmin):
         return format_html(', '.join(links))
 
 
-@admin.register(AccountPosition, site=admin_site)
+@admin.register(models.AccountPosition, site=admin_site)
 class AccountPositionAdmin(CashCtrlAdmin):
     related_tenant_fields = [
         'setup', 'parent', 'chart', 'allocations', 'currency' ]
@@ -694,12 +779,12 @@ class AccountPositionAdmin(CashCtrlAdmin):
     ]
 
     @admin.display(
-        description=verbose_name_field(AccountPosition, 'name'))
+        description=verbose_name_field(models.AccountPosition, 'name'))
     def display_name(self, obj):
         return Display.name_w_levels(obj)
 
     @admin.display(
-        description=verbose_name_field(AccountPosition, 'function'))
+        description=verbose_name_field(models.AccountPosition, 'function'))
     def display_function(self, obj):
         return obj.account_number if obj.is_category else ' '
 

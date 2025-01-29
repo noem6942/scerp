@@ -101,7 +101,12 @@ def multi_language(value_dict):
     except:
         language = settings.LANGUAGE_CODE_PRIMARY
 
-    values = dict(value_dict)
+    # Check if None
+    if value_dict:
+        values = dict(value_dict)
+    else:
+        values = {lang: None for lang, _ in settings.LANGUAGES}
+        
     if values and language in values:
         return values[language]
     elif values and settings.LANGUAGE_CODE_PRIMARY in values:

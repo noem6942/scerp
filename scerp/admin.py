@@ -40,17 +40,6 @@ TEXTAREA_DEFAULT = {
 }
 
 
-# Standard JSONs
-description_schema = {
-    'type': 'object',
-    'properties': {
-        lang_code: {'type': 'string'}
-        for lang_code, _lang in settings.LANGUAGES
-    },
-    'required': [settings.LANGUAGE_CODE_PRIMARY],  # Make sure that at least this key is present
-}
-
-
 # Helpers
 def action_check_nr_selected(request, queryset, count=None, min_count=None):
     """
@@ -147,6 +136,15 @@ def make_multilanguage(field_name):
         f'{field_name}_{lang_code}'
         for lang_code, _lang in settings.LANGUAGES
     ]
+
+
+def is_required_field(model, field_name):
+    """
+    Get verbose_name from model
+    """
+    # pylint: disable=W0212
+    field = model._meta.get_field(field_name)
+    return not field.blank and not field.null
 
 
 def verbose_name_field(model, field_name):
@@ -281,29 +279,28 @@ def override_textfields_default(attrs=None):
 
 # Customize classes
 
-# Constraints    
+# Constraints
 def filter_foreignkeys(modeladmin, db_field, request, kwargs):
     """
-    Limit availabe foreign keys to items you are allowed to choose from 
+    Limit availabe foreign keys to items you are allowed to choose from
     """
     if db_field.name in getattr(modeladmin, 'related_tenant_fields', []):
         tenant_data = get_tenant(request)  # Get the tenant from the request
-        
+
         # Dynamically get the related model using db_field.remote_field.model
-        related_model = db_field.remote_field.model            
-        
+        related_model = db_field.remote_field.model
+
         # Filter the queryset of the `period` field by tenant
         kwargs['queryset'] = related_model.objects.filter(
-            tenant__id=tenant_data['id'])     
-        print("*+*")
+            tenant__id=tenant_data['id'])
 
-    
+
 def filter_queryset(modeladmin, request, queryset):
     """
     Limit queryset based on user or other criteria.
     """
     if getattr(modeladmin, 'has_tenant_field', False):
-        # Filter queryset        
+        # Filter queryset
         try:
             queryset = filter_query_for_tenant(request, queryset)
         except Exception as e:
@@ -318,10 +315,10 @@ def filter_queryset(modeladmin, request, queryset):
 class BaseTabularInline(admin.TabularInline):
     """
     Constrains for TabularInline classes
-    """ 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):        
+    """
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
         filter_foreignkeys(self, db_field, request, kwargs)
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)  
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 class BaseAdmin(ModelAdmin):
@@ -427,12 +424,12 @@ class BaseAdmin(ModelAdmin):
                 messages.info(request, mark_safe(self.info))
             if getattr(self, 'error', ''):
                 messages.error(request, mark_safe(self.error))
-        
+
         return super().changelist_view(request, extra_context=extra_context)
 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):        
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
         filter_foreignkeys(self, db_field, request, kwargs)
-        return super().formfield_for_foreignkey(db_field, request, **kwargs) 
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -446,38 +443,36 @@ class BaseAdmin(ModelAdmin):
         add_tenant = getattr(self, 'has_tenant_field', False)
         queryset = save_logging(instance, request, add_tenant=add_tenant)
 
-        # indivudal updates
-        def_update = getattr(self, 'instance_update', None)
-        if def_update:
-            def_update(instance)
-
+        # APISetup update
         # Handle forbidden response from logging
         if isinstance(queryset, HttpResponseForbidden):
             messages.error(request, f"{queryset.content.decode()}")
             return  # Early return to prevent further processing
 
-        # Only save the model if there are no errors        
+        # Only save the model if there are no errors
+        with transaction.atomic():
+            super().save_model(request, instance, form, change)
         try:
             # Wrap the database operation in an atomic block
             with transaction.atomic():
                 super().save_model(request, instance, form, change)
         except IntegrityError as e:
             if "Duplicate entry" in str(e):
-                msg = _("Unique constraints violated")    
-                messages.error(request, f"{msg}: {e}")                
+                msg = _("Unique constraints violated")
+                messages.error(request, f"{msg}: {e}")
             else:
-                messages.error(request, f"An error occurred: {str(e)}")  
+                messages.error(request, f"An error occurred: {str(e)}")
         except APIRequestError as e:
             # Catch the custom exception and show a user-friendly message
             messages.error(request, f"Error: {str(e)}")
- 
-    def save_related(self, request, form, formsets, change):        
+
+    def save_related(self, request, form, formsets, change):
         """
         Used for inlines
         Loop through each formset to check if we have some required fields
         that can be derived from form.instance
         """
-        for formset in formsets:                        
+        for formset in formsets:
             # Save the related EventLog instances without committing them to
             # the DB yet
             field_names = [x.name for x in formset.model._meta.get_fields()]
@@ -487,10 +482,9 @@ class BaseAdmin(ModelAdmin):
                     if field_name in field_names:
                         value = getattr(form.instance, field_name)
                         setattr(obj, field_name, value)
-                
+
                 # Save the obj
-                # obj.save()                
+                # obj.save()
 
         # Call the default save_related method to save the inline models
-        super().save_related(request, form, formsets, change)     
-        
+        super().save_related(request, form, formsets, change)

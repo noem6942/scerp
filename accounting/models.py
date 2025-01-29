@@ -9,7 +9,7 @@ from django.db.models import UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from .api_cash_ctrl import URL_ROOT, FIELD_TYPE, DATA_TYPE
+from .api_cash_ctrl import URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING
 from scerp.mixins import multi_language
 
 
@@ -372,6 +372,9 @@ class CostCenterCategory(AcctApp):
         on_delete=models.CASCADE, related_name='%(class)s_parent',
         help_text=_('The parent category.'))
 
+    def __str__(self):
+        return f"{self.number} {multi_language(self.name)}"
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -380,8 +383,8 @@ class CostCenterCategory(AcctApp):
             )
         ]
         ordering = ['number']
-        verbose_name = _("Cost Center")
-        verbose_name_plural = _("Cost Centers")
+        verbose_name = _("Cost Center Category")
+        verbose_name_plural = _("Cost Center Categories")
 
 
 class CostCenter(AcctApp):
@@ -417,15 +420,16 @@ class CostCenter(AcctApp):
             'first switch to the desired fiscal period to set the target for '
             'that period.'))
 
+    def __str__(self):
+        return f"{self.number} {multi_language(self.name)}"
+
     class Meta:
-        '''
         constraints = [
             models.UniqueConstraint(
                 fields=['setup', 'number'],
                 name='unique_setup_cost_center'
             )
-        ]
-        '''
+        ]        
         ordering = ['number']
         verbose_name = _("Cost Center")
         verbose_name_plural = _("Cost Centers")
@@ -709,23 +713,24 @@ class FiscalPeriod(AcctApp):
 
 
 class Rounding(AcctApp):
-    '''Read - only
+    '''Needs to have an account
     '''
+    MODE = [(x.value, x.value) for x in ROUNDING]
     code = models.CharField(
         _('Code'), max_length=50, help_text='Internal code for scerp')
     name = models.JSONField(
-        _('name'), blank=True, null=True,
+        _('name'), default=dict,
         help_text=_("The name of the rounding."))
-    account = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        help_text="The ID of the account in cashCtrl which collects the roundings."
-    )
+    account = models.ForeignKey(
+        'Account', verbose_name=_('Account'),
+        on_delete=models.CASCADE, null=True, blank=True,  # remove later
+        related_name='%(class)s_account',
+        help_text=_('The account which collects the roundings'))        
     rounding = models.DecimalField(
         _('rounding'), max_digits=5, decimal_places=2)
     mode = models.CharField(
         _('mode'),
-        max_length=20, default='HALF_UP',
+        max_length=20, choices=MODE, default=ROUNDING.HALF_UP.value,
         help_text=(
             "The rounding mode. Defaults to HALF_UP. Possible values: "
             "UP, DOWN, CEILING, FLOOR, HALF_UP, HALF_DOWN, HALF_EVEN, "
@@ -1301,15 +1306,12 @@ class PersonCategory(CRM):
         help_text="internal use for mapping")
 
 
-class Title(CRM):
-    '''store titles
+class Title(CrmTitle, AcctApp):
+    ''' Superset of CrmTitle which is not abstract 
     '''
-    crm = models.OneToOneField(
-        CrmTitle,
-        on_delete=models.CASCADE,
-        related_name="title",
-        help_text="internal use for mapping")
-
+    class Meta:        
+        pass  # handle constraints in CRM
+        
 
 class Person(CRM):
     '''store categories

@@ -18,7 +18,8 @@ class IGNORE:
         'created_at', 'created_by_id', 'modified_at', 'modified_by_id',
         'attachment', 'version_id', 'is_protected', 'tenant_id',
         'c_id', 'c_created', 'c_created_by', 'c_last_updated',
-        'c_last_updated_by', 'setup_id', 'message', 'is_enabled_sync'
+        'c_last_updated_by', 'setup_id', 'message', 'is_enabled_sync',
+        'last_received'
     ]
     IS_INACTIVE = ['is_inactive']
     NOTES = ['notes']
@@ -206,7 +207,7 @@ class cashCtrl:
             # Update instance
             source = data_list['source'][instance.c_id]
             assign = data_list['assign'][instance.c_id]            
-            instance = self.update_or_create_instance(source, assign, instance)
+            instance = self.update_or_create_instance(source, assign, instance)            
             instance.save()
 
             # Maintenance
@@ -220,7 +221,7 @@ class cashCtrl:
             assign = data_list['assign'][c_id]            
             instance = self.update_or_create_instance(source, assign)
             instance.save()
-
+            
             # Maintenance
             created += 1
 
@@ -230,19 +231,24 @@ class cashCtrl:
 
     def update_category(
             self, instance, source, assign, created, field_name,
-            category_api_class):
+            foreign_key_model):
         ''' used for uploading categories from cashCtrl '''
         # init
         __ = assign, created        
         category_id = source[f"{field_name}_id"]
+        
+        if not category_id:
+            return  # no category to assign
 
         # check for change
         category = getattr(instance, field_name, None)
         if category and category.c_id == category_id:            
             return
 
-        # check for new
+        # Get model of foreign key
         related_model = instance._meta.get_field(field_name).related_model
+            
+        # check for new            
         for round in ['get from existing', 'load categories']:
             category = related_model.objects.filter(c_id=category_id).first()
             setattr(instance, field_name, category)
@@ -250,7 +256,7 @@ class cashCtrl:
                 return
 
             # Load it            
-            handler = category_api_class(self.setup, self.user)
+            handler = foreign_key_model(self.setup, self.user)
             handler.load(related_model)
 
         logger.warning("no category found")
@@ -259,6 +265,7 @@ class cashCtrl:
     def create(self, instance):
         # Send to cashCtrl
         data = self.upload_prepare(instance)
+        print("*data", data)
         response = self.handler.create(data)
         if response.get('success', False):
             instance.c_id = response['insert_id']
@@ -311,13 +318,80 @@ class CustomField(cashCtrl):
             instance.code = f"custom {source['id']}"
 
         # group
-        category_api_class = CustomFieldGroup
+        foreign_key_model = CustomFieldGroup
         self.update_category(
-            instance, source, assign, created, 'group', category_api_class)
+            instance, source, assign, created, 'group', foreign_key_model)
 
 
 class Currency(cashCtrl):
     api_class = api_cash_ctrl.Currency
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
-    type_filter = api_cash_ctrl.FIELD_TYPE
+
+
+class Title(cashCtrl):
+    api_class = api_cash_ctrl.PersonTitle
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
+    
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+
+  
+class CostCenterCategory(cashCtrl):
+    api_class = api_cash_ctrl.AccountCostCenterCategory
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
+
+    def pre_upload(self, instance, data):
+        # Prepare parent_id
+        if getattr(instance, 'parent', None):
+            data['parent_id'] = instance.parent.c_id
+        else:
+            data.pop('parent_id')
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # parent        
+        foreign_key_model = CostCenterCategory
+        self.update_category(
+            instance, source, assign, created, 'parent', foreign_key_model)
+            
+
+class CostCenter(cashCtrl):
+    api_class = api_cash_ctrl.AccountCostCenter
+    ignore_keys = IGNORE.BASE
+
+    def pre_upload(self, instance, data):
+        # Prepare category_id
+        data['category_id'] = instance.category.c_id
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # parent
+        foreign_key_model = CostCenterCategory
+        self.update_category(
+            instance, source, assign, created, 'category', foreign_key_model)
+
+
+class Rounding(cashCtrl):
+    api_class = api_cash_ctrl.Rounding
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE )
+
+    def pre_upload(self, instance, data):
+        # Prepare account_id
+        if getattr(instance, 'account', None):
+            data['account_id'] = instance.account.c_id
+        else:
+            data.pop('account_id')
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # parent
+        foreign_key_model = Account
+        self.update_category(
+            instance, source, assign, created, 'account', foreign_key_model)

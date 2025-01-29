@@ -4,6 +4,7 @@ accounting/api_cash_ctrl.py
 central file for communication to cash ctrl
 '''
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from time import sleep
 
@@ -156,6 +157,19 @@ class DATA_TYPE(Enum):
 
 
 # pylint: disable=invalid-name
+class ROUNDING(Enum):
+    '''Modes for rounding behavior'''
+    UP = 'UP'
+    DOWN = 'DOWN'
+    CEILING = 'CEILING'
+    FLOOR = 'FLOOR'
+    HALF_UP = 'HALF_UP'
+    HALF_DOWN = 'HALF_DOWN'
+    HALF_EVEN = 'HALF_EVEN'
+    UNNECESSARY = 'UNNECESSARY'
+
+
+# pylint: disable=invalid-name
 class ELEMENT_TYPE:
     '''see public api desc'''
     JOURNAL = 'JOURNAL'
@@ -264,6 +278,7 @@ class CashCtrl():
                 return xmltodict.parse(value)
             except Exception as e:
                 raise ValueError(f"{value}: Could not parse XML: {str(e)}")
+
         # Return original value
         return value
 
@@ -359,6 +374,8 @@ class CashCtrl():
             camel_key = snake_to_camel(key)
             if camel_key in ('start', 'end'):
                 value = value.strftime('%Y-%m-%d')
+            elif isinstance(value, Decimal):
+                value = float(value)
             else:
                 value = self.process_to_xml(value)
             post_data[camel_key] = value
@@ -681,6 +698,11 @@ class AccountCategory(CashCtrl):
         ]
 
         return leaves
+
+class AccountCostCenterCategory(CashCtrl):
+    '''see public api desc'''
+    url = 'account/costcenter/category/'
+    actions = ['list']
 
 class AccountCostCenter(CashCtrl):
     '''see public api desc'''
