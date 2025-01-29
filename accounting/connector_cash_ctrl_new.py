@@ -54,7 +54,7 @@ class cashCtrl:
             the data is freshly loaded from cashCtrl, delete all non
             matching items in scerp; use with caution!
     '''
-    def __init__(self, setup, user=None):
+    def __init__(self, setup, user=None, language='en'):
         # Init data
         self.setup = setup
         self.user = user
@@ -65,7 +65,7 @@ class cashCtrl:
 
         # Assign handler
         self.handler = self.api_class(
-            self.setup.org_name, self.setup.api_key)
+            self.setup.org_name, self.setup.api_key, language)
 
     def upload_prepare(self, instance):
         '''
@@ -190,7 +190,7 @@ class cashCtrl:
             'source': {x['id']: dict(x) for x in raw_data},
             'assign': {x['id']: x for x in raw_data}
         }
-        c_ids = list(data_list['source'].keys())        
+        c_ids = list(data_list['source'].keys())
 
         # Delete instances not matching
         if delete_not_existing:
@@ -206,8 +206,8 @@ class cashCtrl:
         for instance in queryset.all():
             # Update instance
             source = data_list['source'][instance.c_id]
-            assign = data_list['assign'][instance.c_id]            
-            instance = self.update_or_create_instance(source, assign, instance)            
+            assign = data_list['assign'][instance.c_id]
+            instance = self.update_or_create_instance(source, assign, instance)
             instance.save()
 
             # Maintenance
@@ -218,10 +218,10 @@ class cashCtrl:
         for c_id in c_ids:
             # Create instance
             source = data_list['source'][c_id]
-            assign = data_list['assign'][c_id]            
+            assign = data_list['assign'][c_id]
             instance = self.update_or_create_instance(source, assign)
             instance.save()
-            
+
             # Maintenance
             created += 1
 
@@ -234,28 +234,28 @@ class cashCtrl:
             foreign_key_model):
         ''' used for uploading categories from cashCtrl '''
         # init
-        __ = assign, created        
+        __ = assign, created
         category_id = source[f"{field_name}_id"]
-        
+
         if not category_id:
             return  # no category to assign
 
         # check for change
         category = getattr(instance, field_name, None)
-        if category and category.c_id == category_id:            
+        if category and category.c_id == category_id:
             return
 
         # Get model of foreign key
         related_model = instance._meta.get_field(field_name).related_model
-            
-        # check for new            
+
+        # check for new
         for round in ['get from existing', 'load categories']:
             category = related_model.objects.filter(c_id=category_id).first()
             setattr(instance, field_name, category)
-            if category:                
+            if category:
                 return
 
-            # Load it            
+            # Load it
             handler = foreign_key_model(self.setup, self.user)
             handler.load(related_model)
 
@@ -265,7 +265,6 @@ class cashCtrl:
     def create(self, instance):
         # Send to cashCtrl
         data = self.upload_prepare(instance)
-        print("*data", data)
         response = self.handler.create(data)
         if response.get('success', False):
             instance.c_id = response['insert_id']
@@ -323,24 +322,28 @@ class CustomField(cashCtrl):
             instance, source, assign, created, 'group', foreign_key_model)
 
 
+class Location(cashCtrl):
+    pass
+
+
 class Currency(cashCtrl):
     api_class = api_cash_ctrl.Currency
     ignore_keys = (
-        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
 
 
-class Title(cashCtrl):
-    api_class = api_cash_ctrl.PersonTitle
+class SequenceNumber(cashCtrl):
+    api_class = api_cash_ctrl.SequenceNumber
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
-    
-    def post_get(self, instance, source, assign, created):
-        __ = instance, created
-        if created:
-            # Fill out empty code
-            instance.code = f"custom {source['id']}"
 
-  
+
+class Unit(cashCtrl):
+    api_class = api_cash_ctrl.Unit
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
+
+
 class CostCenterCategory(cashCtrl):
     api_class = api_cash_ctrl.AccountCostCenterCategory
     ignore_keys = (
@@ -355,11 +358,11 @@ class CostCenterCategory(cashCtrl):
 
     def post_get(self, instance, source, assign, created):
         __ = instance, created
-        # parent        
+        # parent
         foreign_key_model = CostCenterCategory
         self.update_category(
             instance, source, assign, created, 'parent', foreign_key_model)
-            
+
 
 class CostCenter(cashCtrl):
     api_class = api_cash_ctrl.AccountCostCenter
@@ -375,6 +378,18 @@ class CostCenter(cashCtrl):
         foreign_key_model = CostCenterCategory
         self.update_category(
             instance, source, assign, created, 'category', foreign_key_model)
+
+
+class AccountingCategory(cashCtrl):
+    pass
+
+
+class Accounting(cashCtrl):
+    pass
+
+
+class Tax(cashCtrl):
+    pass
 
 
 class Rounding(cashCtrl):
@@ -395,3 +410,16 @@ class Rounding(cashCtrl):
         foreign_key_model = Account
         self.update_category(
             instance, source, assign, created, 'account', foreign_key_model)
+
+
+
+class Title(cashCtrl):
+    api_class = api_cash_ctrl.PersonTitle
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"

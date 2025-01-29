@@ -1,9 +1,9 @@
 '''
 accounting/actions.py
 '''
-import importlib
 import logging
 
+from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction, IntegrityError
@@ -61,7 +61,8 @@ class Handler:
             # Proceed if application is CASH_CTRL
             if setup.application == APPLICATION.CASH_CTRL:
                 # Get handler
-                self.handler = api_class(setup, request.user)
+                self.handler = api_class(
+                    setup, request.user, settings.LANGUAGE_CODE_PRIMARY)
 
                 # Init
                 self.model = modeladmin.model

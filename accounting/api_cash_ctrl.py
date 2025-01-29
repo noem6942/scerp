@@ -169,6 +169,14 @@ class ROUNDING(Enum):
     UNNECESSARY = 'UNNECESSARY'
 
 
+class TEXT_TYPE(Enum):
+    '''Types for Text'''
+    ORDER_HEADER = 'ORDER_HEADER'
+    ORDER_FOOTER = 'ORDER_FOOTER'
+    ORDER_MAIL = 'ORDER_MAIL'
+    ORDER_ITEM = 'ORDER_ITEM'
+    
+
 # pylint: disable=invalid-name
 class ELEMENT_TYPE:
     '''see public api desc'''
@@ -251,10 +259,11 @@ class CashCtrl():
     MAX_TRIES = 5  # Maximum number of retries
     SLEEP_DURATION = 2  # Sleep duration between retries in second
 
-    def __init__(self, org, api_key):
+    def __init__(self, org, api_key, language='de'):
         self.org = org
         self.api_key = api_key
         self.auth = (api_key, '')
+        self.language = language
         self.data = None  # data can be loaded (list, read) or posted
 
     def url(self):
@@ -340,6 +349,11 @@ class CashCtrl():
         '''
         Get from cash_ctrl with timeout handling.
         '''
+        # Add language
+        if not params.get('language'):
+            params['lang'] = self.language
+        
+        # Request
         try:
             response = requests.get(url, params=params, auth=self.auth, timeout=timeout)
             if response.status_code != 200:
@@ -356,10 +370,14 @@ class CashCtrl():
         except requests.exceptions.RequestException as e:
             raise Exception(f"An error occurred during the request: {e}")
 
-    def post(self, url, data=None, timeout=10):
+    def post(self, url, data=None, params={}, timeout=10):
         """
         Post to CashCtrl with timeout handling and rate-limiting retries.
         """
+        # Add language
+        if not params.get('language'):
+            params['lang'] = self.language
+        
         # Load data from self.data if not given
         if data is None:
             data = self.data
@@ -384,7 +402,8 @@ class CashCtrl():
         for attempt in range(self.MAX_TRIES):
             try:
                 response = requests.post(
-                    url, data=post_data, auth=self.auth, timeout=timeout
+                    url, params=params, data=post_data,
+                    auth=self.auth, timeout=timeout
                 )
 
                 if response.status_code == 429:  # Rate limit
@@ -476,18 +495,18 @@ class CashCtrl():
             return self.data
         raise Exception("response has no _content ")
 
-    def create(self, data=None):
+    def create(self, data=None, params={}):
         ''' cash_ctrl create '''
         url = self.BASE.format(
             org=self.org, url=self.url, data=data, action='create')
-        response = self.post(url, data=data)
+        response = self.post(url, data=data, params=params)
         return response  # e.g. {'success': True, 'message': 'Custom field saved', 'insert_id': 58}
 
-    def update(self, data=None):
+    def update(self, data=None, params={}):
         ''' cash_ctrl update '''
         url = self.BASE.format(
             org=self.org, url=self.url, data=data, action='update')
-        response = self.post(url, data=data)
+        response = self.post(url, data=data, params={})
         return response  # e.g. {'success': True, 'message': 'Account saved', 'insert_id': 183}
 
     def delete(self, *ids):

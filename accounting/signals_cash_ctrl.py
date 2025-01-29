@@ -1,6 +1,7 @@
 '''
 accounting/signals_cash_ctrl.py
 '''
+from django.conf import settings
 from django.db import IntegrityError
 from django.db.models.signals import post_save, pre_save, pre_delete
 from django.dispatch import receiver
@@ -60,7 +61,8 @@ def handle_cash_ctrl_signal(
     if not instance.is_enabled_sync:
         return  # sync is turned off for this record
 
-    handler = api_class(instance.setup)
+    language = settings.LANGUAGE_CODE_PRIMARY
+    handler = api_class(instance.setup, language=language)
     #try:
     if action == 'save' and received_from_scerp(instance):
         # If record has been updated or created from scerp, ignore cashCtrl        

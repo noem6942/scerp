@@ -9,7 +9,8 @@ from django.db.models import UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from .api_cash_ctrl import URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING
+from .api_cash_ctrl import (
+    URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE)
 from scerp.mixins import multi_language
 
 
@@ -327,6 +328,84 @@ class MappingId(AcctApp):
 
 
 # CashCtrl entities
+class Location(AcctApp):
+    '''Master, currently Read - only
+    '''
+    class TYPE(models.TextChoices):
+        MAIN = "MAIN", _("Headquarters")
+        BRANCH = "BRANCH", _("Branch Office")
+        STORAGE = "STORAGE", _("Storage Facility")
+        OTHER = "OTHER", _("Other / Tax")
+
+    # Mandatory field
+    name = models.CharField(max_length=100)
+    type = models.CharField(
+        _("Type"), max_length=50, choices=TYPE.choices, default=TYPE.MAIN,
+        help_text=_("The type of location. Defaults to MAIN."))
+
+    # Optional fields
+    address = models.TextField(
+        _("Address"), max_length=250, blank=True, null=True,
+        help_text=_("The address of the location (street, house number, "
+                    "additional info)."))
+    zip = models.CharField(
+        _("ZIP Code"), max_length=10, blank=True, null=True,
+        help_text=_("The postal code of the location."))
+    city = models.CharField(
+        _("City"), max_length=100, blank=True, null=True,
+        help_text=_("The town / city of the location."))
+    country = models.CharField(
+        _("Country"), max_length=3, default="CHE", blank=True, null=True,
+        help_text=_("The country of the location, as an ISO 3166-1 alpha-3 code."))
+
+    # Layout
+    logo = models.ForeignKey(
+        TenantLogo, verbose_name=_('Logo'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_logo',
+        help_text=_('Logo to be used for accounting'))
+
+    # Accounting
+    bic = models.CharField(
+        _("BIC"), max_length=11, blank=True, null=True,
+        help_text=_("The BIC (Business Identifier Code) of your bank."))
+    iban = models.CharField(
+        _("IBAN"), max_length=32, blank=True, null=True,
+        help_text=_("The IBAN (International Bank Account Number)."))
+    qr_first_digits = models.PositiveIntegerField(
+        _("QR First Digits"), blank=True, null=True,
+        help_text=_("The first few digits of the Swiss QR reference. Specific "
+                    "to Switzerland."))
+    qr_iban = models.CharField(
+        _("QR-IBAN"), max_length=32, blank=True, null=True,
+        help_text=_("The QR-IBAN, used especially for QR invoices. Specific to "
+                    "Switzerland."))
+    vat_uid = models.CharField(
+        _("VAT UID"), max_length=32, blank=True, null=True,
+        help_text=_("The VAT UID of the company."))
+
+    # Formats
+    logo_file_id = models.IntegerField(
+        _("Logo File ID"), blank=True, null=True,
+        help_text=_("File ID for the company logo. Supported types: JPG, GIF, PNG."))
+    footer = models.TextField(
+        _("Footer Text"), blank=True, null=True,
+        help_text=_("Footer text for order documents with limited HTML support."))
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'name'],
+                name='unique_setup_location'
+            )
+        ]
+        ordering = ['name']
+        verbose_name = _("Location: Logo, Address, VAT, Codes, Formats etc. ")
+        verbose_name_plural = f"{verbose_name}"
+        
+
 class Currency(AcctApp):
     '''Read - only
     '''
@@ -358,6 +437,115 @@ class Currency(AcctApp):
         verbose_name = _("Currency")
         verbose_name_plural = f"{_('Currencies')}"
 
+
+class SequenceNumber(AcctApp):
+    '''Read - only
+    '''
+    code = models.CharField(
+        _('Code'), max_length=50, help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('name'),  help_text=_("The name of the sequence number."),
+        blank=True, null=True)
+    pattern = models.CharField(
+        _('pattern'),
+        max_length=50,
+        help_text=_(
+            """The sequence number pattern, which consists of variables and
+            arbitrary text from which a sequence number will be generated.
+            Possible variables: $y = Current year. $m = Current month.
+            $d = Current day. $ny = Sequence number, resets annually
+            (on Jan 1st). $nm = Sequence number, resets monthly.
+            $nd = Sequence number, resets daily. $nn = Sequence number,
+            never resets. Example pattern: RE-$y$m$d$nd which may
+            generate 'RE-2007151' (on July 15, 2020)."""))
+
+    def save(self, *args, **kwargs):
+        # Check mandatory code
+        if not getattr(self, 'code', None):
+            self.code = self.code = f"{self.c_id}, {self.pattern}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        '''
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_setup_sequence_number'
+            )
+        ]
+        '''
+        ordering = ['name']
+        verbose_name = _("Sequence Number")
+        verbose_name_plural = f"{_('Sequence Numbers')}"
+
+
+class Unit(AcctApp):
+    ''' Master
+    '''
+    code = models.CharField(
+        _('Code'), max_length=50, help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('name'), blank=True, null=True,
+        help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
+    is_default = models.BooleanField(_("Is default"), default=False)
+
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        '''
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_setup_unit'
+            )
+        ]
+        '''
+        ordering = ['name']
+        verbose_name = _("Unit")
+        verbose_name_plural = f"{_('Units')}"
+
+
+class Text(AcctApp):
+    ''' Text Blocks
+    '''
+    TEXT_TYPE = [(x.value, x.value) for x in TEXT_TYPE]
+    
+    name = models.CharField(
+        _('Name'), max_length=200, 
+        help_text='A name to describe and identify the text template.')
+    is_default = models.BooleanField(
+        _('Is default'), default=False, 
+        help_text=_('use this setup for adding accounting data'))
+    type = models.CharField(
+        _('mode'),
+        max_length=20, choices=TEXT_TYPE, 
+        help_text=_(
+            '''The type of text template, meaning: Where the text template 
+                can be used. Possible values.'''))
+    value = models.TextField(
+        _('Text'), 
+        help_text=_(
+            'The actual text template. This can contain limited HTML for '
+            'styling.'))
+        
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'type', 'name'],
+                name='unique_text_block'
+            )
+        ]
+        ordering = ['type', 'name']
+        verbose_name = _("Text Block")
+        verbose_name_plural = f"{_('Text Blocks')}"
+        
 
 class CostCenterCategory(AcctApp):
     '''Master
@@ -437,6 +625,7 @@ class CostCenter(AcctApp):
 
 class AccountCategory(AcctApp):
     '''Actual Account Category in cashCtrl
+    AccountCategory and Account must be loaded before Tax and Rounding
     '''
     name = models.CharField(
         _('Name'), max_length=50,
@@ -517,7 +706,7 @@ class Account(AcctApp):
         on_delete=models.PROTECT, blank=True, null=True,
         related_name='%(class)s_tax',
         help_text=_("Link to tax. Not used."))  # Verify
-
+    
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -528,7 +717,7 @@ class Account(AcctApp):
         ordering = ['account_number']
         verbose_name = ('Account')
         verbose_name_plural = _('Accounts')
-
+        
 
 class Tax(AcctApp):
     ''' Master
@@ -539,8 +728,8 @@ class Tax(AcctApp):
         _('name'), blank=True, null=True,
         help_text=_("The name of the tax rate."))
     account = models.ForeignKey(
-        'self', verbose_name=_('Account'),
-        on_delete=models.CASCADE, null=True, blank=True,
+        'Account', verbose_name=_('Account'),
+        on_delete=models.CASCADE, blank=True, null=True,
         related_name='%(class)s_account',
         help_text=_('The account which collects the taxes.'))
     percentage = models.DecimalField(
@@ -586,82 +775,42 @@ class Tax(AcctApp):
         verbose_name_plural = f"{_('Tax Rates')}"
 
 
-class Location(AcctApp):
-    '''Master, currently Read - only
+class Rounding(AcctApp):
+    '''Needs to have an account
     '''
-    class TYPE(models.TextChoices):
-        MAIN = "MAIN", _("Headquarters")
-        BRANCH = "BRANCH", _("Branch Office")
-        STORAGE = "STORAGE", _("Storage Facility")
-        OTHER = "OTHER", _("Other / Tax")
-
-    # Mandatory field
-    name = models.CharField(max_length=100)
-    type = models.CharField(
-        _("Type"), max_length=50, choices=TYPE.choices, default=TYPE.MAIN,
-        help_text=_("The type of location. Defaults to MAIN."))
-
-    # Optional fields
-    address = models.TextField(
-        _("Address"), max_length=250, blank=True, null=True,
-        help_text=_("The address of the location (street, house number, "
-                    "additional info)."))
-    zip = models.CharField(
-        _("ZIP Code"), max_length=10, blank=True, null=True,
-        help_text=_("The postal code of the location."))
-    city = models.CharField(
-        _("City"), max_length=100, blank=True, null=True,
-        help_text=_("The town / city of the location."))
-    country = models.CharField(
-        _("Country"), max_length=3, default="CHE", blank=True, null=True,
-        help_text=_("The country of the location, as an ISO 3166-1 alpha-3 code."))
-
-    # Layout
-    logo = models.ForeignKey(
-        TenantLogo, verbose_name=_('Logo'), blank=True, null=True,
-        on_delete=models.CASCADE, related_name='%(class)s_logo',
-        help_text=_('Logo to be used for accounting'))
-
-    # Accounting
-    bic = models.CharField(
-        _("BIC"), max_length=11, blank=True, null=True,
-        help_text=_("The BIC (Business Identifier Code) of your bank."))
-    iban = models.CharField(
-        _("IBAN"), max_length=32, blank=True, null=True,
-        help_text=_("The IBAN (International Bank Account Number)."))
-    qr_first_digits = models.PositiveIntegerField(
-        _("QR First Digits"), blank=True, null=True,
-        help_text=_("The first few digits of the Swiss QR reference. Specific "
-                    "to Switzerland."))
-    qr_iban = models.CharField(
-        _("QR-IBAN"), max_length=32, blank=True, null=True,
-        help_text=_("The QR-IBAN, used especially for QR invoices. Specific to "
-                    "Switzerland."))
-    vat_uid = models.CharField(
-        _("VAT UID"), max_length=32, blank=True, null=True,
-        help_text=_("The VAT UID of the company."))
-
-    # Formats
-    logo_file_id = models.IntegerField(
-        _("Logo File ID"), blank=True, null=True,
-        help_text=_("File ID for the company logo. Supported types: JPG, GIF, PNG."))
-    footer = models.TextField(
-        _("Footer Text"), blank=True, null=True,
-        help_text=_("Footer text for order documents with limited HTML support."))
+    MODE = [(x.value, x.value) for x in ROUNDING]
+    code = models.CharField(
+        _('Code'), max_length=50, help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('name'), default=dict,
+        help_text=_("The name of the rounding."))
+    account = models.ForeignKey(
+        'Account', verbose_name=_('Account'),
+        on_delete=models.CASCADE, null=True, blank=True,  # remove later
+        related_name='%(class)s_account',
+        help_text=_('The account which collects the roundings'))        
+    rounding = models.DecimalField(
+        _('rounding'), max_digits=5, decimal_places=2)
+    mode = models.CharField(
+        _('mode'),
+        max_length=20, choices=MODE, default=ROUNDING.HALF_UP.value,
+        help_text=_("The rounding mode. Defaults to HALF_UP."))
 
     def __str__(self):
-        return self.name
+        return self.code
 
     class Meta:
+        '''
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'name'],
-                name='unique_setup_location'
+                fields=['setup', 'code'],
+                name='unique_setup_rounding'
             )
         ]
+        '''
         ordering = ['name']
-        verbose_name = _("Location: Logo, Address, VAT, Codes, Formats etc. ")
-        verbose_name_plural = f"{verbose_name}"
+        verbose_name = _("Rounding")
+        verbose_name_plural = f"{_('Roundings')}"
 
 
 class FiscalPeriod(AcctApp):
@@ -710,118 +859,6 @@ class FiscalPeriod(AcctApp):
         ordering = ['-start']
         verbose_name = _("Fiscal Period")
         verbose_name_plural = f"{_('Fiscal Periods')}"
-
-
-class Rounding(AcctApp):
-    '''Needs to have an account
-    '''
-    MODE = [(x.value, x.value) for x in ROUNDING]
-    code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')
-    name = models.JSONField(
-        _('name'), default=dict,
-        help_text=_("The name of the rounding."))
-    account = models.ForeignKey(
-        'Account', verbose_name=_('Account'),
-        on_delete=models.CASCADE, null=True, blank=True,  # remove later
-        related_name='%(class)s_account',
-        help_text=_('The account which collects the roundings'))        
-    rounding = models.DecimalField(
-        _('rounding'), max_digits=5, decimal_places=2)
-    mode = models.CharField(
-        _('mode'),
-        max_length=20, choices=MODE, default=ROUNDING.HALF_UP.value,
-        help_text=(
-            "The rounding mode. Defaults to HALF_UP. Possible values: "
-            "UP, DOWN, CEILING, FLOOR, HALF_UP, HALF_DOWN, HALF_EVEN, "
-            "UNNECESSARY."))
-
-    def __str__(self):
-        return self.code
-
-    class Meta:
-        '''
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'code'],
-                name='unique_setup_rounding'
-            )
-        ]
-        '''
-        ordering = ['name']
-        verbose_name = _("Rounding")
-        verbose_name_plural = f"{_('Roundings')}"
-
-
-class SequenceNumber(AcctApp):
-    '''Read - only
-    '''
-    code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')
-    name = models.JSONField(
-        _('name'),  help_text=_("The name of the sequence number."),
-        blank=True, null=True)
-    pattern = models.CharField(
-        _('pattern'),
-        max_length=50,
-        help_text=_(
-            """The sequence number pattern, which consists of variables and
-            arbitrary text from which a sequence number will be generated.
-            Possible variables: $y = Current year. $m = Current month.
-            $d = Current day. $ny = Sequence number, resets annually
-            (on Jan 1st). $nm = Sequence number, resets monthly.
-            $nd = Sequence number, resets daily. $nn = Sequence number,
-            never resets. Example pattern: RE-$y$m$d$nd which may
-            generate 'RE-2007151' (on July 15, 2020)."""))
-
-    def save(self, *args, **kwargs):
-        # Check mandatory code
-        if not getattr(self, 'code', None):
-            self.code = self.code = f"{self.c_id}, {self.pattern}"
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.code
-
-    class Meta:
-        '''
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'code'],
-                name='unique_setup_sequence_number'
-            )
-        ]
-        '''
-        ordering = ['name']
-        verbose_name = _("Sequence Number")
-        verbose_name_plural = f"{_('Sequence Numbers')}"
-
-
-class Unit(AcctApp):
-    ''' Master
-    '''
-    code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')
-    name = models.JSONField(
-        _('name'), blank=True, null=True,
-        help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
-    is_default = models.BooleanField(_("Is default"), default=False)
-
-    def __str__(self):
-        return self.code
-
-    class Meta:
-        '''
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'code'],
-                name='unique_setup_unit'
-            )
-        ]
-        '''
-        ordering = ['name']
-        verbose_name = _("Unit")
-        verbose_name_plural = f"{_('Units')}"
 
 
 class OrderCategory(AcctApp):
