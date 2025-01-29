@@ -40,6 +40,17 @@ TEXTAREA_DEFAULT = {
 }
 
 
+# Standard JSONs
+description_schema = {
+    'type': 'object',
+    'properties': {
+        lang_code: {'type': 'string'}
+        for lang_code, _lang in settings.LANGUAGES
+    },
+    'required': [settings.LANGUAGE_CODE_PRIMARY],  # Make sure that at least this key is present
+}
+
+
 # Helpers
 def action_check_nr_selected(request, queryset, count=None, min_count=None):
     """
@@ -408,6 +419,7 @@ class BaseAdmin(ModelAdmin):
         Show warning for a model if specified
         """
         if not request.session.get('_messages_shown', False):
+            ''' show a info message at the top '''
             # Check if messages were already displayed
             if getattr(self, 'warning', ''):
                 messages.warning(request, mark_safe(self.warning))
@@ -415,6 +427,7 @@ class BaseAdmin(ModelAdmin):
                 messages.info(request, mark_safe(self.info))
             if getattr(self, 'error', ''):
                 messages.error(request, mark_safe(self.error))
+        
         return super().changelist_view(request, extra_context=extra_context)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):        
@@ -433,14 +446,10 @@ class BaseAdmin(ModelAdmin):
         add_tenant = getattr(self, 'has_tenant_field', False)
         queryset = save_logging(instance, request, add_tenant=add_tenant)
 
-        # Proceed with setup
-        setup_model = getattr(self, 'setup_model', False)
-        if setup_model and not getattr(instance, 'setup', None):
-            default_value = setup_model.objects.filter(
-                tenant=instance.tenant, is_default=True).first()
-            if not default_value:
-                raise IntegrityError(f"No default_value for {self.org_name}")
-                instance.setup = default_value
+        # indivudal updates
+        def_update = getattr(self, 'instance_update', None)
+        if def_update:
+            def_update(instance)
 
         # Handle forbidden response from logging
         if isinstance(queryset, HttpResponseForbidden):

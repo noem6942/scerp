@@ -36,6 +36,14 @@ def create_instance(setup_instance, api_class, data, **kwargs):
         created_by=created_by)
 
 
+def received_from_scerp(instance):
+    ''' check if sending is necessary '''
+    if instance.last_received:
+        diff = timezone.now() - instance.last_received
+        return diff.seconds > MIN_REFRESH_TIME
+    return True
+
+
 def handle_cash_ctrl_signal(
         api_class, instance, action, created=None, model=None):
     '''
@@ -52,10 +60,10 @@ def handle_cash_ctrl_signal(
     if not instance.is_enabled_sync:
         return  # sync is turned off for this record
 
-    handler = api_class(instance.setup.org_name, instance.setup.api_key)
+    handler = api_class(instance.setup)
     #try:
-    if action == 'save':
-        # If record has been updated
+    if action == 'save' and received_from_scerp(instance):
+        # If record has been updated or created from scerp, ignore cashCtrl        
         if created:
             handler.create(instance)            
         else:
@@ -69,14 +77,6 @@ def handle_cash_ctrl_signal(
         handler.load(model, instance.tenant, self.user)
     #except:
     #    raise APIRequestError("Failed to send data to the API.")
-
-
-def received_from_scerp(instance):
-    ''' check if sending is necessary '''
-    if instance.last_received:
-        diff = timezone.now() - instance.last_received
-        return diff.seconds > MIN_REFRESH_TIME
-    return True
 
 
 # Signal Handlers
@@ -116,10 +116,8 @@ def api_setup_post_save(sender, instance, created, **kwargs):
 # CustomFieldGroup
 @receiver(post_save, sender=models.CustomFieldGroup)
 def custom_field_group_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on CustomFieldGroup. '''
-    if received_from_scerp(instance):
-        handle_cash_ctrl_signal(
-            conn.CustomFieldGroup, instance, 'save', created)
+    '''Signal handler for post_save signals on CustomFieldGroup. '''    
+    handle_cash_ctrl_signal(conn.CustomFieldGroup, instance, 'save', created)
 
 
 @receiver(pre_delete, sender=models.CustomFieldGroup)
@@ -136,24 +134,12 @@ def custom_field_pre_save(sender, instance, **kwargs):
         # Assign type from group
         if instance.group:
             instance.type = instance.group.type
-        '''
-        # Get group from group_ref
-        if not getattr(instance, 'group', None):
-            group = models.CustomFieldGroup.objects.filter(
-                setup=instance.setup, code=instance.group_ref).first()
-            if group:
-                instance.group = group
-                instance.type = instance.instance.type
-            else:
-                raise IntegrityError(
-                    f"No CustomFieldGroup with code '{instance.group_ref}'")
-        '''
+
 
 @receiver(post_save, sender=models.CustomField)
 def custom_field_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on CustomField. '''
-    if received_from_scerp(instance):
-        handle_cash_ctrl_signal(conn.CustomField, instance, 'save', created)
+    '''Signal handler for post_save signals on CustomField. '''    
+    handle_cash_ctrl_signal(conn.CustomField, instance, 'save', created)
 
 
 @receiver(pre_delete, sender=models.CustomField)
@@ -162,15 +148,8 @@ def custom_field_pre_delete(sender, instance, **kwargs):
     handle_cash_ctrl_signal(conn.CustomField, instance, 'delete')
 
 
-"""
+
 # Currency
-@receiver(pre_save, sender=models.Currency)
-def currency_pre_save(sender, instance, **kwargs):
-    '''Signal handler for pre signals on Currency. '''
-    # Assign setup if necessary
-    assign_setup(instance)
-
-
 @receiver(post_save, sender=models.Currency)
 def currency_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Currency. '''
@@ -182,7 +161,7 @@ def currency_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Currency. '''
     handle_cash_ctrl_signal(conn.Currency, instance, 'delete')
 
-
+"""
 # CostCenterCategory
 @receiver(pre_save, sender=models.CostCenterCategory)
 def cost_center_category_pre_save(sender, instance, **kwargs):

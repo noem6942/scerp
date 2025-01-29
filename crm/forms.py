@@ -2,7 +2,7 @@
 from django import forms
 from django.conf import settings
 
-from scerp.forms import MultilanguageForm        
+from scerp.forms import MultilanguageForm, make_multilanguage_form
 from .models import Title
 
 
@@ -15,11 +15,4 @@ class TitleAdminForm(MultilanguageForm):
         fields = '__all__'
     
     # Dynamically create fields for each language
-    for field in MULTI_LANG_FIELDS:   
-        verbose_name = Meta.model._meta.get_field(field).verbose_name
-        for lang_code, lang_name in settings.LANGUAGES:
-            locals()[f'{field}_{lang_code}'] = forms.CharField(
-                required=False,
-                label=f"{verbose_name} ({lang_name})",
-                help_text=f"The name of the title in {lang_name}.",
-            )
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)

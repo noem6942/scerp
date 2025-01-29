@@ -333,8 +333,7 @@ class Currency(AcctApp):
     code = models.CharField(
         max_length=3,
         help_text=_("The 3-characters currency code, like CHF, EUR, etc."))
-    description = models.JSONField(_('Description'), blank=True, null=True)
-    index = models.JSONField(_('Index'), blank=True, null=True)
+    description = models.JSONField(_('Description'), blank=True, null=True)    
     rate = models.FloatField(_('Rate'), blank=True, null=True)
     is_default = models.BooleanField(default=False)
 

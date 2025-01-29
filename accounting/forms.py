@@ -15,8 +15,22 @@ from .models import (
     ChartOfAccounts, AccountPosition, Currency
 )
 from scerp.admin import verbose_name_field
+from scerp.forms import MultilanguageForm, make_multilanguage_form
 
 LABEL_BACK = _("Back")
+
+
+# Currency
+class CurrencyAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['description']
+    
+    # Dynamically create fields for each language
+    class Meta:
+        model = Currency
+        fields = '__all__'
+    
+    # Dynamically create fields for each language   
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
 # AccountSetup

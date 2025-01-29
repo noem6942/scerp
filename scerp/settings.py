@@ -36,16 +36,21 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost'])
 # GUI looked at jazzmin, grappelli and baton but all failed
 
 INSTALLED_APPS = [
+    # django
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
+    # plugins
     'django_admin_action_forms',  # Extension for the Django admin panel
     'bootstrap4',
     'import_export',
-    'rest_framework',
+    'rest_framework',    
+    
+    # mine
     'asset',
     'core',    
     'home',

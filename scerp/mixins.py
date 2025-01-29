@@ -101,12 +101,13 @@ def multi_language(value_dict):
     except:
         language = settings.LANGUAGE_CODE_PRIMARY
 
-    values = value_dict.get('values')
+    values = dict(value_dict)
     if values and language in values:
         return values[language]
     elif values and settings.LANGUAGE_CODE_PRIMARY in values:
         return values[language]
     return str(value_dict)
+    
 
 # signals, load and init yaml data
 def init_yaml_data(

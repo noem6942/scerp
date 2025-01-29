@@ -60,7 +60,7 @@ class Handler:
             # Proceed if application is CASH_CTRL
             if setup.application == APPLICATION.CASH_CTRL:            
                 # Get handler
-                self.handler = api_class(setup.org_name, setup.api_key)
+                self.handler = api_class(setup, request.user)
                             
                 # Init            
                 self.model = modeladmin.model
@@ -72,10 +72,8 @@ class Handler:
         
     def load(self, request):
         if self.handler:
-            self.handler.load(self.model, self.setup, self.user)
-            return
             try:
-                self.handler.load(self.model, self.setup, self.user)
+                self.handler.load(self.model)
             except:
                 messages.error(request, _("API Error: cannot retrieve data"))
 
@@ -95,6 +93,8 @@ def get_api_setup(queryset):
 def accounting_get_data(modeladmin, request, queryset):
     ''' load data '''    
     api_class = getattr(conn, modeladmin.model.__name__, None)
+    handler = Handler(modeladmin, request, queryset, api_class)
+    
     if api_class:
         handler = Handler(modeladmin, request, queryset, api_class)
         handler.load(request)

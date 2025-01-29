@@ -1,6 +1,27 @@
 # scerp/forms.py
 from django import forms
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
+
+from .admin import verbose_name_field
+
+def make_multilanguage_form(local, model, fields):
+    '''
+    Dynamically create fields for each language
+    '''
+    for field in fields:        
+        for language in settings.LANGUAGES:  
+            # variables
+            lang_code, lang_name = language            
+            key = f'{field}_{lang_code}'
+            verbose_name = verbose_name_field(model, field)
+            
+            # assign to local form
+            local[key] = forms.CharField(
+                required=False,
+                label=f"{verbose_name} ({lang_name})",
+                help_text=f'{_("Text in")} {lang_name}.',
+            )       
 
 
 class MultilanguageForm(forms.ModelForm):

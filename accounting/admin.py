@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.contrib.admin import ModelAdmin
+from django.db import IntegrityError
 from django.utils import formats
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -8,10 +9,12 @@ from import_export.admin import ExportMixin, ImportExportModelAdmin
 
 from core.safeguards import get_tenant
 from scerp.admin import (
-     BaseAdmin, Display, verbose_name_field, set_inactive, set_protected)
+     BaseAdmin, Display, verbose_name_field, make_multilanguage,
+     set_inactive, set_protected)
 from scerp.admin_site import admin_site     
 from scerp.mixins import multi_language
 from . import actions as a
+from . import forms
 from .models import (
     APISetup, Setting, CustomFieldGroup, CustomField,
     MappingId, Location, FiscalPeriod, Currency, Unit, Tax,
@@ -26,6 +29,7 @@ class CASH_CTRL:
     SUPER_USER_EDITABLE_FIELDS = [
         'message',
         'is_enabled_sync',
+        'setup'
     ]
     FIELDS = [
         'c_id',
@@ -132,6 +136,16 @@ class CashCtrlAdmin(BaseAdmin):
                 'classes': ('collapse',),
             }),
         )
+        
+    def instance_update(self, instance):    
+        # Ensure setup is assigned; get triggered from save_model
+        setup_model = getattr(self, 'setup_model', False)
+        if  not getattr(instance, 'setup', None):
+            default_value = APISetup.objects.filter(
+                tenant=instance.tenant, is_default=True).first()
+            if not default_value:
+                raise IntegrityError(f"No default_value for {self.org_name}")
+            instance.setup = default_value             
 
     @admin.display(description=_('last update'))
     def display_last_update(self, obj):
@@ -186,8 +200,11 @@ class CustomFieldGroupAdmin(CashCtrlAdmin):
 @admin.register(CustomField, site=admin_site)
 class CustomFieldAdmin(CashCtrlAdmin):    
     has_tenant_field = True
-    list_display = ('code', 'group', 'name', 'data_type', 'c_id', 'message')
+    list_display = (
+        'code', 'group', 'name', 'data_type', 'c_id', 'message',
+        'is_enabled_sync')
     search_fields = ('code', 'name')
+    list_filter = ('group',)
     actions = [a.accounting_get_data]
 
     fieldsets = (
@@ -273,24 +290,28 @@ class FiscalPeriodAdmin(CashCtrlAdmin):
 
 
 @admin.register(Currency, site=admin_site)
-class CurrencyAdmin(CashCtrlAdmin):
+class CurrencyAdmin(CashCtrlAdmin):    
     has_tenant_field = True
-    is_readonly = False
-    warning = CASH_CTRL.WARNING_READ_ONLY
+    
+    form = forms.CurrencyAdminForm  
+    list_display = (
+        'code', 'is_default', 'rate', 'display_last_update', 'c_id', 'message',
+        'is_enabled_sync')
+    search_fields = ('code', 'name')
+    list_filter = ('is_default',)
     readonly_fields = ('display_description',)
-
-    list_display = ('code', 'is_default', 'rate', 'display_last_update')
-    search_fields = ('code',)
-    list_filter = ('setup',)
-    actions = [a.currency_get]
-
+    actions = [a.accounting_get_data]    
+    
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'display_description', 'is_default', 'rate', 'index',
-                'description'),
+                'code', 'display_description', 'is_default', 'rate'),
             'classes': ('expand',),
         }),
+        (_('Description'), {
+            'fields': (*make_multilanguage('description'), ),
+            'classes': ('collapse',),
+        }),        
     )
 
     @admin.display(description=_('description'))

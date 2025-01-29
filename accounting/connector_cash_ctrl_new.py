@@ -40,6 +40,8 @@ class cashCtrl:
     Params:
         :org_name: cashCtrl org_name
         :api_key: cashCtrl api_key
+        :setup: needed for get
+        :user: needed for get
 
     Properties
         :api_class: define class in api_cash_ctrl
@@ -51,11 +53,18 @@ class cashCtrl:
             the data is freshly loaded from cashCtrl, delete all non
             matching items in scerp; use with caution!
     '''
-    def __init__(self, org_name, api_key):
+    def __init__(self, setup, user=None):
+        # Init data
+        self.setup = setup
+        self.user = user
+
+        # Get data
+        self.model = None
+        self.model_keys = None
+
         # Assign handler
-        self.handler = self.api_class(org_name, api_key)
-        self.model = None  # for get/ later use
-        self.last_data = None  # for get / later use
+        self.handler = self.api_class(
+            self.setup.org_name, self.setup.api_key)
 
     def upload_prepare(self, instance):
         '''
@@ -104,120 +113,147 @@ class cashCtrl:
             data_list = self.handler.list(params, **filter_kwargs)
         return data_list
 
+    def convert_source_data(self, data):
+        # Handle cashCtrl specials
+        try:
+            data.update({
+                'c_id': data.pop('id'),
+                'c_created': make_timeaware(data.pop('created')),
+                'c_created_by': data.pop('created_by'),
+                'c_last_updated': make_timeaware(data.pop('last_updated')),
+                'c_last_updated_by': data.pop('last_updated_by'),
+                'last_received': timezone.now(),  # important for signals.py!
+            })
+        except KeyError as e:
+            # Log or handle the missing key error
+            raise KeyError(f"Missing required field in data: {e}")
+
+        # Convert data, remove keys not needed
+        for key in list(data.keys()):
+            value = data[key]
+            if isinstance(value, dict) and 'values' in value:
+                # remove "values"
+                data[key] = value['values']
+            elif key in ['start', 'end']:
+                data[key] = make_timeaware(value)
+            elif key not in self.model_keys:
+                data.pop(key)
+
+    def update_or_create_instance(self, source, assign, instance=None):
+        # What to do
+        do_create = instance is None
+
+        # Create or update instance
+        if do_create:
+            instance = self.model(
+                setup=self.setup,
+                tenant=self.setup.tenant,
+                created_by=self.user,
+                modified_at=timezone.now()  # set to check for trigger
+            )
+        else:
+            instance.modified_by = self.user
+
+        # Add data
+        for key in instance.__dict__.keys():
+            if key in assign:
+                setattr(instance, key, assign[key])
+
+        # Clean
+        if getattr(self, 'post_get', None):
+            self.post_get(instance, source, assign, created=do_create)
+
+        return instance
+
     def load(
-            self, model, setup, user, params={}, delete_not_existing=False,
+            self, model, params={}, delete_not_existing=False,
             **filter_kwargs):
         # Init
         self.model = model
+        self.model_keys = [field.name for field in model._meta.get_fields()]
         created, updated, deleted = 0, 0, 0
 
+        # Check init
+        if not self.setup:
+            raise ValueError("No Setup given.")
+        elif not self.user:
+            raise ValueError("No User given.")
+
         # Load data
-        data_list = self.get_data(params, **filter_kwargs)
-        source = {x['id']: dict(x) for x in data_list}
-        c_ids = [x['id'] for x in data_list]
+        raw_data = self.get_data(params, **filter_kwargs)
+        if not raw_data:
+            return
+
+        # Assign data
+        data_list = {
+            'source': {x['id']: dict(x) for x in raw_data},
+            'assign': {x['id']: x for x in raw_data}
+        }
+        c_ids = list(data_list['source'].keys())        
 
         # Delete instances not matching
         if delete_not_existing:
             deleted = model.objects.filter(
-                tenant=setup.tenant).exclude(c_id__in=c_ids).delete()
-
-        # Check
-        if not data_list:
-            return
+                setup=self.setup).exclude(c_id__in=c_ids).delete()
 
         # Parse
-        model_keys = [field.name for field in model._meta.get_fields()]
-        for data in data_list:
-            # Handle cashCtrl specials
-            try:
-                data.update({
-                    'c_id': data.pop('id'),
-                    'c_created': make_timeaware(data.pop('created')),
-                    'c_created_by': data.pop('created_by'),
-                    'c_last_updated': make_timeaware(data.pop('last_updated')),
-                    'c_last_updated_by': data.pop('last_updated_by'),
-                    'last_received': timezone.now(),
-                })
-            except KeyError as e:
-                # Log or handle the missing key error
-                raise KeyError(f"Missing required field in data: {e}")
-
-            # Convert data, remove keys not needed
-            for key in list(data.keys()):
-                value = data[key]
-                if isinstance(value, dict) and 'values' in value:
-                    # remove "values"
-                    data[key] = value['values']
-                elif key in ['start', 'end']:
-                    data[key] = make_timeaware(value)
-                elif key not in model_keys:
-                    data.pop(key)
+        for data in data_list['assign'].values():
+            self.convert_source_data(data)
 
         # Update
-        queryset = model.objects.filter(tenant=setup.tenant, c_id__in=c_ids)
-        print("*queryset", queryset.count())
-
+        queryset = model.objects.filter(setup=self.setup, c_id__in=c_ids)
         for instance in queryset.all():
-            # prepare
-            data = next(x for x in data_list if x['c_id'] == instance.c_id)
-            data['modified_by'] = user
-
-            # Save
-            for key, value in data.items():
-                setattr(instance, key, value)
-
-            # Clean
-            if getattr(self, 'post_get', None):
-                data_source = source[data['c_id']]
-                self.post_get(instance, data_source, data, created=False)
-
+            # Update instance
+            source = data_list['source'][instance.c_id]
+            assign = data_list['assign'][instance.c_id]            
+            instance = self.update_or_create_instance(source, assign, instance)
             instance.save()
-            c_ids.remove(data['c_id'])
+
+            # Maintenance
+            c_ids.remove(source['id'])
             updated += 1
 
         # Create
         for c_id in c_ids:
-            # prepare
-            data = next(x for x in data_list if x['c_id'] == c_id)            
-
-            data.update({
-                'setup': setup,
-                'tenant': setup.tenant,                
-                'created_by': user,
-                'modified_at': timezone.now()  # set to check for trigger
-            })
-            
-            # Clean
-            instance = model(**data)
-            if getattr(self, 'post_get', None):                
-                data_source = source[data['c_id']]
-                self.post_get(instance, data_source, data, created=True)
-                
-            # Save    
+            # Create instance
+            source = data_list['source'][c_id]
+            assign = data_list['assign'][c_id]            
+            instance = self.update_or_create_instance(source, assign)
             instance.save()
+
+            # Maintenance
             created += 1
 
         # Message
         logger.info(
             f'{model}: updated {updated}, created {created}, deleted {deleted}')
 
-    def update_category(self, instance, source, data, created, field_name):
+    def update_category(
+            self, instance, source, assign, created, field_name,
+            category_api_class):
         ''' used for uploading categories from cashCtrl '''
         # init
-        print("*source", source)
+        __ = assign, created        
         category_id = source[f"{field_name}_id"]
-        
-        # check for change  
+
+        # check for change
         category = getattr(instance, field_name, None)
-        if category and category.c_id == category_id:
+        if category and category.c_id == category_id:            
             return
-        
-        # check for new         
+
+        # check for new
         related_model = instance._meta.get_field(field_name).related_model
-        category = related_model.objects.filter(c_id=category_id).first()
-        setattr(instance, field_name, category)
-        if not category:
-            print("*no category found")        
+        for round in ['get from existing', 'load categories']:
+            category = related_model.objects.filter(c_id=category_id).first()
+            setattr(instance, field_name, category)
+            if category:                
+                return
+
+            # Load it            
+            handler = category_api_class(self.setup, self.user)
+            handler.load(related_model)
+
+        logger.warning("no category found")
 
     # C(R)UD
     def create(self, instance):
@@ -250,13 +286,11 @@ class CustomFieldGroup(cashCtrl):
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
     type_filter = api_cash_ctrl.FIELD_TYPE
 
-    def pre_upload(self, instance, data):
-        pass
-
-    def post_get(self, instance, source, data, created):
+    def post_get(self, instance, source, assign, created):
         __ = instance, created
         if created:
-            instance.code = str(source['id'])
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
 
 
 class CustomField(cashCtrl):
@@ -269,11 +303,21 @@ class CustomField(cashCtrl):
         # Prepare group_id
         data['group_id'] = instance.group.c_id
 
-    def post_get(self, instance, source, data, created):
+    def post_get(self, instance, source, assign, created):
         __ = instance, created
         # code
         if created:
-            instance.code = str(source['id'])
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
 
-        # group, currently not activated
-        self.update_category(instance, source, data, created, 'group')
+        # group
+        category_api_class = CustomFieldGroup
+        self.update_category(
+            instance, source, assign, created, 'group', category_api_class)
+
+
+class Currency(cashCtrl):
+    api_class = api_cash_ctrl.Currency
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
+    type_filter = api_cash_ctrl.FIELD_TYPE
