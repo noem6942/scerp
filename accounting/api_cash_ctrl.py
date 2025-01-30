@@ -99,8 +99,10 @@ def value_to_xml(value):
     # Return original value
     return value
 
-
-# pylint: disable=invalid-name
+'''
+cashCtrl definitions:
+    - we only use Enum if used for selection in django model choices
+'''
 class ADDRESS_TYPE:
     '''see public api desc'''
     MAIN = 'MAIN'
@@ -137,13 +139,11 @@ class COLOR:
     PINK = 'PINK'
 
 
-# pylint: disable=invalid-name
 class BOOK_TYPE:
     CREDIT = 'CREDIT'
     DEBIT = 'DEBIT'
 
 
-# pylint: disable=invalid-name
 class DATA_TYPE(Enum):
     '''see public api desc'''
     TEXT = 'TEXT'
@@ -156,7 +156,6 @@ class DATA_TYPE(Enum):
     PERSON = 'PERSON'
 
 
-# pylint: disable=invalid-name
 class ROUNDING(Enum):
     '''Modes for rounding behavior'''
     UP = 'UP'
@@ -177,7 +176,6 @@ class TEXT_TYPE(Enum):
     ORDER_ITEM = 'ORDER_ITEM'
     
 
-# pylint: disable=invalid-name
 class ELEMENT_TYPE:
     '''see public api desc'''
     JOURNAL = 'JOURNAL'
@@ -212,7 +210,6 @@ class ELEMENT_TYPE:
     TEXT_IMAGE = 'TEXT_IMAGE'
 
 
-# pylint: disable=invalid-name
 class FIELD_TYPE(Enum):
     '''see public api desc'''
     JOURNAL = 'JOURNAL'
@@ -224,7 +221,6 @@ class FIELD_TYPE(Enum):
     FILE = 'FILE'
 
 
-# pylint: disable=invalid-name
 class GENDER:
     '''see public api desc'''
     FEMALE = 'FEMALE'
@@ -237,20 +233,27 @@ class ORDER_TYPE:
     PURCHASE = 'PURCHASE'
 
 
-# pylint: disable=invalid-name
-class ACCOUNT_CATEGORY_TYPE:
+class TOP_LEVEL_ACCOUNT_CATEGORY:
     '''Used for cashctrl, see public api desc'''
-    ASSET = (1, 'ASSET')  # Aktiven
-    LIABILITY = (2, 'LIABILITY')  # Passiven
-    EXPENSE = (3, 'EXPENSE')  # Aufwand (INCOME), Ausgaben (INVEST),
-    REVENUE = (4, 'REVENUE')  # Ertrag (INCOME), Einnahmen (INVEST),
-    BALANCE = (5, 'BALANCE')  #
+    ASSET = 1
+    LIABILITY = 2
+    EXPENSE = 3
+    REVENUE = 4
+    BALANCE = 5
 
 
 class CashCtrl():
-    ''' Base Class with many children
-        BASE: used for almost all queries
-        BASE_DIR: used for queries not have not .json at end of url
+    ''' 
+    Base Class with many children
+    BASE: used for almost all queries
+    BASE_DIR: used for queries not have not .json at end of url
+        
+    :org:  cashCtrl org        
+    :api_key:  cashCtrl api_key        
+    :language:  cashCtrl language - for api we always use 'en' if not 
+        explicitly declared otherwise
+    :org:  cashCtrl org        
+    :org:  cashCtrl org
     '''
     BASE_DIR = URL_ROOT + "/api/v1/{url}{action}"
     BASE = BASE_DIR + '.json'  # default
@@ -259,7 +262,7 @@ class CashCtrl():
     MAX_TRIES = 5  # Maximum number of retries
     SLEEP_DURATION = 2  # Sleep duration between retries in second
 
-    def __init__(self, org, api_key, language='de'):
+    def __init__(self, org, api_key, language='en'):
         self.org = org
         self.api_key = api_key
         self.auth = (api_key, '')

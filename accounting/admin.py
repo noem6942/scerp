@@ -142,7 +142,6 @@ class CashCtrlAdmin(BaseAdmin):
         # Only set default value if this is a new instance (obj is None)
         if not obj:  
             tenant = get_tenant(request)
-            print("*", tenant)
             
             # Fetch the default setup value
             default_value = models.APISetup.objects.filter(
@@ -152,17 +151,25 @@ class CashCtrlAdmin(BaseAdmin):
             if not default_value:
                 raise IntegrityError(f"No default_value for {self.org_name}")
             
-            print("**")
-            
             # Set the default value for the 'setup' field in the form
             form.base_fields['setup'].initial = default_value
-            print("**")
 
         return form
 
     @admin.display(description=_('last update'))
     def display_last_update(self, obj):
         return obj.modified_at
+
+    @admin.display(description=_('Name'))
+    def display_name(self, obj):
+        try:
+            return multi_language(obj.name)
+        except:
+            return ''
+
+    @admin.display(description=_('Parent'))
+    def display_parent(self, obj):
+        return self.display_name(obj.parent)
 
 
 class TenantFilteredSetupListFilter(SimpleListFilter):
@@ -376,70 +383,61 @@ class TitleAdmin(CashCtrlAdmin):
             'classes': ('collapse',),
         }),        
     )
-
-    @admin.display(description=_('name'))
-    def display_name(self, obj):
-        return multi_language(obj.name)
    
 
 @admin.register(models.Unit, site=admin_site)
 class UnitAdmin(CashCtrlAdmin):
-    related_tenant_fields = ['setup']
-    is_readonly = True
-        
-    list_display = ('display_name', 'is_default') + CASH_CTRL.LIST_DISPLAY
-    search_fields = ('name',)
-    list_filter = ('is_default', TenantFilteredSetupListFilter)
+    related_tenant_fields = ['setup']  
+    
+    form = forms.UnitAdminForm  
+    list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
+    search_fields = ('code', 'name')
+    list_filter = (TenantFilteredSetupListFilter,)
     readonly_fields = ('display_name',)
-    actions = [a.accounting_get_data]  
-
+    actions = [a.accounting_get_data]    
+    
     fieldsets = (
         (None, {
-            'fields': ('display_name', 'is_default'),
-            'classes': ('expand',),
-        }),
+            'fields': (
+                'code', *make_multilanguage('name')),
+            'classes': ('collapse',),
+        }),        
     )
-
-    @admin.display(description=_('name'))
-    def display_name(self, obj):
-        return multi_language(obj.name)
 
 
 @admin.register(models.Tax, site=admin_site)
 class TaxAdmin(CashCtrlAdmin):
-    related_tenant_fields = ['setup']
-
-    is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
-    readonly_fields = ('local_name', 'local_document_name')
-
+    related_tenant_fields = ['setup']  
+    
+    form = forms.TaxAdminForm  
     list_display = (
-        'local_name', 'local_document_name', 'display_percentage'
-    ) + CASH_CTRL.LIST_DISPLAY
-    search_fields = ('name',)
-    list_filter = ('setup',)
-    actions = [a.accounting_get_data]  
-
+        'code', 'display_name', 'display_percentage') + CASH_CTRL.LIST_DISPLAY
+    search_fields = ('code', 'name')
+    list_filter = ('percentage', TenantFilteredSetupListFilter)
+    readonly_fields = ('display_name',)
+    actions = [a.accounting_get_data]    
+    
     fieldsets = (
         (None, {
             'fields': (
-                'local_name', 'local_document_name', 'percentage',
-                'calc_type', 'percentage_flat', 'account_id'),
-            'classes': ('expand',),
-        }),
+                'code', 'percentage', 'calc_type', 'display_percentage_flat'),
+            'classes': ('collapse',),
+        }),    
+        (_('Text'), {
+            'fields': (                
+                *make_multilanguage('name'),
+                *make_multilanguage('document_name')),
+            'classes': ('collapse',),
+        }),        
     )
-
-    @admin.display(description=_('name'))
-    def local_name(self, obj):
-        return multi_language(obj.name)
-
-    @admin.display(description=_('show as'))
-    def local_document_name(self, obj):
-        return multi_language(obj.document_name)
 
     @admin.display(description=_("Percentage"))
     def display_percentage(self, obj):
         return Display.percentage(obj.percentage, 1)
+
+    @admin.display(description=_("Percentage Flat"))
+    def display_percentage_flat(self, obj):
+        return Display.percentage(obj.display_percentage_flat, 1)
 
 
 @admin.register(models.Rounding, site=admin_site)
@@ -462,7 +460,7 @@ class RoundingAdmin(CashCtrlAdmin):
         }),
     )
 
-    @admin.display(description=_('name'))
+    @admin.display(description=_('Name'))
     def display_name(self, obj):
         return multi_language(obj.name)
 
@@ -487,7 +485,7 @@ class SequenceNumberAdmin(CashCtrlAdmin):
         }),
     )
 
-    @admin.display(description=_('name'))
+    @admin.display(description=_('Name'))
     def local_name(self, obj):
         return multi_language(obj.name)
 
@@ -513,7 +511,7 @@ class OrderCategoryAdmin(CashCtrlAdmin):
         }),
     )
 
-    @admin.display(description=_('name'))
+    @admin.display(description=_('Name'))
     def display_name(self, obj):
         return multi_language(obj.name_plural)
 
@@ -548,7 +546,7 @@ class CostCenterCategoryAdmin(CashCtrlAdmin):
 
     form = forms.CostCenterCategoryAdminForm  
     list_display = (
-        'display_name', 'number', 'parent') + CASH_CTRL.LIST_DISPLAY
+        'display_name', 'number', 'display_parent') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name', 'number')
     list_filter = ('setup',)
     readonly_fields = ('display_name',)
@@ -561,10 +559,6 @@ class CostCenterCategoryAdmin(CashCtrlAdmin):
             'classes': ('expand',),
         }),
     )
-
-    @admin.display(description=_('name'))
-    def display_name(self, obj):
-        return multi_language(obj.name)
 
 
 @admin.register(models.CostCenter, site=admin_site)
@@ -587,9 +581,109 @@ class CostCenterAdmin(CashCtrlAdmin):
         }),
     )
 
-    @admin.display(description=_('name'))
-    def display_name(self, obj):
-        return multi_language(obj.name)
+
+@admin.register(models.AccountCategory, site=admin_site)
+class AccountCategoryAdmin(CashCtrlAdmin):
+    related_tenant_fields = ['setup', 'parent']    
+
+    form = forms.AccountCategoryAdminForm  
+    list_display = (
+        'name', 'display_number', 'display_parent') + CASH_CTRL.LIST_DISPLAY
+    search_fields = ('name', 'number')
+    list_filter = ('setup',)
+    readonly_fields = ('display_name',)
+    actions = [a.accounting_get_data]  
+
+    fieldsets = (
+        (None, {
+            'fields': ('number', 'parent', *make_multilanguage('name')),
+            'classes': ('expand',),
+        }),
+    )
+
+    @admin.display(description=_('Number'))
+    def display_number(self, obj):
+        return Display.big_number(obj.number)
+
+
+@admin.register(models.Configuration, site=admin_site)
+class ConfigurationyAdmin(CashCtrlAdmin):
+    related_tenant_fields = [
+        'setup', 
+        'default_debtor_account', 
+        'default_opening_account', 
+        'default_creditor_account', 
+        'default_exchange_diff_account', 
+        'default_profit_allocation_account', 
+        'default_inventory_disposal_account', 
+        'default_input_tax_adjustment_account', 
+        'default_sales_tax_adjustment_account', 
+        'default_inventory_depreciation_account', 
+        'default_inventory_asset_revenue_account', 
+        'default_inventory_article_expense_account', 
+        'default_inventory_article_revenue_account', 
+        'first_steps_logo', 
+        'first_steps_account', 
+        'first_steps_currency', 
+        'first_steps_pro_demo', 
+        'first_steps_tax_rate', 
+        'first_steps_tax_type', 
+        'order_mail_copy_to_me', 
+        'tax_accounting_method', 
+        'journal_import_force_sequence_number',
+    ]
+
+    list_display = (
+        'csv_delimiter', 
+        'thousand_separator', 
+        'tax_accounting_method', 
+        'first_steps_logo', 
+        'first_steps_account', 
+        'first_steps_currency', 
+        'first_steps_pro_demo', 
+        'first_steps_tax_rate', 
+        'first_steps_tax_type'
+    ) + CASH_CTRL.LIST_DISPLAY
+
+    list_filter = ('setup', 'tax_accounting_method', 'first_steps_logo', 
+                   'first_steps_account')
+    actions = [a.accounting_get_data]
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'csv_delimiter', 
+                'thousand_separator', 
+                'first_steps_logo', 
+                'first_steps_account', 
+                'first_steps_currency', 
+                'first_steps_pro_demo', 
+                'first_steps_tax_rate', 
+                'first_steps_tax_type', 
+                'order_mail_copy_to_me', 
+                'tax_accounting_method', 
+                'journal_import_force_sequence_number'
+            ),
+            'classes': ('expand',),
+        }),
+        (_("Account Settings"), {
+            'fields': (
+                'default_debtor_account', 
+                'default_opening_account', 
+                'default_creditor_account', 
+                'default_exchange_diff_account', 
+                'default_profit_allocation_account', 
+                'default_inventory_disposal_account', 
+                'default_input_tax_adjustment_account', 
+                'default_sales_tax_adjustment_account',
+                'default_inventory_depreciation_account', 
+                'default_inventory_asset_revenue_account',
+                'default_inventory_article_expense_account', 
+                'default_inventory_article_revenue_account',
+            ),
+            'classes': ('collapse',),
+        }),
+    )
 
 
 @admin.register(models.Article, site=admin_site)
@@ -619,7 +713,7 @@ class ArticleAdmin(CashCtrlAdmin):
         }),
     )
 
-    @admin.display(description=_('name'))
+    @admin.display(description=_('Name'))
     def display_name(self, obj):
         return multi_language(obj.name)
 

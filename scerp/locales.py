@@ -71,6 +71,7 @@ APP_MODEL_ORDER = {
             'CustomFieldGroup': ('* 02', ''),
             'CustomField': ('* 03', ''),
             'Setting': ('* 04', ' ⬇️'),
+            'Configuration': ('* 05', ' ⬇️'),
             
             # Accounting Admin
             'Location': ('* 10', ' ⬇️'),

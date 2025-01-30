@@ -8,7 +8,7 @@ pylint check: 2024-12-24
 '''
 from .api_cash_ctrl import (
     value_to_xml, ADDRESS_TYPE, CONTACT_TYPE, BOOK_TYPE, COLOR, ORDER_TYPE,
-    FIELD_TYPE, DATA_TYPE, ACCOUNT_CATEGORY_TYPE
+    FIELD_TYPE, DATA_TYPE, TOP_LEVEL_ACCOUNT_CATEGORY
 )
 
 # RUN 1 - no other data needed -------------------------------------------
@@ -141,41 +141,51 @@ CUSTOM_FIELDS = [{
 }]
 
 
+        'de': 'Erfolgsrechnung',
+        'en': 'P&L',
+        'fr': 'Compte de résultat',
+        'it': 'Conto economico'       
+
+        'de': 'Investitionsrechnung',
+        'en': 'Investment Statement',
+        'fr': 'Compte d’investissement',
+        'it': 'Conto degli investimenti'
+
 ACCOUNT_CATEGORIES = [{
-    'key': 'p&l_expense',
-    'top': ACCOUNT_CATEGORY_TYPE.EXPENSE[1],
+    'number': 3.1,
+    'parent_number': TOP_LEVEL_ACCOUNT_CATEGORY.EXPENSE,
     'name': {
-        'de': 'Erfolgsrechnung',
-        'en': 'P&L',
-        'fr': 'Compte de résultat',
-        'it': 'Conto economico'
+        'de': 'Aufwand (ER)',
+        'en': 'Expense (P&L)',
+        'fr': 'Dépense',
+        'it': 'Spesa'
     }
 }, {
-    'key':'p&l_revenue',
-    'top': ACCOUNT_CATEGORY_TYPE.REVENUE[1],
+    'number': 4.1,
+    'parent_number': TOP_LEVEL_ACCOUNT_CATEGORY.REVENUE,
     'name': {
-        'de': 'Erfolgsrechnung',
-        'en': 'P&L',
-        'fr': 'Compte de résultat',
-        'it': 'Conto economico'
+        'de': 'Ertrag (ER)',
+        'en': 'Income (P&L)',
+        'fr': 'Revenu (CR)',
+        'it': 'Reddito (CE)'
     }
 }, {
-    'key':'is_expense',
-    'top': ACCOUNT_CATEGORY_TYPE.EXPENSE[1],
+    'number': 3.2,
+    'parent_number': TOP_LEVEL_ACCOUNT_CATEGORY.EXPENSE,
     'name': {
-        'de': 'Investitionsrechnung',
-        'en': 'Investment Statement',
-        'fr': 'Compte d’investissement',
-        'it': 'Conto degli investimenti'
+        'de': 'Ausgaben (IV)',
+        'en': 'Expenses (IS)',
+        'fr': 'Dépenses (CR)',
+        'it': 'Spese (CE)'
     }
 }, {
-    'key':'is_revenue',
-    'top': ACCOUNT_CATEGORY_TYPE.REVENUE[1],
+    'number': 4.2,
+    'parent_number': TOP_LEVEL_ACCOUNT_CATEGORY.REVENUE,
     'name': {
-        'de': 'Investitionsrechnung',
-        'en': 'Investment Statement',
-        'fr': 'Compte d’investissement',
-        'it': 'Conto degli investimenti'
+        'de': 'Einnahmen (IV)',
+        'en': 'Revenue (IS)',
+        'fr': 'Revenus (CI)',
+        'it': 'Entrate (CI)'
     }
 }]
 

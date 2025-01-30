@@ -103,7 +103,6 @@ def format_big_number(value, thousand_separator=None, round_digits=None):
     # Round
     if round_digits:
         value = round(value, round_digits)
-        print("*", value)
 
     # Format number
     if thousand_separator is None:

@@ -261,39 +261,35 @@ Texts:
 
 # Categories ---------------------------------------------------------------
 AccountCategories:
-  - code: p&l_expense
-    parent_ref: EXPENSE
+  - number: 3.1
+    parent_number: EXPENSE
     name:
-      de: Erfolgsrechnung
-      en: P&L
-      fr: Compte de résultat
-      it: Conto economico
+      de: "Aufwand (ER)"
+      en: "Expense (P&L)"
+      fr: "Dépense"
+      it: "Spesa"
+  - number: 4.1
+    parent_number: REVENUE
+    name:
+      de: "Ertrag (ER)"
+      en: "Income (P&L)"
+      fr: "Revenu (CR)"
+      it: "Reddito (CE)"
+  - number: 3.2
+    parent_number: EXPENSE
+    name:
+      de: "Ausgaben (IV)"
+      en: "Expenses (IS)"
+      fr: "Dépenses (CR)"
+      it: "Spese (CE)"
+  - number: 4.2
+    parent_number: REVENUE
+    name:
+      de: "Einnahmen (IV)"
+      en: "Revenue (IS)"
+      fr: "Revenus (CI)"
+      it: "Entrate (CI)"
 
-  - code: p&l_revenue
-    parent_ref: REVENUE
-    name:
-      de: Erfolgsrechnung
-      en: P&L
-      fr: Compte de résultat
-      it: Conto economico
-
-  - code: is_expense
-    parent_ref: EXPENSE
-    parent: p&l_expense
-    name:
-      de: Investitionsrechnung
-      en: Investment Statement
-      fr: Compte d’investissement
-      it: Conto degli investimenti
-
-  - code: is_revenue
-    parent_ref: REVENUE
-    parent: p&l_revenue
-    name:
-      de: Investitionsrechnung
-      en: Investment Statement
-      fr: Compte d’investissement
-      it: Conto degli investimenti
 
 PersonCategories:
   - code: subscriber

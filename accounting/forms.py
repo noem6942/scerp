@@ -13,7 +13,7 @@ from core.safeguards import get_tenant
 from .models import (
     ACCOUNT_TYPE_TEMPLATE, AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
-    CostCenter, Rounding
+    CostCenter, Rounding, AccountCategory, Unit, Tax
 )
 from scerp.admin import verbose_name_field
 from scerp.forms import MultilanguageForm, make_multilanguage_form
@@ -85,6 +85,45 @@ class CostCenterAdminForm(MultilanguageForm):
     # Dynamically create fields for each language   
     make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
+
+# AccountCategory
+class AccountCategoryAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name']
+    
+    # Dynamically create fields for each language
+    class Meta:
+        model = AccountCategory
+        fields = '__all__'
+    
+    # Dynamically create fields for each language   
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+# Unit
+class UnitAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name']
+    
+    # Dynamically create fields for each language
+    class Meta:
+        model = Unit
+        fields = '__all__'
+    
+    # Dynamically create fields for each language   
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+ 
+
+# Tax
+class TaxAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name']
+    
+    # Dynamically create fields for each language
+    class Meta:
+        model = Tax
+        fields = '__all__'
+    
+    # Dynamically create fields for each language   
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+ 
 
 # AccountSetup
 class ConfirmForm(AdminActionForm):

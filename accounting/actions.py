@@ -20,14 +20,10 @@ from .models import (
     AccountPositionTemplate,
     ChartOfAccounts, AccountPosition, FiscalPeriod
 )
-from . import models
-from . import connector_cash_ctrl, forms
-from . import connector_cash_ctrl_new as conn
-from . import signals, signals_cash_ctrl
+from . import forms, models
+from . import connector_cash_ctrl as conn
 from .import_accounts_canton import Import
 from .mixins import AccountPositionCheck
-from .connector import get_connector_module
-from .signals_cash_ctrl import api_setup_post_save
 
 
 ACTION_LOAD = _('Load actual data from Accounting System')
@@ -51,7 +47,8 @@ logger = logging.getLogger(__name__)
 # Load actual data ----------------------------------------------------------
 class Handler:
 
-    def __init__(self, modeladmin, request, queryset, api_class):
+    def __init__(
+            self, modeladmin, request, queryset, api_class, language=None):
         # Check if at least one item is selected
         # error handling not working
         if action_check_nr_selected(request, queryset, min_count=1):
@@ -62,7 +59,7 @@ class Handler:
             if setup.application == APPLICATION.CASH_CTRL:
                 # Get handler
                 self.handler = api_class(
-                    setup, request.user, settings.LANGUAGE_CODE_PRIMARY)
+                    setup, request.user, language=language)
 
                 # Init
                 self.model = modeladmin.model
@@ -72,21 +69,28 @@ class Handler:
                 self.handler = None
                 messages.error(request, _("No accounting system defined."))
 
-    def load(self, request):
+    def load(
+            self, request, params={}, delete_not_existing=False,
+            **filter_kwargs):
         if self.handler:
-            self.handler.load(self.model)
+            self.handler.load(
+                self.model, params, delete_not_existing, **filter_kwargs)
+            return
             try:
-                self.handler.load(self.model)
+                self.handler.load(
+                    self.model, params={}, delete_not_existing=False,
+                    **filter_kwargs)
             except:
                 messages.error(request, _("API Error: cannot retrieve data"))
 
 
 @admin.action(description=f"1. {_('Get data from account system')}")
 def accounting_get_data(modeladmin, request, queryset):
-    ''' load data '''
-    api_class = getattr(conn, modeladmin.model.__name__, None)    
+    ''' load data '''    
+    api_class = getattr(conn, modeladmin.model.__name__, None)
+    language = None  # i.e. English
     if api_class:
-        handler = Handler(modeladmin, request, queryset, api_class)
+        handler = Handler(modeladmin, request, queryset, api_class, language)
         handler.load(request)
     else:
         messages.warning(request, _("Cannot retrieve data for this list"))

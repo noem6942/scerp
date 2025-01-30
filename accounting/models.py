@@ -488,7 +488,7 @@ class Unit(AcctApp):
     code = models.CharField(
         _('Code'), max_length=50, help_text='Internal code for scerp')
     name = models.JSONField(
-        _('name'), blank=True, null=True,
+        _('name'), default=dict,
         help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
     is_default = models.BooleanField(_("Is default"), default=False)
 
@@ -579,8 +579,7 @@ class CostCenter(AcctApp):
     '''Master
     '''
     name = models.JSONField(
-        _('Name'), blank=True, null=True,
-        help_text="The name of the cost center.")
+        _('Name'), default=dict, help_text="The name of the cost center.")
     number = models.DecimalField(
         _('Number'), max_digits=20, decimal_places=2,
         help_text=_(
@@ -626,21 +625,20 @@ class CostCenter(AcctApp):
 class AccountCategory(AcctApp):
     '''Actual Account Category in cashCtrl
     AccountCategory and Account must be loaded before Tax and Rounding
-    '''
-    name = models.CharField(
-        _('Name'), max_length=50,
-        help_text=_("The name of the account category."))
+    '''    
+    name = models.JSONField(
+        _('Name'), default=dict, help_text="The name of the cost center.")
     number = models.FloatField(
         _('Number'), help_text=_("The name of the account category."))
     parent = models.ForeignKey(
-        'self', verbose_name=_('Parent'),
+        'self', verbose_name=_('Parent'), blank=True, null=True,
         on_delete=models.CASCADE, related_name='%(class)s_parent',
         help_text=_('The parent category.'))
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'number', 'parent'],
+                fields=['setup', 'c_id'], 
                 name='unique_setup_account_category'
             )
         ]
@@ -648,6 +646,9 @@ class AccountCategory(AcctApp):
         verbose_name = ('Account Category')
         verbose_name_plural = _('Account Categories')
 
+    def __str__(self):
+        return f"{self.number} {multi_language(self.name)}"
+        
 
 class Account(AcctApp):
     '''Actual cashCtrl account
@@ -718,6 +719,184 @@ class Account(AcctApp):
         verbose_name = ('Account')
         verbose_name_plural = _('Accounts')
         
+
+class Configuration(AcctApp):
+    """
+    Represents the system's configuration for financial and accounting settings.
+    """    
+    # Format Settings
+    csv_delimiter = models.CharField(
+        max_length=5, 
+        default=";", 
+        verbose_name=_("CSV Delimiter")
+    )
+    thousand_separator = models.CharField(
+        max_length=1, 
+        blank=True, 
+        null=True, 
+        verbose_name=_("Thousand Separator")
+    )
+    
+    # Account Settings
+    default_debtor_account = models.ForeignKey(
+        'Account', 
+        related_name='debtor_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Debtor Account")
+    )
+    default_opening_account = models.ForeignKey(
+        'Account', 
+        related_name='opening_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Opening Account")
+    )
+    default_creditor_account = models.ForeignKey(
+        'Account', 
+        related_name='creditor_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Creditor Account")
+    )
+    default_exchange_diff_account = models.ForeignKey(
+        'Account', 
+        related_name='exchange_diff_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Exchange Difference Account")
+    )
+    default_profit_allocation_account = models.ForeignKey(
+        'Account', 
+        related_name='profit_allocation_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Profit Allocation Account")
+    )
+    default_inventory_disposal_account = models.ForeignKey(
+        'Account', 
+        related_name='inventory_disposal_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Inventory Disposal Account")
+    )
+    default_input_tax_adjustment_account = models.ForeignKey(
+        'Account', 
+        related_name='input_tax_adjustment_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Input Tax Adjustment Account")
+    )
+    default_sales_tax_adjustment_account = models.ForeignKey(
+        'Account', 
+        related_name='sales_tax_adjustment_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Sales Tax Adjustment Account")
+    )
+    default_inventory_depreciation_account = models.ForeignKey(
+        'Account', 
+        related_name='inventory_depreciation_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Inventory Depreciation Account")
+    )
+    default_inventory_asset_revenue_account = models.ForeignKey(
+        'Account', 
+        related_name='inventory_asset_revenue_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Inventory Asset Revenue Account")
+    )
+    default_inventory_article_expense_account = models.ForeignKey(
+        'Account', 
+        related_name='inventory_article_expense_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Inventory Article Expense Account")
+    )
+    default_inventory_article_revenue_account = models.ForeignKey(
+        'Account', 
+        related_name='inventory_article_revenue_accounts', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name=_("Default Inventory Article Revenue Account")
+    )
+    default_sequence_number_inventory_asset = models.IntegerField(
+        default=4, 
+        verbose_name=_("Default Sequence Number for Inventory Asset")
+    )
+    default_sequence_number_inventory_article = models.IntegerField(
+        default=2, 
+        verbose_name=_("Default Sequence Number for Inventory Article")
+    )
+    default_sequence_number_person = models.IntegerField(
+        default=5, 
+        verbose_name=_("Default Sequence Number for Person")
+    )
+    default_sequence_number_journal = models.IntegerField(
+        default=6, 
+        verbose_name=_("Default Sequence Number for Journal")
+    )
+
+    # General Settings
+    first_steps_logo = models.BooleanField(
+        default=True, 
+        verbose_name=_("Show Logo in First Steps")
+    )
+    first_steps_account = models.BooleanField(
+        default=True, 
+        verbose_name=_("Enable First Steps Account Setup")
+    )
+    first_steps_currency = models.BooleanField(
+        default=True, 
+        verbose_name=_("Enable First Steps Currency Setup")
+    )
+    first_steps_pro_demo = models.BooleanField(
+        default=True, 
+        verbose_name=_("Enable Pro Demo First Steps")
+    )
+    first_steps_tax_rate = models.BooleanField(
+        default=True, 
+        verbose_name=_("Enable First Steps Tax Rate Setup")
+    )
+    first_steps_tax_type = models.BooleanField(
+        default=True, 
+        verbose_name=_("Enable First Steps Tax Type Setup")
+    )
+    order_mail_copy_to_me = models.BooleanField(
+        default=True, 
+        verbose_name=_("Copy Order Mails to Me")
+    )
+    tax_accounting_method = models.CharField(
+        max_length=50, 
+        default="AGREED", 
+        verbose_name=_("Tax Accounting Method")
+    )
+    journal_import_force_sequence_number = models.BooleanField(
+        default=False, 
+        verbose_name=_("Force Sequence Number for Journal Import")
+    )
+
+    def __str__(self):
+        return f"Configuration {self.pk}"
+
+    class Meta:
+        verbose_name = _("Configuration")
+        verbose_name_plural = _("Configurations")
+
 
 class Tax(AcctApp):
     ''' Master

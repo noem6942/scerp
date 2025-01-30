@@ -91,8 +91,8 @@ def make_timeaware(naive_datetime):
 
 def multi_language(value_dict):
     '''show language default instead of all values
-    '''
-    if isinstance(value_dict, str):
+    '''    
+    if value_dict is None or isinstance(value_dict, str):
         return value_dict
 
     # get languages
