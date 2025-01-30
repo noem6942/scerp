@@ -588,7 +588,7 @@ class AccountCategoryAdmin(CashCtrlAdmin):
 
     form = forms.AccountCategoryAdminForm  
     list_display = (
-        'name', 'display_number', 'display_parent') + CASH_CTRL.LIST_DISPLAY
+        'display_name', 'display_number', 'display_parent') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name', 'number')
     list_filter = ('setup',)
     readonly_fields = ('display_name',)

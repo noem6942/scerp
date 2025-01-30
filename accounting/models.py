@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import models, IntegrityError
 from django.db.models import UniqueConstraint
+from django.db.models.functions import Cast
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -642,7 +643,8 @@ class AccountCategory(AcctApp):
                 name='unique_setup_account_category'
             )
         ]
-        ordering = ['number']
+        # Lexicographic ordering
+        ordering = [Cast('number', models.CharField())]  
         verbose_name = ('Account Category')
         verbose_name_plural = _('Account Categories')
 
