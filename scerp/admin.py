@@ -298,7 +298,7 @@ def filter_manytomany(modeladmin, db_field, request, **kwargs):
     Limit availabe manytomany keys to items you are allowed to choose from
     """
     tenant_data = get_tenant(request)  # Get the tenant from the request
-    
+
     if db_field.name in getattr(
             modeladmin, 'related_tenant_manytomany_fields', []):
         kwargs['queryset'] = Recipient.objects.filter(
@@ -459,12 +459,12 @@ class BaseAdmin(ModelAdmin):
         # Check if tenant mandatory
         add_tenant = getattr(self, 'has_tenant_field', False)
 
-        # Check tenant        
+        # Check tenant
         if add_tenant and not getattr(instance, 'tenant', None):
             # Get the tenant from the request
             tenant_data = get_tenant(request)
 
-            # Set initial value            
+            # Set initial value
             instance.tenant = Tenant.objects.get(id=tenant_data['id'])
 
         # Proceed with logging

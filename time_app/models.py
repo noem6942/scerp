@@ -37,16 +37,13 @@ class Workspace(TenantAbstract):
     def __str__(self):
         return self.name
 
-    def clean(self):
-        """
-        Custom validation for Workspace creation.
-        Only Trustees can create workspaces.
-        """
+    def save(self, *args, **kwargs):
+        # Validate tenant assignment (this replaces the clean method logic)
         if not self.tenant.is_app_time_trustee:
             raise ValidationError("Only Trustees can create workspaces")
 
-        # Optional: Call the parent clean method if you have other validations
-        super().clean()
+        # Now proceed with saving the instance
+        super().save(*args, **kwargs)
 
     class Meta:        
         ordering = ['name']
