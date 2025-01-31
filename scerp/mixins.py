@@ -118,7 +118,9 @@ def multi_language(value_dict):
 def init_yaml_data(
         app_name, tenant, created_by, filename_yaml, accounting_setup=None,
         model_filter=[]):
-
+            
+    return  # currently no installations when create a new tenant
+    
     # Load the YAML file
     file_path = os.path.join(
         settings.BASE_DIR, app_name, filename_yaml)
@@ -133,6 +135,7 @@ def init_yaml_data(
                     continue
                 for data in data_list:
                     # Prepare data
+                    print("*data", data)
                     data.update({
                         'tenant': tenant,
                         'created_by': created_by
