@@ -19,6 +19,7 @@ APP_MODEL_ORDER = {
     'auth': {  # App label
         'symbol': '(A)',
         'is_mandatory': True,
+        'needs_tenant': False,
         'models': {  # Models order, postfix
             'group': ('1', ''),
             'user': ('2', '')
@@ -27,6 +28,7 @@ APP_MODEL_ORDER = {
     'core': {
         'symbol': '@',
         'is_mandatory': True,
+        'needs_tenant': False,
         'models': {
             'Message': ('1', ''),
             'Tenant': ('2', ''),
@@ -39,6 +41,7 @@ APP_MODEL_ORDER = {
     'crm': {
         'symbol': 'C',
         'is_mandatory': True,
+        'needs_tenant': True,
         'models': {
             'Title': ('1', ''),
             'Subscriber': ('2', ''),
@@ -49,6 +52,7 @@ APP_MODEL_ORDER = {
     'meeting': {
         'symbol': 'M',
         'is_mandatory': False,
+        'needs_tenant': True,
         'models': {
             'Meeting': ('1', ''),
             'Agenda': ('2',  '')
@@ -57,6 +61,7 @@ APP_MODEL_ORDER = {
     'vault': {
         'symbol': 'V',
         'is_mandatory': False,
+        'needs_tenant': True,
         'models': {
             'RegistrationPlanCanton': ('1', ''),
             'RegistrationPositionCanton': ('2', '')
@@ -65,6 +70,7 @@ APP_MODEL_ORDER = {
     'accounting': {
         'symbol': 'A',
         'is_mandatory': False,
+        'needs_tenant': True,
         'models': {
             # Admin
             'APISetup': ('* 01', ''),
@@ -107,6 +113,7 @@ APP_MODEL_ORDER = {
     'asset': {
         'symbol': 'AT',
         'is_mandatory': False,
+        'needs_tenant': True,
         'models': {
             'Department': ('1', ''),
             'DeviceLocation': ('2', ''),
@@ -122,12 +129,14 @@ APP_MODEL_ORDER = {
     'billing': {
         'symbol': 'B',
         'is_mandatory': False,
+        'needs_tenant': True,
         'models': {
         }
     },
     'time_app': {
         'symbol': 'T',
         'is_mandatory': False,
+        'needs_tenant': True,
         'models': {
             'Workspace': ('1', ''),
             'ClockifyUser': ('2', ''),

@@ -70,6 +70,7 @@ class Site(AdminSite):
 
         # Get the default app list from the superclass
         app_list = super().get_app_list(request)
+        tenant = get_tenant(request)
 
         if app_label is None:
             # Process the general admin index page
@@ -91,25 +92,30 @@ class Site(AdminSite):
 
                 # Set session variables
                 request.session['tenant_message_shown'] = True  # Mark message as shown
-            return self._get_ordered_app_list(app_list)
+            return self._get_ordered_app_list(app_list, request)
 
         # Else render a specific app's models
-        return self._get_app_detail_list(app_list, app_label)
+        return self._get_app_detail_list(app_list, app_label, request)
 
-    def _get_ordered_app_list(self, app_list):
+    def _get_ordered_app_list(self, app_list, request):
         '''Generate an ordered list of all apps.'''
         ordered_app_list = []
+        tenant = get_tenant(request)
 
         for app_label, app_info in APP_MODEL_ORDER.items():
-            app = self._find_app(app_list, app_label)
-            if app:
-                self._process_app(app, app_info)
-                ordered_app_list.append(app)
+            if not app_info.get('needs_tenant', True) or tenant:
+                app = self._find_app(app_list, app_label)
+                if app:
+                    self._process_app(app, app_info)
+                    ordered_app_list.append(app)
 
         # Append remaining apps
         remaining_apps = [
             app for app in app_list
-            if app['app_label'] not in APP_MODEL_ORDER
+            if (
+                app['app_label'] not in APP_MODEL_ORDER
+                and (not app_info.get('needs_tenant', True) or tenant)
+            )
         ]
         ordered_app_list.extend(remaining_apps)
 
