@@ -121,6 +121,7 @@ else:
             'PORT': env('DB_PORT', default='3306'),
             'OPTIONS': {
                 'charset': 'utf8mb4',
+                'sql_mode': 'STRICT_TRANS_TABLES',
             },            
         }
     }
