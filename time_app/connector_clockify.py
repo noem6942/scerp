@@ -313,8 +313,8 @@ if __name__ == "__main__":
     clock = Clock(api_key, workspace_id)
 
     # Get
-    if False:  # Set to True to log a time entry
-        data_list = clock.get_projects()
+    if True:  # Set to True to log a time entry
+        data_list = clock.get_time_entries()
         for data in data_list:
             print("*data", data)
 
