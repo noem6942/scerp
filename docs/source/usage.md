@@ -1,24 +1,18 @@
-# Hello World
+# Introduction
 
 Welcome to the documentation! This is your first manual page.
 
-## Features
+## Overview
 
 - Easy to use
 - Written in Markdown
 - Integrated with Django
 
-
-  | Name    | Age | Gender |
-  |---------|-----|--------|
-  | John    | 28  | Male   |
-  | Alice   | 24  | Female |
   
-  
-## Blabla  
+## Modules  
 
 
-  | Name    | Age | Gender |
-  |---------|-----|--------|
-  | John    | 28  | Male   |
-  | Alice   | 24  | Female |
+  | Name        | Version |
+  |-------------|---------|
+  | CRM         | 1.0     |
+  | Accounting  | 1.0     |
