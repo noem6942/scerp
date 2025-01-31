@@ -3,6 +3,11 @@ Django settings for scerp project.
 
 To check:
     Hosting: https://oriented.net/hosting/python
+    
+Libraries:
+    pipreqs . --ignore ignore --force    
+    INFO: Successfully saved requirements file in .\requirements.txt
+    
 """
 # settings.py
 import environ
