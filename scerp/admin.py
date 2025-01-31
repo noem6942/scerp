@@ -19,7 +19,7 @@ from django.utils.safestring import mark_safe
 from django.utils.formats import date_format
 from django.utils.translation import get_language, gettext_lazy as _
 
-from core.models import Message
+from core.models import Message, Tenant
 from core.safeguards import get_tenant, filter_query_for_tenant, save_logging
 from .exceptions import APIRequestError
 
@@ -289,8 +289,19 @@ def filter_foreignkeys(modeladmin, db_field, request, kwargs):
         # Dynamically get the related model using db_field.remote_field.model
         related_model = db_field.remote_field.model
 
-        # Filter the queryset of the `period` field by tenant
+        # Filter the queryset of the field by tenant
         kwargs['queryset'] = related_model.objects.filter(
+            tenant__id=tenant_data['id'])
+
+def filter_manytomany(modeladmin, db_field, request, **kwargs):
+    """
+    Limit availabe manytomany keys to items you are allowed to choose from
+    """
+    tenant_data = get_tenant(request)  # Get the tenant from the request
+    
+    if db_field.name in getattr(
+            modeladmin, 'related_tenant_manytomany_fields', []):
+        kwargs['queryset'] = Recipient.objects.filter(
             tenant__id=tenant_data['id'])
 
 
@@ -319,6 +330,9 @@ class BaseTabularInline(admin.TabularInline):
         filter_foreignkeys(self, db_field, request, kwargs)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        filter_manytomany(self, db_field, request, kwargs)
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 class BaseAdmin(ModelAdmin):
     """
@@ -430,6 +444,10 @@ class BaseAdmin(ModelAdmin):
         filter_foreignkeys(self, db_field, request, kwargs)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        filter_manytomany(self, db_field, request, kwargs)
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return filter_queryset(self, request, queryset)
@@ -438,8 +456,18 @@ class BaseAdmin(ModelAdmin):
         """
         Override save to include additional logging or other custom logic.
         """
-        # Proceed with logging
+        # Check if tenant mandatory
         add_tenant = getattr(self, 'has_tenant_field', False)
+
+        # Check tenant        
+        if add_tenant and not getattr(instance, 'tenant', None):
+            # Get the tenant from the request
+            tenant_data = get_tenant(request)
+
+            # Set initial value            
+            instance.tenant = Tenant.objects.get(id=tenant_data['id'])
+
+        # Proceed with logging
         queryset = save_logging(instance, request, add_tenant=add_tenant)
 
         # APISetup update

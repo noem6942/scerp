@@ -4,6 +4,7 @@ from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import User, Group
 from django.utils.translation import gettext_lazy as _
 
+from core.safeguards import get_tenant, filter_query_for_tenant
 from scerp.admin import BaseAdmin, Display
 from scerp.admin_site import admin_site
 from . import actions as a
@@ -18,15 +19,22 @@ admin_site.register(Group, GroupAdmin)
 
 @admin.register(Message, site=admin_site) 
 class MessageAdmin(BaseAdmin):
-    list_display = ('name', 'modified_at', 'is_inactive')
+    ''' currently only a superuser function '''
+    list_display = (
+        'name', 'severity', 'modified_at', 'show_recipients', 'is_inactive')
     search_fields = ('name', 'text')    
     fieldsets = (
         (None, {
-            'fields': ('name', 'text', 'is_inactive'),
+            'fields': (
+                'name', 'text', 'recipients', 'severity', 'is_inactive'),
             'classes': ('expand',),            
         }),
     )  
 
+    @admin.display(description=_('Photo'))
+    def show_recipients(self, obj):        
+        return ", ".join([tenant.name for tenant in obj.recipients.all()])
+            
 
 @admin.register(UserProfile, site=admin_site) 
 class UserProfileAdmin(BaseAdmin):

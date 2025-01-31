@@ -128,10 +128,10 @@ class Message(LogAbstract, NotesAbstract):
         verbose_name=_("Severity"),
         help_text=_("Current status of the meeting.")
     )
-    recepients = models.ManyToManyField(
-        Tenant, verbose_name=_('recepients'), 
+    recipients = models.ManyToManyField(
+        Tenant, verbose_name=_('recipients'), 
         related_name='%(class)s_tenant', 
-        help_text=_('empty if all recepients'))
+        help_text=_('empty if all recipients'))
         
     def __str__(self):
         return f"{self.name}, {self.modified_at}"
