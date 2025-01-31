@@ -331,7 +331,7 @@ class BaseTabularInline(admin.TabularInline):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
-        filter_manytomany(self, db_field, request, kwargs)
+        filter_manytomany(self, db_field, request, **kwargs)
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 class BaseAdmin(ModelAdmin):
@@ -445,7 +445,7 @@ class BaseAdmin(ModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
-        filter_manytomany(self, db_field, request, kwargs)
+        filter_manytomany(self, db_field, request, **kwargs)
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
     def get_queryset(self, request):
