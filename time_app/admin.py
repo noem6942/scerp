@@ -16,7 +16,7 @@ class WorkspaceAdmin(BaseAdmin):
     fieldsets = (
         (_('Name'), {
             'fields': (
-                'name', 'mandatory_hours', 'api_key', 'c_id'),
+                'name', 'mandatory_hours', 'api_key', 'c_id', 'tenant'),
             'classes': ('expand',),
         }),    
     )

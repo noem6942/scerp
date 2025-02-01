@@ -56,6 +56,7 @@ class TimeEntryListAPIView(APIView):
 
 class SyncTimeEntriesAPIView(APIView):
     def get(self, request, *args, **kwargs):
+            messages = []
             #try:
             # Instantiate Clock object
             api_key = "YzJkYTg3NTgtZWU5Zi00ZWM5LThhOTMtZjk0OTdlOTY4ZTBi"
@@ -93,7 +94,9 @@ class SyncTimeEntriesAPIView(APIView):
                 project = Project.objects.filter(
                     c_id=entry['projectId']).first()
                 if not project:
-                    print(f"*project {entry['projectId']} not existing)")
+                    msg = f"*project {entry['projectId']} not existing)"
+                    messages.append(msg)
+                    print(msg)
                     continue
 
                 # Get or create the time entry
@@ -128,11 +131,17 @@ class SyncTimeEntriesAPIView(APIView):
                 for tag_id in tag_ids:
                     tag = Tag.objects.filter(c_id=tag_id).first()
                     if not tag:
-                        print(f"*project {tag_id} not existing)")
+                        msg = f"*tag {tag_id} not existing)"
+                        messages.append(msg)
+                        print(msg)                        
                         continue
 
+            msg = 'ok'
+            if messages:
+                msg += '.'.joins(messages)
+                
             return Response({
-                'message': 'ok',
+                'message': msg,
                 'created': created_entries,
                 'updated': updated_entries,
             }, status=status.HTTP_200_OK)
