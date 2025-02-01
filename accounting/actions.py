@@ -73,13 +73,9 @@ class Handler:
             self, request, params={}, delete_not_existing=False,
             **filter_kwargs):
         if self.handler:
-            self.handler.load(
-                self.model, params, delete_not_existing, **filter_kwargs)
-            return
             try:
                 self.handler.load(
-                    self.model, params={}, delete_not_existing=False,
-                    **filter_kwargs)
+                    self.model, params, delete_not_existing, **filter_kwargs)
             except:
                 messages.error(request, _("API Error: cannot retrieve data"))
 

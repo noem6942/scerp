@@ -113,12 +113,9 @@ class CashCtrlSync:
             self.setup, user=user, language=self.language)
 
         # Load data
-        self.handler.load(model, params, delete_not_existing, **filter_kwargs)
-        return
-        
         try:
             logger.info(f"Fetching data for {self.instance} from CashCtrl")
-
+            self.handler.load(model, params, delete_not_existing, **filter_kwargs)
         except Exception as e:
             logger.error(
                 f"Failed to fetch {self.instance} from CashCtrl: {e}")
