@@ -831,6 +831,10 @@ class Ledger(AcctApp):
     type = models.CharField(
         _('Type'), max_length=1, choices=TYPE,
         help_text=_("Category or account"))
+    parent = models.ForeignKey(
+        'self', verbose_name=_('Parent'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_parent',
+        help_text=_('The parent category.'))        
     hrm = models.DecimalField(
          _('HRM 2'), max_digits=10, decimal_places=2, null=True, blank=True,
         help_text=_('HRM 2 number, e.g. 3100.01'))
@@ -875,6 +879,8 @@ class LedgerBalance(Ledger):
             )
         ]
         ordering = ['hrm']
+        verbose_name = ('Balance')
+        verbose_name_plural = _('Balance')        
 
 
 class FunctionalLedger(Ledger):
