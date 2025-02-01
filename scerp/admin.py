@@ -172,7 +172,10 @@ class Display:
             return None
 
         # Format number
-        number_str = format_big_number(value, round_digits=round_digits)
+        try:
+            number_str = format_big_number(value, round_digits=round_digits)
+        except:
+            number_str = value
         html = '<span style="text-align: right; display: block;">{}</span>'
         return format_html(html, number_str)
 
@@ -285,20 +288,31 @@ def filter_foreignkeys(modeladmin, db_field, request, kwargs):
     """
     if db_field.name in getattr(modeladmin, 'related_tenant_fields', []):
         tenant_data = get_tenant(request)  # Get the tenant from the request
-
+        tenant_id = tenant_data.get('id')
+        
+        if not tenant_id:
+            raise ValueError("Tenant ID is missing from tenant data")        
+        
         # Dynamically get the related model using db_field.remote_field.model
         related_model = db_field.remote_field.model
 
         # Filter the queryset of the field by tenant
-        kwargs['queryset'] = related_model.objects.filter(
-            tenant__id=tenant_data['id'])
+        if hasattr(related_model, 'tenant'):
+            kwargs['queryset'] = related_model.objects.filter(
+                tenant_id=tenant_id)
+        else:
+            kwargs['queryset'] = related_model.objects.none() 
 
 def filter_manytomany(modeladmin, db_field, request, **kwargs):
     """
     Limit availabe manytomany keys to items you are allowed to choose from
     """
     tenant_data = get_tenant(request)  # Get the tenant from the request
-
+    tenant_id = tenant_data.get('id')
+    
+    if not tenant_id:
+        raise ValueError("Tenant ID is missing from tenant data")  
+            
     if db_field.name in getattr(
             modeladmin, 'related_tenant_manytomany_fields', []):
         kwargs['queryset'] = Recipient.objects.filter(
@@ -310,7 +324,19 @@ def filter_queryset(modeladmin, request, queryset):
     Limit queryset based on user or other criteria.
     """
     if getattr(modeladmin, 'has_tenant_field', False):
-        # Filter queryset
+        tenant_data = get_tenant(request)  # Get tenant information
+        
+        # Use select_related for ForeignKey fields and prefetch_related for Many-to-Many
+        optimize_foreigns = getattr(modeladmin, 'optimize_foreigns', [])
+        optimize_many_to_many = getattr(
+            modeladmin, 'optimize_many_to_many', [])
+        
+        if optimize_foreigns:
+            queryset = queryset.select_related(*optimize_foreigns)
+        if optimize_many_to_many:
+            queryset = queryset.prefetch_related(*optimize_many_to_many)
+        
+        # Filter queryset based on tenant-specific criteria
         try:
             queryset = filter_query_for_tenant(request, queryset)
         except Exception as e:
@@ -333,6 +359,7 @@ class BaseTabularInline(admin.TabularInline):
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         filter_manytomany(self, db_field, request, **kwargs)
         return super().formfield_for_manytomany(db_field, request, **kwargs)
+
 
 class BaseAdmin(ModelAdmin):
     """
@@ -499,13 +526,16 @@ class BaseAdmin(ModelAdmin):
         Loop through each formset to check if we have some required fields
         that can be derived from form.instance
         """
+        # See if some special fields need to be considered
+        save_for_related = getattr(self, 'save_for_related', [])
+        
         for formset in formsets:
             # Save the related EventLog instances without committing them to
             # the DB yet
             field_names = [x.name for x in formset.model._meta.get_fields()]
             for obj in formset.save(commit=False):
                 # Check related must fields
-                for field_name in REQUIRED_LOGGING_FIELDS:
+                for field_name in REQUIRED_LOGGING_FIELDS + save_for_related:
                     if field_name in field_names:
                         value = getattr(form.instance, field_name)
                         setattr(obj, field_name, value)

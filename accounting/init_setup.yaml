@@ -279,14 +279,14 @@ AccountCategories:
     parent_number: EXPENSE
     name:
       de: "Ausgaben (IV)"
-      en: "Expenses (IS)"
+      en: "Expenses (IC)"
       fr: "Dépenses (CR)"
       it: "Spese (CE)"
   - number: 4.2
     parent_number: REVENUE
     name:
       de: "Einnahmen (IV)"
-      en: "Revenue (IS)"
+      en: "Revenue (IC)"
       fr: "Revenus (CI)"
       it: "Entrate (CI)"
 

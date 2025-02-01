@@ -9,6 +9,7 @@ from enum import Enum
 from time import sleep
 
 import json
+import logging
 import re
 import requests
 import xmltodict
@@ -25,24 +26,24 @@ and German descriptions as comments.
 """
 class STANDARD_ACCOUNT(Enum):
     # settings
-    OPENING_BALANCE = '9100'  # Eröffnungsbilanz
-    EXCHANGE_DIFFERENCES = '6960'  # Kursdifferenzen
-    ANNUAL_PROFIT_OR_LOSS = '9200'  # Jahresgewinn oder -verlust
-    TRADING_INCOME = '3200'  # Handelsertrag
-    COST_OF_GOODS_SOLD = '4200'  # Warenaufwand
-    DEPRECIATION = '6800'  # Abschreibungen
-    ASSET_DISPOSALS = '6801'  # Anlagenabgänge
-    REVENUE_FROM_MOBILE_ASSETS = '7900'  # Ertrag Mobile Sachanlagen
-    RECEIVABLES = '1100'  # Debitoren
-    PAYABLES = '2000'  # Kreditoren
-    VAT_RECONCILIATION = '2202'  # Umsatzsteuerausgleich Abrechnungsmethode
-    INPUT_TAX_RECONCILIATION = '1172'  # Vorsteuerausgleich Abrechnungsmethode
+    OPENING_BALANCE = 9100  # Eröffnungsbilanz
+    EXCHANGE_DIFFERENCES = 6960  # Kursdifferenzen
+    ANNUAL_PROFIT_OR_LOSS = 9200  # Jahresgewinn oder -verlust
+    TRADING_INCOME = 3200  # Handelsertrag
+    COST_OF_GOODS_SOLD = 4200  # Warenaufwand
+    DEPRECIATION = 6800  # Abschreibungen
+    ASSET_DISPOSALS = 6801  # Anlagenabgänge
+    REVENUE_FROM_MOBILE_ASSETS = 7900  # Ertrag Mobile Sachanlagen
+    RECEIVABLES = 1100  # Debitoren
+    PAYABLES = 2000  # Kreditoren
+    VAT_RECONCILIATION = 2202  # Umsatzsteuerausgleich Abrechnungsmethode
+    INPUT_TAX_RECONCILIATION = 1172  # Vorsteuerausgleich Abrechnungsmethode
 
     # not directly in settings
-    PRAE_TAX = '1170'  # Vorsteuer
-    REVENUE_TAX = '2200'  # Umsatzsteuer
-    SERVICE_REVENUE = '3400'  # Dienstleistungsertrag
-    ROUNDING = '6961'  # Rundungsdifferenzen
+    PRAE_TAX = 1170  # Vorsteuer
+    REVENUE_TAX = 2200  # Umsatzsteuer
+    SERVICE_REVENUE = 3400  # Dienstleistungsertrag
+    ROUNDING = 6961  # Rundungsdifferenzen
 
 
 # class COUNTRY
@@ -283,11 +284,14 @@ class CashCtrl():
     # Xml <-> JSON
     @staticmethod
     def clean_value(value):
-        ''' use cashctrl <values> xml '''
+        ''' use cashctrl <values> xml and remove <values> '''
         if isinstance(value, str) and value.startswith('<values>'):
             try:
-                # XML
-                return xmltodict.parse(value)
+                # XML to dict
+                # Skip 'values' if it exists, otherwise return the 
+                # original dictionary                
+                value_dict = xmltodict.parse(value)
+                return value_dict.get('values', value_dict)
             except Exception as e:
                 raise ValueError(f"{value}: Could not parse XML: {str(e)}")
 
@@ -358,7 +362,8 @@ class CashCtrl():
         
         # Request
         try:
-            response = requests.get(url, params=params, auth=self.auth, timeout=timeout)
+            response = requests.get(
+                url, params=params, auth=self.auth, timeout=timeout)
             if response.status_code != 200:
                 # Decode the content and include it in the error message
                 content = getattr(response, '_content', None)
@@ -410,7 +415,7 @@ class CashCtrl():
                 )
 
                 if response.status_code == 429:  # Rate limit
-                    print("Rate limit reached. Retrying...")
+                    logging.info("Rate limit reached. Retrying...")
                     sleep(self.SLEEP_DURATION)
                     continue
 
@@ -430,13 +435,15 @@ class CashCtrl():
                 return self.clean_dict(content)
 
             except requests.exceptions.Timeout:
-                print(f"Attempt {attempt + 1}/{self.MAX_TRIES} timed out.")
+                logging.error(
+                    f"Attempt {attempt + 1}/{self.MAX_TRIES} timed out.")
             except requests.exceptions.RequestException as e:
-                print(f"An error occurred during the POST request: {e}")
+                logging.error(
+                    f"An error occurred during the POST request: {e}")
 
             # Sleep before retrying if it's not the last attempt
             if attempt < self.MAX_TRIES - 1:
-                print(
+                logging.info(
                     f"Retrying POST request to {url} "
                     f"(Attempt {attempt + 2})...")
                 sleep(self.SLEEP_DURATION)

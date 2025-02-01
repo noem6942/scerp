@@ -274,6 +274,21 @@ def account_category_pre_delete(sender, instance, **kwargs):
     sync.delete()
 
 
+# Account
+@receiver(post_save, sender=models.Account)
+def account_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Account. '''
+    sync = CashCtrlSync(sender, instance, conn.Account)
+    sync.save(created=created)
+
+
+@receiver(pre_delete, sender=models.Account)
+def account_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Account. '''
+    sync = CashCtrlSync(sender, instance, conn.Account)
+    sync.delete()
+
+
 # Rounding
 @receiver(post_save, sender=models.Rounding)
 def rounding_post_save(sender, instance, created, **kwargs):

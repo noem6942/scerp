@@ -95,7 +95,7 @@ class Site(AdminSite):
             return self._get_ordered_app_list(app_list, request)
 
         # Else render a specific app's models
-        return self._get_app_detail_list(app_list, app_label, request)
+        return self._get_app_detail_list(app_list, app_label)
 
     def _get_ordered_app_list(self, app_list, request):
         '''Generate an ordered list of all apps.'''

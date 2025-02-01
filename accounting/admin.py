@@ -9,9 +9,9 @@ from import_export.admin import ExportMixin, ImportExportModelAdmin
 
 from core.safeguards import get_tenant
 from scerp.admin import (
-     BaseAdmin, Display, verbose_name_field, make_multilanguage, 
-     set_inactive, set_protected)
-from scerp.admin_site import admin_site     
+     BaseAdmin, BaseTabularInline, Display, 
+     verbose_name_field, make_multilanguage, set_inactive, set_protected)
+from scerp.admin_site import admin_site
 from scerp.mixins import multi_language
 from . import actions as a
 from . import forms
@@ -39,7 +39,7 @@ class CASH_CTRL:
         'c_rev_last_updated_by'
     ]
     WARNING_READ_ONLY = _("Read only model. <i>Use cashControl for edits!</i>")
-    
+
     LIST_DISPLAY = (
         'display_last_update', 'c_id', 'message', 'is_enabled_sync')
 
@@ -56,16 +56,16 @@ class MappingIdInline(admin.TabularInline):
         return False
 
 @admin.register(models.APISetup, site=admin_site)
-class APISetupAdmin(BaseAdmin):    
+class APISetupAdmin(BaseAdmin):
     has_tenant_field = True
     related_tenant_fields = ['tenant']
-    
+
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
     readonly_fields = ('display_data',)
     actions = [
         a.api_setup_get,
-        a.init_setup,        
+        a.init_setup,
         a.api_setup_delete_hrm_accounts,
         a.api_setup_delete_system_accounts,
         a.api_setup_delete_hrm_categories,
@@ -92,9 +92,9 @@ class APISetupAdmin(BaseAdmin):
 
 
 class CashCtrlAdmin(BaseAdmin):
-    has_tenant_field = True        
+    has_tenant_field = True
 
-    def get_cash_ctrl_fields(self):        
+    def get_cash_ctrl_fields(self):
         fields = CASH_CTRL.FIELDS + CASH_CTRL.SUPER_USER_EDITABLE_FIELDS
         if getattr(self, 'has_revenue_id', False):
             for field in CASH_CTRL.REVENUE_FIELDS:
@@ -133,16 +133,16 @@ class CashCtrlAdmin(BaseAdmin):
                 'classes': ('collapse',),
             }),
         )
-        
+
     def get_form(self, request, obj=None, change=False, **kwargs):
         ''' set default value for setup '''
         # Get the form from the parent class
         form = super().get_form(request, obj, change, **kwargs)
 
         # Only set default value if this is a new instance (obj is None)
-        if not obj:  
+        if not obj:
             tenant = get_tenant(request)
-            
+
             # Fetch the default setup value
             default_value = models.APISetup.objects.filter(
                 id=tenant['setup_id'], is_default=True).first()
@@ -150,7 +150,7 @@ class CashCtrlAdmin(BaseAdmin):
             # If no default value found, raise an error
             if not default_value:
                 raise IntegrityError(f"No default_value for {self.org_name}")
-            
+
             # Set the default value for the 'setup' field in the form
             form.base_fields['setup'].initial = default_value
 
@@ -170,6 +170,10 @@ class CashCtrlAdmin(BaseAdmin):
     @admin.display(description=_('Parent'))
     def display_parent(self, obj):
         return self.display_name(obj.parent)
+
+    @admin.display(description=_('last update'))
+    def display_number(self, obj):
+        return Display.big_number(obj.number)
 
 
 class TenantFilteredSetupListFilter(SimpleListFilter):
@@ -192,14 +196,14 @@ class TenantFilteredSetupListFilter(SimpleListFilter):
     def queryset(self, request, queryset):
         """Filter queryset based on selected setup in admin filter."""
         if self.value():
-            return filter_query_for_tenant(request, queryset)            
+            return filter_query_for_tenant(request, queryset)
         return queryset  # No filter applied
 
 
 @admin.register(models.Setting, site=admin_site)
-class Setting(BaseAdmin):    
+class Setting(BaseAdmin):
     related_tenant_fields = ['setup']
-    
+
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
 
@@ -227,7 +231,7 @@ class Setting(BaseAdmin):
 @admin.register(models.CustomFieldGroup, site=admin_site)
 class CustomFieldGroupAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup']
-    
+
     list_display = ('code', 'name', 'type') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
     list_filter = ('type', TenantFilteredSetupListFilter)
@@ -241,9 +245,9 @@ class CustomFieldGroupAdmin(CashCtrlAdmin):
     )
 
 @admin.register(models.CustomField, site=admin_site)
-class CustomFieldAdmin(CashCtrlAdmin):    
+class CustomFieldAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup', 'group']
-    
+
     list_display = (
         'code', 'group', 'name', 'data_type') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
@@ -269,7 +273,7 @@ class LocationResource(resources.ModelResource):
 @admin.register(models.Location, site=admin_site)
 class Location(ImportExportModelAdmin, CashCtrlAdmin):
     related_tenant_fields = ['setup', 'logo']
-    
+
     resource_class = LocationResource
     has_tenant_field = True
     is_readonly = False
@@ -316,7 +320,7 @@ class Location(ImportExportModelAdmin, CashCtrlAdmin):
 @admin.register(models.FiscalPeriod, site=admin_site)
 class FiscalPeriodAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup']
-    is_readonly = True    
+    is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
 
     list_display = ('name', 'start', 'end', 'is_current', 'display_last_update')
@@ -333,16 +337,16 @@ class FiscalPeriodAdmin(CashCtrlAdmin):
 
 
 @admin.register(models.Currency, site=admin_site)
-class CurrencyAdmin(CashCtrlAdmin):    
+class CurrencyAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup']
-    
-    form = forms.CurrencyAdminForm  
+
+    form = forms.CurrencyAdminForm
     list_display = ('code', 'is_default', 'rate') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = ('is_default', TenantFilteredSetupListFilter)    
+    list_filter = ('is_default', TenantFilteredSetupListFilter)
     readonly_fields = ('display_description',)
     actions = [a.accounting_get_data]
-    
+
     fieldsets = (
         (None, {
             'fields': (
@@ -352,25 +356,25 @@ class CurrencyAdmin(CashCtrlAdmin):
         (_('Description'), {
             'fields': (*make_multilanguage('description'), ),
             'classes': ('collapse',),
-        }),        
+        }),
     )
 
     @admin.display(description=_('description'))
     def display_description(self, obj):
         return multi_language(obj.description)
-   
+
 
 @admin.register(models.Title, site=admin_site)
-class TitleAdmin(CashCtrlAdmin):  
-    related_tenant_fields = ['setup']  
-    
-    form = forms.TitleAdminForm  
+class TitleAdmin(CashCtrlAdmin):
+    related_tenant_fields = ['setup']
+
+    form = forms.TitleAdminForm
     list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
     list_filter = ('gender', TenantFilteredSetupListFilter)
     readonly_fields = ('display_name',)
-    actions = [a.accounting_get_data]    
-    
+    actions = [a.accounting_get_data]
+
     fieldsets = (
         (None, {
             'fields': (
@@ -381,54 +385,54 @@ class TitleAdmin(CashCtrlAdmin):
             'fields': (
                 *make_multilanguage('name'), *make_multilanguage('sentence')),
             'classes': ('collapse',),
-        }),        
+        }),
     )
-   
+
 
 @admin.register(models.Unit, site=admin_site)
 class UnitAdmin(CashCtrlAdmin):
-    related_tenant_fields = ['setup']  
-    
-    form = forms.UnitAdminForm  
+    related_tenant_fields = ['setup']
+
+    form = forms.UnitAdminForm
     list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
     list_filter = (TenantFilteredSetupListFilter,)
     readonly_fields = ('display_name',)
-    actions = [a.accounting_get_data]    
-    
+    actions = [a.accounting_get_data]
+
     fieldsets = (
         (None, {
             'fields': (
                 'code', *make_multilanguage('name')),
             'classes': ('collapse',),
-        }),        
+        }),
     )
 
 
 @admin.register(models.Tax, site=admin_site)
 class TaxAdmin(CashCtrlAdmin):
-    related_tenant_fields = ['setup']  
-    
-    form = forms.TaxAdminForm  
+    related_tenant_fields = ['setup']
+
+    form = forms.TaxAdminForm
     list_display = (
         'code', 'display_name', 'display_percentage') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
     list_filter = ('percentage', TenantFilteredSetupListFilter)
     readonly_fields = ('display_name',)
-    actions = [a.accounting_get_data]    
-    
+    actions = [a.accounting_get_data]
+
     fieldsets = (
         (None, {
             'fields': (
                 'code', 'percentage', 'calc_type', 'display_percentage_flat'),
             'classes': ('collapse',),
-        }),    
+        }),
         (_('Text'), {
-            'fields': (                
+            'fields': (
                 *make_multilanguage('name'),
                 *make_multilanguage('document_name')),
             'classes': ('collapse',),
-        }),        
+        }),
     )
 
     @admin.display(description=_("Percentage"))
@@ -442,19 +446,19 @@ class TaxAdmin(CashCtrlAdmin):
 
 @admin.register(models.Rounding, site=admin_site)
 class RoundingAdmin(CashCtrlAdmin):
-    related_tenant_fields = ['setup']  
-    
+    related_tenant_fields = ['setup']
+
     form = forms.RoundingAdminForm
     list_display = ('code', 'display_name', 'rounding') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
     list_filter = ('mode', TenantFilteredSetupListFilter)
     readonly_fields = ('display_name',)
-    actions = [a.accounting_get_data]    
-    
+    actions = [a.accounting_get_data]
+
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'account', 'rounding', 'mode', 
+                'code', 'account', 'rounding', 'mode',
                 *make_multilanguage('name'),),
             'classes': ('expand',),
         }),
@@ -468,14 +472,14 @@ class RoundingAdmin(CashCtrlAdmin):
 @admin.register(models.SequenceNumber, site=admin_site)
 class SequenceNumberAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup']
-    is_readonly = True    
-    warning = CASH_CTRL.WARNING_READ_ONLY    
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
 
     list_display = ('local_name', 'pattern') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name',)
     list_filter = ('setup',)
     readonly_fields = ('local_name',)
-    actions = [a.accounting_get_data]  
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         (None, {
@@ -494,13 +498,13 @@ class SequenceNumberAdmin(CashCtrlAdmin):
 class OrderCategoryAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup']
     is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY    
+    warning = CASH_CTRL.WARNING_READ_ONLY
 
     list_display = ('display_name', 'due_days') + CASH_CTRL.LIST_DISPLAY
     search_fields = ['display_name', 'number']
     list_filter = ('setup',)
     readonly_fields = ('display_name', 'display_status')
-    actions = [a.accounting_get_data]  
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         (None, {
@@ -530,7 +534,7 @@ class OrderTemplateAdmin(CashCtrlAdmin):
     list_display = ('name', 'is_default') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name',)
     list_filter = ('setup',)
-    actions = [a.accounting_get_data]  
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         (None, {
@@ -542,15 +546,15 @@ class OrderTemplateAdmin(CashCtrlAdmin):
 
 @admin.register(models.CostCenterCategory, site=admin_site)
 class CostCenterCategoryAdmin(CashCtrlAdmin):
-    related_tenant_fields = ['setup', 'parent']    
+    related_tenant_fields = ['setup', 'parent']
 
-    form = forms.CostCenterCategoryAdminForm  
+    form = forms.CostCenterCategoryAdminForm
     list_display = (
         'display_name', 'number', 'display_parent') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name', 'number')
     list_filter = ('setup',)
     readonly_fields = ('display_name',)
-    actions = [a.accounting_get_data]  
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         (None, {
@@ -563,15 +567,16 @@ class CostCenterCategoryAdmin(CashCtrlAdmin):
 
 @admin.register(models.CostCenter, site=admin_site)
 class CostCenterAdmin(CashCtrlAdmin):
-    related_tenant_fields = ['setup', 'category']    
+    related_tenant_fields = ['setup', 'category']
 
-    form = forms.CostCenterAdminForm  
+    form = forms.CostCenterAdminForm
     list_display = (
         'display_name', 'number', 'category') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name', 'number')
-    list_filter = ('setup',)
+    list_filter = ('category', TenantFilteredSetupListFilter)
+
     readonly_fields = ('display_name',)
-    actions = [a.accounting_get_data]  
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         (None, {
@@ -584,15 +589,16 @@ class CostCenterAdmin(CashCtrlAdmin):
 
 @admin.register(models.AccountCategory, site=admin_site)
 class AccountCategoryAdmin(CashCtrlAdmin):
-    related_tenant_fields = ['setup', 'parent']    
+    related_tenant_fields = ['setup', 'parent']
 
-    form = forms.AccountCategoryAdminForm  
+    form = forms.AccountCategoryAdminForm
     list_display = (
-        'display_name', 'display_number', 'display_parent') + CASH_CTRL.LIST_DISPLAY
+        'display_name', 'number', 'display_parent'
+    ) + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name', 'number')
-    list_filter = ('setup',)
+    # list_filter = (TenantFilteredSetupListFilter,)
     readonly_fields = ('display_name',)
-    actions = [a.accounting_get_data]  
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         (None, {
@@ -601,84 +607,117 @@ class AccountCategoryAdmin(CashCtrlAdmin):
         }),
     )
 
-    @admin.display(description=_('Number'))
-    def display_number(self, obj):
-        return Display.big_number(obj.number)
+
+class AllocationsInline(BaseTabularInline):  # or admin.StackedInline    
+    related_tenant_fields = ['setup', 'to_cost_center']
+    
+    model = models.Allocation
+    fields = ['share', 'to_cost_center']  # Only show these fields
+    extra = 1  # Number of empty forms displayed
+    autocomplete_fields = ['account']  # Improves FK selection performance
+    show_change_link = True  # Shows a link to edit the related model
+     
+
+@admin.register(models.Account, site=admin_site)
+class AccountAdmin(CashCtrlAdmin):
+    related_tenant_fields = ['setup', 'category'] 
+    optimize_foreigns = ['category', 'currency', 'tax']    
+    save_for_related = ['setup']
+    
+    form = forms.AccountAdminForm
+    list_display = (
+        'display_number', 'function', 'hrm', 'display_name', 'category'
+    ) + CASH_CTRL.LIST_DISPLAY
+    list_display_links = ('display_name',)
+    search_fields = ('name', 'number', 'custom')
+    list_filter = ('function', 'hrm')
+    readonly_fields = ('display_name', 'function', 'hrm')
+    actions = [a.accounting_get_data]
+    inlines = [AllocationsInline] 
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'number', 'category', *make_multilanguage('name'),
+                'currency', 'target_max', 'target_min', 'function', 'hrm'),
+            'classes': ('expand',),
+        }),
+    )
 
 
 @admin.register(models.Configuration, site=admin_site)
 class ConfigurationyAdmin(CashCtrlAdmin):
     related_tenant_fields = [
-        'setup', 
-        'default_debtor_account', 
-        'default_opening_account', 
-        'default_creditor_account', 
-        'default_exchange_diff_account', 
-        'default_profit_allocation_account', 
-        'default_inventory_disposal_account', 
-        'default_input_tax_adjustment_account', 
-        'default_sales_tax_adjustment_account', 
-        'default_inventory_depreciation_account', 
-        'default_inventory_asset_revenue_account', 
-        'default_inventory_article_expense_account', 
-        'default_inventory_article_revenue_account', 
-        'first_steps_logo', 
-        'first_steps_account', 
-        'first_steps_currency', 
-        'first_steps_pro_demo', 
-        'first_steps_tax_rate', 
-        'first_steps_tax_type', 
-        'order_mail_copy_to_me', 
-        'tax_accounting_method', 
+        'setup',
+        'default_debtor_account',
+        'default_opening_account',
+        'default_creditor_account',
+        'default_exchange_diff_account',
+        'default_profit_allocation_account',
+        'default_inventory_disposal_account',
+        'default_input_tax_adjustment_account',
+        'default_sales_tax_adjustment_account',
+        'default_inventory_depreciation_account',
+        'default_inventory_asset_revenue_account',
+        'default_inventory_article_expense_account',
+        'default_inventory_article_revenue_account',
+        'first_steps_logo',
+        'first_steps_account',
+        'first_steps_currency',
+        'first_steps_pro_demo',
+        'first_steps_tax_rate',
+        'first_steps_tax_type',
+        'order_mail_copy_to_me',
+        'tax_accounting_method',
         'journal_import_force_sequence_number',
     ]
 
     list_display = (
-        'csv_delimiter', 
-        'thousand_separator', 
-        'tax_accounting_method', 
-        'first_steps_logo', 
-        'first_steps_account', 
-        'first_steps_currency', 
-        'first_steps_pro_demo', 
-        'first_steps_tax_rate', 
+        'csv_delimiter',
+        'thousand_separator',
+        'tax_accounting_method',
+        'first_steps_logo',
+        'first_steps_account',
+        'first_steps_currency',
+        'first_steps_pro_demo',
+        'first_steps_tax_rate',
         'first_steps_tax_type'
     ) + CASH_CTRL.LIST_DISPLAY
 
-    list_filter = ('setup', 'tax_accounting_method', 'first_steps_logo', 
+    list_filter = ('setup', 'tax_accounting_method', 'first_steps_logo',
                    'first_steps_account')
     actions = [a.accounting_get_data]
 
     fieldsets = (
         (None, {
             'fields': (
-                'csv_delimiter', 
-                'thousand_separator', 
-                'first_steps_logo', 
-                'first_steps_account', 
-                'first_steps_currency', 
-                'first_steps_pro_demo', 
-                'first_steps_tax_rate', 
-                'first_steps_tax_type', 
-                'order_mail_copy_to_me', 
-                'tax_accounting_method', 
+                'csv_delimiter',
+                'thousand_separator',
+                'first_steps_logo',
+                'first_steps_account',
+                'first_steps_currency',
+                'first_steps_pro_demo',
+                'first_steps_tax_rate',
+                'first_steps_tax_type',
+                'order_mail_copy_to_me',
+                'tax_accounting_method',
                 'journal_import_force_sequence_number'
             ),
             'classes': ('expand',),
         }),
         (_("Account Settings"), {
             'fields': (
-                'default_debtor_account', 
-                'default_opening_account', 
-                'default_creditor_account', 
-                'default_exchange_diff_account', 
-                'default_profit_allocation_account', 
-                'default_inventory_disposal_account', 
-                'default_input_tax_adjustment_account', 
+                'default_debtor_account',
+                'default_opening_account',
+                'default_creditor_account',
+                'default_exchange_diff_account',
+                'default_profit_allocation_account',
+                'default_inventory_disposal_account',
+                'default_input_tax_adjustment_account',
                 'default_sales_tax_adjustment_account',
-                'default_inventory_depreciation_account', 
+                'default_inventory_depreciation_account',
                 'default_inventory_asset_revenue_account',
-                'default_inventory_article_expense_account', 
+                'default_inventory_article_expense_account',
                 'default_inventory_article_revenue_account',
             ),
             'classes': ('collapse',),
@@ -689,13 +728,13 @@ class ConfigurationyAdmin(CashCtrlAdmin):
 @admin.register(models.Article, site=admin_site)
 class ArticleAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup']
-        
+
     list_display = (
         'nr', 'display_name', 'display_sales_price') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name', 'nr')
     list_filter = ('is_stock_article', 'category_id')
     readonly_fields = ('display_name', 'display_sales_price')
-    actions = [a.accounting_get_data]  
+    actions = [a.accounting_get_data]
 
     fieldsets = (
         (None, {
@@ -852,8 +891,8 @@ class AccountPositionAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'setup', 'chart', 'account_type', 'account_number', 'name', 
-                'function', 'is_category', 'description', 
+                'setup', 'chart', 'account_type', 'account_number', 'name',
+                'function', 'is_category', 'description',
                 'parent', 'number'),
             'classes': ('expand',),
         }),

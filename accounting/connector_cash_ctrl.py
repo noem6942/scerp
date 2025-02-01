@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from scerp.mixins import make_timeaware
 from . import api_cash_ctrl
+from .models import CustomField as model_CustomField, Allocation
 
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
@@ -14,8 +15,7 @@ logger = logging.getLogger(__name__)  # Using the app name for logging
 class IGNORE:
     ''' keys not be sent to cashCtrl '''
     BASE =  [
-        '_state', 'id',
-        'created_at', 'created_by_id', 'modified_at', 'modified_by_id',
+        'id', 'created_at', 'created_by_id', 'modified_at', 'modified_by_id',
         'attachment', 'version_id', 'is_protected', 'tenant_id',
         'c_id', 'c_created', 'c_created_by', 'c_last_updated',
         'c_last_updated_by', 'setup_id', 'message', 'is_enabled_sync',
@@ -66,16 +66,46 @@ class cashCtrl:
         self.handler = self.api_class(
             self.setup.org_name, self.setup.api_key, language)
 
+    def init_custom_fields(self, model):
+        # Init
+        custom_fields = getattr(model, 'CUSTOM', [])
+        custom = {}
+
+        # Parse fields
+        for field_name, custom_field__code in custom_fields:
+            # Get field instance
+            custom_field = model_CustomField.objects.filter(
+                tenant=self.setup.tenant, code=custom_field__code).first()
+
+            # Assign
+            if custom_field:
+                custom[field_name] = custom_field.custom_field_key
+            else:
+                msg = f"custom field {custom_field__code} not existing."
+                raise ValueError(msg)
+
+        return custom
+
     def upload_prepare(self, instance):
         '''
         Copy values from self.instance to data to be sent to cashCtrl
         do not send self.ignore_keys
         '''
+        # Init customfields
+        self.custom = self.init_custom_fields(instance)
+
         # Copy values
         data = {}
         for key, value in instance.__dict__.items():
-            if key not in self.ignore_keys:
+            # skip django internal keys and ignore_keys
+            if key[0] != '_' and key not in self.ignore_keys:
                 data[key] = getattr(instance, key)
+
+        # Convert CustomFields
+        data['custom'] = {
+            key_cash_ctrl: data.pop(field_name, None)
+            for field_name, key_cash_ctrl in self.custom.items()
+        }
 
         # Clean
         if getattr(self, 'pre_upload', None):
@@ -131,11 +161,12 @@ class cashCtrl:
         # Convert data, remove keys not needed
         for key in list(data.keys()):
             value = data[key]
-            if isinstance(value, dict) and 'values' in value:
-                # remove "values"
-                data[key] = value['values']
-            elif key in ['start', 'end']:
+            if key in ['start', 'end']:
                 data[key] = make_timeaware(value)
+            elif key == 'custom' and data['custom']:
+                custom = data.pop('custom')                
+                for field_name, key_cash_ctrl in self.custom.items():
+                    data[field_name] = custom.pop(key_cash_ctrl)
             elif key not in self.model_keys:
                 data.pop(key)
 
@@ -171,6 +202,7 @@ class cashCtrl:
         # Init
         self.model = model
         self.model_keys = [field.name for field in model._meta.get_fields()]
+        self.custom = self.init_custom_fields(model)
         created, updated, deleted = 0, 0, 0
 
         # Check init
@@ -207,7 +239,10 @@ class cashCtrl:
             source = data_list['source'][instance.c_id]
             assign = data_list['assign'][instance.c_id]
             instance = self.update_or_create_instance(source, assign, instance)
-            instance.save()
+            try:
+                instance.save()
+            except:
+                raise ValueError(f"cannot save {instance}")
 
             # Maintenance
             c_ids.remove(source['id'])
@@ -264,7 +299,6 @@ class cashCtrl:
     def create(self, instance):
         # Send to cashCtrl
         data = self.upload_prepare(instance)
-        print("*data", data)
         response = self.handler.create(data)
         if response.get('success', False):
             instance.c_id = response['insert_id']
@@ -401,7 +435,35 @@ class AccountCategory(cashCtrl):
 
 
 class Account(cashCtrl):
-    pass
+    api_class = api_cash_ctrl.Account
+    ignore_keys = IGNORE.BASE
+
+    def pre_upload(self, instance, data):
+        # Prepare category_id
+        data['category_id'] = instance.category.c_id
+
+        # Currency
+        if instance.currency.is_default:
+            data.pop('currency_id')  # otherwise account has multi currencies
+        else:
+            data['currency_id'] = instance.currency.c_id
+
+        # Allocations
+        allocations = Allocation.objects.filter(account__id=instance.id)
+        data['allocations'] = [{
+            'share': float(allocation.share),
+            'toCostCenterId': allocation.to_cost_center.c_id,
+        } for allocation in allocations.all()]
+
+        # Tax
+        data.pop('tax_id')
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # parent
+        foreign_key_model = AccountCategory
+        self.update_category(
+            instance, source, assign, created, 'category', foreign_key_model)
 
 
 class Tax(cashCtrl):
@@ -427,6 +489,36 @@ class Rounding(cashCtrl):
         self.update_category(
             instance, source, assign, created, 'account', foreign_key_model)
 
+'''
+class Configuration(cashCtrl):
+    api_class = api_cash_ctrl.Setting
+    ignore_keys = IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES
+
+    def create(self, instance=None):
+        raise ValueError("Can't create new instances for settings)
+
+    def load(
+            self, model, params={}, delete_not_existing=False,
+            **filter_kwargs):
+        data = api_class.read()
+        print("*data")
+
+    def pre_upload(self, instance, data):
+        # Prepare group_id
+        data = {k: v for k, v in data if
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+
+        # group
+        foreign_key_model = CustomFieldGroup
+        self.update_category(
+            instance, source, assign, created, 'group', foreign_key_model)
+'''
 
 
 class Title(cashCtrl):
