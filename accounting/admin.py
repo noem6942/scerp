@@ -1,5 +1,5 @@
 from django.contrib import admin, messages
-from django.contrib.admin import ModelAdmin, SimpleListFilter
+from django.contrib.admin import ModelAdmin
 from django.db import IntegrityError
 from django.utils import formats
 from django.utils.html import format_html
@@ -13,9 +13,9 @@ from scerp.admin import (
      verbose_name_field, make_multilanguage, set_inactive, set_protected)
 from scerp.admin_site import admin_site
 from scerp.mixins import multi_language
+
 from . import actions as a
-from . import forms
-from . import models
+from . import filters, forms, models, resources
 
 
 class CASH_CTRL:
@@ -175,29 +175,9 @@ class CashCtrlAdmin(BaseAdmin):
     def display_number(self, obj):
         return Display.big_number(obj.number)
 
-
-class TenantFilteredSetupListFilter(SimpleListFilter):
-    '''Needed as admin.py filter shows all filters values also of foreign
-        tenants
-    '''
-    title = _('Setup')  # Display title in admin
-    parameter_name = 'setup'  # The query parameter name
-
-    def lookups(self, request, model_admin):
-        """Return the available options, filtered by tenant."""
-        tenant_data = get_tenant(request)  # Get the current tenant
-
-        # Get only the setups linked to this tenant
-        queryset = models.APISetup.objects.filter(tenant__id=tenant_data['id'])
-
-        # Return a list of tuples (ID, Display Name)
-        return [(setup.id, str(setup)) for setup in queryset]
-
-    def queryset(self, request, queryset):
-        """Filter queryset based on selected setup in admin filter."""
-        if self.value():
-            return filter_query_for_tenant(request, queryset)
-        return queryset  # No filter applied
+    @admin.display(description=_('HRM 2'))
+    def display_hrm(self, obj):
+        return Display.big_number(obj.hrm)
 
 
 @admin.register(models.Setting, site=admin_site)
@@ -234,7 +214,7 @@ class CustomFieldGroupAdmin(CashCtrlAdmin):
 
     list_display = ('code', 'name', 'type') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = ('type', TenantFilteredSetupListFilter)
+    list_filter = ('type',)
     actions = [a.accounting_get_data]
 
     fieldsets = (
@@ -251,7 +231,7 @@ class CustomFieldAdmin(CashCtrlAdmin):
     list_display = (
         'code', 'group', 'name', 'data_type') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = ('type','data_type', TenantFilteredSetupListFilter)
+    list_filter = ('type','data_type',)
     actions = [a.accounting_get_data]
 
     fieldsets = (
@@ -264,17 +244,10 @@ class CustomFieldAdmin(CashCtrlAdmin):
     )
 
 
-class LocationResource(resources.ModelResource):
-    class Meta:
-        model = models.Location
-        fields = ('id', 'name', 'type', 'address', 'zip', 'city')
-
-
 @admin.register(models.Location, site=admin_site)
-class Location(ImportExportModelAdmin, CashCtrlAdmin):
+class Location(CashCtrlAdmin):
     related_tenant_fields = ['setup', 'logo']
 
-    resource_class = LocationResource
     has_tenant_field = True
     is_readonly = False
     # warning = CASH_CTRL.WARNING_READ_ONLY
@@ -283,7 +256,7 @@ class Location(ImportExportModelAdmin, CashCtrlAdmin):
         'name', 'type', 'vat_uid', 'logo', 'address', 'display_last_update',
         'url')
     search_fields = ('name', 'vat_uid')
-    list_filter = ('type', TenantFilteredSetupListFilter)
+    list_filter = ('type',)
     actions = [a.accounting_get_data]
 
     fieldsets = (
@@ -325,7 +298,7 @@ class FiscalPeriodAdmin(CashCtrlAdmin):
 
     list_display = ('name', 'start', 'end', 'is_current', 'display_last_update')
     search_fields = ('name', 'start', 'end', 'is_current')
-    list_filter = ('is_current', TenantFilteredSetupListFilter)
+    list_filter = ('is_current',)
     actions = [a.accounting_get_data]
 
     fieldsets = (
@@ -343,7 +316,7 @@ class CurrencyAdmin(CashCtrlAdmin):
     form = forms.CurrencyAdminForm
     list_display = ('code', 'is_default', 'rate') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = ('is_default', TenantFilteredSetupListFilter)
+    list_filter = ('is_default',)
     readonly_fields = ('display_description',)
     actions = [a.accounting_get_data]
 
@@ -371,7 +344,7 @@ class TitleAdmin(CashCtrlAdmin):
     form = forms.TitleAdminForm
     list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = ('gender', TenantFilteredSetupListFilter)
+    list_filter = ('gender',)
     readonly_fields = ('display_name',)
     actions = [a.accounting_get_data]
 
@@ -396,7 +369,7 @@ class UnitAdmin(CashCtrlAdmin):
     form = forms.UnitAdminForm
     list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = (TenantFilteredSetupListFilter,)
+    # list_filter = ('code',)
     readonly_fields = ('display_name',)
     actions = [a.accounting_get_data]
 
@@ -417,7 +390,7 @@ class TaxAdmin(CashCtrlAdmin):
     list_display = (
         'code', 'display_name', 'display_percentage') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = ('percentage', TenantFilteredSetupListFilter)
+    list_filter = ('percentage',)
     readonly_fields = ('display_name',)
     actions = [a.accounting_get_data]
 
@@ -451,7 +424,7 @@ class RoundingAdmin(CashCtrlAdmin):
     form = forms.RoundingAdminForm
     list_display = ('code', 'display_name', 'rounding') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('code', 'name')
-    list_filter = ('mode', TenantFilteredSetupListFilter)
+    list_filter = ('mode',)
     readonly_fields = ('display_name',)
     actions = [a.accounting_get_data]
 
@@ -573,7 +546,7 @@ class CostCenterAdmin(CashCtrlAdmin):
     list_display = (
         'display_name', 'number', 'category') + CASH_CTRL.LIST_DISPLAY
     search_fields = ('name', 'number')
-    list_filter = ('category', TenantFilteredSetupListFilter)
+    list_filter = ('category',)
 
     readonly_fields = ('display_name',)
     actions = [a.accounting_get_data]
@@ -620,11 +593,14 @@ class AllocationsInline(BaseTabularInline):  # or admin.StackedInline
 
 @admin.register(models.Account, site=admin_site)
 class AccountAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup', 'category'] 
     optimize_foreigns = ['category', 'currency', 'tax']    
     save_for_related = ['setup']
     
+    # Helpers
     form = forms.AccountAdminForm
+    
     list_display = (
         'display_number', 'function', 'hrm', 'display_name', 'category'
     ) + CASH_CTRL.LIST_DISPLAY
@@ -723,6 +699,75 @@ class ConfigurationyAdmin(CashCtrlAdmin):
             'classes': ('collapse',),
         }),
     )
+
+
+@admin.register(models.LedgerBalance, site=admin_site)
+class LedgerBalanceAdmin(ImportExportModelAdmin, CashCtrlAdmin):
+    """
+    Django Admin for LedgerBalance model.
+    """
+    # Safeguards
+    related_tenant_fields = ['setup', 'parent', 'account', 'category']
+    optimize_foreigns = ['parent', 'account', 'category']  
+
+    # Helpers
+    form = forms.LedgerBalanceAdminForm
+    resource_class = resources.LedgerBalanceResource
+
+    # Display these fields in the list view
+    list_display = (
+        'function', 'display_hrm', 'display_name', 
+        'display_opening_balance', 'display_increase', 
+        'display_decrease', 'display_closing_balance',
+        'notes'
+    ) + CASH_CTRL.LIST_DISPLAY
+    list_display_links = ('display_hrm', 'display_name',)
+    
+    # Enable search by name and account
+    search_fields = ('function', 'hrm', 'name')
+
+    # Enable filtering options
+    list_filter = (filters.PeriodFilteredSetupListFilter, 'function')
+
+    # Read-only fields that cannot be edited
+    # readonly_fields = ('closing_balance',)
+
+    # Admin Actions (custom actions can be defined)
+    actions = [a.accounting_get_data]
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'period', 'hrm', *make_multilanguage('name'),
+                'category', 'account', 'parent'),
+            'classes': ('expand',),
+        }),
+        ('Balances', {
+            'fields': ('opening_balance', 'increase', 'decrease', 'closing_balance'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    def get_import_data(self, request, *args, **kwargs):
+        # Pass the request to the import
+        return self.resource_class.import_data(
+            request=request, *args, **kwargs)
+
+    @admin.display(description=_('Opening Balance'))
+    def display_opening_balance(self, obj):
+        return Display.big_number(obj.opening_balance)
+
+    @admin.display(description=_('Closing Balance'))
+    def display_closing_balance(self, obj):
+        return Display.big_number(obj.closing_balance)
+
+    @admin.display(description=_('Increase'))
+    def display_increase(self, obj):
+        return Display.big_number(obj.increase)
+
+    @admin.display(description=_('Decrease'))
+    def display_decrease(self, obj):
+        return Display.big_number(obj.decrease)
 
 
 @admin.register(models.Article, site=admin_site)
@@ -971,3 +1016,18 @@ class AccountPositionAdmin(CashCtrlAdmin):
         if obj.c_id or obj.c_rev_id:
             return '🪙'  # (Coin): \U0001FA99
         return ' '
+
+
+# Test
+@admin.register(models.LedgerTest, site=admin_site)
+class LedgerTestAdmin(ImportExportModelAdmin):
+    resource_class = resources.LedgerTestResource
+    list_display = ('period', 'hrm', 'name')
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'period', 'hrm', 'name'),
+            'classes': ('expand',),
+        }),
+    )

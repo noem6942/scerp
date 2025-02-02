@@ -776,6 +776,9 @@ class Account(AcctApp):
          _('HRM 2'), max_digits=10, decimal_places=2, null=True, blank=True,
         help_text=_('HRM 2 number, e.g. 3100.01'))
 
+    def __str__(self):
+        return f"{self.function} {self.hrm} {multi_language(self.name)}"
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -820,54 +823,86 @@ class Allocation(AcctApp):
 
 
 class Ledger(AcctApp):
+    '''
+    Used for HRM 2 account management:
+    - type: leave empty to calculate later
+    - parent: leave empty to calculate later
+    - function: leave empty to calculate later
+    - account: leave empty to calculate later
+    '''
     class TYPE(models.TextChoices):
         CATEGORY = 'C', _('Category')
         ACCOUNT = 'A', _('Account')
-
     period = models.ForeignKey(
         FiscalPeriod, verbose_name=_('Fiscal Period'),
         on_delete=models.CASCADE, related_name='%(class)s_period',
         help_text=_("Fiscal period"))
+    hrm = models.DecimalField(
+         _('HRM 2'), max_digits=10, decimal_places=2,
+        help_text=_('HRM 2 number, e.g. 3100.01'))
+    name = models.JSONField(
+        _('Name'), default=dict, help_text="The name of the account.")        
     type = models.CharField(
-        _('Type'), max_length=1, choices=TYPE,
+        _('Type'), max_length=1, choices=TYPE, blank=True, null=True,
         help_text=_("Category or account"))
     parent = models.ForeignKey(
         'self', verbose_name=_('Parent'), blank=True, null=True,
         on_delete=models.CASCADE, related_name='%(class)s_parent',
-        help_text=_('The parent category.'))        
-    hrm = models.DecimalField(
-         _('HRM 2'), max_digits=10, decimal_places=2, null=True, blank=True,
-        help_text=_('HRM 2 number, e.g. 3100.01'))
-    name = models.JSONField(
-        _('Name'), default=dict, help_text="The name of the account.")
+        help_text=_('The parent category.'))
+    function = models.PositiveSmallIntegerField(
+         _('Function'), null=True, blank=True,
+        help_text=_(
+            'Function code, e.g. 071, in Balance this is the balance '
+            'this is the acount group belonging to one category'))
     account = models.ForeignKey(
         Account, verbose_name=_('Account'), null=True, blank=True,
         on_delete=models.CASCADE, related_name='%(class)s_category',
         help_text="The underlying account.")
 
+    def clean(self):
+        # Custom validation for HRM 2
+        if self.hrm is not None:
+            try:
+                float(self.hrm)  # Check if HRM is a valid number
+            except ValueError:
+                msg = _('{hrm}: HRM value must be a valid decimal number.')
+                raise ValidationError(msg.format(hrm=self.hrm))
+
+        # Validate name
+        if not self.name:
+            raise ValidationError(_('Name field cannot be empty.'))
+
     class Meta:
+        ordering = [Cast('function', models.CharField()), 'hrm']
         abstract = True
 
 
 class LedgerBalance(Ledger):
+    '''
+    Used for HRM 2 account management:
+    - category: leave empty to calculate later
+    '''
     category = models.ForeignKey(
         AccountCategory, verbose_name=_('Account Category'),
-        on_delete=models.CASCADE, related_name='%(class)s_category',
+        on_delete=models.CASCADE, blank=True, null=True,
+        related_name='%(class)s_category',
         help_text="The underlying category.")
     opening_balance = models.DecimalField(
-        _('Opening Balance'), max_digits=11, decimal_places=2,
+        _('Opening Balance'), max_digits=11, decimal_places=2, 
+        null=True, blank=True,
         help_text=_('The balance at the start of the year.')
     )
     closing_balance = models.DecimalField(
         _('Closing Balance'), max_digits=11, decimal_places=2,
+        null=True, blank=True,
         help_text=_('The balance at the end of the year.')
     )
     increase = models.DecimalField(
-        _('Increase'), max_digits=11, decimal_places=2,
+        _('Increase'), max_digits=11, decimal_places=2, null=True, blank=True,
         help_text=_('The increase in value during the year.')
     )
     decrease = models.DecimalField(
-        _('Decrease'), max_digits=11, decimal_places=2,
+        _('Decrease'), max_digits=11, decimal_places=2, null=True, blank=True,
         help_text=_('The decrease in value during the year.')
     )
 
@@ -880,20 +915,19 @@ class LedgerBalance(Ledger):
         ]
         ordering = ['hrm']
         verbose_name = ('Balance')
-        verbose_name_plural = _('Balance')        
+        verbose_name_plural = _('Balance')
 
 
 class FunctionalLedger(Ledger):
-    function = models.PositiveSmallIntegerField(
-         _('Function'), null=True, blank=True,
-        help_text=_('Function code, e.g. 071'))
     category_expense = models.ForeignKey(
-        AccountCategory, verbose_name=_('Account Category'),
-        on_delete=models.CASCADE, related_name='%(class)s_category_expense',
+        AccountCategory, on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Account Category'),
+        related_name='%(class)s_category_expense',
         help_text="The underlying expense category.")
     category_revenue = models.ForeignKey(
-        AccountCategory, verbose_name=_('Account Category'),
-        on_delete=models.CASCADE, related_name='%(class)s_category_revenue',
+        AccountCategory,  on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Account Category'),
+        related_name='%(class)s_category_revenue',
         help_text="The underlying revenue category.")
 
     class Meta:
@@ -1754,3 +1788,15 @@ class Employee(CRM):
         on_delete=models.CASCADE,
         related_name="employee",
         help_text="internal use for mapping")
+
+
+# Test
+
+class LedgerTest(models.Model):
+    period = models.CharField(_('Period'), max_length=20)
+    hrm = models.DecimalField(
+        _('HRM'), max_digits=10, decimal_places=2, null=True, blank=True)
+    name = models.CharField(_('Name'), max_length=255)
+
+    def __str__(self):
+        return f"{self.period} - {self.name}"

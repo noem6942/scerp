@@ -13,130 +13,91 @@ from core.safeguards import get_tenant
 from .models import (
     ACCOUNT_TYPE_TEMPLATE, AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
-    CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax
+    CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
+    LedgerBalance
 )
 from scerp.admin import verbose_name_field
 from scerp.forms import MultilanguageForm, make_multilanguage_form
 
 LABEL_BACK = _("Back")
 
-
-# Currency
-class CurrencyAdminForm(MultilanguageForm):
-    MULTI_LANG_FIELDS = ['description']
-    
-    # Dynamically create fields for each language
-    class Meta:
-        model = Currency
-        fields = '__all__'
-    
-    # Dynamically create fields for each language   
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
-
-
-# Rounding
-class RoundingAdminForm(MultilanguageForm):
+# Name forms
+class NameAdminForm(MultilanguageForm):
     MULTI_LANG_FIELDS = ['name']
-    
+
     # Dynamically create fields for each language
     class Meta:
         model = Rounding
         fields = '__all__'
-    
-    # Dynamically create fields for each language   
+
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+class RoundingAdminForm(NameAdminForm):
+    pass
+
+
+class CostCenterCategoryAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = CostCenterCategory
+
+
+class CostCenterAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = CostCenter
+
+
+class AccountCategoryAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = AccountCategory
+
+
+class AccountAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = Account
+
+
+class UnitAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = Unit
+
+
+class TaxAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = Tax
+
+
+class LedgerBalanceAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = LedgerBalance
+
+
+# Other multilanguage forms
+class CurrencyAdminForm(NameAdminForm):
+    MULTI_LANG_FIELDS = ['description']
+
+    # Dynamically create fields for each language
+    class Meta:
+        model = Currency
+        fields = '__all__'
+
+    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
 # Title
 class TitleAdminForm(MultilanguageForm):
     MULTI_LANG_FIELDS = ['name', 'sentence']
-    
+
     # Dynamically create fields for each language
     class Meta:
         model = Title
         fields = '__all__'
-    
-    # Dynamically create fields for each language   
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
-
-# CostCenterCategory
-class CostCenterCategoryAdminForm(MultilanguageForm):
-    MULTI_LANG_FIELDS = ['name']
-    
     # Dynamically create fields for each language
-    class Meta:
-        model = CostCenterCategory
-        fields = '__all__'
-    
-    # Dynamically create fields for each language   
     make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
-
-# CostCenter
-class CostCenterAdminForm(MultilanguageForm):
-    MULTI_LANG_FIELDS = ['name']
-    
-    # Dynamically create fields for each language
-    class Meta:
-        model = CostCenter
-        fields = '__all__'
-    
-    # Dynamically create fields for each language   
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
-
-
-# AccountCategory
-class AccountCategoryAdminForm(MultilanguageForm):
-    MULTI_LANG_FIELDS = ['name']
-    
-    # Dynamically create fields for each language
-    class Meta:
-        model = AccountCategory
-        fields = '__all__'
-    
-    # Dynamically create fields for each language   
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
-
-
-# Account
-class AccountAdminForm(MultilanguageForm):
-    MULTI_LANG_FIELDS = ['name']
-    
-    # Dynamically create fields for each language
-    class Meta:
-        model = Account
-        fields = '__all__'
-    
-    # Dynamically create fields for each language   
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
-
-
-# Unit
-class UnitAdminForm(MultilanguageForm):
-    MULTI_LANG_FIELDS = ['name']
-    
-    # Dynamically create fields for each language
-    class Meta:
-        model = Unit
-        fields = '__all__'
-    
-    # Dynamically create fields for each language   
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
- 
-
-# Tax
-class TaxAdminForm(MultilanguageForm):
-    MULTI_LANG_FIELDS = ['name']
-    
-    # Dynamically create fields for each language
-    class Meta:
-        model = Tax
-        fields = '__all__'
-    
-    # Dynamically create fields for each language   
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
- 
 
 # AccountSetup
 class ConfirmForm(AdminActionForm):
@@ -161,7 +122,7 @@ class ChartOfAccountsTemplateForm(AdminActionForm):
 class ChartOfAccountsForm(AdminActionForm):
     # Show data
     chart = forms.ChoiceField(
-        label=verbose_name_field(AccountPosition, 'chart'), 
+        label=verbose_name_field(AccountPosition, 'chart'),
         choices=[], required=True,
         help_text=_("Select the appropriate chart for the municipality."))
 
@@ -196,7 +157,7 @@ class ChartOfAccountsForm(AdminActionForm):
 
         # Check if mixed types
         for type in types:
-            if type in [ACCOUNT_TYPE_TEMPLATE.INCOME, 
+            if type in [ACCOUNT_TYPE_TEMPLATE.INCOME,
                         ACCOUNT_TYPE_TEMPLATE.INVEST]:
                 msg = _("Income or invest positions can only be created "
                         "from functionals.")
@@ -244,9 +205,9 @@ class AccountPositionForm(AdminActionForm):
     class Meta:
         list_objects = True
         help_text = None
-        
+
     def error(self, request, msg):
-        messages.error(request, msg)                
+        messages.error(request, msg)
         self.fields.pop('positions', None)
         self.Meta.confirm_button_text = LABEL_BACK
 
@@ -258,7 +219,7 @@ class AccountPositionForm(AdminActionForm):
                         account_type=account_type.label)
                 self.error(request, msg)
                 return
-                
+
         # Check function length
         for function in queryset:
             if len(function.function) < 4:
@@ -267,7 +228,7 @@ class AccountPositionForm(AdminActionForm):
                 msg += _("Postions can only be added to 4 digit accounts. ")
                 self.error(request, msg)
                 return
-    
+
         # define choices
         filter = self.fields['positions'].queryset.filter(
             chart__account_type=account_type)
@@ -282,7 +243,7 @@ class AccountPositionAddIncomeForm(AccountPositionForm):
 
 class AccountPositionAddInvestForm(AccountPositionForm):
     def __post_init__(self, modeladmin, request, queryset):
-        super().__post_init__(modeladmin, request, queryset, 
+        super().__post_init__(modeladmin, request, queryset,
         ACCOUNT_TYPE_TEMPLATE.INVEST)
 
 
@@ -295,14 +256,14 @@ class ChartOfAccountsDateForm(AdminActionForm):
             "Enter the date shown in opening bookings. Must be within "
             "fiscal period")
     )
-    
+
     def __post_init__(self, modeladmin, request, queryset):
         # Determine the maximum 'modified_at' date from the queryset
         last_modified = queryset.order_by('modified_at').last()
         if last_modified:
             # Set the initial value for the 'date' field
             self.fields['date'].initial = last_modified.modified_at
-    
+
 
 class AssignResponsibleForm(AdminActionForm):
     responsible = forms.ModelChoiceField(

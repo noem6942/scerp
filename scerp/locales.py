@@ -101,6 +101,7 @@ APP_MODEL_ORDER = {
             'FiscalPeriod': ('* 18', ' ⬇️'),         
             'AccountCategory': ('* 19', ' ⬇️'),
             'Account': ('* 20', ' ⬇️'),
+            'LedgerBalance': ('* 21', ' ⬇️'),
             
             # Inventory
             'Article': ('23', ' ⬇️'),            

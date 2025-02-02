@@ -225,7 +225,7 @@ LOGGING = {
         'core': {  # Example app-specific logger
             'handlers': ['console'],
             'level': 'DEBUG',  # Adjust level as needed
-            'propagate': False,
+            'propagate': True,
         },
     },
 }
