@@ -1,9 +1,11 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
+from import_export.admin import ExportActionMixin
 
 from scerp.admin import BaseAdmin, Display
 from scerp.admin_site import admin_site
 from . import actions as a
+from . import resources
 from .models import Workspace, ClockifyUser, Tag, Client, Project, TimeEntry
 
 
@@ -88,7 +90,9 @@ class ProjectAdmin(BaseAdmin):
 
 
 @admin.register(TimeEntry, site=admin_site)
-class TimeEntryAdmin(BaseAdmin):
+class TimeEntryAdmin(ExportActionMixin, admin.ModelAdmin):
+    resource_class = resources.TimeEntryResource  # Attach the resource class
+    
     has_tenant_field = True
     list_display = (
         'clockify_user', 'project', 'start_time', 'end_time', 
@@ -103,6 +107,14 @@ class TimeEntryAdmin(BaseAdmin):
             'classes': ('expand',),
         }),    
     )
+  
+    @admin.display(description=_('start'))
+    def display_start_time(self, obj):
+        return obj.start_time.strftime("%Y-%m-%d")
+  
+    @admin.display(description=_('end'))
+    def display_end_time(self, obj):
+        return obj.end_time.strftime("%Y-%m-%d")
   
     @admin.display(description=_('hours'))
     def display_hours(self, obj):

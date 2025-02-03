@@ -768,7 +768,7 @@ class Account(AcctApp):
         related_name='%(class)s_tax',
         help_text=_("Link to tax. Not used."))  # Verify
 
-    # custom
+    # custom, maybe discontinue
     function = models.PositiveSmallIntegerField(
          _('Function'), null=True, blank=True,
         help_text=_('Function code, e.g. 071'))
@@ -824,24 +824,63 @@ class Allocation(AcctApp):
 
 class Ledger(AcctApp):
     '''
+    Ledger assigned to a FiscalPeriod
+    '''
+    code = models.CharField(
+        _('Code'), max_length=50, help_text='Internal code')
+    name = models.JSONField(
+        _('Name'), default=dict, help_text="The name of the ledger.")        
+    period = models.ForeignKey(
+        FiscalPeriod, verbose_name=_('Fiscal Period'),
+        on_delete=models.CASCADE, related_name='%(class)s_period',
+        help_text=_("Fiscal period"))
+        
+    actions = []
+
+    def __str__(self):
+        return f" {self.code}: {multi_language(self.name)}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['period', 'code'],
+                name='unique_ledger'
+            )
+        ]
+        ordering = ['-period', 'code']
+        verbose_name = ('Ledger')
+        verbose_name_plural = _('Ledgers')
+
+
+class LedgerAccount(AcctApp):
+    '''
     Used for HRM 2 account management:
     - type: leave empty to calculate later
     - parent: leave empty to calculate later
     - function: leave empty to calculate later
     - account: leave empty to calculate later
+
+    Processing:
+    In pre_save:
+    - parent is calculated
+    - Account.number is calculated
+    - AccountCategory.number is calculated
+    - categories or account are created
+    - hrm, function, name are copied to categories or account
+
     '''
     class TYPE(models.TextChoices):
         CATEGORY = 'C', _('Category')
         ACCOUNT = 'A', _('Account')
-    period = models.ForeignKey(
-        FiscalPeriod, verbose_name=_('Fiscal Period'),
-        on_delete=models.CASCADE, related_name='%(class)s_period',
-        help_text=_("Fiscal period"))
+    ledger = models.ForeignKey(
+        Ledger, verbose_name=_('Ledger'),
+        on_delete=models.CASCADE, related_name='%(class)s_ledger',
+        help_text=_("Ledger assigned to the fiscal period"))
     hrm = models.DecimalField(
          _('HRM 2'), max_digits=10, decimal_places=2,
         help_text=_('HRM 2 number, e.g. 3100.01'))
     name = models.JSONField(
-        _('Name'), default=dict, help_text="The name of the account.")        
+        _('Name'), default=dict, help_text="The name of the account.")
     type = models.CharField(
         _('Type'), max_length=1, choices=TYPE, blank=True, null=True,
         help_text=_("Category or account"))
@@ -877,7 +916,7 @@ class Ledger(AcctApp):
         abstract = True
 
 
-class LedgerBalance(Ledger):
+class LedgerBalance(LedgerAccount):
     '''
     Used for HRM 2 account management:
     - category: leave empty to calculate later
@@ -888,7 +927,7 @@ class LedgerBalance(Ledger):
         related_name='%(class)s_category',
         help_text="The underlying category.")
     opening_balance = models.DecimalField(
-        _('Opening Balance'), max_digits=11, decimal_places=2, 
+        _('Opening Balance'), max_digits=11, decimal_places=2,
         null=True, blank=True,
         help_text=_('The balance at the start of the year.')
     )
@@ -909,7 +948,7 @@ class LedgerBalance(Ledger):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'period', 'hrm'],
+                fields=['setup', 'ledger', 'hrm'],
                 name='unique_balance'
             )
         ]
@@ -918,7 +957,7 @@ class LedgerBalance(Ledger):
         verbose_name_plural = _('Balance')
 
 
-class FunctionalLedger(Ledger):
+class FunctionalLedger(LedgerAccount):
     category_expense = models.ForeignKey(
         AccountCategory, on_delete=models.CASCADE, blank=True, null=True,
         verbose_name=_('Account Category'),
@@ -964,7 +1003,7 @@ class LedgerPL(FunctionalLedger):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'period', 'hrm', 'function'],
+                fields=['setup', 'ledger', 'hrm', 'function'],
                 name='unique_ledger_pl'
             )
         ]
@@ -1001,7 +1040,7 @@ class LedgerIC(FunctionalLedger):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'period', 'hrm', 'function'],
+                fields=['setup', 'ledger', 'hrm', 'function'],
                 name='unique_ledger_ic'
             )
         ]
@@ -1791,12 +1830,17 @@ class Employee(CRM):
 
 
 # Test
+class LedgerTest(AcctApp):
+    period = models.ForeignKey(
+        FiscalPeriod,
+        on_delete=models.CASCADE,
+        related_name="period_test",
+        help_text="internal use for mapping")
 
-class LedgerTest(models.Model):
-    period = models.CharField(_('Period'), max_length=20)
     hrm = models.DecimalField(
         _('HRM'), max_digits=10, decimal_places=2, null=True, blank=True)
     name = models.CharField(_('Name'), max_length=255)
+    notes = models.TextField(_('Name'), null=True)
 
     def __str__(self):
         return f"{self.period} - {self.name}"

@@ -30,10 +30,10 @@ class Workspace(TenantAbstract):
     '''
     name = models.CharField(max_length=100, unique=True)
     c_created_at = models.DateTimeField(auto_now_add=True)
-    api_key = models.CharField(max_length=100)    
+    api_key = models.CharField(max_length=100)
     mandatory_hours = models.FloatField(default=MANDATORY_HOURS)
     c_id = models.CharField(max_length=24, db_index=True, unique=True)
-        
+
     def __str__(self):
         return self.name
 
@@ -45,7 +45,7 @@ class Workspace(TenantAbstract):
         # Now proceed with saving the instance
         super().save(*args, **kwargs)
 
-    class Meta:        
+    class Meta:
         ordering = ['name']
         verbose_name = _("Workspace")
         verbose_name_plural = f"Workspaces"
@@ -61,7 +61,7 @@ class ClockifyUser(LogAbstract, NotesAbstract):
     def __str__(self):
         return f"{self.user.username} (Clockify ID: {self.c_id})"
 
-    class Meta:       
+    class Meta:
         ordering = ['user__username']
         verbose_name = _("Time User")
         verbose_name_plural = f"Time Users"
@@ -69,7 +69,7 @@ class ClockifyUser(LogAbstract, NotesAbstract):
 
 class Tag(TenantAbstract):
     ''' Belong to a workspace
-    '''    
+    '''
     name = models.CharField(max_length=50)
     workspace = models.ForeignKey(
         Workspace, on_delete=models.CASCADE, related_name='tag')
@@ -82,7 +82,7 @@ class Tag(TenantAbstract):
 
 class Client(TenantAbstract):
     ''' Belong to a workspace, use carefully
-    '''    
+    '''
     name = models.CharField(max_length=100)
     workspace = models.ForeignKey(
         Workspace, on_delete=models.CASCADE, related_name='client')
@@ -95,12 +95,12 @@ class Client(TenantAbstract):
 
 class Project(TenantAbstract):
     ''' Belong to a tenant, usually not the same as the workspace owner
-    '''      
+    '''
     class TYPE(models.TextChoices):
         PRESENCE = 'Ab-/Anwesenheit'
         ENTRY = 'Freie Eingabe'
-        CLIENT = 'Kundenauftrag'    
-    
+        CLIENT = 'Kundenauftrag'
+
     class ClockifyColors(models.TextChoices):
         AMBER = "#FFC107", "Amber"
         BLUE = "#2196F3", "Blue"
@@ -121,7 +121,7 @@ class Project(TenantAbstract):
         RED = "#F44336", "Red"
         TEAL = "#009688", "Teal"
         YELLOW = "#FFEB3B", "Yellow"
-        
+
     name = models.CharField(max_length=100)
     workspace = models.ForeignKey(
         Workspace, on_delete=models.CASCADE, related_name='workspace')
@@ -134,36 +134,36 @@ class Project(TenantAbstract):
         max_length=7,
         choices=ClockifyColors.choices,
         default=ClockifyColors.BLUE
-    )    
+    )
     client = models.ForeignKey(
         Client, on_delete=models.SET_NULL, null=True, blank=True, related_name='projects'
-    )    
+    )
     c_id = models.CharField(
-        max_length=24, db_index=True, blank=True, null=True)    
-    
+        max_length=24, db_index=True, blank=True, null=True)
+
     # Accounting
     type = models.CharField(
         max_length=20,
         choices=TYPE.choices,
         default=TYPE.ENTRY
-    )    
+    )
     project_code = models.CharField(  # Renamed from 'project'
-        max_length=100, 
+        max_length=100,
         default='PR',  # 'Ab-/Anwesenheit'
         help_text="e.g. 21902412"
-    )    
+    )
     position = models.CharField(
         max_length=100, null=True, blank=True,
         help_text="e.g. 10-outsourcing"
-    )        
-    
+    )
+
     def __str__(self):
         return self.name
 
 
 class TimeEntry(TenantAbstract):
     ''' Belong to a project
-    '''  
+    '''
     clockify_user = models.ForeignKey(
         ClockifyUser, on_delete=models.CASCADE, related_name='time_entries')
     project = models.ForeignKey(
@@ -174,7 +174,7 @@ class TimeEntry(TenantAbstract):
     tags = models.ManyToManyField(Tag, blank=True, related_name='related_time_entries')  # Updated related_name
     c_id = models.CharField(
         max_length=24, db_index=True, blank=True, null=True)
-        
+
     # Accounting
     datetime_downloaded = models.DateTimeField(blank=True, null=True)
 
@@ -187,7 +187,7 @@ class TimeEntry(TenantAbstract):
             # Convert the difference to hours (float)
             return delta.total_seconds() / 3600
         return None
-        
+
     @property
     def is_latest_entry_of_day(self):
         """Check if this record is the latest entry (based on start_time) for the day."""
@@ -195,32 +195,32 @@ class TimeEntry(TenantAbstract):
             datetime.combine(self.start_time.date(), time.min))
         end_of_day = timezone.make_aware(
             datetime.combine(self.start_time.date(), time.max))
-        
+
         # Get the latest start_time for the day for this user
         latest_start_time = TimeEntry.objects.filter(
             clockify_user=self.clockify_user,
             start_time__gte=start_of_day,
             start_time__lte=end_of_day
         ).aggregate(latest_start=Max('start_time'))['latest_start']
-        
+
         # Check if this entry is the latest one of the day
         return self.start_time == latest_start_time
 
     @staticmethod
     def total_hours_for_user_on_day(user, day):
         """Calculate the total hours worked by a user for a specific day."""
-        
+
         # Create aware datetime objects for the start and end of the day
         start_of_day = timezone.make_aware(datetime.combine(day, time.min))  # start of the day
         end_of_day = timezone.make_aware(datetime.combine(day, time.max))    # end of the day
-        
+
         # Get the time entries for the user on the specified day
         time_entries = TimeEntry.objects.filter(
             clockify_user=user,
             start_time__gte=start_of_day,
             end_time__lte=end_of_day
         )
-        
+
         # Sum the duration of each time entry for that day
         total_duration = 0
         for entry in time_entries:
@@ -230,14 +230,3 @@ class TimeEntry(TenantAbstract):
 
     def __str__(self):
         return f"{self.start_time} to {self.end_time} ({self.duration_in_hours:.2f} hours)"
-        
-        
-    def __str__(self):
-        return (
-            f"{self.clockify_user.user.username} - "
-            f"{self.project.name} ({self.start_time} to {self.end_time})")
-
-    class Meta:       
-        ordering = ['clockify_user', '-start_time']
-        verbose_name = _("Time Entry")
-        verbose_name_plural = f"Time Entries"

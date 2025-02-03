@@ -14,7 +14,7 @@ from .models import (
     ACCOUNT_TYPE_TEMPLATE, AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
-    LedgerBalance
+    Ledger, LedgerBalance
 )
 from scerp.admin import verbose_name_field
 from scerp.forms import MultilanguageForm, make_multilanguage_form
@@ -66,6 +66,11 @@ class UnitAdminForm(NameAdminForm):
 class TaxAdminForm(NameAdminForm):
     class Meta(NameAdminForm.Meta):
         model = Tax
+
+
+class LedgerAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = Ledger
 
 
 class LedgerBalanceAdminForm(NameAdminForm):

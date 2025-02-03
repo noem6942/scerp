@@ -156,6 +156,9 @@ def verbose_name_field(model, field_name):
 
 class Display:
 
+    def boolean(value):
+        return '✔' if value else '✘'
+
     def datetime(value, default='-'):
         """
         Display date time nice

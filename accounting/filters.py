@@ -38,12 +38,12 @@ class TenantFilteredSetupListFilter(SimpleListFilter):
         return filter_queryset(self, request, queryset)
 
 
-class PeriodFilteredSetupListFilter(SimpleListFilter):
+class LedgerFilteredSetupListFilter(SimpleListFilter):
     '''Needed as admin.py filter shows all filters values also of foreign
         tenants
     '''
-    title = _('Period')  # Display title in admin
-    parameter_name = 'period'  # The query parameter name
+    title = _('Ledger')  # Display title in admin
+    parameter_name = 'ledger'  # The query parameter name
 
     def lookups(self, request, model_admin):
         """Return the available options, filtered by tenant."""
@@ -54,7 +54,7 @@ class PeriodFilteredSetupListFilter(SimpleListFilter):
             setup__id=tenant_data['setup_id'])
 
         # Return a list of tuples (ID, Display Name)
-        return [(period.id, str(period)) for period in queryset]
+        return [(ledger.id, str(ledger)) for ledger in queryset]
 
     def queryset(self, request, queryset):
         """Filter queryset based on selected setup in admin filter."""

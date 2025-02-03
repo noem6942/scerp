@@ -293,7 +293,7 @@ class Location(CashCtrlAdmin):
 @admin.register(models.FiscalPeriod, site=admin_site)
 class FiscalPeriodAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup']
-    is_readonly = True
+    is_readonly = False
     warning = CASH_CTRL.WARNING_READ_ONLY
 
     list_display = ('name', 'start', 'end', 'is_current', 'display_last_update')
@@ -701,18 +701,40 @@ class ConfigurationyAdmin(CashCtrlAdmin):
     )
 
 
+
+@admin.register(models.Ledger, site=admin_site)
+class LedgerAdmin(CashCtrlAdmin):
+    related_tenant_fields = ['setup', 'period']    
+
+    form = forms.LedgerAdminForm
+    list_display = ('code', 'display_name', 'period', 'display_current')
+    search_fields = ('code', 'name', 'period__name')
+
+    fieldsets = (
+        (None, {
+            'fields': ('code', *make_multilanguage('name'), 'period'),
+            'classes': ('expand',),
+        }),
+    )    
+    
+    @admin.display(description=_('Current'))
+    def display_current(self, obj):
+        return Display.boolean(obj.period.is_current)
+    
+
 @admin.register(models.LedgerBalance, site=admin_site)
 class LedgerBalanceAdmin(ImportExportModelAdmin, CashCtrlAdmin):
+# class LedgerBalanceAdmin(ImportExportModelAdmin, CashCtrlAdmin):
     """
     Django Admin for LedgerBalance model.
     """
     # Safeguards
     related_tenant_fields = ['setup', 'parent', 'account', 'category']
-    optimize_foreigns = ['parent', 'account', 'category']  
+    optimize_foreigns = ['ledger', 'parent', 'account', 'category']  
 
     # Helpers
     form = forms.LedgerBalanceAdminForm
-    resource_class = resources.LedgerBalanceResource
+    resource_class = resources.LedgerBalanceImportResource
 
     # Display these fields in the list view
     list_display = (
@@ -727,7 +749,7 @@ class LedgerBalanceAdmin(ImportExportModelAdmin, CashCtrlAdmin):
     search_fields = ('function', 'hrm', 'name')
 
     # Enable filtering options
-    list_filter = (filters.PeriodFilteredSetupListFilter, 'function')
+    list_filter = (filters.LedgerFilteredSetupListFilter, 'function')
 
     # Read-only fields that cannot be edited
     # readonly_fields = ('closing_balance',)
@@ -738,7 +760,7 @@ class LedgerBalanceAdmin(ImportExportModelAdmin, CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'period', 'hrm', *make_multilanguage('name'),
+                'ledger', 'hrm', *make_multilanguage('name'),
                 'category', 'account', 'parent'),
             'classes': ('expand',),
         }),
