@@ -1,27 +1,30 @@
 from django.contrib import admin, messages
 from django.contrib.admin import ModelAdmin
 from django.db import IntegrityError
+from django.db.models import CharField
+from django.db.models.functions import Cast
 from django.utils import formats
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
-from import_export import resources
-from import_export.admin import ExportMixin, ImportExportModelAdmin
+from import_export.admin import ExportActionMixin
 
 from core.safeguards import get_tenant
 from scerp.admin import (
-     BaseAdmin, BaseTabularInline, Display, 
+     BaseAdmin, BaseTabularInline, Display,
      verbose_name_field, make_multilanguage, set_inactive, set_protected)
 from scerp.admin_site import admin_site
 from scerp.mixins import multi_language
 
 from . import actions as a
-from . import filters, forms, models, resources
+from . import filters, forms, models
+from .resources import LedgerBalanceResource
 
 
 class CASH_CTRL:
     SUPER_USER_EDITABLE_FIELDS = [
         'message',
         'is_enabled_sync',
+        'sync_to_accounting',
         'setup'
     ]
     FIELDS = [
@@ -29,7 +32,8 @@ class CASH_CTRL:
         'c_created',
         'c_created_by',
         'c_last_updated',
-        'c_last_updated_by'
+        'c_last_updated_by',
+        'last_received',
     ]
     REVENUE_FIELDS = [
         'c_rev_id',
@@ -44,17 +48,6 @@ class CASH_CTRL:
         'display_last_update', 'c_id', 'message', 'is_enabled_sync')
 
 
-class MappingIdInline(admin.TabularInline):
-    model = models.MappingId
-    extra = 0  # Number of empty forms to display for new inlines
-    fields = ('type', 'name', 'c_id', 'description')
-    # readonly_fields = ('type', 'name', 'c_id', 'description')
-    # can_delete = False  # Prevent deletion of inline objects
-
-    def has_add_permission(self, request, obj=None):
-        # Disable add permission for this inline
-        return False
-
 @admin.register(models.APISetup, site=admin_site)
 class APISetupAdmin(BaseAdmin):
     has_tenant_field = True
@@ -62,7 +55,6 @@ class APISetupAdmin(BaseAdmin):
 
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
-    readonly_fields = ('display_data',)
     actions = [
         a.api_setup_get,
         a.init_setup,
@@ -78,17 +70,12 @@ class APISetupAdmin(BaseAdmin):
                 'org_name',
                 'api_key',
                 'language',
-                'display_data'
+                'is_default'
             ),
             'classes': ('expand',),
         }),
     )
 
-    inlines = [MappingIdInline]
-
-    @admin.display(description=_('settings'))
-    def display_data(self, obj):
-        return Display.json(obj.data)
 
 
 class CashCtrlAdmin(BaseAdmin):
@@ -139,17 +126,19 @@ class CashCtrlAdmin(BaseAdmin):
         # Get the form from the parent class
         form = super().get_form(request, obj, change, **kwargs)
 
+        # Set the default value for the 'sync_to_accounting' field in the        
+        form.base_fields['sync_to_accounting'].widget.attrs['checked'] = True
+        
         # Only set default value if this is a new instance (obj is None)
-        if not obj:
-            tenant = get_tenant(request)
-
+        if not obj:                        
             # Fetch the default setup value
+            tenant = get_tenant(request)
             default_value = models.APISetup.objects.filter(
-                id=tenant['setup_id'], is_default=True).first()
+                tenant__id=tenant['id'], is_default=True).first()
 
             # If no default value found, raise an error
             if not default_value:
-                raise IntegrityError(f"No default_value for {self.org_name}")
+                raise IntegrityError(f"No API Setup found.")
 
             # Set the default value for the 'setup' field in the form
             form.base_fields['setup'].initial = default_value
@@ -174,38 +163,6 @@ class CashCtrlAdmin(BaseAdmin):
     @admin.display(description=_('last update'))
     def display_number(self, obj):
         return Display.big_number(obj.number)
-
-    @admin.display(description=_('HRM 2'))
-    def display_hrm(self, obj):
-        return Display.big_number(obj.hrm)
-
-
-@admin.register(models.Setting, site=admin_site)
-class Setting(BaseAdmin):
-    related_tenant_fields = ['setup']
-
-    is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
-
-    list_display = ('display_settings', 'modified_at')
-    search_fields = ('setup',)
-    list_filter = ('setup',)
-    readonly_fields = ['display_data']  # Corrected
-
-    fieldsets = (
-        (None, {
-            'fields': ('setup', 'display_data'),
-            'classes': ('expand',),
-        }),
-    )
-
-    @admin.display(description=_('settings'))
-    def display_settings(self, obj):
-        return _('settings')
-
-    @admin.display(description=_('settings'))
-    def display_data(self, obj):
-        return Display.json(obj.data)
 
 
 @admin.register(models.CustomFieldGroup, site=admin_site)
@@ -249,12 +206,12 @@ class Location(CashCtrlAdmin):
     related_tenant_fields = ['setup', 'logo']
 
     has_tenant_field = True
-    is_readonly = False
-    # warning = CASH_CTRL.WARNING_READ_ONLY
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY
 
     list_display = (
         'name', 'type', 'vat_uid', 'logo', 'address', 'display_last_update',
-        'url')
+        'url') + CASH_CTRL.LIST_DISPLAY      
     search_fields = ('name', 'vat_uid')
     list_filter = ('type',)
     actions = [a.accounting_get_data]
@@ -368,6 +325,8 @@ class UnitAdmin(CashCtrlAdmin):
 
     form = forms.UnitAdminForm
     list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
+    list_display_links = ('code', 'display_name')
+    
     search_fields = ('code', 'name')
     # list_filter = ('code',)
     readonly_fields = ('display_name',)
@@ -581,26 +540,26 @@ class AccountCategoryAdmin(CashCtrlAdmin):
     )
 
 
-class AllocationsInline(BaseTabularInline):  # or admin.StackedInline    
+class AllocationsInline(BaseTabularInline):  # or admin.StackedInline
     related_tenant_fields = ['setup', 'to_cost_center']
-    
+
     model = models.Allocation
     fields = ['share', 'to_cost_center']  # Only show these fields
     extra = 1  # Number of empty forms displayed
     autocomplete_fields = ['account']  # Improves FK selection performance
     show_change_link = True  # Shows a link to edit the related model
-     
+
 
 @admin.register(models.Account, site=admin_site)
 class AccountAdmin(CashCtrlAdmin):
     # Safeguards
-    related_tenant_fields = ['setup', 'category'] 
-    optimize_foreigns = ['category', 'currency', 'tax']    
+    related_tenant_fields = ['setup', 'category']
+    optimize_foreigns = ['category', 'currency']
     save_for_related = ['setup']
-    
+
     # Helpers
     form = forms.AccountAdminForm
-    
+
     list_display = (
         'display_number', 'function', 'hrm', 'display_name', 'category'
     ) + CASH_CTRL.LIST_DISPLAY
@@ -609,7 +568,7 @@ class AccountAdmin(CashCtrlAdmin):
     list_filter = ('function', 'hrm')
     readonly_fields = ('display_name', 'function', 'hrm')
     actions = [a.accounting_get_data]
-    inlines = [AllocationsInline] 
+    inlines = [AllocationsInline]
 
     fieldsets = (
         (None, {
@@ -621,47 +580,12 @@ class AccountAdmin(CashCtrlAdmin):
     )
 
 
-@admin.register(models.Configuration, site=admin_site)
-class ConfigurationyAdmin(CashCtrlAdmin):
-    related_tenant_fields = [
-        'setup',
-        'default_debtor_account',
-        'default_opening_account',
-        'default_creditor_account',
-        'default_exchange_diff_account',
-        'default_profit_allocation_account',
-        'default_inventory_disposal_account',
-        'default_input_tax_adjustment_account',
-        'default_sales_tax_adjustment_account',
-        'default_inventory_depreciation_account',
-        'default_inventory_asset_revenue_account',
-        'default_inventory_article_expense_account',
-        'default_inventory_article_revenue_account',
-        'first_steps_logo',
-        'first_steps_account',
-        'first_steps_currency',
-        'first_steps_pro_demo',
-        'first_steps_tax_rate',
-        'first_steps_tax_type',
-        'order_mail_copy_to_me',
-        'tax_accounting_method',
-        'journal_import_force_sequence_number',
-    ]
-
-    list_display = (
-        'csv_delimiter',
-        'thousand_separator',
-        'tax_accounting_method',
-        'first_steps_logo',
-        'first_steps_account',
-        'first_steps_currency',
-        'first_steps_pro_demo',
-        'first_steps_tax_rate',
-        'first_steps_tax_type'
-    ) + CASH_CTRL.LIST_DISPLAY
-
-    list_filter = ('setup', 'tax_accounting_method', 'first_steps_logo',
-                   'first_steps_account')
+@admin.register(models.Setting, site=admin_site)
+class SettingAdmin(CashCtrlAdmin):
+    is_readonly = True
+    warning = CASH_CTRL.WARNING_READ_ONLY    
+    
+    list_display = CASH_CTRL.LIST_DISPLAY
     actions = [a.accounting_get_data]
 
     fieldsets = (
@@ -707,7 +631,9 @@ class LedgerAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup', 'period']    
 
     form = forms.LedgerAdminForm
-    list_display = ('code', 'display_name', 'period', 'display_current')
+    list_display = (
+        'code', 'display_name', 'period', 'link_to_balance',
+        'display_current')
     search_fields = ('code', 'name', 'period__name')
 
     fieldsets = (
@@ -717,33 +643,41 @@ class LedgerAdmin(CashCtrlAdmin):
         }),
     )    
     
+    actions = [a.add_balance]
+    
     @admin.display(description=_('Current'))
     def display_current(self, obj):
         return Display.boolean(obj.period.is_current)
+
+    @admin.display(description=_('Balance'))
+    def link_to_balance(self, obj):
+        url = f"../ledgerbalance/?ledger__id__exact={obj.id}"
+        return format_html(f'<a href="{url}">{_("Balance")}</a>', url)
     
 
 @admin.register(models.LedgerBalance, site=admin_site)
-class LedgerBalanceAdmin(ImportExportModelAdmin, CashCtrlAdmin):
-# class LedgerBalanceAdmin(ImportExportModelAdmin, CashCtrlAdmin):
+class LedgerBalanceAdmin(ExportActionMixin, CashCtrlAdmin):
     """
     Django Admin for LedgerBalance model.
     """
     # Safeguards
-    related_tenant_fields = ['setup', 'parent', 'account', 'category']
+    related_tenant_fields = [
+        'setup', 'ledger', 'parent', 'account', 'category']
     optimize_foreigns = ['ledger', 'parent', 'account', 'category']  
 
     # Helpers
     form = forms.LedgerBalanceAdminForm
-    resource_class = resources.LedgerBalanceImportResource
+    resource_class = LedgerBalanceResource
 
     # Display these fields in the list view
     list_display = (
-        'function', 'display_hrm', 'display_name', 
+        'display_function', 'display_hrm', 'display_account_name', 
         'display_opening_balance', 'display_increase', 
         'display_decrease', 'display_closing_balance',
-        'notes'
+        'display_c_ids', 'notes'
     ) + CASH_CTRL.LIST_DISPLAY
-    list_display_links = ('display_hrm', 'display_name',)
+    list_display_links = ('display_account_name',)
+    ordering = [Cast('hrm', CharField())]
     
     # Enable search by name and account
     search_fields = ('function', 'hrm', 'name')
@@ -755,13 +689,13 @@ class LedgerBalanceAdmin(ImportExportModelAdmin, CashCtrlAdmin):
     # readonly_fields = ('closing_balance',)
 
     # Admin Actions (custom actions can be defined)
-    actions = [a.accounting_get_data]
+    actions = [a.accounting_get_data, a.sync_balance]
 
     fieldsets = (
         (None, {
             'fields': (
-                'ledger', 'hrm', *make_multilanguage('name'),
-                'category', 'account', 'parent'),
+                'ledger', 'hrm', *make_multilanguage('name'), 'type',
+                'parent', 'category', 'account'),
             'classes': ('expand',),
         }),
         ('Balances', {
@@ -791,7 +725,32 @@ class LedgerBalanceAdmin(ImportExportModelAdmin, CashCtrlAdmin):
     def display_decrease(self, obj):
         return Display.big_number(obj.decrease)
 
+    @admin.display(description=_('Function'))
+    def display_function(self, obj):
+        if obj.type == models.LedgerBalance.TYPE.CATEGORY:
+            return str(obj.function)
+        return ' '
 
+    @admin.display(description=_('HRM 2'))
+    def display_hrm(self, obj):
+        if obj.type == models.LedgerBalance.TYPE.ACCOUNT:
+            return str(obj.hrm)
+        return ' '
+
+    @admin.display(description=_('Name'))
+    def display_account_name(self, obj):
+        name = multi_language(obj.name)
+        if obj.type == models.LedgerBalance.TYPE.CATEGORY:
+            if int(obj.hrm) < 10:
+                name = name.upper()
+            return format_html(f"<b>{name}</b>")        
+        return format_html(name)
+
+    @admin.display(description=_('C-ids'))
+    def display_c_ids(self, obj):        
+        return obj.cash_ctrl_ids
+
+"""
 @admin.register(models.Article, site=admin_site)
 class ArticleAdmin(CashCtrlAdmin):
     related_tenant_fields = ['setup']
@@ -826,7 +785,7 @@ class ArticleAdmin(CashCtrlAdmin):
     @admin.display(description=_('price in CHF'))
     def display_sales_price(self, obj):
         return Display.big_number(obj.sales_price)
-
+"""
 
 @admin.register(models.ChartOfAccountsTemplate, site=admin_site)
 class ChartOfAccountsTemplateAdmin(BaseAdmin):
@@ -1038,18 +997,3 @@ class AccountPositionAdmin(CashCtrlAdmin):
         if obj.c_id or obj.c_rev_id:
             return '🪙'  # (Coin): \U0001FA99
         return ' '
-
-
-# Test
-@admin.register(models.LedgerTest, site=admin_site)
-class LedgerTestAdmin(ImportExportModelAdmin):
-    resource_class = resources.LedgerTestResource
-    list_display = ('period', 'hrm', 'name')
-
-    fieldsets = (
-        (None, {
-            'fields': (
-                'period', 'hrm', 'name'),
-            'classes': ('expand',),
-        }),
-    )

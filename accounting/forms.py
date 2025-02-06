@@ -3,21 +3,24 @@ from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import Group
-from django.db import models
-from django.utils.translation import gettext as _
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.forms import SelectMultiple
+from django.utils.html import format_html
+from django.utils.translation import gettext as _
+
 from django_admin_action_forms import action_with_form, AdminActionForm
 
 from core.safeguards import get_tenant
+from scerp.admin import verbose_name_field
+from scerp.forms import MultilanguageForm, make_multilanguage_form
+
 from .models import (
     ACCOUNT_TYPE_TEMPLATE, AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
     Ledger, LedgerBalance
 )
-from scerp.admin import verbose_name_field
-from scerp.forms import MultilanguageForm, make_multilanguage_form
 
 LABEL_BACK = _("Back")
 
@@ -277,3 +280,29 @@ class AssignResponsibleForm(AdminActionForm):
         label="Responsible Group",
         help_text="Select a group to assign as responsible."
     )
+
+
+class ExcelUploadForm(AdminActionForm):
+    excel_file = forms.FileField(        
+        required=True,
+        label=_("Upload Excel File"), 
+        help_text=(
+            _("Excel must contain the following colums:") +
+            "'hrm', 'name'" + " ," + _("optionally") + 
+            "'opening_balance', 'closing_balance', 'increase', 'decrease', 'notes'")
+    )        
+
+    class Meta:
+        help_text = format_html(_(
+            '''Upload Excel File to Balance.
+                Excel must contain the following colums:<br>
+                - hrm<br>
+                - name<br><br>
+                Optionally:<br>
+                - opening_balance<br>
+                - closing_balance<br>
+                - increase<br>
+                - decrease<br>
+                - notes
+            '''))
+            

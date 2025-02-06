@@ -175,7 +175,7 @@ class TEXT_TYPE(Enum):
     ORDER_FOOTER = 'ORDER_FOOTER'
     ORDER_MAIL = 'ORDER_MAIL'
     ORDER_ITEM = 'ORDER_ITEM'
-    
+
 
 class ELEMENT_TYPE:
     '''see public api desc'''
@@ -234,26 +234,17 @@ class ORDER_TYPE:
     PURCHASE = 'PURCHASE'
 
 
-class TOP_LEVEL_ACCOUNT_CATEGORY:
-    '''Used for cashctrl, see public api desc'''
-    ASSET = 1
-    LIABILITY = 2
-    EXPENSE = 3
-    REVENUE = 4
-    BALANCE = 5
-
-
 class CashCtrl():
-    ''' 
+    '''
     Base Class with many children
     BASE: used for almost all queries
     BASE_DIR: used for queries not have not .json at end of url
-        
-    :org:  cashCtrl org        
-    :api_key:  cashCtrl api_key        
-    :language:  cashCtrl language - for api we always use 'en' if not 
+
+    :org:  cashCtrl org
+    :api_key:  cashCtrl api_key
+    :language:  cashCtrl language - for api we always use 'en' if not
         explicitly declared otherwise
-    :org:  cashCtrl org        
+    :org:  cashCtrl org
     :org:  cashCtrl org
     '''
     BASE_DIR = URL_ROOT + "/api/v1/{url}{action}"
@@ -288,8 +279,8 @@ class CashCtrl():
         if isinstance(value, str) and value.startswith('<values>'):
             try:
                 # XML to dict
-                # Skip 'values' if it exists, otherwise return the 
-                # original dictionary                
+                # Skip 'values' if it exists, otherwise return the
+                # original dictionary
                 value_dict = xmltodict.parse(value)
                 return value_dict.get('values', value_dict)
             except Exception as e:
@@ -359,7 +350,7 @@ class CashCtrl():
         # Add language
         if not params.get('language'):
             params['lang'] = self.language
-        
+
         # Request
         try:
             response = requests.get(
@@ -385,7 +376,7 @@ class CashCtrl():
         # Add language
         if not params.get('language'):
             params['lang'] = self.language
-        
+
         # Load data from self.data if not given
         if data is None:
             data = self.data
@@ -604,6 +595,7 @@ class Setting(CashCtrl):
     '''see public api desc'''
     url = 'setting/'
     actions = ['read']
+
 
 # File
 class File(CashCtrl):

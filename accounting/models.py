@@ -11,8 +11,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .api_cash_ctrl import (
-    URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE,
-    TOP_LEVEL_ACCOUNT_CATEGORY)
+    URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE)
 from scerp.mixins import multi_language
 
 
@@ -28,22 +27,15 @@ from crm.models import (
 from scerp.locales import CANTON_CHOICES
 
 
-CODE_MAX_LEN = 200  # for converting cashCtrl name to key
-
 # Definitions
 class APPLICATION(models.TextChoices):
     CASH_CTRL = 'CC', 'Cash Control'
 
 
-class ACCOUNT_SIDE(models.TextChoices):
-    CREDIT = 'C', _('Credit')
-    DEBIT = 'D', _('Debit')
-
-
 class ACCOUNT_TYPE_TEMPLATE(models.IntegerChoices):
     # Used for Cantonal / Template Charts
     BALANCE = (1, _('Bilanz'))
-    FUNCTIONAL = (2, _('Funktionale Gliederung'))  # only for template
+    FUNCTIONAL = (2, _('Funktionale Gliederung'))
     INCOME = (3, _('Erfolgsrechnung'))
     INVEST = (5, _('Investitionsrechnung') )
 
@@ -56,26 +48,33 @@ class ACCOUNT_TYPE(models.IntegerChoices):
 
 
 class CATEGORY_HRM(Enum):
-    # First digits account_number, name
+    # First digits account_number, name, DISCONTINUE
     ASSET = [1], "ASSET"
     LIABILITY = [2], "LIABILITY"
     EXPENSE = [3, 5], "EXPENSE"
     REVENUE = [4, 6], "REVENUE"
     BALANCE = [9], "BALANCE"
 
-    def get_scope(category):
-        try:
-            scope, _label = category.value
-            return scope
-        except:
-            return None
 
+class TOP_LEVEL_ACCOUNT(Enum):
+    '''Used for creating categories '''
+    # CashCtrl
+    ASSET = 1
+    LIABILITY = 2
+    EXPENSE = 3
+    REVENUE = 4
+    BALANCE = 5
 
-class TOP_LEVEL_ACCOUNT(TOP_LEVEL_ACCOUNT_CATEGORY):
+    # OWN, comma to ensure unique number in cashCtrl
     PL_EXPENSE = 3.1  # Aufwand
     PL_REVENUE = 4.1  # Ertrag
     IS_EXPENSE = 3.2  # Ausgaben
     IS_REVENUE = 4.2  # Einnahmen
+
+TOP_LEVEL_ACCOUNTS = [x.value for x in TOP_LEVEL_ACCOUNT]
+
+# ASSET to BALANCE are protected in cashCtrl
+PROTECTED_ACCOUNTS = [x for x in TOP_LEVEL_ACCOUNTS if int(x) == x]  
 
 
 # CashCtrl Basics ------------------------------------------------------------
@@ -83,6 +82,7 @@ class APISetup(TenantAbstract):
     '''only restricted to admin!
         triggers signals.py past_save
         org_name, application is unique (cashCtrl)
+        all cashCtrl entities have foreign key to APISetup
     '''
     org_name = models.CharField(
         'org_name', max_length=100, unique=True,
@@ -139,7 +139,7 @@ class APISetup(TenantAbstract):
         verbose_name_plural = _('Accounting Setups')
 
 
-class Acct(models.Model):
+class AcctApp(TenantAbstract):
     '''id_cashctrl gets set after first synchronization
     '''
     # CashCtrl
@@ -168,28 +168,17 @@ class Acct(models.Model):
     is_enabled_sync = models.BooleanField(
         _("Enable Sync"), default=True,
         help_text="Disable sync with cashCtrl; useful for admin tasks.")
+    sync_to_accounting = models.BooleanField(
+        _("Sync to Accounting"), default=False,
+        help_text=(
+            "This records needs to be synched to cashctr, if the cycle is "
+            "over it gets reset to False"))
 
     class Meta:
         abstract = True
 
 
-class AcctApp(TenantAbstract, Acct):
-    '''id_cashctrl gets set after first synchronization
-    '''
-    def assign_setup(self):
-        if not getattr(self, 'setup', None):
-            # Query the default value
-            default_value = APISetup.objects.filter(
-                tenant=self.tenant, is_default=True).first()
-            if not default_value:
-                raise IntegrityError(f"No default_value for {self.org_name}")
-            self.setup = default_value
-
-    class Meta:
-        abstract = True
-
-
-# Internals for cashCtrl
+# CashCtrl entities with foreign key to APISetup -----------------------------
 class CustomFieldGroup(AcctApp):
     '''
     Create custom field group that is then sent to cashCtrl via signals
@@ -197,7 +186,8 @@ class CustomFieldGroup(AcctApp):
     FIELD_TYPE = [(x.value, x.value) for x in FIELD_TYPE]
 
     code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')
+        _('Code'), max_length=50, null=True, blank=True,  
+        help_text='Internal code for scerp')
     name = models.JSONField(
         _('Name'), help_text="The name of the group.")
     type = models.CharField(
@@ -213,7 +203,7 @@ class CustomFieldGroup(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['setup', 'code', 'c_id'],
                 name='unique_custom_field_group_setup'
             )
         ]
@@ -235,7 +225,8 @@ class CustomField(AcctApp):
     DATA_TYPE = [(x.value, x.value) for x in DATA_TYPE]
 
     code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')
+        _('Code'), max_length=50, null=True, blank=True,  
+        help_text='Internal code for scerp')
     group_ref = models.CharField(
         _('Custom Field Group'), max_length=50, blank=True, null=True,
         help_text='internal reference for scerp used for getting foreign key')
@@ -278,7 +269,7 @@ class CustomField(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['setup', 'code', 'c_id'],
                 name='unique_custom_setup_field'
             )
         ]
@@ -287,63 +278,8 @@ class CustomField(AcctApp):
         verbose_name_plural = _("Custom Field")
 
 
-class Setting(TenantAbstract):
-    '''Read - only
-    '''
-    data = models.JSONField(_('Index'), blank=True, null=True)
-    setup = models.ForeignKey(
-        APISetup, verbose_name=_('Accounting Setup'),
-        on_delete=models.CASCADE, related_name='%(class)s_setup',
-        help_text=_('Account Setup used'))
-
-    def __str__(self):
-        return self.setup.org_name
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup',],
-                name='unique_setup'
-            )
-        ]
-        ordering = ['setup__org_name']
-        verbose_name = _("Settings")
-        verbose_name_plural = f"{verbose_name}"
-
-
-class MappingId(AcctApp):
-    '''For maintenance only
-    '''
-    class TYPE(models.TextChoices):
-        CUSTOM_FIELD_GROUP = 'custom_field_group'
-        CUSTOM_FIELD = 'custom_field'
-        ACCOUNT_CATEGORY = 'account_category'
-        PERSON_CATEGORY = 'person_category'
-        ACCOUNT = 'account'
-
-    # Mandatory field
-    type = models.CharField(_("Type"), max_length=50, choices=TYPE)
-    name = models.CharField(_("Name"), max_length=100)
-    description = models.TextField(_("Description"), null=True, blank=True)
-
-    def __str__(self):
-        return f'{self.type}-{self.name}: {self.c_id}'
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'type', 'name'],
-                name='unique_constants'
-            )
-        ]
-        ordering = ['type', 'name']
-        verbose_name = _("Mapping Id")
-        verbose_name_plural = _("Mapping Ids")
-
-
-# CashCtrl entities
 class Location(AcctApp):
-    '''Master, currently Read - only
+    '''Master, currently Read - only as bug in cashCtrl
     '''
     class TYPE(models.TextChoices):
         MAIN = "MAIN", _("Headquarters")
@@ -411,7 +347,7 @@ class Location(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'name'],
+                fields=['setup', 'name', 'c_id'],
                 name='unique_setup_location'
             )
         ]
@@ -421,24 +357,19 @@ class Location(AcctApp):
 
 
 class FiscalPeriod(AcctApp):
-    '''Read - only
-    '''
+    ''' FiscalPeriod '''
     name = models.CharField(
-        max_length=30,
-        blank=True,
-        null=True,
-        help_text="The name of the fiscal period, required if isCustom is true."
-    )
+        _("Name"), max_length=30, blank=True, null=True,
+        help_text=_(
+            "The name of the fiscal period, required if isCustom is true."))
     start = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text="Start date of the fiscal period, required if isCustom is true."
-    )
+        _("Start"), blank=True, null=True,
+        help_text=_(
+            "Start date of the fiscal period, required if isCustom is true."))
     end = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text="End date of the fiscal period, required if isCustom is true."
-    )
+        _("End"), blank=True, null=True,
+        help_text=_(
+            "End date of the fiscal period, required if isCustom is true."))
     is_closed = models.BooleanField(
         _("Is closed"), default=False,
         help_text="Check if fiscal period is closed.")
@@ -459,7 +390,7 @@ class FiscalPeriod(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'name'],
+                fields=['setup', 'start', 'c_id'],
                 name='unique_setup_period'
             )
         ]
@@ -469,8 +400,7 @@ class FiscalPeriod(AcctApp):
 
 
 class Currency(AcctApp):
-    '''Read - only
-    '''
+    ''' Currency '''
     code = models.CharField(
         max_length=3,
         help_text=_("The 3-characters currency code, like CHF, EUR, etc."))
@@ -501,10 +431,10 @@ class Currency(AcctApp):
 
 
 class SequenceNumber(AcctApp):
-    '''Read - only
-    '''
+    ''' SequenceNumber '''
     code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')
+        _('Code'), max_length=50, null=True, blank=True,  
+        help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'),  help_text=_("The name of the sequence number."),
         blank=True, null=True)
@@ -531,49 +461,44 @@ class SequenceNumber(AcctApp):
         return self.code
 
     class Meta:
-        '''
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['setup', 'code', 'c_id'],
                 name='unique_setup_sequence_number'
             )
         ]
-        '''
-        ordering = ['name']
+        ordering = ['code']
         verbose_name = _("Sequence Number")
         verbose_name_plural = f"{_('Sequence Numbers')}"
 
 
 class Unit(AcctApp):
-    ''' Master
-    '''
+    ''' Unit '''
     code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')
+        _('Code'), max_length=50, null=True, blank=True,  
+        help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'), default=dict,
         help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
     is_default = models.BooleanField(_("Is default"), default=False)
 
     def __str__(self):
-        return self.code
+        return f"{self.code} {multi_language(self.name)}"
 
     class Meta:
-        '''
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['setup', 'code', 'c_id'],
                 name='unique_setup_unit'
             )
-        ]
-        '''
-        ordering = ['name']
+        ]        
+        ordering = ['code']
         verbose_name = _("Unit")
         verbose_name_plural = f"{_('Units')}"
 
 
 class Text(AcctApp):
-    ''' Text Blocks
-    '''
+    ''' Text Blocks '''
     TEXT_TYPE = [(x.value, x.value) for x in TEXT_TYPE]
 
     name = models.CharField(
@@ -583,8 +508,7 @@ class Text(AcctApp):
         _('Is default'), default=False,
         help_text=_('use this setup for adding accounting data'))
     type = models.CharField(
-        _('mode'),
-        max_length=20, choices=TEXT_TYPE,
+        _('mode'), max_length=20, choices=TEXT_TYPE,
         help_text=_(
             '''The type of text template, meaning: Where the text template
                 can be used. Possible values.'''))
@@ -610,8 +534,7 @@ class Text(AcctApp):
 
 
 class CostCenterCategory(AcctApp):
-    '''Master
-    '''
+    ''' CostCenterCategory '''
     name = models.JSONField(
         _('Name'), help_text="The name of the cost center category.")
     number = models.DecimalField(
@@ -628,7 +551,7 @@ class CostCenterCategory(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'number'],
+                fields=['setup', 'number', 'c_id'],
                 name='unique_setup_cost_center_category'
             )
         ]
@@ -638,8 +561,7 @@ class CostCenterCategory(AcctApp):
 
 
 class CostCenter(AcctApp):
-    '''Master
-    '''
+    ''' CostCenter '''
     name = models.JSONField(
         _('Name'), default=dict, help_text="The name of the cost center.")
     number = models.DecimalField(
@@ -675,7 +597,7 @@ class CostCenter(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'number'],
+                fields=['setup', 'number', 'c_id'],
                 name='unique_setup_cost_center'
             )
         ]
@@ -685,7 +607,8 @@ class CostCenter(AcctApp):
 
 
 class AccountCategory(AcctApp):
-    '''Actual Account Category in cashCtrl
+    '''
+    Actual Account Category in cashCtrl
     AccountCategory and Account must be loaded before Tax and Rounding
     '''
     name = models.JSONField(
@@ -694,13 +617,14 @@ class AccountCategory(AcctApp):
         _('Number'), help_text=_("The name of the account category."))
     parent = models.ForeignKey(
         'self', verbose_name=_('Parent'), blank=True, null=True,
-        on_delete=models.CASCADE, related_name='%(class)s_parent',
+        on_delete=models.SET_NULL, related_name='%(class)s_parent',
         help_text=_('The parent category.'))
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'c_id'],
+                # Generous, as cashCtrl allows identical numbers.
+                fields=['setup', 'number', 'c_id'],
                 name='unique_setup_account_category'
             )
         ]
@@ -728,7 +652,8 @@ class Account(AcctApp):
     name = models.JSONField(
         _('Name'), default=dict, help_text="The name of the account.")
     category = models.ForeignKey(
-        AccountCategory, verbose_name=_('Account Category'),
+        AccountCategory, blank=True, null=True,  # allow for maintenance
+        verbose_name=_('Account Category'), 
         on_delete=models.CASCADE, related_name='%(class)s_category',
         help_text=_('Internal reference'))
     number = models.DecimalField(
@@ -762,11 +687,9 @@ class Account(AcctApp):
             'that period.'
         )
     )
-    tax = models.ForeignKey(
-        'Tax', verbose_name=_('Tax'),
-        on_delete=models.PROTECT, blank=True, null=True,
-        related_name='%(class)s_tax',
-        help_text=_("Link to tax. Not used."))  # Verify
+    tax_c_id = models.PositiveIntegerField(
+        '_Id to Tax', blank=True, null=True,        
+        help_text=_("Link to tax. Only used in cashCtrl."))
 
     # custom, maybe discontinue
     function = models.PositiveSmallIntegerField(
@@ -782,10 +705,10 @@ class Account(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'number'],
+                fields=['setup', 'number', 'c_id'],
                 name='unique_setup_account'
             )
-        ]
+        ]        
         ordering = ['number']
         verbose_name = ('Account')
         verbose_name_plural = _('Accounts')
@@ -813,7 +736,7 @@ class Allocation(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'account', 'to_cost_center'],
+                fields=['setup', 'account', 'to_cost_center', 'c_id'],
                 name='unique_allocation'
             )
         ]
@@ -822,421 +745,121 @@ class Allocation(AcctApp):
         verbose_name_plural = _('Cost Center Allocations')
 
 
-class Ledger(AcctApp):
-    '''
-    Ledger assigned to a FiscalPeriod
-    '''
-    code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code')
-    name = models.JSONField(
-        _('Name'), default=dict, help_text="The name of the ledger.")        
-    period = models.ForeignKey(
-        FiscalPeriod, verbose_name=_('Fiscal Period'),
-        on_delete=models.CASCADE, related_name='%(class)s_period',
-        help_text=_("Fiscal period"))
-        
-    actions = []
-
-    def __str__(self):
-        return f" {self.code}: {multi_language(self.name)}"
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['period', 'code'],
-                name='unique_ledger'
-            )
-        ]
-        ordering = ['-period', 'code']
-        verbose_name = ('Ledger')
-        verbose_name_plural = _('Ledgers')
-
-
-class LedgerAccount(AcctApp):
-    '''
-    Used for HRM 2 account management:
-    - type: leave empty to calculate later
-    - parent: leave empty to calculate later
-    - function: leave empty to calculate later
-    - account: leave empty to calculate later
-
-    Processing:
-    In pre_save:
-    - parent is calculated
-    - Account.number is calculated
-    - AccountCategory.number is calculated
-    - categories or account are created
-    - hrm, function, name are copied to categories or account
-
-    '''
-    class TYPE(models.TextChoices):
-        CATEGORY = 'C', _('Category')
-        ACCOUNT = 'A', _('Account')
-    ledger = models.ForeignKey(
-        Ledger, verbose_name=_('Ledger'),
-        on_delete=models.CASCADE, related_name='%(class)s_ledger',
-        help_text=_("Ledger assigned to the fiscal period"))
-    hrm = models.DecimalField(
-         _('HRM 2'), max_digits=10, decimal_places=2,
-        help_text=_('HRM 2 number, e.g. 3100.01'))
-    name = models.JSONField(
-        _('Name'), default=dict, help_text="The name of the account.")
-    type = models.CharField(
-        _('Type'), max_length=1, choices=TYPE, blank=True, null=True,
-        help_text=_("Category or account"))
-    parent = models.ForeignKey(
-        'self', verbose_name=_('Parent'), blank=True, null=True,
-        on_delete=models.CASCADE, related_name='%(class)s_parent',
-        help_text=_('The parent category.'))
-    function = models.PositiveSmallIntegerField(
-         _('Function'), null=True, blank=True,
-        help_text=_(
-            'Function code, e.g. 071, in Balance this is the balance '
-            'this is the acount group belonging to one category'))
-    account = models.ForeignKey(
-        Account, verbose_name=_('Account'), null=True, blank=True,
-        on_delete=models.CASCADE, related_name='%(class)s_category',
-        help_text="The underlying account.")
-
-    def clean(self):
-        # Custom validation for HRM 2
-        if self.hrm is not None:
-            try:
-                float(self.hrm)  # Check if HRM is a valid number
-            except ValueError:
-                msg = _('{hrm}: HRM value must be a valid decimal number.')
-                raise ValidationError(msg.format(hrm=self.hrm))
-
-        # Validate name
-        if not self.name:
-            raise ValidationError(_('Name field cannot be empty.'))
-
-    class Meta:
-        ordering = [Cast('function', models.CharField()), 'hrm']
-        abstract = True
-
-
-class LedgerBalance(LedgerAccount):
-    '''
-    Used for HRM 2 account management:
-    - category: leave empty to calculate later
-    '''
-    category = models.ForeignKey(
-        AccountCategory, verbose_name=_('Account Category'),
-        on_delete=models.CASCADE, blank=True, null=True,
-        related_name='%(class)s_category',
-        help_text="The underlying category.")
-    opening_balance = models.DecimalField(
-        _('Opening Balance'), max_digits=11, decimal_places=2,
-        null=True, blank=True,
-        help_text=_('The balance at the start of the year.')
-    )
-    closing_balance = models.DecimalField(
-        _('Closing Balance'), max_digits=11, decimal_places=2,
-        null=True, blank=True,
-        help_text=_('The balance at the end of the year.')
-    )
-    increase = models.DecimalField(
-        _('Increase'), max_digits=11, decimal_places=2, null=True, blank=True,
-        help_text=_('The increase in value during the year.')
-    )
-    decrease = models.DecimalField(
-        _('Decrease'), max_digits=11, decimal_places=2, null=True, blank=True,
-        help_text=_('The decrease in value during the year.')
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'ledger', 'hrm'],
-                name='unique_balance'
-            )
-        ]
-        ordering = ['hrm']
-        verbose_name = ('Balance')
-        verbose_name_plural = _('Balance')
-
-
-class FunctionalLedger(LedgerAccount):
-    category_expense = models.ForeignKey(
-        AccountCategory, on_delete=models.CASCADE, blank=True, null=True,
-        verbose_name=_('Account Category'),
-        related_name='%(class)s_category_expense',
-        help_text="The underlying expense category.")
-    category_revenue = models.ForeignKey(
-        AccountCategory,  on_delete=models.CASCADE, blank=True, null=True,
-        verbose_name=_('Account Category'),
-        related_name='%(class)s_category_revenue',
-        help_text="The underlying revenue category.")
-
-    class Meta:
-        abstract = True
-        ordering = ['function', 'hrm']
-
-
-class LedgerPL(FunctionalLedger):
-    expense = models.DecimalField(
-        _('Expense'), max_digits=11, decimal_places=2,
-        help_text=_('The expense amount.')
-    )
-    revenue = models.DecimalField(
-        _('Revenue'), max_digits=11, decimal_places=2,
-        help_text=_('The revenue amount.')
-    )
-    expense_budget = models.DecimalField(
-        _('Expense Budget'), max_digits=11, decimal_places=2,
-        help_text=_('The budgeted expense amount.')
-    )
-    revenue_budget = models.DecimalField(
-        _('Revenue Budget'), max_digits=11, decimal_places=2,
-        help_text=_('The budgeted revenue amount.')
-    )
-    expense_previous = models.DecimalField(
-        _('Previous Expense'), max_digits=11, decimal_places=2,
-        help_text=_('The previous expense amount.')
-    )
-    revenue_previous = models.DecimalField(
-        _('Previous Revenue'), max_digits=11, decimal_places=2,
-        help_text=_('The previous revenue amount.')
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'ledger', 'hrm', 'function'],
-                name='unique_ledger_pl'
-            )
-        ]
-        verbose_name = ('Profit/Loss')
-        verbose_name_plural = _('Profit/Loss')
-
-
-class LedgerIC(FunctionalLedger):
-    expense = models.DecimalField(
-        _('Expense'), max_digits=11, decimal_places=2,
-        help_text=_('The expense amount.')
-    )
-    revenue = models.DecimalField(
-        _('Revenue'), max_digits=11, decimal_places=2,
-        help_text=_('The revenue amount.')
-    )
-    expense_budget = models.DecimalField(
-        _('Expense Budget'), max_digits=11, decimal_places=2,
-        help_text=_('The budgeted expense amount.')
-    )
-    revenue_budget = models.DecimalField(
-        _('Revenue Budget'), max_digits=11, decimal_places=2,
-        help_text=_('The budgeted revenue amount.')
-    )
-    expense_previous = models.DecimalField(
-        _('Previous Expense'), max_digits=11, decimal_places=2,
-        help_text=_('The previous expense amount.')
-    )
-    revenue_previous = models.DecimalField(
-        _('Previous Revenue'), max_digits=11, decimal_places=2,
-        help_text=_('The previous revenue amount.')
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'ledger', 'hrm', 'function'],
-                name='unique_ledger_ic'
-            )
-        ]
-        verbose_name = ('Investment Calculation')
-        verbose_name_plural = _('Investment Calculations')
-
-
-class Configuration(AcctApp):
+# All the following entities have foreign keys to Account
+class Setting(AcctApp):
     """
     Represents the system's configuration for financial and accounting settings.
     """
     # Format Settings
     csv_delimiter = models.CharField(
-        max_length=5,
-        default=";",
-        verbose_name=_("CSV Delimiter")
-    )
+        _("CSV Delimiter"), max_length=5, default=";")
     thousand_separator = models.CharField(
-        max_length=1,
-        blank=True,
-        null=True,
-        verbose_name=_("Thousand Separator")
-    )
+        _("Thousand Separator"), max_length=1, blank=True, null=True)
 
     # Account Settings
     default_debtor_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='debtor_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Debtor Account")
-    )
+        verbose_name=_("Default Debtor Account"))
     default_opening_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='opening_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Opening Account")
-    )
+        verbose_name=_("Default Opening Account"))
     default_creditor_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='creditor_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Creditor Account")
-    )
+        verbose_name=_("Default Creditor Account"))
     default_exchange_diff_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='exchange_diff_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Exchange Difference Account")
-    )
+        verbose_name=_("Default Exchange Difference Account"))
     default_profit_allocation_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='profit_allocation_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Profit Allocation Account")
-    )
+        verbose_name=_("Default Profit Allocation Account"))
     default_inventory_disposal_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='inventory_disposal_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Inventory Disposal Account")
-    )
+        verbose_name=_("Default Inventory Disposal Account"))
     default_input_tax_adjustment_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='input_tax_adjustment_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Input Tax Adjustment Account")
-    )
+        verbose_name=_("Default Input Tax Adjustment Account"))
     default_sales_tax_adjustment_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='sales_tax_adjustment_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Sales Tax Adjustment Account")
-    )
+        verbose_name=_("Default Sales Tax Adjustment Account"))
     default_inventory_depreciation_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='inventory_depreciation_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Inventory Depreciation Account")
-    )
+        verbose_name=_("Default Inventory Depreciation Account"))
     default_inventory_asset_revenue_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='inventory_asset_revenue_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Inventory Asset Revenue Account")
-    )
+        verbose_name=_("Default Inventory Asset Revenue Account"))
     default_inventory_article_expense_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='inventory_article_expense_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Inventory Article Expense Account")
-    )
+        verbose_name=_("Default Inventory Article Expense Account"))
     default_inventory_article_revenue_account = models.ForeignKey(
-        'Account',
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='inventory_article_revenue_accounts',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name=_("Default Inventory Article Revenue Account")
-    )
+        verbose_name=_("Default Inventory Article Revenue Account"))
     default_sequence_number_inventory_asset = models.IntegerField(
-        default=4,
-        verbose_name=_("Default Sequence Number for Inventory Asset")
-    )
-    default_sequence_number_inventory_article = models.IntegerField(
-        default=2,
-        verbose_name=_("Default Sequence Number for Inventory Article")
-    )
+        _("Default Sequence Number for Inventory Asset"), default=4)
+    default_sequence_number_inventory_article = models.IntegerField(        
+        _("Default Sequence Number for Inventory Article"), default=2)
     default_sequence_number_person = models.IntegerField(
-        default=5,
-        verbose_name=_("Default Sequence Number for Person")
-    )
+        verbose_name=_("Default Sequence Number for Person"), default=5)
     default_sequence_number_journal = models.IntegerField(
-        default=6,
-        verbose_name=_("Default Sequence Number for Journal")
-    )
+        verbose_name=_("Default Sequence Number for Journal"), default=6)
 
     # General Settings
     first_steps_logo = models.BooleanField(
-        default=True,
-        verbose_name=_("Show Logo in First Steps")
-    )
+        _("Show Logo in First Steps"), default=True)
     first_steps_account = models.BooleanField(
-        default=True,
-        verbose_name=_("Enable First Steps Account Setup")
-    )
+        _("Enable First Steps Account Setup"), default=True)
     first_steps_currency = models.BooleanField(
-        default=True,
-        verbose_name=_("Enable First Steps Currency Setup")
-    )
+        _("Enable First Steps Currency Setup"), default=True)
     first_steps_pro_demo = models.BooleanField(
-        default=True,
-        verbose_name=_("Enable Pro Demo First Steps")
-    )
+        _("Enable Pro Demo First Steps"), default=True)
     first_steps_tax_rate = models.BooleanField(
-        default=True,
-        verbose_name=_("Enable First Steps Tax Rate Setup")
-    )
+        _("Enable First Steps Tax Rate Setup"), default=True)
     first_steps_tax_type = models.BooleanField(
-        default=True,
-        verbose_name=_("Enable First Steps Tax Type Setup")
-    )
+        _("Enable First Steps Tax Type Setup"), default=True)
     order_mail_copy_to_me = models.BooleanField(
-        default=True,
-        verbose_name=_("Copy Order Mails to Me")
-    )
+        _("Copy Order Mails to Me"), default=True)
     tax_accounting_method = models.CharField(
-        max_length=50,
-        default="AGREED",
-        verbose_name=_("Tax Accounting Method")
-    )
+        _("Tax Accounting Method"), max_length=50, default="AGREED")
     journal_import_force_sequence_number = models.BooleanField(
-        default=False,
-        verbose_name=_("Force Sequence Number for Journal Import")
-    )
+        _("Force Sequence Number for Journal Import"), default=False)
+    first_steps_opening_entries = models.BooleanField(
+        _("First steps opening entries done"), default=False)
+    journal_import_force_sequence_number = models.BooleanField(
+        _("Force Sequence Number for Journal Import"), default=False)
+    first_steps_two_factor_auth = models.BooleanField(
+        _("First steps two factor auth"), default=False)
 
     def __str__(self):
         return f"Configuration {self.pk}"
 
     class Meta:
-        verbose_name = _("Configuration")
-        verbose_name_plural = _("Configurations")
+        verbose_name = _("Settings")
+        verbose_name_plural = _("Settings")
 
 
 class Tax(AcctApp):
     ''' Master
     '''
     code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')
+        _('Code'), max_length=50, null=True, blank=True,  
+        help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'), blank=True, null=True,
         help_text=_("The name of the tax rate."))
     account = models.ForeignKey(
-        'Account', verbose_name=_('Account'),
-        on_delete=models.CASCADE, blank=True, null=True,
+        Account, on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Account'),
         related_name='%(class)s_account',
         help_text=_('The account which collects the taxes.'))
     percentage = models.DecimalField(
@@ -1269,32 +892,30 @@ class Tax(AcctApp):
         return self.code
 
     class Meta:
-        '''
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['setup', 'code', 'c_id'],
                 name='unique_setup_tax'
             )
         ]
-        '''
-        ordering = ['name']
+        ordering = ['code']
         verbose_name = _("Tax Rate")
         verbose_name_plural = f"{_('Tax Rates')}"
 
 
 class Rounding(AcctApp):
-    '''Needs to have an account
-    '''
+    ''' Rounding '''
     MODE = [(x.value, x.value) for x in ROUNDING]
     code = models.CharField(
-        _('Code'), max_length=50, help_text='Internal code for scerp')
+        _('Code'), max_length=50, null=True, blank=True,  
+        help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'), default=dict,
         help_text=_("The name of the rounding."))
     account = models.ForeignKey(
-        'Account', verbose_name=_('Account'),
-        on_delete=models.CASCADE, null=True, blank=True,  # remove later
+        Account, on_delete=models.SET_NULL, null=True, blank=True,        
         related_name='%(class)s_account',
+        verbose_name=_('Account'),
         help_text=_('The account which collects the roundings'))
     rounding = models.DecimalField(
         _('rounding'), max_digits=5, decimal_places=2)
@@ -1307,30 +928,32 @@ class Rounding(AcctApp):
         return self.code
 
     class Meta:
-        '''
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['setup', 'code', 'c_id'],
                 name='unique_setup_rounding'
             )
-        ]
-        '''
-        ordering = ['name']
+        ]        
+        ordering = ['code']
         verbose_name = _("Rounding")
         verbose_name_plural = f"{_('Roundings')}"
 
 
 class OrderCategory(AcctApp):
-    '''Read - only
-    '''
+    ''' OrderCategory '''
+    code = models.CharField(
+        _('Code'), max_length=50, null=True, blank=True,  
+        help_text='Internal code for scerp')
     name_plural = models.JSONField(
         _('name'), blank=True, null=True,
         help_text=_("he plural name of the category (e.g. 'Invoices')."))
-    account_id = models.PositiveIntegerField(
-        _('Account Id'), blank=True, null=True,
+    account = models.ForeignKey(
+        Account, on_delete=models.SET_NULL, null=True, blank=True,        
+        related_name='%(class)s_account',
+        verbose_name=_('Account'),
         help_text=_(
             """The ID of the account, which is typically the debtors
-            account for sales and the creditors account for purchase. """))
+            account for sales and the creditors account for purchase. """))             
     status = models.JSONField(
         _('status'),
         help_text=_(
@@ -1358,7 +981,7 @@ class OrderCategory(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'c_id'],
+                fields=['setup', 'code', 'c_id'],
                 name='unique_c_id_per_tenant_setup__order_category'
             )
         ]
@@ -1370,8 +993,8 @@ class OrderCategory(AcctApp):
 class OrderTemplate(AcctApp):
     '''Read - only
     '''
-    name = models.TextField(
-        _('name'),
+    name = models.CharField(
+        _('name'), max_length=200,
         help_text=_("The name to describe and identify the template."))
     is_default = models.BooleanField(
         _('is default'),
@@ -1385,7 +1008,7 @@ class OrderTemplate(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'c_id'],
+                fields=['setup', 'name', 'c_id'],
                 name='unique_c_id_per_tenant_setup__order_template'
             )
         ]
@@ -1393,6 +1016,9 @@ class OrderTemplate(AcctApp):
         verbose_name = _("Order Template")
         verbose_name_plural = f"{_('Order Templates')}"
 
+
+'''
+to do 
 
 class Article(AcctApp):
     """
@@ -1540,6 +1166,238 @@ class Article(AcctApp):
         ]
         verbose_name = _("Article")
         verbose_name_plural = _("Articles")
+'''
+
+# scerp entities with foreign key to Ledger ---------------------------------
+class Ledger(AcctApp):
+    '''
+    Ledger assigned to a FiscalPeriod
+    '''
+    code = models.CharField(
+        _('Code'), max_length=50, help_text='Internal code')
+    name = models.JSONField(
+        _('Name'), default=dict, help_text="The name of the ledger.")        
+    period = models.ForeignKey(
+        FiscalPeriod, verbose_name=_('Fiscal Period'),
+        on_delete=models.CASCADE, related_name='%(class)s_period',
+        help_text=_("Fiscal period"))
+        
+    actions = []
+
+    def __str__(self):
+        return f"{multi_language(self.name)}, {self.period}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['period', 'code'],
+                name='unique_ledger'
+            )
+        ]
+        ordering = ['-period', 'code']
+        verbose_name = ('Ledger')
+        verbose_name_plural = _('Ledgers')
+
+
+class AcctLedger(AcctApp):
+    ledger = models.ForeignKey(
+        Ledger, verbose_name=_('Ledger'),
+        on_delete=models.CASCADE, related_name='%(class)s_ledger',
+        help_text=_("Ledger assigned to the fiscal period"))    
+
+    class Meta:
+        abstract = True
+    
+
+class LedgerAccount(AcctLedger):
+    '''
+    Used for HRM 2 account management:
+    - type: leave empty to calculate later
+    - parent: leave empty to calculate later
+    - function: leave empty to calculate later
+    - account: leave empty to calculate later
+
+    Processing:
+    In pre_save:
+    - parent is calculated
+    - Account.number is calculated
+    - AccountCategory.number is calculated
+    - categories or account are created
+    - hrm, function, name are copied to categories or account
+
+    '''
+    class TYPE(models.TextChoices):
+        CATEGORY = 'C', _('Category')
+        ACCOUNT = 'A', _('Account')
+        
+    hrm = models.DecimalField(
+         _('HRM 2'), max_digits=10, decimal_places=2,
+        help_text=_('HRM 2 number, e.g. 3100.01'))
+    name = models.JSONField(
+        _('Name'), default=dict, help_text="The name of the account.")
+    type = models.CharField(
+        _('Type'), max_length=1, choices=TYPE, blank=True, null=True,
+        help_text=_("Category or account"))
+    parent = models.ForeignKey(
+        'self', verbose_name=_('Parent'), blank=True, null=True,
+        on_delete=models.SET_NULL, related_name='%(class)s_parent',
+        help_text=_('The parent category.'))
+    function = models.PositiveSmallIntegerField(
+         _('Function'), null=True, blank=True,
+        help_text=_(
+            'Function code, e.g. 071, in Balance this is the balance '
+            'this is the acount group belonging to one category'))
+    account = models.ForeignKey(
+        Account, verbose_name=_('Account'), null=True, blank=True,
+        on_delete=models.PROTECT, related_name='%(class)s_category',
+        help_text="The underlying account.")
+
+    class Meta:
+        ordering = [Cast('function', models.CharField())]
+        abstract = True
+
+
+class LedgerBalance(LedgerAccount):
+    '''
+    Used for HRM 2 account management:
+    - category: leave empty to calculate later
+    '''
+    category = models.ForeignKey(
+        AccountCategory, verbose_name=_('Account Category'),
+        on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_category',
+        help_text="The underlying category.")
+    opening_balance = models.DecimalField(
+        _('Opening Balance'), max_digits=11, decimal_places=2,
+        null=True, blank=True,
+        help_text=_('The balance at the start of the year.')
+    )
+    closing_balance = models.DecimalField(
+        _('Closing Balance'), max_digits=11, decimal_places=2,
+        null=True, blank=True,
+        help_text=_('The balance at the end of the year.')
+    )
+    increase = models.DecimalField(
+        _('Increase'), max_digits=11, decimal_places=2, null=True, blank=True,
+        help_text=_('The increase in value during the year.')
+    )
+    decrease = models.DecimalField(
+        _('Decrease'), max_digits=11, decimal_places=2, null=True, blank=True,
+        help_text=_('The decrease in value during the year.')
+    )
+    
+    @property
+    def cash_ctrl_ids(self):
+        c_ids = []
+        if self.category and self.category.c_id:
+            c_ids.append(self.category.c_id)
+        elif self.account and self.account.c_id:
+            c_ids.append(self.account.c_id)
+        return c_ids 
+    
+    def __str__(self):
+        return f"{self.hrm} {multi_language(self.name)}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ledger', 'hrm'],
+                name='unique_balance'
+            )
+        ]
+        verbose_name = ('Balance Account')
+        verbose_name_plural = _('Balance')
+
+
+class FunctionalLedger(LedgerAccount):
+    category_expense = models.ForeignKey(
+        AccountCategory, on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Account Category'),
+        related_name='%(class)s_category_expense',
+        help_text="The underlying expense category.")
+    category_revenue = models.ForeignKey(
+        AccountCategory,  on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Account Category'),
+        related_name='%(class)s_category_revenue',
+        help_text="The underlying revenue category.")
+
+    class Meta:
+        abstract = True
+        ordering = ['function', 'hrm']
+
+
+class LedgerPL(FunctionalLedger):
+    expense = models.DecimalField(
+        _('Expense'), max_digits=11, decimal_places=2,
+        help_text=_('The expense amount.')
+    )
+    revenue = models.DecimalField(
+        _('Revenue'), max_digits=11, decimal_places=2,
+        help_text=_('The revenue amount.')
+    )
+    expense_budget = models.DecimalField(
+        _('Expense Budget'), max_digits=11, decimal_places=2,
+        help_text=_('The budgeted expense amount.')
+    )
+    revenue_budget = models.DecimalField(
+        _('Revenue Budget'), max_digits=11, decimal_places=2,
+        help_text=_('The budgeted revenue amount.')
+    )
+    expense_previous = models.DecimalField(
+        _('Previous Expense'), max_digits=11, decimal_places=2,
+        help_text=_('The previous expense amount.')
+    )
+    revenue_previous = models.DecimalField(
+        _('Previous Revenue'), max_digits=11, decimal_places=2,
+        help_text=_('The previous revenue amount.')
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'ledger', 'hrm', 'function'],
+                name='unique_ledger_pl'
+            )
+        ]
+        verbose_name = ('Profit/Loss')
+        verbose_name_plural = _('Profit/Loss')
+
+
+class LedgerIC(FunctionalLedger):
+    expense = models.DecimalField(
+        _('Expense'), max_digits=11, decimal_places=2,
+        help_text=_('The expense amount.')
+    )
+    revenue = models.DecimalField(
+        _('Revenue'), max_digits=11, decimal_places=2,
+        help_text=_('The revenue amount.')
+    )
+    expense_budget = models.DecimalField(
+        _('Expense Budget'), max_digits=11, decimal_places=2,
+        help_text=_('The budgeted expense amount.')
+    )
+    revenue_budget = models.DecimalField(
+        _('Revenue Budget'), max_digits=11, decimal_places=2,
+        help_text=_('The budgeted revenue amount.')
+    )
+    expense_previous = models.DecimalField(
+        _('Previous Expense'), max_digits=11, decimal_places=2,
+        help_text=_('The previous expense amount.')
+    )
+    revenue_previous = models.DecimalField(
+        _('Previous Revenue'), max_digits=11, decimal_places=2,
+        help_text=_('The previous revenue amount.')
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'ledger', 'hrm', 'function'],
+                name='unique_ledger_ic'
+            )
+        ]
+        verbose_name = ('Investment Calculation')
+        verbose_name_plural = _('Investment Calculations')
 
 
 # Accounting Charts -----------------------------------------------------------
@@ -1750,13 +1608,6 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
                 return category
         return None
 
-    @property
-    def side(self):
-        category = self.category_hrm
-        if category in [CATEGORY_HRM.ASSET, CATEGORY_HRM.EXPENSE]:
-            return ACCOUNT_SIDE.DEBIT
-        return ACCOUNT_SIDE.CREDIT
-
     def __str__(self):
         if self.function:
             text = f'{self.function}.'
@@ -1782,16 +1633,14 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
 
 
 # CRM models ------------------------------------------------------------
-class CRM(Acct):
-    tenant = models.ForeignKey(
-        Tenant, verbose_name=_('tenant'),
-        on_delete=models.CASCADE,
-        help_text=_('assignment of tenant / client'))
-
+class Title(CrmTitle, AcctApp):
+    ''' Superset of CrmTitle which is not abstract
+    '''
     class Meta:
-        abstract = True
+        pass  # handle constraints in CRM
 
-
+"""
+make like title
 class PersonCategory(CRM):
     '''store categories
     '''
@@ -1800,13 +1649,6 @@ class PersonCategory(CRM):
         on_delete=models.CASCADE,
         related_name="person_category",
         help_text="internal use for mapping")
-
-
-class Title(CrmTitle, AcctApp):
-    ''' Superset of CrmTitle which is not abstract
-    '''
-    class Meta:
-        pass  # handle constraints in CRM
 
 
 class Person(CRM):
@@ -1827,20 +1669,4 @@ class Employee(CRM):
         on_delete=models.CASCADE,
         related_name="employee",
         help_text="internal use for mapping")
-
-
-# Test
-class LedgerTest(AcctApp):
-    period = models.ForeignKey(
-        FiscalPeriod,
-        on_delete=models.CASCADE,
-        related_name="period_test",
-        help_text="internal use for mapping")
-
-    hrm = models.DecimalField(
-        _('HRM'), max_digits=10, decimal_places=2, null=True, blank=True)
-    name = models.CharField(_('Name'), max_length=255)
-    notes = models.TextField(_('Name'), null=True)
-
-    def __str__(self):
-        return f"{self.period} - {self.name}"
+"""

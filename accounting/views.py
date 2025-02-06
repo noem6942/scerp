@@ -1,4 +1,7 @@
-# accounting/views.py
+'''
+accounting/views.py
+
+'''
 
 
 # View actions --------------------------------------------------------------

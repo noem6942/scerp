@@ -99,8 +99,8 @@ class Tenant(LogAbstract, NotesAbstract):
         help_text=_(
             'only trustees are allowed to download time entries'))
     apps = models.ManyToManyField(
-        App, verbose_name=_('apps'), 
-        related_name='%(class)s_apps', 
+        App, verbose_name=_('apps'),
+        related_name='%(class)s_apps',
         help_text=_('apps subscribed'))
 
     def __str__(self):
@@ -112,6 +112,69 @@ class Tenant(LogAbstract, NotesAbstract):
         verbose_name_plural = _('tenants')
 
 
+class TenantSetup(LogAbstract, NotesAbstract):
+    '''used for assign technical stuff
+        gets automatically created after a Tenant has been created,
+    '''
+    class TYPE(models.TextChoices):
+        CITIZEN = ('B', _('Bürgergemeinde'))
+        INHABITANTS = ('E', _('Einwohnergemeinde'))
+        MUNICIPITY = ('G', _('Gemeinde'))
+        CHURCH = ('K', _('Kirchgemeinde'))
+        CITY = ('S', _('Stadt'))
+        CORPORATION = ('Z', _('Zweckverband'))
+        CANTON = ('C', _('Bürgergemeinde'))
+        FEDERATION = ('F', _('Bund'))
+        TRUSTEE = ('T', _('Trustee'))
+
+    tenant = models.OneToOneField(
+        Tenant, verbose_name=_('tenant'), on_delete=models.CASCADE,
+        related_name='%(class)s_tenant',
+        help_text=_('assignment of tenant / client'))
+    canton = models.CharField(
+         _('canton'), max_length=2, choices=CANTON_CHOICES,
+         null=True, blank=True)
+    language = models.CharField(
+        _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
+        help_text=_('The main language of the person. May be used for documents.')
+    )
+    type = models.CharField(
+         _('Type'), max_length=1, choices=TYPE.choices,
+        null=True, blank=True,
+        help_text=_('Type, add new one of no match'))
+    formats = models.JSONField(
+        _('formats'), null=True, blank=True,
+        help_text=_('Format definitions'))
+    users = models.ManyToManyField(
+        User, verbose_name=_('Users'),
+        related_name='%(class)s_users',
+        help_text=_('users subscribed'))
+
+    def __str__(self):
+        return self.tenant.name
+
+    @property
+    def logo(self):
+        logo = TenantLogo.objects.filter(
+            tenant=self.tenant, type=TenantLogo.Type.MAIN).first()
+        if logo:
+            return logo.logo
+        return None
+
+    @property
+    def groups(self):
+        groups = set()
+        for user in self.users.all():
+            for group in user.groups.all():
+                groups.add(group)
+        return groups
+
+    class Meta:
+        ordering = ['tenant__name']
+        verbose_name = _('tenant setup')
+        verbose_name_plural =  _('tenant setups')
+
+
 class Message(LogAbstract, NotesAbstract):
     '''only admin and trustees are allowed to create Tenants
         sends signals after creation!
@@ -119,9 +182,9 @@ class Message(LogAbstract, NotesAbstract):
     class Severity(models.TextChoices):
         INFO = 'info', _('Info')
         WARNING = 'warning', _('Warning')
-        
+
     name = models.CharField(_('name'), max_length=100)
-    text = models.TextField(_('text'))        
+    text = models.TextField(_('text'))
     severity = models.CharField(
         max_length=10,
         choices=Severity.choices,
@@ -130,10 +193,10 @@ class Message(LogAbstract, NotesAbstract):
         help_text=_("Current status of the meeting.")
     )
     recipients = models.ManyToManyField(
-        Tenant, verbose_name=_('recipients'), 
-        related_name='%(class)s_tenant', 
+        Tenant, verbose_name=_('recipients'),
+        related_name='%(class)s_tenant',
         help_text=_('empty if all recipients'))
-        
+
     def __str__(self):
         return f"{self.name}, {self.modified_at}"
 
@@ -142,7 +205,7 @@ class Message(LogAbstract, NotesAbstract):
             models.UniqueConstraint(
                 fields=['is_inactive', 'name'],
                 name='unique_name'
-            )]    
+            )]
         ordering = ['is_inactive', '-modified_at']
         verbose_name = _('Message')
         verbose_name_plural = _('Messages')
@@ -151,7 +214,7 @@ class Message(LogAbstract, NotesAbstract):
 class UserProfile(LogAbstract, NotesAbstract):
     user = models.OneToOneField(
         User, verbose_name=_('User'), on_delete=models.CASCADE,
-        related_name='profile', 
+        related_name='profile',
         help_text=_(
             "Registered User. Click the 'pencil' to assign the user to groups"))
     photo = models.ImageField(
@@ -160,8 +223,8 @@ class UserProfile(LogAbstract, NotesAbstract):
 
     def __str__(self):
         return f'{self.user.last_name.upper()}, {self.user.first_name}'
-        
-    @property    
+
+    @property
     def groups(self):
         return self.user.groups.all().order_by('name')
 
@@ -183,73 +246,14 @@ class TenantAbstract(LogAbstract, NotesAbstract):
         abstract = True
 
 
-class TenantSetup(TenantAbstract):
-    '''used for assign technical stuff
-        gets automatically created after a Tenant has been created,        
-    '''
-    class TYPE(models.TextChoices):
-        CITIZEN = ('B', _('Bürgergemeinde'))
-        INHABITANTS = ('E', _('Einwohnergemeinde'))
-        MUNICIPITY = ('G', _('Gemeinde'))
-        CHURCH = ('K', _('Kirchgemeinde'))
-        CITY = ('S', _('Stadt'))
-        CORPORATION = ('Z', _('Zweckverband'))
-        CANTON = ('C', _('Bürgergemeinde'))
-        FEDERATION = ('F', _('Bund'))
-        TRUSTEE = ('T', _('Trustee'))    
-        
-    canton = models.CharField(
-         _('canton'), max_length=2, choices=CANTON_CHOICES,
-         null=True, blank=True)
-    language = models.CharField(
-        _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
-        help_text=_('The main language of the person. May be used for documents.')
-    )
-    type = models.CharField(
-         _('Type'), max_length=1, choices=TYPE.choices,
-        null=True, blank=True,
-        help_text=_('Type, add new one of no match'))
-    formats = models.JSONField(
-        _('formats'), null=True, blank=True,
-        help_text=_('Format definitions'))
-    users = models.ManyToManyField(
-        User, verbose_name=_('Users'), 
-        related_name='%(class)s_users', 
-        help_text=_('users subscribed'))        
-
-    def __str__(self):
-        return self.tenant.name
-
-    @property
-    def logo(self):
-        logo = TenantLogo.objects.filter(
-            tenant=self.tenant, type=TenantLogo.Type.MAIN).first()
-        if logo:
-            return logo.logo
-        return None
-        
-    @property    
-    def groups(self):        
-        groups = set()
-        for user in self.users.all():
-            for group in user.groups.all():
-                groups.add(group)
-        return groups
-
-    class Meta:
-        ordering = ['tenant__name']
-        verbose_name = _('tenant setup')
-        verbose_name_plural =  _('tenant setups')
-
-
 class TenantLogo(TenantAbstract):
-    '''used for logos for all apps 
+    '''used for logos for all apps
         has signals
     '''
     class Type(models.TextChoices):
         MAIN = "MAIN", _("Main")
         OTHER = "OTHER", _("Other")
-        
+
     name = models.CharField(
         _('name'), max_length=100, unique=True)
     type = models.CharField(
@@ -270,6 +274,6 @@ class TenantLogo(TenantAbstract):
                 fields=['tenant', 'name'],
                 name='unique_tenant_name'
             )
-        ]           
+        ]
         verbose_name = _('tenant logo')
         verbose_name_plural =  _('tenant logos')

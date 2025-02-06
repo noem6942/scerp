@@ -3,6 +3,9 @@
 # This YAML file defines the initialization values for cash_ctrl
 # It includes information about various categories and their respective codes.
 
+
+# Run 1 Data -----------------------------------------------------------
+
 # Custom Fields ----------------------------------------------------------
 CustomFieldGroup:
   - code: account
@@ -207,8 +210,39 @@ Rounding: []
 
 SequenceNumber: []
 
+Unit:
+  - code: m3
+    name:
+      de: 'm³'
+      en: 'm³'
+      fr: 'm³'
+      it: 'm³'
+  - code: contract
+    name:
+      de: Auftrag
+      en: Contract
+      fr: Contrat
+      it: Contratto
+  - code: order
+    name:
+      de: Bestellung
+      en: Order
+      fr: Commande
+      it: Ordine
+
+Text:
+  - name: Rechtmittel Wasser
+    type: ORDER_FOOTER
+    value: Wasser - schriftlich innert 10 Tagen an die Wasserkommission der Bürgergemeinde Gunzgen
+  - name: Rechtmittel Abwasser
+    type: ORDER_FOOTER
+    value: Abwasser - schriftlich innert 10 Tagen an den Einwohnergemeinderat Gunzgen
+
+
+# Run 2 Data -----------------------------------------------------------
 Tax:
-  - account_ref: 2200  # Umsatzsteuer
+  - code: wasser
+    account_ref: 2200  # Umsatzsteuer
     name:
       de: "MWST-Umsatzsteuer ER - SF Wasser"
       en: "VAT Sales Tax ER - Water"
@@ -221,7 +255,8 @@ Tax:
       fr: "CHE-108.964.801 TVA, Eau, 2.6%"
       it: "CHE-108.964.801 IVA, Acqua, 2.6%"
 
-  - account_ref: 2200  # Umsatzsteuer
+  - code: abwasser
+    account_ref: 2200  # Umsatzsteuer
     name:
       de: "MWST-Umsatzsteuer ER - Abwasser"
       en: "VAT Sales Tax ER - Wastewater"
@@ -234,30 +269,6 @@ Tax:
       fr: "CHE-112.793.129 TVA, Eaux usées, 8.1%"
       it: "CHE-112.793.129 IVA, Acque reflue, 8.1%"
 
-Units:
-  - code: m3
-    name:
-      de: 'm³'
-      en: 'm³'
-      fr: 'm³'
-      it: 'm³'
-  - code: contract
-    name:
-      de: 'Auftrag'
-      en: 'Contract'
-      fr: 'Contrat'
-      it: 'Contratto'
-
-Texts:
-  - code: legal_water
-    name: Rechtmittel Wasser
-    type: ORDER_FOOTER
-    value: Wasser - schriftlich innert 10 Tagen an die Wasserkommission der Bürgergemeinde Gunzgen
-
-  - code: legal_dispoasl
-    name: Rechtmittel Abwasser
-    type: ORDER_FOOTER
-    value: Abwasser - schriftlich innert 10 Tagen an den Einwohnergemeinderat Gunzgen
 
 # Categories ---------------------------------------------------------------
 AccountCategories:

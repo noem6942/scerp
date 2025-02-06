@@ -7,6 +7,9 @@ from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction, IntegrityError
+from django.db.models import CharField
+from django.db.models.functions import Cast
+from django.db.models.signals import post_save
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
@@ -15,15 +18,17 @@ from core.safeguards import save_logging
 from scerp.admin import action_check_nr_selected
 from scerp.exceptions import APIRequestError
 
+from .import_export import LedgerBalanceImportExport
 from .models import (
     APPLICATION, ACCOUNT_TYPE_TEMPLATE, APISetup,
     AccountPositionTemplate,
-    ChartOfAccounts, AccountPosition, FiscalPeriod
+    ChartOfAccounts, AccountPosition, FiscalPeriod, LedgerBalance
 )
 from . import forms, models
 from . import connector_cash_ctrl as conn
 from .import_accounts_canton import Import
 from .mixins import AccountPositionCheck
+from .signals_cash_ctrl import api_setup_post_save
 
 
 ACTION_LOAD = _('Load actual data from Accounting System')
@@ -72,6 +77,8 @@ class Handler:
     def load(
             self, request, params={}, delete_not_existing=False,
             **filter_kwargs):
+        self.handler.load(
+            self.model, params, delete_not_existing, **filter_kwargs)
         if self.handler:
             try:
                 self.handler.load(
@@ -82,7 +89,7 @@ class Handler:
 
 @admin.action(description=f"1. {_('Get data from account system')}")
 def accounting_get_data(modeladmin, request, queryset):
-    ''' load data '''    
+    ''' load data '''
     api_class = getattr(conn, modeladmin.model.__name__, None)
     language = None  # i.e. English
     if api_class:
@@ -114,7 +121,7 @@ def init_setup(modeladmin, request, queryset):
             # Wrap the database operation in an atomic block
             with transaction.atomic():
                 api_setup_post_save(
-                    modeladmin.model, instance, created=True, request=request)
+                    modeladmin.model, instance, init=True, request=request)
         except IntegrityError as e:
             if "Duplicate entry" in str(e):
                 msg = _("Unique constraints violated")
@@ -656,3 +663,52 @@ def assign_responsible(modeladmin, request, queryset, data):
     msg = _("Successfully assigned '{group}' to {count} records.").format(
         group=responsible.name, count=count_updated)
     messages.success(request, msg)
+
+
+@action_with_form(
+    forms.ExcelUploadForm, description=_('20 Insert or update into Balance')
+)
+def add_balance(modeladmin, request, queryset, data):
+    """
+    Custom admin action to assign a responsible group to selected records.
+    """
+    __ = modeladmin  # disable pylint warning
+    # Update the `responsible` field for all selected records
+    excel_file = data.get('excel_file')
+    if not excel_file:
+        messages.error(request, _("No file uploaded."))
+        return
+    #try:
+
+    # get language
+    ledger = queryset.first()
+    process = LedgerBalanceImportExport(ledger, request)
+    process.update_or_get(excel_file)
+
+    # messages.success(request, _("Excel file processed successfully."))
+
+    #except Exception as e:
+    #    messages.error(request, _("Error processing Excel file: ") + str(e))
+
+@admin.action(description=_("2. Sync with Accounting"))
+def sync_balance(modeladmin, request, queryset):
+    if action_check_nr_selected(request, queryset, min_count=1):
+        # Get instances before update
+        queryset = queryset.order_by(Cast('function', CharField()))
+
+        # Perform bulk update (NO SIGNALS fired)
+        count = queryset.update(is_enabled_sync=True)
+
+        # Manually trigger signals
+        for instance in queryset.all():
+            if instance.is_enabled_sync:
+                msg = _("{hrm} is already synched.").format(
+                    hrm=instance.hrm)
+                messages.error(request, msg)
+            else:
+                instance.is_enabled_sync = True
+                instance.sync_to_accounting = True
+                instance.save()
+
+        messages.error(
+            request, _("{count} accounts synched.").format(count=count))

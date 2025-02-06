@@ -6,7 +6,11 @@ from django.utils import timezone
 
 from scerp.mixins import make_timeaware
 from . import api_cash_ctrl
-from .models import CustomField as model_CustomField, Allocation
+from .models import (
+    CustomField as model_CustomField, 
+    Account as model_Account,
+    Allocation
+)
 
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
@@ -19,7 +23,7 @@ class IGNORE:
         'attachment', 'version_id', 'is_protected', 'tenant_id',
         'c_id', 'c_created', 'c_created_by', 'c_last_updated',
         'c_last_updated_by', 'setup_id', 'message', 'is_enabled_sync',
-        'last_received'
+        'last_received', 'sync_to_accounting'
     ]
     IS_INACTIVE = ['is_inactive']
     NOTES = ['notes']
@@ -102,10 +106,11 @@ class cashCtrl:
                 data[key] = getattr(instance, key)
 
         # Convert CustomFields
-        data['custom'] = {
-            key_cash_ctrl: data.pop(field_name, None)
-            for field_name, key_cash_ctrl in self.custom.items()
-        }
+        if self.custom:
+            data['custom'] = {
+                key_cash_ctrl: data.pop(field_name, None)
+                for field_name, key_cash_ctrl in self.custom.items()
+            }
 
         # Clean
         if getattr(self, 'pre_upload', None):
@@ -164,7 +169,7 @@ class cashCtrl:
             if key in ['start', 'end']:
                 data[key] = make_timeaware(value)
             elif key == 'custom' and data['custom']:
-                custom = data.pop('custom')                
+                custom = data.pop('custom')
                 for field_name, key_cash_ctrl in self.custom.items():
                     data[field_name] = custom.pop(key_cash_ctrl)
             elif key not in self.model_keys:
@@ -189,6 +194,9 @@ class cashCtrl:
         for key in instance.__dict__.keys():
             if key in assign:
                 setattr(instance, key, assign[key])
+
+        # Prevent triggering any signals
+        instance.sync_to_accounting = False
 
         # Clean
         if getattr(self, 'post_get', None):
@@ -296,26 +304,40 @@ class cashCtrl:
         logger.warning("no category found")
 
     # C(R)UD
+    def close_transaction(self, instance, response):
+        # Close the transaction
+
+        # Prevent further signals
+        instance.sync_to_accounting = False
+
+        # Save
+        if response.get('success', False):
+            instance.c_id = response['insert_id']
+        instance.save()
+
+        # Raise Error if cashCtrl error
+        if not instance.c_id:
+            raise ValueError(response)
+
     def create(self, instance):
         # Send to cashCtrl
         data = self.upload_prepare(instance)
         response = self.handler.create(data)
-        if response.get('success', False):
-            instance.c_id = response['insert_id']
-            instance.save()
-            return instance
-        raise ValueError(response)
+        self.close_transaction(instance, response)
 
     def update(self, instance):
         # Send to cashCtrl
         data = self.upload_prepare(instance)
         response = self.handler.update(data)
-        if response.get('success', False):
-            return response['insert_id']
-        raise ValueError(response)
+        self.close_transaction(instance, response)
 
     def delete(self, instance):
         response = self.handler.delete(instance.c_id)
+
+        # Prevent further signals
+        instance.sync_to_accounting = False
+        instance.save()
+
         if not response.get('success', False):
             raise ValueError(response)
 
@@ -335,12 +357,13 @@ class CustomFieldGroup(cashCtrl):
 
 class CustomField(cashCtrl):
     api_class = api_cash_ctrl.CustomField
-    ignore_keys = IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.CODE + [
-        'group', 'group_ref']
+    ignore_keys = IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.CODE + ['group']
     type_filter = api_cash_ctrl.FIELD_TYPE
 
     def pre_upload(self, instance, data):
         # Prepare group_id
+        if not getattr(instance, 'group'):
+            raise ValueError(f"{data}: no group given")
         data['group_id'] = instance.group.c_id
 
     def post_get(self, instance, source, assign, created):
@@ -357,7 +380,15 @@ class CustomField(cashCtrl):
 
 
 class Location(cashCtrl):
-    pass
+    api_class = api_cash_ctrl.Location
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
+
+
+class FiscalPeriod(cashCtrl):
+    api_class = api_cash_ctrl.FiscalPeriod
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
 
 
 class Currency(cashCtrl):
@@ -404,7 +435,8 @@ class CostCenter(cashCtrl):
 
     def pre_upload(self, instance, data):
         # Prepare category_id
-        data['category_id'] = instance.category.c_id
+        if getattr(instance, 'category', None):
+            data['category_id'] = instance.category.c_id
 
     def post_get(self, instance, source, assign, created):
         __ = instance, created
@@ -456,7 +488,7 @@ class Account(cashCtrl):
         } for allocation in allocations.all()]
 
         # Tax
-        data.pop('tax_id')
+        data.pop('tax_c_id', None)
 
     def post_get(self, instance, source, assign, created):
         __ = instance, created
@@ -467,13 +499,15 @@ class Account(cashCtrl):
 
 
 class Tax(cashCtrl):
-    pass
+    api_class = api_cash_ctrl.Tax
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
 
 
 class Rounding(cashCtrl):
     api_class = api_cash_ctrl.Rounding
     ignore_keys = (
-        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE )
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
 
     def pre_upload(self, instance, data):
         # Prepare account_id
@@ -489,36 +523,40 @@ class Rounding(cashCtrl):
         self.update_category(
             instance, source, assign, created, 'account', foreign_key_model)
 
-'''
-class Configuration(cashCtrl):
+
+class Setting(cashCtrl):
     api_class = api_cash_ctrl.Setting
     ignore_keys = IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES
 
     def create(self, instance=None):
-        raise ValueError("Can't create new instances for settings)
+        raise ValueError("Can't create new instances for settings")
 
     def load(
             self, model, params={}, delete_not_existing=False,
             **filter_kwargs):
-        data = api_class.read()
-        print("*data")
-
-    def pre_upload(self, instance, data):
-        # Prepare group_id
-        data = {k: v for k, v in data if
-
-    def post_get(self, instance, source, assign, created):
-        __ = instance, created
-        # code
-        if created:
-            # Fill out empty code
-            instance.code = f"custom {source['id']}"
-
-        # group
-        foreign_key_model = CustomFieldGroup
-        self.update_category(
-            instance, source, assign, created, 'group', foreign_key_model)
-'''
+        # Fetch data directly
+        data = self.handler.read()
+        data.update({
+            'c_id': 1,  # always
+            'setup': self.setup,
+            'tenant': self.setup.tenant,
+            'created_by': self.user,
+            'modified_at': timezone.now(),
+            'modified_by': self.user
+        })
+        
+        # Add Accounts
+        model_keys = [field.name for field in model._meta.get_fields()]
+        for key, value in data.items():
+            if key not in model_keys:
+                continue
+            if key.endswith('_account_id'):
+                data[key] = model_Account.objects.filter(
+                    setup=self.setup, c_id=value).first()
+        
+        # Save Settings
+        instance, _created = model.objects.update_or_create(
+            setup=self.setup, c_id=data.pop('c_id'), defaults=data)
 
 
 class Title(cashCtrl):
