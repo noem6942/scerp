@@ -4,7 +4,10 @@ scerp/admin_site.py
 Overwrite Site to check for tenant select and Site menus
 
 """
+import re
+
 from django.apps import apps
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin import AdminSite
 from django.http import HttpResponseForbidden
@@ -24,16 +27,20 @@ class Site(AdminSite):
     site_header = APP_CONFIG['site_header']  # Default site header
     site_title = APP_CONFIG['site_title']  # Default site title
     index_title = APP_CONFIG['index_title']  # Default index title
+    
+    # Side Menu
+    current_app = None  # assign from path
+    app_setup = {}  # assign in _get_ordered_app_list
 
     # Order and seperators
     DEFAULT_ORDER = '\u00A0'  # Non-visible space character for late-order apps
     SEPARATOR_APP = '. '
-    SEPARATOR_MODEL = '.'
+    SEPARATOR_MODEL = '.'    
 
     # Handle requests
     def index(self, request, extra_context=None):
         ''' this gets called with every page view 
-        '''
+        '''        
         # Handle tenant selection
         if request.method == 'POST':
             # Handle the form submission when a tenant is selected
@@ -68,6 +75,11 @@ class Site(AdminSite):
     def get_app_list(self, request, app_label=None):
         '''Build the side menu left (the app list)'''
 
+        # Extract app_label from the URL
+        pattern = rf'/{settings.ADMIN_ROOT}/([^/]+)/'
+        match = re.search(pattern, request.path)
+        self.current_app = match.group(1) if match else None
+
         # Get the default app list from the superclass
         app_list = super().get_app_list(request)
         tenant = get_tenant(request)
@@ -101,8 +113,17 @@ class Site(AdminSite):
         '''Generate an ordered list of all apps.'''
         ordered_app_list = []
         tenant = get_tenant(request)
+        
+        # Builds App Setup
+        app_setup = dict(APP_MODEL_ORDER)
+        if self.current_app and self.current_app in app_setup:
+            current_app = {self.current_app: app_setup.pop(self.current_app)}
+        else:
+            current_app = {}            
+        self.app_setup = {**current_app, **app_setup}
 
-        for app_label, app_info in APP_MODEL_ORDER.items():
+        # Make Menu
+        for app_label, app_info in self.app_setup.items():
             if not app_info.get('needs_tenant', True) or tenant:
                 app = self._find_app(app_list, app_label)
                 if app:
@@ -113,7 +134,7 @@ class Site(AdminSite):
         remaining_apps = [
             app for app in app_list
             if (
-                app['app_label'] not in APP_MODEL_ORDER
+                app['app_label'] not in self.app_setup
                 and (not app_info.get('needs_tenant', True) or tenant)
             )
         ]
@@ -123,7 +144,7 @@ class Site(AdminSite):
 
     def _get_app_detail_list(self, app_list, app_label):
         '''Generate a detailed list of models for a specific app.'''
-        app_info = APP_MODEL_ORDER.get(app_label)
+        app_info = self.app_setup.get(app_label)
         if not app_info:
             return []
 

@@ -167,7 +167,7 @@ class Display:
             return default
         return date_format(value, format='DATETIME_FORMAT')
 
-    def big_number(value, round_digits=None):
+    def big_number(value, round_digits=None, thousand_separator=None):
         """
         use settings.THOUSAND_SEPARATOR and 2 commas for big numberss
         """
@@ -176,7 +176,10 @@ class Display:
 
         # Format number
         try:
-            number_str = format_big_number(value, round_digits=round_digits)
+            number_str = format_big_number(
+                value, 
+                round_digits=round_digits, 
+                thousand_separator=thousand_separator)
         except:
             number_str = value
         html = '<span style="text-align: right; display: block;">{}</span>'

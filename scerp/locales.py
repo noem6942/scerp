@@ -77,7 +77,6 @@ APP_MODEL_ORDER = {
             'CustomFieldGroup': ('* 02', ''),
             'CustomField': ('* 03', ''),
             'Setting': ('* 04', ' ⬇️'),
-            'Configuration': ('* 05', ' ⬇️'),
             
             # Accounting Admin
             'Location': ('* 10', ' ⬇️'),
@@ -99,9 +98,10 @@ APP_MODEL_ORDER = {
             
             # Accounting
             'FiscalPeriod': ('* 18', ' ⬇️'),         
-            'AccountCategory': ('* 19', ' ⬇️'),
-            'Account': ('* 20', ' ⬇️'),
-            'LedgerBalance': ('* 21', ' ⬇️'),
+            'AccountCategory': ('L 19', ' ⬇️'),
+            'Account': ('L 20', ' ⬇️'),
+            'Ledger': ('L 21', ''),
+            'LedgerBalance': ('L 22', ''),
             
             # Inventory
             'Article': ('23', ' ⬇️'),            
@@ -111,22 +111,7 @@ APP_MODEL_ORDER = {
             #'AccountPosition': ('C 43', ''),
         }
     },
-    'asset': {
-        'symbol': 'AT',
-        'is_mandatory': False,
-        'needs_tenant': True,
-        'models': {
-            'Department': ('1', ''),
-            'DeviceLocation': ('2', ''),
-            'Customer': ('3', ''),
-            'Category': ('4', ''),
-            'Model': ('5', ''),
-            'Device': ('6', ''),
-            'CounterCategory': ('7', ''),
-            'UnitCategory': ('8', ''),
-            'CounterLog': ('9', '')
-        }
-    },    
+ 
     'billing': {
         'symbol': 'B',
         'is_mandatory': False,

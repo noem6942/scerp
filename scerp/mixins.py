@@ -89,6 +89,14 @@ def make_timeaware(naive_datetime):
     return timezone.make_aware(naive_datetime, current_timezone)
 
 
+def make_multi_language(name, language=None):
+    value = {lang: None for lang, _ in settings.LANGUAGES}
+    if not language:
+        language = settings.LANGUAGE_CODE_PRIMARY
+    value[language] = name
+    return value
+
+
 def multi_language(value_dict):
     '''show language default instead of all values
     '''    
