@@ -102,6 +102,7 @@ APP_MODEL_ORDER = {
             'Account': ('L 20', ' ⬇️'),
             'Ledger': ('L 21', ''),
             'LedgerBalance': ('L 22', ''),
+            'LedgerPL': ('L 23', ''),
             
             # Inventory
             'Article': ('23', ' ⬇️'),            

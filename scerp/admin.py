@@ -485,6 +485,17 @@ class BaseAdmin(ModelAdmin):
         queryset = super().get_queryset(request)
         return filter_queryset(self, request, queryset)
 
+    def delete_model(self, request, obj):
+        try:
+            with transaction.atomic():  # Ensure atomic deletion
+                obj.delete()
+
+        except APIRequestError as e:
+            raise ValidationError(f"Cannot delete: {e}")  # Prevents Django from proceeding
+
+        except Exception as e:
+            self.message_user(request, f"Error deleting category: {e}", messages.ERROR)
+
     def save_model(self, request, instance, form, change):
         """
         Override save to include additional logging or other custom logic.

@@ -691,12 +691,12 @@ class Account(AcctApp):
         '_Id to Tax', blank=True, null=True,        
         help_text=_("Link to tax. Only used in cashCtrl."))
 
-    # custom, maybe discontinue
-    function = models.PositiveSmallIntegerField(
-         _('Function'), null=True, blank=True,
+    # custom
+    function = models.CharField(
+         _('Function'), max_length=5, null=True, blank=True,
         help_text=_('Function code, e.g. 071'))
-    hrm = models.DecimalField(
-         _('HRM 2'), max_digits=10, decimal_places=2, null=True, blank=True,
+    hrm = models.CharField(
+         _('HRM 2'), max_length=8, null=True, blank=True,
         help_text=_('HRM 2 number, e.g. 3100.01'))
 
     def __str__(self):
@@ -1230,8 +1230,8 @@ class LedgerAccount(AcctLedger):
         CATEGORY = 'C', _('Category')
         ACCOUNT = 'A', _('Account')
         
-    hrm = models.DecimalField(
-         _('HRM 2'), max_digits=10, decimal_places=2,
+    hrm = models.CharField(
+         _('HRM 2'), max_length=8, null=True, blank=True,
         help_text=_('HRM 2 number, e.g. 3100.01'))
     name = models.JSONField(
         _('Name'), default=dict, help_text="The name of the account.")
@@ -1242,8 +1242,8 @@ class LedgerAccount(AcctLedger):
         'self', verbose_name=_('Parent'), blank=True, null=True,
         on_delete=models.SET_NULL, related_name='%(class)s_parent',
         help_text=_('The parent category.'))
-    function = models.PositiveSmallIntegerField(
-         _('Function'), null=True, blank=True,
+    function = models.CharField(
+         _('Function'), max_length=5, null=True, blank=True,        
         help_text=_(
             'Function code, e.g. 071, in Balance this is the balance '
             'this is the acount group belonging to one category'))
@@ -1251,6 +1251,15 @@ class LedgerAccount(AcctLedger):
         Account, verbose_name=_('Account'), null=True, blank=True,
         on_delete=models.PROTECT, related_name='%(class)s_category',
         help_text="The underlying account.")
+
+    @property
+    def cash_ctrl_ids(self):
+        fields = ['category', 'category_expense', 'category_revenue']
+        return [
+            getattr(attr, 'c_id') for field in fields 
+            if ((attr := getattr(self, field, None)) 
+                and getattr(attr, 'c_id', None))
+        ]
 
     class Meta:
         ordering = [Cast('function', models.CharField())]
@@ -1286,15 +1295,6 @@ class LedgerBalance(LedgerAccount):
         help_text=_('The decrease in value during the year.')
     )
     
-    @property
-    def cash_ctrl_ids(self):
-        c_ids = []
-        if self.category and self.category.c_id:
-            c_ids.append(self.category.c_id)
-        elif self.account and self.account.c_id:
-            c_ids.append(self.account.c_id)
-        return c_ids 
-    
     def __str__(self):
         return f"{self.hrm} {multi_language(self.name)}"
 
@@ -1321,6 +1321,12 @@ class FunctionalLedger(LedgerAccount):
         related_name='%(class)s_category_revenue',
         help_text="The underlying revenue category.")
 
+    def __str__(self):
+        if self.type == self.TYPE.CATEGORY:
+            return f"{self.function} {multi_language(self.name)}"
+        else:
+            return f"{self.function}.{self.hrm} {multi_language(self.name)}"
+
     class Meta:
         abstract = True
         ordering = ['function', 'hrm']
@@ -1328,27 +1334,31 @@ class FunctionalLedger(LedgerAccount):
 
 class LedgerPL(FunctionalLedger):
     expense = models.DecimalField(
-        _('Expense'), max_digits=11, decimal_places=2,
+        _('Expense'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The expense amount.')
     )
     revenue = models.DecimalField(
-        _('Revenue'), max_digits=11, decimal_places=2,
+        _('Revenue'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The revenue amount.')
     )
     expense_budget = models.DecimalField(
         _('Expense Budget'), max_digits=11, decimal_places=2,
+        blank=True, null=True,
         help_text=_('The budgeted expense amount.')
     )
     revenue_budget = models.DecimalField(
         _('Revenue Budget'), max_digits=11, decimal_places=2,
+        blank=True, null=True,
         help_text=_('The budgeted revenue amount.')
     )
     expense_previous = models.DecimalField(
         _('Previous Expense'), max_digits=11, decimal_places=2,
+        blank=True, null=True,
         help_text=_('The previous expense amount.')
     )
     revenue_previous = models.DecimalField(
         _('Previous Revenue'), max_digits=11, decimal_places=2,
+        blank=True, null=True,
         help_text=_('The previous revenue amount.')
     )
 
@@ -1365,27 +1375,31 @@ class LedgerPL(FunctionalLedger):
 
 class LedgerIC(FunctionalLedger):
     expense = models.DecimalField(
-        _('Expense'), max_digits=11, decimal_places=2,
+        _('Expense'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The expense amount.')
     )
     revenue = models.DecimalField(
-        _('Revenue'), max_digits=11, decimal_places=2,
+        _('Revenue'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The revenue amount.')
     )
     expense_budget = models.DecimalField(
         _('Expense Budget'), max_digits=11, decimal_places=2,
+        blank=True, null=True,
         help_text=_('The budgeted expense amount.')
     )
     revenue_budget = models.DecimalField(
         _('Revenue Budget'), max_digits=11, decimal_places=2,
+        blank=True, null=True,
         help_text=_('The budgeted revenue amount.')
     )
     expense_previous = models.DecimalField(
         _('Previous Expense'), max_digits=11, decimal_places=2,
+        blank=True, null=True,
         help_text=_('The previous expense amount.')
     )
     revenue_previous = models.DecimalField(
         _('Previous Revenue'), max_digits=11, decimal_places=2,
+        blank=True, null=True,
         help_text=_('The previous revenue amount.')
     )
 

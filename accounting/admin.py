@@ -17,7 +17,9 @@ from scerp.mixins import multi_language
 
 from . import actions as a
 from . import filters, forms, models
-from .resources import LedgerBalanceResource
+from .resources import (
+    LedgerBalanceResource, LedgerPLResource, LedgerICResource
+)
 
 
 class CASH_CTRL:
@@ -564,7 +566,7 @@ class AccountAdmin(CashCtrlAdmin):
         'display_number', 'function', 'hrm', 'display_name', 'category'
     ) + CASH_CTRL.LIST_DISPLAY
     list_display_links = ('display_name',)
-    search_fields = ('name', 'number', 'custom')
+    search_fields = ('name', 'number', 'function', 'hrm')
     list_filter = ('function', 'hrm')
     readonly_fields = ('display_name', 'function', 'hrm')
     actions = [a.accounting_get_data]
@@ -578,6 +580,8 @@ class AccountAdmin(CashCtrlAdmin):
             'classes': ('expand',),
         }),
     )
+
+    ordering = [Cast('function', CharField()), Cast('hrm', CharField())]
 
 
 @admin.register(models.Setting, site=admin_site)
@@ -632,7 +636,8 @@ class LedgerAdmin(CashCtrlAdmin):
 
     form = forms.LedgerAdminForm
     list_display = (
-        'code', 'display_name', 'period', 'link_to_balance',
+        'code', 'display_name', 'period', 
+        'link_to_balance', 'link_to_pl', 'link_to_ic',
         'display_current')
     search_fields = ('code', 'name', 'period__name')
 
@@ -643,7 +648,7 @@ class LedgerAdmin(CashCtrlAdmin):
         }),
     )    
     
-    actions = [a.add_balance]
+    actions = [a.add_balance, a.add_pl]
     
     @admin.display(description=_('Current'))
     def display_current(self, obj):
@@ -653,10 +658,66 @@ class LedgerAdmin(CashCtrlAdmin):
     def link_to_balance(self, obj):
         url = f"../ledgerbalance/?ledger__id__exact={obj.id}"
         return format_html(f'<a href="{url}">{_("Balance")}</a>', url)
+
+    @admin.display(description=_('P&L'))
+    def link_to_pl(self, obj):
+        url = f"../ledgerpl/?ledger__id__exact={obj.id}"
+        return format_html(f'<a href="{url}">{_("P/L")}</a>', url)
+
+    @admin.display(description=_('IC'))
+    def link_to_ic(self, obj):
+        url = f"../ledgeric/?ledger__id__exact={obj.id}"
+        return format_html(f'<a href="{url}">{_("IC")}</a>', url)
     
 
+class LedgerBaseAdmin(CashCtrlAdmin):
+    # Display
+    list_display_links = ('display_account_name',)
+    ordering = [Cast('hrm', CharField())]
+
+    # Enable search by name and account
+    search_fields = ('function', 'hrm', 'name')
+    
+    # Ordering
+    ordering = [Cast('function', CharField()), Cast('hrm', CharField())]
+    
+    # Methods
+    def get_import_data(self, request, *args, **kwargs):
+        # Pass the request to the import
+        return self.resource_class.import_data(
+            request=request, *args, **kwargs)    
+
+    @admin.display(description=_('Function'))
+    def display_function(self, obj):
+        if obj.type == self.model.TYPE.CATEGORY:
+            function = str(obj.function)
+            if obj.function in [2, 26, 260]:
+                function = '0' + function  # add leading zero
+            return function
+        return ' '
+
+    @admin.display(description=_('HRM 2'))
+    def display_hrm(self, obj):
+        if obj.type == self.model.TYPE.ACCOUNT:
+            return str(obj.hrm)
+        return ' '
+
+    @admin.display(description=_('Name'))
+    def display_account_name(self, obj):
+        name = multi_language(obj.name)
+        if obj.type == self.model.TYPE.CATEGORY:
+            if int(obj.hrm) < 10:
+                name = name.upper()
+            return format_html(f"<b>{name}</b>")        
+        return format_html(name)
+
+    @admin.display(description=_('C-ids'))
+    def display_c_ids(self, obj):        
+        return obj.cash_ctrl_ids
+
+
 @admin.register(models.LedgerBalance, site=admin_site)
-class LedgerBalanceAdmin(ExportActionMixin, CashCtrlAdmin):
+class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
     """
     Django Admin for LedgerBalance model.
     """
@@ -664,7 +725,7 @@ class LedgerBalanceAdmin(ExportActionMixin, CashCtrlAdmin):
     related_tenant_fields = [
         'setup', 'ledger', 'parent', 'account', 'category']
     optimize_foreigns = ['ledger', 'parent', 'account', 'category']  
-
+    
     # Helpers
     form = forms.LedgerBalanceAdminForm
     resource_class = LedgerBalanceResource
@@ -676,14 +737,10 @@ class LedgerBalanceAdmin(ExportActionMixin, CashCtrlAdmin):
         'display_decrease', 'display_closing_balance',
         'display_c_ids', 'notes'
     ) + CASH_CTRL.LIST_DISPLAY
-    list_display_links = ('display_account_name',)
-    ordering = [Cast('hrm', CharField())]
-    
-    # Enable search by name and account
-    search_fields = ('function', 'hrm', 'name')
 
     # Enable filtering options
-    list_filter = (filters.LedgerFilteredSetupListFilter, 'function')
+    list_filter = (
+        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'function')
 
     # Read-only fields that cannot be edited
     # readonly_fields = ('closing_balance',)
@@ -694,8 +751,8 @@ class LedgerBalanceAdmin(ExportActionMixin, CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'ledger', 'hrm', *make_multilanguage('name'), 'type',
-                'parent', 'category', 'account'),
+                'ledger', 'hrm', *make_multilanguage('name'), 'type', 
+                'function', 'parent', 'category', 'account'),
             'classes': ('expand',),
         }),
         ('Balances', {
@@ -703,11 +760,6 @@ class LedgerBalanceAdmin(ExportActionMixin, CashCtrlAdmin):
             'classes': ('collapse',),
         }),
     )
-
-    def get_import_data(self, request, *args, **kwargs):
-        # Pass the request to the import
-        return self.resource_class.import_data(
-            request=request, *args, **kwargs)
 
     @admin.display(description=_('Opening Balance'))
     def display_opening_balance(self, obj):
@@ -725,30 +777,71 @@ class LedgerBalanceAdmin(ExportActionMixin, CashCtrlAdmin):
     def display_decrease(self, obj):
         return Display.big_number(obj.decrease)
 
-    @admin.display(description=_('Function'))
-    def display_function(self, obj):
-        if obj.type == models.LedgerBalance.TYPE.CATEGORY:
-            return str(obj.function)
-        return ' '
 
-    @admin.display(description=_('HRM 2'))
-    def display_hrm(self, obj):
-        if obj.type == models.LedgerBalance.TYPE.ACCOUNT:
-            return str(obj.hrm)
-        return ' '
+@admin.register(models.LedgerPL, site=admin_site)
+class LedgerPLAdmin(ExportActionMixin, LedgerBaseAdmin):
+    """
+    Django Admin for LedgerBalance model.
+    """
+    # Safeguards
+    related_tenant_fields = [
+        'setup', 'ledger', 'parent', 'account', 'category_expense',
+        'category_revenue']
+    optimize_foreigns = ['ledger', 'parent', 'account', 'category_expense',
+        'category_revenue']     
+    
+    # Helpers
+    form = forms.LedgerPLAdminForm
+    resource_class = LedgerPLResource
 
-    @admin.display(description=_('Name'))
-    def display_account_name(self, obj):
-        name = multi_language(obj.name)
-        if obj.type == models.LedgerBalance.TYPE.CATEGORY:
-            if int(obj.hrm) < 10:
-                name = name.upper()
-            return format_html(f"<b>{name}</b>")        
-        return format_html(name)
+    # Display these fields in the list view
+    list_display = (
+        'display_function', 'display_hrm', 'display_account_name', 
+        'expense', 'revenue', 'expense_budget', 'revenue_budget',
+        'expense_previous', 'revenue_previous', 'display_c_ids', 'notes'
+    ) + CASH_CTRL.LIST_DISPLAY
 
-    @admin.display(description=_('C-ids'))
-    def display_c_ids(self, obj):        
-        return obj.cash_ctrl_ids
+    # Enable filtering options
+    list_filter = (
+        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'function')
+
+    # Read-only fields that cannot be edited
+    # readonly_fields = ('closing_balance',)
+
+    # Admin Actions (custom actions can be defined)
+    actions = [a.accounting_get_data, a.sync_balance]
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                'ledger', 'hrm', *make_multilanguage('name'), 'type', 
+                'function', 'parent', 'account'),
+            'classes': ('expand',),
+        }),
+        ('Balances', {
+            'fields': (
+                'expense', 'revenue', 'expense_budget', 'revenue_budget', 
+                'expense_previous', 'revenue_previous'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    @admin.display(description=_('Opening Balance'))
+    def display_opening_balance(self, obj):
+        return Display.big_number(obj.opening_balance)
+
+    @admin.display(description=_('Closing Balance'))
+    def display_closing_balance(self, obj):
+        return Display.big_number(obj.closing_balance)
+
+    @admin.display(description=_('Increase'))
+    def display_increase(self, obj):
+        return Display.big_number(obj.increase)
+
+    @admin.display(description=_('Decrease'))
+    def display_decrease(self, obj):
+        return Display.big_number(obj.decrease)
+
 
 """
 @admin.register(models.Article, site=admin_site)

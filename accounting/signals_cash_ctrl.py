@@ -1,6 +1,7 @@
 '''
 accounting/signals_cash_ctrl.py
 '''
+from decimal import Decimal
 import logging
 import time
 
@@ -13,6 +14,8 @@ from django.utils.translation import gettext_lazy as _
 from scerp.exceptions import APIRequestError
 from scerp.mixins import read_yaml_file
 from . import models, connector_cash_ctrl as conn
+from .models import TOP_LEVEL_ACCOUNT
+
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -160,12 +163,8 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
 
         # Open yaml
         init_data = read_yaml_file('accounting', YAML_FILENAME)
-                
-        # Setting
-        sync = CashCtrlSync(sender, instance, conn.Setting)
-        sync.get(model=models.Setting)        
-        
-        return
+
+        """
 
         # Round 1 data -----------------------------------------------
         # Create CustomFieldGroups
@@ -238,15 +237,37 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         # Account
         sync = CashCtrlSync(sender, instance, conn.Account)
         sync.get(model=models.Account)
-        
+
         # Setting
         sync = CashCtrlSync(sender, instance, conn.Setting)
-        sync.get(model=models.Setting)        
-        
-        return
+        sync.get(model=models.Setting)
+        """
+
 
         # Round 2 data -----------------------------------------------
-        # Create Tax, we can create now as we leave the account_ref null!!!
+        # Create Root Additional Top AccountCategories
+        for data in init_data['AccountCategories']:
+            # Find top account
+            parent_number = data.pop('parent_number', None)
+            category_number = next((
+                x.value for x in TOP_LEVEL_ACCOUNT
+                if x.name == parent_number
+            ), None)
+
+            # Parent
+            data['parent'] = models.AccountCategory.objects.filter(
+                setup=setup, number=category_number).first()
+            if not data['parent']:
+                raise ValueError(f"{data}: no top category found")
+
+            # Save
+            setup_data_add_logging(setup, data)
+            _obj, _created = models.AccountCategory.objects.update_or_create(
+                setup=setup, number=data.pop('number'), defaults=data)
+
+        return
+
+        # Create Tax
         for data in init_data['Tax']:
             setup_data_add_logging(setup, data)
             _obj, _created = models.Tax.objects.update_or_create(
@@ -335,6 +356,12 @@ def cost_center_category_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.CostCenterCategory)
 def cost_center_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CostCenterCategory. '''
+    # Handle the children (CostCenters) first
+    related_cost_centers = models.CostCenter.objects.filter(category=instance)
+    for cost_center in related_cost_centers:
+        cost_center.delete()  # This will cascade the delete,
+
+    # Send the external API request
     sync = CashCtrlSync(sender,instance, conn.CostCenterCategory)
     sync.delete()
 
@@ -365,9 +392,18 @@ def account_category_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.AccountCategory)
 def account_category_pre_delete(sender, instance, **kwargs):
     ''''Signal handler for pre_delete signals on AccountCategory. '''
-    if instance.number not in models.PROTECTED_ACCOUNTS:
-        sync = CashCtrlSync(sender,instance, conn.AccountCategory)
-        sync.delete()
+    # Check protection
+    if instance.number in models.PROTECTED_ACCOUNTS:
+        return
+
+    # Handle the children (CostCenters) first
+    related_accounts = models.Account.objects.filter(category=instance)
+    for account in related_accounts:
+        account.delete()  # This will cascade the delete
+
+    # Send the external API request
+    sync = CashCtrlSync(sender,instance, conn.AccountCategory)
+    sync.delete()
 
 
 # Account
@@ -462,101 +498,148 @@ def unit_pre_delete(sender, instance, **kwargs):
 
 
 # Ledger ------------------------------------------------------------------
+class LedgeUpdate:
+
+    def __init__(self, model, instance):
+        self.model = model
+        self.instance = instance
+
+    @property
+    def needs_update(self):
+        return (self.instance.is_enabled_sync and
+            self.instance.sync_to_accounting)
+
+    def update_or_create_category(self):
+        ''' update or create AccountCategory '''
+        for field_name in self.category_fields:
+            category = getattr(self.instance, field_name)
+            if category:
+                if self.instance.parent:
+                    # Update my category - top  don't get updated
+                    category = category
+                    category.name=self.instance.name
+                    category.number=self.number
+                    category.sync_to_accounting = True
+                    category.save()
+            else:
+                # Create
+                if self.instance.parent:
+                    category = models.AccountCategory.objects.create(
+                        tenant=self.instance.tenant,
+                        setup=self.instance.setup,
+                        number=self.number,
+                        name=self.instance.name,
+                        parent=self.instance.parent.category,
+                        created_by=self.instance.created_by,
+                        sync_to_accounting = True
+                    )
+                else:
+                    category = self.get_top_category(field_name)
+
+                # Ensure `pre_save` and `post_save` run and assign `c_id`
+                category.refresh_from_db()  # Fetch updated values, including c_id
+
+        # Save
+        self.instance.category = category
+        self.instance.sync_to_accounting = False
+        self.instance.save()
+
+    def update_or_create_account(self):
+        ''' update or create Account '''
+        account = self.instance.account
+        if account:
+            # Update, note: we do not re-arrange groups, needs new creation
+            account.name=self.instance.name
+            account.number=self.number
+            account.hrm=instance.hrm
+            account.function=self.instance.function
+            account.sync_to_accounting=True
+            account.save()
+        else:
+            # Update or create new
+            account, created = models.Account.objects.update_or_create(
+                tenant=instance.tenant,
+                setup=instance.setup,
+                number=number,
+                defaults=dict(
+                    name=self.instance.name,
+                    hrm=self.instance.hrm,
+                    function=self.instance.function,
+                    category=self.get_account_category(),
+                    created_by=self.instance.created_by,
+                    sync_to_accounting=True
+                )
+            )
+
+            # Ensure `pre_save` and `post_save` run and assign `c_id`
+            account.refresh_from_db()  # Fetch updated values, including c_id
+
+            # After save handling
+            self.instance.account = account
+            self.instance.sync_to_accounting = False
+            self.instance.save()
+
+    def save(self):
+        if self.instance.type == self.model.TYPE.CATEGORY:
+            self.update_or_create_category()
+        else:
+            self.update_or_create_account()
+
+
+class LedgerBalanceUpdate(LedgeUpdate):
+    category_fields = ['category']
+
+    def __init__(self, model, instance):
+        self.number = Decimal(instance.hrm)
+        super().__init__(model, instance)
+
+    def get_top_category(self, field_name=None):
+        __ = field_name
+        return models.AccountCategory.objects.get(
+            setup=self.instance.setup, number=self.number)
+
+    def get_account_category(self):
+        return instance.parent.category
+
+
+class LedgerPLUpdate(LedgeUpdate):
+    category_fields = ['category_expense', 'category_revenue']
+
+    def __init__(self, model, instance):
+        if '.' in instance.hrm:
+            self.number = Decimal(f"{instance.function}{instance.hrm}")
+        else:
+            self.number = int(instance.hrm)
+        super().__init__(model, instance)
+
+    def get_top_category(self, field_name):
+        queryset = models.AccountCategory.objects.filter(
+            setup=self.instance.setup)
+        if field_name == 'category_expense':
+            return queryset.filter(
+                number=TOP_LEVEL_ACCOUNT.PL_EXPENSE.value).first()
+        return queryset.filter(
+            number=TOP_LEVEL_ACCOUNT.PL_EXPENSE.value).first()
+
+    def get_account_category(self):
+        if str(self.instance.hrm).startswith(TOP_LEVEL_ACCOUNT.EXPENSE.value):
+            return instance.parent.category_expense
+        return instance.parent.category_revenue
+
 
 @receiver(post_save, sender=models.LedgerBalance)
 def ledger_balance_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Unit. '''
-    print("*0")
-    if not instance.is_enabled_sync or not instance.sync_to_accounting:
-        return
-    print("*1")
-    if instance.type == sender.TYPE.CATEGORY:
-        if instance.category:
-            print("*instance.category.update")
-            # Update, note: we do not re-arrange groups, needs new creation
-            instance.category.name=instance.name
-            instance.category.number=instance.hrm
-            instance.category.sync_to_accounting = True
-            instance.category.save()
-            return
-            
-        elif instance.hrm in [
-                models.TOP_LEVEL_ACCOUNT.ASSET.value,
-                models.TOP_LEVEL_ACCOUNT.LIABILITY.value]:
-            # Toplevel            
-            instance.category = models.AccountCategory.objects.get(
-                setup=instance.setup, number=instance.hrm)
-            instance.sync_to_accounting = False
-            instance.save()
-            return
-            
-        elif not instance.parent:
-            raise ValueError(_("No parent assigned"))
+    __ = created
+    handler = LedgerBalanceUpdate(sender, instance)
+    if handler.needs_update:
+        handler.save()
 
-        if not instance.category:
-            # Create new
-            logging.info("*# Create new")
-            category = models.AccountCategory.objects.create(
-                tenant=instance.tenant,
-                setup=instance.setup,
-                number=instance.hrm,
-                name=instance.name,
-                parent=instance.parent.category,
-                created_by=instance.created_by,
-                sync_to_accounting = True
-            )
 
-            # Ensure `pre_save` and `post_save` run and assign `c_id`
-            category.refresh_from_db()  # Fetch updated values, including c_id
-
-            # After save handling
-            instance.category =  category
-            instance.sync_to_accounting = False
-            instance.save()
-            return
-
-    elif instance.type == sender.TYPE.ACCOUNT:
-        print("*2")
-        if instance.account:
-            print("*2.1")
-            # Update, note: we do not re-arrange groups, needs new creation              
-            instance.account.name=instance.name
-            instance.account.number=instance.hrm
-            instance.account.hrm=instance.hrm
-            instance.account.function=instance.function
-            instance.account.sync_to_accounting=True
-            instance.account.save()
-            return
-            
-        elif instance.hrm in [
-                models.TOP_LEVEL_ACCOUNT.ASSET,
-                models.TOP_LEVEL_ACCOUNT.LIABILITY]:
-            # Toplevel
-            print("*2.2")
-            instance.category = models.AccountCategory.objects.get(
-                setup=instance.setup, number=instance.hrm)
-        elif not instance.parent:
-            raise ValueError(_("No parent assigned"))
-
-        if not instance.account:
-            print("*create instance.account")
-            # Create new
-            account = models.Account.objects.create(
-                tenant=instance.tenant,
-                setup=instance.setup,
-                name=instance.name,
-                number=instance.hrm,
-                hrm=instance.hrm,
-                function=instance.function,
-                category=instance.parent.category,                
-                created_by=instance.created_by,
-                sync_to_accounting=True
-            )
-            
-            # Ensure `pre_save` and `post_save` run and assign `c_id`
-            account.refresh_from_db()  # Fetch updated values, including c_id            
-            
-            # After save handling
-            instance.account = account
-            instance.sync_to_accounting = False
-            instance.save()
+@receiver(post_save, sender=models.LedgerPL)
+def ledger_pl_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Unit. '''
+    __ = created
+    handler = LedgerPLUpdate(sender, instance)
+    if handler.needs_update:
+        handler.save()

@@ -19,7 +19,7 @@ from .models import (
     ACCOUNT_TYPE_TEMPLATE, AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
-    Ledger, LedgerBalance
+    Ledger, LedgerBalance, LedgerPL, LedgerIC
 )
 
 LABEL_BACK = _("Back")
@@ -79,6 +79,11 @@ class LedgerAdminForm(NameAdminForm):
 class LedgerBalanceAdminForm(NameAdminForm):
     class Meta(NameAdminForm.Meta):
         model = LedgerBalance
+
+
+class LedgerPLAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = LedgerPL
 
 
 # Other multilanguage forms
@@ -282,15 +287,15 @@ class AssignResponsibleForm(AdminActionForm):
     )
 
 
-class ExcelUploadForm(AdminActionForm):
-    excel_file = forms.FileField(        
+class LedgerBalanceUploadForm(AdminActionForm):
+    excel_file = forms.FileField(
         required=True,
-        label=_("Upload Excel File"), 
+        label=_("Upload Excel File"),
         help_text=(
             _("Excel must contain the following colums:") +
-            "'hrm', 'name'" + " ," + _("optionally") + 
+            "'hrm', 'name'" + " ," + _("optionally") +
             "'opening_balance', 'closing_balance', 'increase', 'decrease', 'notes'")
-    )        
+    )
 
     class Meta:
         help_text = format_html(_(
@@ -305,4 +310,30 @@ class ExcelUploadForm(AdminActionForm):
                 - decrease<br>
                 - notes
             '''))
-            
+
+
+
+class LedgerPLUploadForm(AdminActionForm):
+    excel_file = forms.FileField(
+        required=True,
+        label=_("Upload Excel File"),
+    help_text = _(
+        "Excel must contain the following columns: "
+        "'hrm', 'name', optionally: 'expense', 'revenue', 'expense_budget', "
+        "'revenue_budget', 'expense_previous', 'revenue_previous', 'notes'."
+    ))
+
+    class Meta:
+        help_text = format_html(_(
+            '''Upload Excel File to Balance.
+                Excel must contain the following colums:<br>
+                - hrm<br>
+                - name<br><br>
+                Optionally:<br>
+                - expense<br>
+                - revenue<br>
+                - expense_budget<br>
+                - revenue_budget<br>
+                - expense_previous<br>
+                - revenue_previous
+            '''))

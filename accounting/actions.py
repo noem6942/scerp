@@ -18,11 +18,14 @@ from core.safeguards import save_logging
 from scerp.admin import action_check_nr_selected
 from scerp.exceptions import APIRequestError
 
-from .import_export import LedgerBalanceImportExport
+from .import_export import (
+    LedgerBalanceImportExport, LedgerPLImportExport
+)
 from .models import (
     APPLICATION, ACCOUNT_TYPE_TEMPLATE, APISetup,
     AccountPositionTemplate,
-    ChartOfAccounts, AccountPosition, FiscalPeriod, LedgerBalance
+    ChartOfAccounts, AccountPosition, FiscalPeriod, 
+    LedgerBalance, LedgerPL, LedgerIC
 )
 from . import forms, models
 from . import connector_cash_ctrl as conn
@@ -77,8 +80,6 @@ class Handler:
     def load(
             self, request, params={}, delete_not_existing=False,
             **filter_kwargs):
-        self.handler.load(
-            self.model, params, delete_not_existing, **filter_kwargs)
         if self.handler:
             try:
                 self.handler.load(
@@ -665,30 +666,54 @@ def assign_responsible(modeladmin, request, queryset, data):
     messages.success(request, msg)
 
 
-@action_with_form(
-    forms.ExcelUploadForm, description=_('20 Insert or update into Balance')
-)
-def add_balance(modeladmin, request, queryset, data):
+def add_excel_to_ledger(model, request, queryset, data):
     """
     Custom admin action to assign a responsible group to selected records.
     """
-    __ = modeladmin  # disable pylint warning
+    MAPPING = {
+        LedgerBalance: LedgerBalanceImportExport,
+        LedgerPL: LedgerPLImportExport
+    }
+    
     # Update the `responsible` field for all selected records
     excel_file = data.get('excel_file')
     if not excel_file:
         messages.error(request, _("No file uploaded."))
         return
-    #try:
-
-    # get language
+        
+    # Init    
     ledger = queryset.first()
-    process = LedgerBalanceImportExport(ledger, request)
+    handler = MAPPING[model]    
+    
+    #try:            
+    process = handler(ledger, request)
     process.update_or_get(excel_file)
 
-    # messages.success(request, _("Excel file processed successfully."))
+    messages.success(request, _("Excel file processed successfully."))
 
     #except Exception as e:
     #    messages.error(request, _("Error processing Excel file: ") + str(e))
+        
+
+@action_with_form(
+    forms.LedgerBalanceUploadForm, description=_('20 Insert or update into Balance')
+)
+def add_balance(modeladmin, request, queryset, data):
+    """
+    Custom admin action to assign a responsible group to selected records.
+    """
+    add_excel_to_ledger(LedgerBalance, request, queryset, data)
+
+
+@action_with_form(
+    forms.LedgerPLUploadForm, description=_('21 Insert or update into P&L')
+)
+def add_pl(modeladmin, request, queryset, data):
+    """
+    Custom admin action to assign a responsible group to selected records.
+    """
+    add_excel_to_ledger(LedgerPL, request, queryset, data)
+    
 
 @admin.action(description=_("2. Sync with Accounting"))
 def sync_balance(modeladmin, request, queryset):
@@ -697,7 +722,7 @@ def sync_balance(modeladmin, request, queryset):
         queryset = queryset.order_by(Cast('function', CharField()))
 
         # Perform bulk update (NO SIGNALS fired)
-        count = queryset.update(is_enabled_sync=True)
+        count = 0
 
         # Manually trigger signals
         for instance in queryset.all():
@@ -706,9 +731,15 @@ def sync_balance(modeladmin, request, queryset):
                     hrm=instance.hrm)
                 messages.error(request, msg)
             else:
-                instance.is_enabled_sync = True
-                instance.sync_to_accounting = True
-                instance.save()
+                try:
+                    with transaction.atomic():
+                        instance.is_enabled_sync = True
+                        instance.sync_to_accounting = True
+                        instance.save()
+                        count += 1
+                except:
+                    msg = _("Could not sync {hrm}").format(hrm=instance.hrm)
+                    messages.error(request, msg)
 
         messages.error(
             request, _("{count} accounts synched.").format(count=count))
