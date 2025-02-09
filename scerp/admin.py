@@ -496,6 +496,22 @@ class BaseAdmin(ModelAdmin):
         except Exception as e:
             self.message_user(request, f"Error deleting category: {e}", messages.ERROR)
 
+    def delete_queryset(self, request, queryset):
+        errors = []
+        
+        for obj in queryset:
+            try:
+                with transaction.atomic():  # Ensures each delete is independent
+                    obj.delete()
+            except Exception as e:
+                errors.append(f"{obj}: {str(e)}")  # Store error message
+
+        # Show error messages in Django Admin if any delete failed
+        if errors:
+            self.message_user(request, f"Some records could not be deleted:\n" + "\n".join(errors), messages.ERROR)
+        else:
+            self.message_user(request, "Records successfully deleted.", messages.SUCCESS)
+
     def save_model(self, request, instance, form, change):
         """
         Override save to include additional logging or other custom logic.

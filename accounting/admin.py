@@ -52,11 +52,15 @@ class CASH_CTRL:
 
 @admin.register(models.APISetup, site=admin_site)
 class APISetupAdmin(BaseAdmin):
+    # Safeguards
     has_tenant_field = True
     related_tenant_fields = ['tenant']
 
+    # Display these fields in the list view
     list_display = ('tenant', 'org_name', 'api_key_hidden')
     search_fields = ('tenant', 'org_name')
+
+    # Actions
     actions = [
         a.api_setup_get,
         a.init_setup,
@@ -66,6 +70,7 @@ class APISetupAdmin(BaseAdmin):
         a.api_setup_delete_system_categories
     ]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -128,11 +133,11 @@ class CashCtrlAdmin(BaseAdmin):
         # Get the form from the parent class
         form = super().get_form(request, obj, change, **kwargs)
 
-        # Set the default value for the 'sync_to_accounting' field in the        
+        # Set the default value for the 'sync_to_accounting' field in the
         form.base_fields['sync_to_accounting'].widget.attrs['checked'] = True
-        
+
         # Only set default value if this is a new instance (obj is None)
-        if not obj:                        
+        if not obj:
             # Fetch the default setup value
             tenant = get_tenant(request)
             default_value = models.APISetup.objects.filter(
@@ -169,13 +174,20 @@ class CashCtrlAdmin(BaseAdmin):
 
 @admin.register(models.CustomFieldGroup, site=admin_site)
 class CustomFieldGroupAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
 
+    # Display these fields in the list view
     list_display = ('code', 'name', 'type') + CASH_CTRL.LIST_DISPLAY
+
+    # Search, filter
     search_fields = ('code', 'name')
     list_filter = ('type',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    # Fieldsets
     fieldsets = (
         (None, {
             'fields': ('code', 'name', 'type'),
@@ -185,14 +197,21 @@ class CustomFieldGroupAdmin(CashCtrlAdmin):
 
 @admin.register(models.CustomField, site=admin_site)
 class CustomFieldAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup', 'group']
 
+    # Display these fields in the list view
     list_display = (
         'code', 'group', 'name', 'data_type') + CASH_CTRL.LIST_DISPLAY
+
+    # Search, filter
     search_fields = ('code', 'name')
     list_filter = ('type','data_type',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -205,19 +224,25 @@ class CustomFieldAdmin(CashCtrlAdmin):
 
 @admin.register(models.Location, site=admin_site)
 class Location(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup', 'logo']
-
     has_tenant_field = True
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
 
+    # Display these fields in the list view
     list_display = (
         'name', 'type', 'vat_uid', 'logo', 'address', 'display_last_update',
-        'url') + CASH_CTRL.LIST_DISPLAY      
+        'url') + CASH_CTRL.LIST_DISPLAY
+
+    # Search, filter
     search_fields = ('name', 'vat_uid')
     list_filter = ('type',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         # Organization Details
         (None, {
@@ -251,15 +276,22 @@ class Location(CashCtrlAdmin):
 
 @admin.register(models.FiscalPeriod, site=admin_site)
 class FiscalPeriodAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
     is_readonly = False
     warning = CASH_CTRL.WARNING_READ_ONLY
 
+    # Display these fields in the list view
     list_display = ('name', 'start', 'end', 'is_current', 'display_last_update')
+
+    # Search, filter
     search_fields = ('name', 'start', 'end', 'is_current')
     list_filter = ('is_current',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': ('name', 'start', 'end', 'is_closed', 'is_current'),
@@ -270,15 +302,23 @@ class FiscalPeriodAdmin(CashCtrlAdmin):
 
 @admin.register(models.Currency, site=admin_site)
 class CurrencyAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
 
+    # Helpers
     form = forms.CurrencyAdminForm
+    # Display these fields in the list view
     list_display = ('code', 'is_default', 'rate') + CASH_CTRL.LIST_DISPLAY
+    readonly_fields = ('display_description',)
+
+    # Search, filter
     search_fields = ('code', 'name')
     list_filter = ('is_default',)
-    readonly_fields = ('display_description',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -298,15 +338,23 @@ class CurrencyAdmin(CashCtrlAdmin):
 
 @admin.register(models.Title, site=admin_site)
 class TitleAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
 
+    # Helpers
     form = forms.TitleAdminForm
+    # Display these fields in the list view
     list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
+    readonly_fields = ('display_name',)
+
+    # Search, filter
     search_fields = ('code', 'name')
     list_filter = ('gender',)
-    readonly_fields = ('display_name',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -323,17 +371,25 @@ class TitleAdmin(CashCtrlAdmin):
 
 @admin.register(models.Unit, site=admin_site)
 class UnitAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
 
+    # Helpers
     form = forms.UnitAdminForm
+
+    # Display these fields in the list view
     list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
     list_display_links = ('code', 'display_name')
-    
+    readonly_fields = ('display_name',)
+
+    # Display these fields in the list view
     search_fields = ('code', 'name')
     # list_filter = ('code',)
-    readonly_fields = ('display_name',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -345,16 +401,25 @@ class UnitAdmin(CashCtrlAdmin):
 
 @admin.register(models.Tax, site=admin_site)
 class TaxAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
 
+    # Helpers
     form = forms.TaxAdminForm
+
+    # Display these fields in the list view
     list_display = (
         'code', 'display_name', 'display_percentage') + CASH_CTRL.LIST_DISPLAY
+    readonly_fields = ('display_name',)
+
+    # Search, filter
     search_fields = ('code', 'name')
     list_filter = ('percentage',)
-    readonly_fields = ('display_name',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -380,15 +445,25 @@ class TaxAdmin(CashCtrlAdmin):
 
 @admin.register(models.Rounding, site=admin_site)
 class RoundingAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
 
+    # Helpers
     form = forms.RoundingAdminForm
-    list_display = ('code', 'display_name', 'rounding') + CASH_CTRL.LIST_DISPLAY
+
+    # Display these fields in the list view
+    list_display = (
+        'code', 'display_name', 'rounding') + CASH_CTRL.LIST_DISPLAY
+    readonly_fields = ('display_name',)
+
+    # Display these fields in the list view
     search_fields = ('code', 'name')
     list_filter = ('mode',)
-    readonly_fields = ('display_name',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -405,16 +480,23 @@ class RoundingAdmin(CashCtrlAdmin):
 
 @admin.register(models.SequenceNumber, site=admin_site)
 class SequenceNumberAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
 
+    # Display these fields in the list view
     list_display = ('local_name', 'pattern') + CASH_CTRL.LIST_DISPLAY
+    readonly_fields = ('local_name',)
+
+    # Search, filter
     search_fields = ('name',)
     list_filter = ('setup',)
-    readonly_fields = ('local_name',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -430,16 +512,23 @@ class SequenceNumberAdmin(CashCtrlAdmin):
 
 @admin.register(models.OrderCategory, site=admin_site)
 class OrderCategoryAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
 
+    # Display these fields in the list view
     list_display = ('display_name', 'due_days') + CASH_CTRL.LIST_DISPLAY
+    readonly_fields = ('display_name', 'display_status')
+
+    # Search, filter
     search_fields = ['display_name', 'number']
     list_filter = ('setup',)
-    readonly_fields = ('display_name', 'display_status')
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -461,15 +550,22 @@ class OrderCategoryAdmin(CashCtrlAdmin):
 
 @admin.register(models.OrderTemplate, site=admin_site)
 class OrderTemplateAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup']
     is_readonly = True
     warning = CASH_CTRL.WARNING_READ_ONLY
 
+    # Display these fields in the list view
     list_display = ('name', 'is_default') + CASH_CTRL.LIST_DISPLAY
+
+    # Search, filter
     search_fields = ('name',)
     list_filter = ('setup',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': ('name', 'is_default'),
@@ -480,16 +576,25 @@ class OrderTemplateAdmin(CashCtrlAdmin):
 
 @admin.register(models.CostCenterCategory, site=admin_site)
 class CostCenterCategoryAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup', 'parent']
 
+    # Helpers
     form = forms.CostCenterCategoryAdminForm
+
+    # Display these fields in the list view
     list_display = (
         'display_name', 'number', 'display_parent') + CASH_CTRL.LIST_DISPLAY
+    readonly_fields = ('display_name',)
+
+    # Search, filter
     search_fields = ('name', 'number')
     list_filter = ('setup',)
-    readonly_fields = ('display_name',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -501,17 +606,25 @@ class CostCenterCategoryAdmin(CashCtrlAdmin):
 
 @admin.register(models.CostCenter, site=admin_site)
 class CostCenterAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup', 'category']
 
+    # Helpers
     form = forms.CostCenterAdminForm
+    # Display these fields in the list view
     list_display = (
         'display_name', 'number', 'category') + CASH_CTRL.LIST_DISPLAY
+    readonly_fields = ('display_name',)
+
+
+    # Search, filter
     search_fields = ('name', 'number')
     list_filter = ('category',)
 
-    readonly_fields = ('display_name',)
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -523,17 +636,26 @@ class CostCenterAdmin(CashCtrlAdmin):
 
 @admin.register(models.AccountCategory, site=admin_site)
 class AccountCategoryAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = ['setup', 'parent']
 
+    # Helpers
     form = forms.AccountCategoryAdminForm
+
+    # Display these fields in the list view
     list_display = (
         'display_name', 'number', 'display_parent'
     ) + CASH_CTRL.LIST_DISPLAY
+    readonly_fields = ('display_name',)
+
+    # Search, filter
     search_fields = ('name', 'number')
     # list_filter = (TenantFilteredSetupListFilter,)
-    readonly_fields = ('display_name',)
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': ('number', 'parent', *make_multilanguage('name')),
@@ -543,8 +665,10 @@ class AccountCategoryAdmin(CashCtrlAdmin):
 
 
 class AllocationsInline(BaseTabularInline):  # or admin.StackedInline
+    # Safeguards
     related_tenant_fields = ['setup', 'to_cost_center']
 
+    # Inline
     model = models.Allocation
     fields = ['share', 'to_cost_center']  # Only show these fields
     extra = 1  # Number of empty forms displayed
@@ -562,16 +686,24 @@ class AccountAdmin(CashCtrlAdmin):
     # Helpers
     form = forms.AccountAdminForm
 
+    # Display these fields in the list view
     list_display = (
         'display_number', 'function', 'hrm', 'display_name', 'category'
     ) + CASH_CTRL.LIST_DISPLAY
     list_display_links = ('display_name',)
+    readonly_fields = ('display_name', 'function', 'hrm')
+
+    # Search, filter
     search_fields = ('name', 'number', 'function', 'hrm')
     list_filter = ('function', 'hrm')
-    readonly_fields = ('display_name', 'function', 'hrm')
+
+    # Actions
     actions = [a.accounting_get_data]
+
+    # Inlines
     inlines = [AllocationsInline]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -581,17 +713,20 @@ class AccountAdmin(CashCtrlAdmin):
         }),
     )
 
-    ordering = [Cast('function', CharField()), Cast('hrm', CharField())]
-
 
 @admin.register(models.Setting, site=admin_site)
 class SettingAdmin(CashCtrlAdmin):
+    # Safeguards
     is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY    
-    
+    warning = CASH_CTRL.WARNING_READ_ONLY
+
+    # Display these fields in the list view
     list_display = CASH_CTRL.LIST_DISPLAY
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -632,24 +767,34 @@ class SettingAdmin(CashCtrlAdmin):
 
 @admin.register(models.Ledger, site=admin_site)
 class LedgerAdmin(CashCtrlAdmin):
-    related_tenant_fields = ['setup', 'period']    
+    # Safeguards
+    related_tenant_fields = ['setup', 'period']
 
+    # Helpers
     form = forms.LedgerAdminForm
+
+    # Display these fields in the list view
     list_display = (
-        'code', 'display_name', 'period', 
+        'code', 'display_name', 'period',
         'link_to_balance', 'link_to_pl', 'link_to_ic',
         'display_current')
+
+    # Search, filter
     search_fields = ('code', 'name', 'period__name')
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': ('code', *make_multilanguage('name'), 'period'),
             'classes': ('expand',),
         }),
-    )    
-    
+    )
+
+    list_per_page = 500  # Show 500 rows per page
+
+    # Actions
     actions = [a.add_balance, a.add_pl]
-    
+
     @admin.display(description=_('Current'))
     def display_current(self, obj):
         return Display.boolean(obj.period.is_current)
@@ -668,24 +813,22 @@ class LedgerAdmin(CashCtrlAdmin):
     def link_to_ic(self, obj):
         url = f"../ledgeric/?ledger__id__exact={obj.id}"
         return format_html(f'<a href="{url}">{_("IC")}</a>', url)
-    
+
 
 class LedgerBaseAdmin(CashCtrlAdmin):
     # Display
     list_display_links = ('display_account_name',)
-    ordering = [Cast('hrm', CharField())]
+    list_per_page = 1000  # Show 1000 i.e. most probably all results per page
+    ordering = ['function', 'hrm']
 
-    # Enable search by name and account
-    search_fields = ('function', 'hrm', 'name')
-    
-    # Ordering
-    ordering = [Cast('function', CharField()), Cast('hrm', CharField())]
-    
+    # Search, filter
+    search_fields = ('function', 'hrm', 'name')    
+
     # Methods
     def get_import_data(self, request, *args, **kwargs):
         # Pass the request to the import
         return self.resource_class.import_data(
-            request=request, *args, **kwargs)    
+            request=request, *args, **kwargs)
 
     @admin.display(description=_('Function'))
     def display_function(self, obj):
@@ -706,13 +849,13 @@ class LedgerBaseAdmin(CashCtrlAdmin):
     def display_account_name(self, obj):
         name = multi_language(obj.name)
         if obj.type == self.model.TYPE.CATEGORY:
-            if int(obj.hrm) < 10:
+            if len(obj.hrm) == 1:
                 name = name.upper()
-            return format_html(f"<b>{name}</b>")        
+            return format_html(f"<b>{name}</b>")
         return format_html(name)
 
     @admin.display(description=_('C-ids'))
-    def display_c_ids(self, obj):        
+    def display_c_ids(self, obj):
         return obj.cash_ctrl_ids
 
 
@@ -724,34 +867,33 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
     # Safeguards
     related_tenant_fields = [
         'setup', 'ledger', 'parent', 'account', 'category']
-    optimize_foreigns = ['ledger', 'parent', 'account', 'category']  
-    
+    optimize_foreigns = ['ledger', 'parent', 'account', 'category']
+
     # Helpers
     form = forms.LedgerBalanceAdminForm
     resource_class = LedgerBalanceResource
 
     # Display these fields in the list view
     list_display = (
-        'display_function', 'display_hrm', 'display_account_name', 
-        'display_opening_balance', 'display_increase', 
+        'display_function', 'display_hrm', 'display_account_name',
+        'display_opening_balance', 'display_increase',
         'display_decrease', 'display_closing_balance',
         'display_c_ids', 'notes'
     ) + CASH_CTRL.LIST_DISPLAY
+    # readonly_fields = ('closing_balance',)
 
-    # Enable filtering options
+    # Search, filter
     list_filter = (
         filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'function')
 
-    # Read-only fields that cannot be edited
-    # readonly_fields = ('closing_balance',)
-
-    # Admin Actions (custom actions can be defined)
+    # Actions
     actions = [a.accounting_get_data, a.sync_balance]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'ledger', 'hrm', *make_multilanguage('name'), 'type', 
+                'ledger', 'hrm', *make_multilanguage('name'), 'type',
                 'function', 'parent', 'category', 'account'),
             'classes': ('expand',),
         }),
@@ -788,39 +930,38 @@ class LedgerPLAdmin(ExportActionMixin, LedgerBaseAdmin):
         'setup', 'ledger', 'parent', 'account', 'category_expense',
         'category_revenue']
     optimize_foreigns = ['ledger', 'parent', 'account', 'category_expense',
-        'category_revenue']     
-    
+        'category_revenue']
+
     # Helpers
     form = forms.LedgerPLAdminForm
     resource_class = LedgerPLResource
 
     # Display these fields in the list view
     list_display = (
-        'display_function', 'display_hrm', 'display_account_name', 
+        'display_function', 'display_hrm', 'display_account_name',
         'expense', 'revenue', 'expense_budget', 'revenue_budget',
         'expense_previous', 'revenue_previous', 'display_c_ids', 'notes'
     ) + CASH_CTRL.LIST_DISPLAY
+    # readonly_fields = ('closing_balance',)
 
     # Enable filtering options
     list_filter = (
         filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'function')
 
-    # Read-only fields that cannot be edited
-    # readonly_fields = ('closing_balance',)
-
-    # Admin Actions (custom actions can be defined)
+    # Actions
     actions = [a.accounting_get_data, a.sync_balance]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'ledger', 'hrm', *make_multilanguage('name'), 'type', 
+                'ledger', 'hrm', *make_multilanguage('name'), 'type',
                 'function', 'parent', 'account'),
             'classes': ('expand',),
         }),
         ('Balances', {
             'fields': (
-                'expense', 'revenue', 'expense_budget', 'revenue_budget', 
+                'expense', 'revenue', 'expense_budget', 'revenue_budget',
                 'expense_previous', 'revenue_previous'),
             'classes': ('collapse',),
         }),
@@ -853,8 +994,11 @@ class ArticleAdmin(CashCtrlAdmin):
     search_fields = ('name', 'nr')
     list_filter = ('is_stock_article', 'category_id')
     readonly_fields = ('display_name', 'display_sales_price')
+
+    # Actions
     actions = [a.accounting_get_data]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -882,13 +1026,21 @@ class ArticleAdmin(CashCtrlAdmin):
 
 @admin.register(models.ChartOfAccountsTemplate, site=admin_site)
 class ChartOfAccountsTemplateAdmin(BaseAdmin):
+    # Safeguards
     has_tenant_field = False
+
+    # Display these fields in the list view
     list_display = ('name', 'chart_version', 'link_to_positions')
+    readonly_fields = ('exported_at',)
+
+    # Search, filter
     search_fields = ('name', 'account_type', 'canton', 'type')
     list_filter = ('account_type', 'type', 'canton', 'chart_version')
-    readonly_fields = ('exported_at',)
+
+    # Actions
     actions = [a.coac_positions_check, a.coac_positions_create]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': ('name', 'account_type', 'canton', 'type', 'chart_version',
@@ -901,10 +1053,6 @@ class ChartOfAccountsTemplateAdmin(BaseAdmin):
         }),
     )
 
-    def custom_display_name(self, obj):
-        # Return the modified display name for other contexts
-        return f"Custom: {obj.name}"
-
     @admin.display(description=_('Type - display positions'))
     def link_to_positions(self, obj):
         url = f"../accountpositiontemplate/?chart__id__exact={obj.id}"
@@ -914,19 +1062,30 @@ class ChartOfAccountsTemplateAdmin(BaseAdmin):
 
 @admin.register(models.AccountPositionTemplate, site=admin_site)
 class AccountPositionTemplateAdmin(BaseAdmin):
+    # Safeguards
     related_tenant_fields = ['parent']
     has_tenant_field = False
-    list_display = ('category_number', 'position_number', 'display_name', )
+
+    # Display these fields in the list view
+    list_display = ('category_number', 'position_number', 'display_name',)
+    list_display_links = ('display_name',)
+    readonly_fields = ('chart', 'number')
+
+    # Search, filter
     list_filter = (
         'chart__account_type',
         'chart__canton', 'chart__chart_version', 'chart')
-    list_display_links = ('display_name',)
     search_fields = ('account_number', 'name', 'notes', 'number')
-    readonly_fields = ('chart', 'number')
 
-    actions = [a.apc_export_balance, a.apc_export_function_to_income,
-               a.apc_export_function_to_invest, a.position_insert]
+    # Actions
+    actions = [
+        a.apc_export_balance,
+        a.apc_export_function_to_income,
+        a.apc_export_function_to_invest,
+        a.position_insert
+    ]
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -956,13 +1115,19 @@ class AccountPositionTemplateAdmin(BaseAdmin):
 
 @admin.register(models.ChartOfAccounts, site=admin_site)
 class ChartOfAccountsAdmin(BaseAdmin):
+    # Safeguards
     related_tenant_fields = ['period']
     has_tenant_field = True
+
+    # Display these fields in the list view
     list_display = (
         'display_name', 'chart_version', 'period', 'link_to_positions')
-    search_fields = ('name',)
     # readonly_fields = ('period',)
 
+    # Search, filter
+    search_fields = ('name',)
+
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -990,23 +1155,28 @@ class ChartOfAccountsAdmin(BaseAdmin):
 
 @admin.register(models.AccountPosition, site=admin_site)
 class AccountPositionAdmin(CashCtrlAdmin):
+    # Safeguards
     related_tenant_fields = [
         'setup', 'parent', 'chart', 'allocations', 'currency' ]
     has_tenant_field = True
     has_revenue_id = True
     is_readonly = False
 
+    # Display these fields in the list view
     list_display = (
         'display_function', 'position_number', 'display_name',
         'display_end_amount_credit', 'display_end_amount_debit',
         'display_balance_credit', 'display_balance_debit',
         'display_budget', 'display_previous', 'display_cashctrl', 'responsible')
     list_display_links = ('display_name',)
+    list_per_page = 1000  # Show 1000 i.e. most probably all results per page
+    readonly_fields = ('balance', 'budget', 'previous', 'number')
+
+    # Search, filter
     list_filter = ('account_type', 'chart', 'responsible')
     search_fields = ('function', 'account_number', 'number', 'name')
-    readonly_fields = ('balance', 'budget', 'previous', 'number')
-    list_per_page = 1000  # Show 1000 (i.e. all most probably) results per page
 
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -1021,13 +1191,20 @@ class AccountPositionAdmin(CashCtrlAdmin):
             'classes': ('collapse',),
         }),
     )
+
+    # Actions
     actions = [
-        a.apm_add_income, a.apm_add_invest,
-        a.check_accounts, a.account_names_convert_upper_case,
-        a.upload_accounts, a.download_balances, a.get_balances,
+        a.apm_add_income,
+        a.apm_add_invest,
+        a.check_accounts,
+        a.account_names_convert_upper_case,
+        a.upload_accounts,
+        a.download_balances, a.get_balances,
         a.upload_balances,
         a.assign_responsible,
-        set_inactive, set_protected, a.position_insert
+        set_inactive,
+        set_protected,
+        a.position_insert
     ]
 
     @admin.display(

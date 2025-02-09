@@ -1206,6 +1206,7 @@ class AcctLedger(AcctApp):
         help_text=_("Ledger assigned to the fiscal period"))    
 
     class Meta:
+        ordering = ['function', 'hrm']
         abstract = True
     
 
@@ -1329,7 +1330,6 @@ class FunctionalLedger(LedgerAccount):
 
     class Meta:
         abstract = True
-        ordering = ['function', 'hrm']
 
 
 class LedgerPL(FunctionalLedger):

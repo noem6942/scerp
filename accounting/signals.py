@@ -11,7 +11,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from .models import LedgerBalance, LedgerPL
+from .models import LedgerBalance, LedgerPL, LedgerIC
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class Ledger:
     def __init__(self, model, instance, **kwargs):
         self.model = model
         self.instance = instance
-        
+
         # validate hrm
         try:
             __ = float(instance.hrm)
@@ -35,9 +35,16 @@ class Ledger:
             msg = _("{hrm} not a valid hrm").format(hrm=instance.hrm)
             raise ValueError(msg)
 
+    @staticmethod
+    def make_function(value_str):
+        if '.' in value_str:
+            return str(int(float(value_str)))
+        return value_str
+
     def update(self):
         # Init
         instance = self.instance
+        instance.hrm = instance.hrm.strip()
 
         # Calc
         if '.' in instance.hrm:
@@ -46,19 +53,28 @@ class Ledger:
 
             # parent
             hrm = instance.hrm
-            instance.parent = self.model.objects.filter(
-                setup=instance.setup,
-                type=self.model.TYPE.CATEGORY,
-                hrm__lte=hrm
-            ).order_by('hrm').last()
+            if not instance.parent:
+                if self.model == LedgerBalance:
+                    # derive from hrm
+                    instance.parent = self.model.objects.filter(
+                        setup=instance.setup,
+                        type=self.model.TYPE.CATEGORY,
+                        hrm__lte=hrm
+                    ).order_by('hrm').last()
+                else:
+                    # take last ("best guess")
+                    instance.parent = self.model.objects.filter(
+                        setup=instance.setup,
+                        type=self.model.TYPE.CATEGORY
+                    ).last()
 
             # function
-            instance.function = instance.parent.hrm            
+            instance.function = self.make_function(instance.parent.hrm)
         else:
             # type = category
             instance.type = self.model.TYPE.CATEGORY
 
-            # parent                        
+            # parent
             hrm = instance.hrm[:-1]  # skip last letter
             if hrm:
                 instance.parent = self.model.objects.filter(
@@ -69,12 +85,12 @@ class Ledger:
                 instance.parent = None
 
             # function
-            instance.function = instance.hrm
+            instance.function = self.make_function(instance.hrm)
 
 
         # Check name
         for label in instance.name.values():
-            if label.isupper():
+            if label and label.isupper():
                 instance.message =  _("Title in upper letters")
                 break
 
