@@ -177,8 +177,8 @@ class Display:
         # Format number
         try:
             number_str = format_big_number(
-                value, 
-                round_digits=round_digits, 
+                value,
+                round_digits=round_digits,
                 thousand_separator=thousand_separator)
         except:
             number_str = value
@@ -295,10 +295,10 @@ def filter_foreignkeys(modeladmin, db_field, request, kwargs):
     if db_field.name in getattr(modeladmin, 'related_tenant_fields', []):
         tenant_data = get_tenant(request)  # Get the tenant from the request
         tenant_id = tenant_data.get('id')
-        
+
         if not tenant_id:
-            raise ValueError("Tenant ID is missing from tenant data")        
-        
+            raise ValueError("Tenant ID is missing from tenant data")
+
         # Dynamically get the related model using db_field.remote_field.model
         related_model = db_field.remote_field.model
 
@@ -307,7 +307,7 @@ def filter_foreignkeys(modeladmin, db_field, request, kwargs):
             kwargs['queryset'] = related_model.objects.filter(
                 tenant_id=tenant_id)
         else:
-            kwargs['queryset'] = related_model.objects.none() 
+            kwargs['queryset'] = related_model.objects.none()
 
 def filter_manytomany(modeladmin, db_field, request, **kwargs):
     """
@@ -315,10 +315,10 @@ def filter_manytomany(modeladmin, db_field, request, **kwargs):
     """
     tenant_data = get_tenant(request)  # Get the tenant from the request
     tenant_id = tenant_data.get('id')
-    
+
     if not tenant_id:
-        raise ValueError("Tenant ID is missing from tenant data")  
-            
+        raise ValueError("Tenant ID is missing from tenant data")
+
     if db_field.name in getattr(
             modeladmin, 'related_tenant_manytomany_fields', []):
         kwargs['queryset'] = Recipient.objects.filter(
@@ -331,17 +331,17 @@ def filter_queryset(modeladmin, request, queryset):
     """
     if getattr(modeladmin, 'has_tenant_field', False):
         tenant_data = get_tenant(request)  # Get tenant information
-        
+
         # Use select_related for ForeignKey fields and prefetch_related for Many-to-Many
         optimize_foreigns = getattr(modeladmin, 'optimize_foreigns', [])
         optimize_many_to_many = getattr(
             modeladmin, 'optimize_many_to_many', [])
-        
+
         if optimize_foreigns:
             queryset = queryset.select_related(*optimize_foreigns)
         if optimize_many_to_many:
             queryset = queryset.prefetch_related(*optimize_many_to_many)
-        
+
         # Filter queryset based on tenant-specific criteria
         try:
             queryset = filter_query_for_tenant(request, queryset)
@@ -494,23 +494,20 @@ class BaseAdmin(ModelAdmin):
             raise ValidationError(f"Cannot delete: {e}")  # Prevents Django from proceeding
 
         except Exception as e:
-            self.message_user(request, f"Error deleting category: {e}", messages.ERROR)
+            messages.error(request, f"Error deleting category: {e}")
 
     def delete_queryset(self, request, queryset):
-        errors = []
-        
+        count = 0
         for obj in queryset:
             try:
                 with transaction.atomic():  # Ensures each delete is independent
                     obj.delete()
+                count += 1
             except Exception as e:
-                errors.append(f"{obj}: {str(e)}")  # Store error message
+                messages.warning(request, f"{obj}: {str(e)}")
 
-        # Show error messages in Django Admin if any delete failed
-        if errors:
-            self.message_user(request, f"Some records could not be deleted:\n" + "\n".join(errors), messages.ERROR)
-        else:
-            self.message_user(request, "Records successfully deleted.", messages.SUCCESS)
+        msg = "{count} records successfully deleted.".format(count=count)
+        messages.info(request, msg)
 
     def save_model(self, request, instance, form, change):
         """
@@ -561,7 +558,7 @@ class BaseAdmin(ModelAdmin):
         """
         # See if some special fields need to be considered
         save_for_related = getattr(self, 'save_for_related', [])
-        
+
         for formset in formsets:
             # Save the related EventLog instances without committing them to
             # the DB yet

@@ -417,10 +417,11 @@ class CashCtrl():
                         f"{response.text}"
                     )
 
-                content = response.json()
+                content = response.json()                
                 if not content.get('success', False):
                     raise Exception(
-                        f"POST request error in '{url}': {content['message']}")
+                        f"POST request error in '{url}': {content['message']},"
+                        f"{content.get('errors')}")
 
                 # Clean and return response content
                 return self.clean_dict(content)

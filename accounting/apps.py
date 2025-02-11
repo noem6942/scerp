@@ -6,8 +6,8 @@ class AccountingConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'accounting'
     verbose_name = _('Accounting')
-    
+
     def ready(self):
         # Import signal handlers to register them
         import accounting.signals
-        import accounting.signals_cash_ctrl    
+        import accounting.signals_cash_ctrl

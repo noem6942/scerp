@@ -71,6 +71,18 @@ CustomField:
     is_multi: false
     values: []
 
+  - code: account_budget
+    group_ref: account
+    name:
+      de: Budget
+      en: Budget
+      fr: Budget
+      it: Budget
+    data_type: NUMBER
+    is_multi: false
+    values: []
+
+
   - code: order_incoming_approval
     group_ref: order_incoming
     name:
@@ -240,37 +252,8 @@ Text:
 
 
 # Run 2 Data -----------------------------------------------------------
-Tax:
-  - code: wasser
-    account_ref: 2200  # Umsatzsteuer
-    name:
-      de: "MWST-Umsatzsteuer ER - SF Wasser"
-      en: "VAT Sales Tax ER - Water"
-      fr: "TVA Taxe sur les ventes ER - Eau"
-      it: "IVA Tassa sulle vendite ER - Acqua"
-    percentage: 2.6
-    document_name:
-      de: "CHE-108.964.801 MWST, SF Wasser, 2.6%"
-      en: "CHE-108.964.801 VAT, Water, 2.6%"
-      fr: "CHE-108.964.801 TVA, Eau, 2.6%"
-      it: "CHE-108.964.801 IVA, Acqua, 2.6%"
 
-  - code: abwasser
-    account_ref: 2200  # Umsatzsteuer
-    name:
-      de: "MWST-Umsatzsteuer ER - Abwasser"
-      en: "VAT Sales Tax ER - Wastewater"
-      fr: "TVA Taxe sur les ventes ER - Eaux usées"
-      it: "IVA Tassa sulle vendite ER - Acque reflue"
-    percentage: 8.1
-    document_name:
-      de: "CHE-112.793.129 MWST, Abwasser, 8.1%"
-      en: "CHE-112.793.129 VAT, Wastewater, 8.1%"
-      fr: "CHE-112.793.129 TVA, Eaux usées, 8.1%"
-      it: "CHE-112.793.129 IVA, Acque reflue, 8.1%"
-
-
-# Categories ---------------------------------------------------------------
+# Categories 
 AccountCategories:
   - number: 3.1
     parent_number: EXPENSE
@@ -327,6 +310,7 @@ PersonCategories:
       fr: '__entrer dans scerp__'
       it: '__inserire in scerp__'
 
+
 # Entities --------------------------------------------------------------------
 Persons:
   - category_ref: customer_service
@@ -344,6 +328,7 @@ Persons:
       - address: 062 387 95 29
         type: PHONE_WORK
     color: BLUE
+
 
 # Outgoing Orders ------------------------------------------------------------
 OrderCategories:

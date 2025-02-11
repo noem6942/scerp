@@ -6,7 +6,9 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.contrib import messages
+from django.db import transaction
 from django.utils.translation import gettext as _
+
 
 from scerp.mixins import make_multi_language
 from .models import LedgerBalance, LedgerPL, LedgerIC
@@ -45,7 +47,8 @@ class ImportExport:
                 else:
                     # For other cells, check number conversion
                     try: 
-                        value = float(value)
+                        # Force two decimal places
+                        value = f"{Decimal(value):.2f}"  
                     except:
                         pass
 
@@ -58,6 +61,8 @@ class ImportExport:
         # Init
         data_list = []
         last_row = None
+        merged_once = False  # Track if merge happened once
+        
         request = self.request
 
         # Process rows (skipping header)
@@ -73,11 +78,14 @@ class ImportExport:
             # Validate hrm
             if not data['hrm']:
                 # Check merging
-                if last_row and last_row['hrm'] and last_row['name']:
+                if (last_row and last_row['hrm'] and last_row['name']
+                        and not merged_once):
                     # Merge line breaks in name
                     last_row['name'] += ' ' + data['name']
                     msg = _(f"row {nr} merging name").format(nr=nr)
                     messages.info(request, msg)
+                    
+                    merged_once = True  # Prevent further merges
                     continue
 
                 # Check headings
@@ -93,6 +101,9 @@ class ImportExport:
             # Append data
             last_row = data
             data_list.append(data)
+
+            # Reset merge flag on a valid row
+            merged_once = False
 
         # Create_or_update
         updates, creates = 0, 0
@@ -114,10 +125,12 @@ class ImportExport:
             })
 
             # Create
-            obj, created = self.model.objects.update_or_create(
-                ledger=data.pop('ledger'),
-                hrm=data.pop('hrm'),
-                defaults=data)
+            # Ensures the transaction is fully completed                        
+            with transaction.atomic():              
+                obj, created = self.model.objects.update_or_create(
+                    ledger=data.pop('ledger'),
+                    hrm=data.pop('hrm'),
+                    defaults=data)
 
             if created:
                 creates = creates + 1
@@ -134,6 +147,14 @@ class LedgerBalanceImportExport(ImportExport):
 
 class LedgerPLImportExport(ImportExport):
     model = LedgerPL
+    fields_import = [
+        'hrm', 'name', 'expense', 'revenue',
+        'expense_budget', 'revenue_budget',
+        'expense_previous', 'revenue_previous', 'notes']
+
+
+class LedgerICImportExport(ImportExport):
+    model = LedgerIC
     fields_import = [
         'hrm', 'name', 'expense', 'revenue',
         'expense_budget', 'revenue_budget',

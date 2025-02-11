@@ -1,5 +1,6 @@
 # accounting/models.py
 from enum import Enum
+from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth.models import Group
@@ -32,49 +33,22 @@ class APPLICATION(models.TextChoices):
     CASH_CTRL = 'CC', 'Cash Control'
 
 
-class ACCOUNT_TYPE_TEMPLATE(models.IntegerChoices):
-    # Used for Cantonal / Template Charts
-    BALANCE = (1, _('Bilanz'))
-    FUNCTIONAL = (2, _('Funktionale Gliederung'))
-    INCOME = (3, _('Erfolgsrechnung'))
-    INVEST = (5, _('Investitionsrechnung') )
-
-
-class ACCOUNT_TYPE(models.IntegerChoices):
-    # Used to display Accounting Charts with bookings, no functionals
-    BALANCE = ACCOUNT_TYPE_TEMPLATE.BALANCE
-    INCOME = ACCOUNT_TYPE_TEMPLATE.INCOME
-    INVEST = ACCOUNT_TYPE_TEMPLATE.INVEST
-
-
-class CATEGORY_HRM(Enum):
-    # First digits account_number, name, DISCONTINUE
-    ASSET = [1], "ASSET"
-    LIABILITY = [2], "LIABILITY"
-    EXPENSE = [3, 5], "EXPENSE"
-    REVENUE = [4, 6], "REVENUE"
-    BALANCE = [9], "BALANCE"
-
-
-class TOP_LEVEL_ACCOUNT(Enum):
-    '''Used for creating categories '''
+class TOP_LEVEL_ACCOUNT(models.TextChoices):
+    '''Used for making unique categories, values are Decimals '''
     # CashCtrl
-    ASSET = 1
-    LIABILITY = 2
-    EXPENSE = 3
-    REVENUE = 4
-    BALANCE = 5
+    ASSET = '1', 'ASSET'
+    LIABILITY = '2', 'LIABILITY'
+    EXPENSE = '3', 'EXPENSE'
+    REVENUE = '4', 'REVENUE'
+    BALANCE = '5', 'BALANCE'
 
     # OWN, comma to ensure unique number in cashCtrl
-    PL_EXPENSE = 3.1  # Aufwand
-    PL_REVENUE = 4.1  # Ertrag
-    IS_EXPENSE = 3.2  # Ausgaben
-    IS_REVENUE = 4.2  # Einnahmen
+    PL_EXPENSE = '3.1', 'EXPENSE (PL)'  # Aufwand
+    PL_REVENUE = '4.1', 'REVENUE (PL)'  # Ertrag
+    IS_EXPENSE = '3.2', 'EXPENSE (IS)'  # Ausgaben
+    IS_REVENUE = '4.2', 'REVENUE (IS)'  # Einnahmen
 
-TOP_LEVEL_ACCOUNTS = [x.value for x in TOP_LEVEL_ACCOUNT]
-
-# ASSET to BALANCE are protected in cashCtrl
-PROTECTED_ACCOUNTS = [x for x in TOP_LEVEL_ACCOUNTS if int(x) == x]  
+TOP_LEVEL_ACCOUNT_NRS = [Decimal(x.value) for x in TOP_LEVEL_ACCOUNT]
 
 
 # CashCtrl Basics ------------------------------------------------------------
@@ -99,6 +73,10 @@ class APISetup(TenantAbstract):
         _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
         help_text=_('The main language of the person. May be used for documents.')
     )
+    encode_numbers = models.BooleanField(
+        _('Encode numbers in cashCtrl headings'), default=True,
+        help_text=_(
+            'e.g. 02 Allgemeinde Dienste'))
     account_plan_loaded = models.BooleanField(
         _('Account plan loaded'), default=False,
         help_text=_(
@@ -186,7 +164,7 @@ class CustomFieldGroup(AcctApp):
     FIELD_TYPE = [(x.value, x.value) for x in FIELD_TYPE]
 
     code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,  
+        _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
     name = models.JSONField(
         _('Name'), help_text="The name of the group.")
@@ -225,7 +203,7 @@ class CustomField(AcctApp):
     DATA_TYPE = [(x.value, x.value) for x in DATA_TYPE]
 
     code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,  
+        _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
     group_ref = models.CharField(
         _('Custom Field Group'), max_length=50, blank=True, null=True,
@@ -433,7 +411,7 @@ class Currency(AcctApp):
 class SequenceNumber(AcctApp):
     ''' SequenceNumber '''
     code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,  
+        _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'),  help_text=_("The name of the sequence number."),
@@ -475,7 +453,7 @@ class SequenceNumber(AcctApp):
 class Unit(AcctApp):
     ''' Unit '''
     code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,  
+        _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'), default=dict,
@@ -491,7 +469,7 @@ class Unit(AcctApp):
                 fields=['setup', 'code', 'c_id'],
                 name='unique_setup_unit'
             )
-        ]        
+        ]
         ordering = ['code']
         verbose_name = _("Unit")
         verbose_name_plural = f"{_('Units')}"
@@ -619,6 +597,16 @@ class AccountCategory(AcctApp):
         'self', verbose_name=_('Parent'), blank=True, null=True,
         on_delete=models.SET_NULL, related_name='%(class)s_parent',
         help_text=_('The parent category.'))
+    is_scerp = models.BooleanField(
+        _("Is scerp"), blank=True, null=True,
+        help_text=_("true if account created by scerp"))
+
+    @property
+    def is_top_level_account(self):
+        return Decimal(str(self.number)) in TOP_LEVEL_ACCOUNT_NRS
+
+    def __str__(self):
+        return f"{self.number} {multi_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -633,9 +621,6 @@ class AccountCategory(AcctApp):
         verbose_name = ('Account Category')
         verbose_name_plural = _('Account Categories')
 
-    def __str__(self):
-        return f"{self.number} {multi_language(self.name)}"
-
 
 class Account(AcctApp):
     '''Actual cashCtrl account
@@ -646,14 +631,14 @@ class Account(AcctApp):
     '''
     CUSTOM = [
         ('function', 'account_function'),
-        ('hrm', 'account_hrm')
+        ('hrm', 'account_hrm'),
+        ('budget', 'account_budget')
     ]
-
     name = models.JSONField(
         _('Name'), default=dict, help_text="The name of the account.")
     category = models.ForeignKey(
         AccountCategory, blank=True, null=True,  # allow for maintenance
-        verbose_name=_('Account Category'), 
+        verbose_name=_('Account Category'),
         on_delete=models.CASCADE, related_name='%(class)s_category',
         help_text=_('Internal reference'))
     number = models.DecimalField(
@@ -688,7 +673,7 @@ class Account(AcctApp):
         )
     )
     tax_c_id = models.PositiveIntegerField(
-        '_Id to Tax', blank=True, null=True,        
+        '_Id to Tax', blank=True, null=True,
         help_text=_("Link to tax. Only used in cashCtrl."))
 
     # custom
@@ -698,6 +683,11 @@ class Account(AcctApp):
     hrm = models.CharField(
          _('HRM 2'), max_length=8, null=True, blank=True,
         help_text=_('HRM 2 number, e.g. 3100.01'))
+    budget = models.DecimalField(
+        _('Budget'),
+        max_digits=20, decimal_places=2, blank=True, null=True,
+        help_text=_('The budget as agreed.')
+    )
 
     def __str__(self):
         return f"{self.function} {self.hrm} {multi_language(self.name)}"
@@ -708,7 +698,7 @@ class Account(AcctApp):
                 fields=['setup', 'number', 'c_id'],
                 name='unique_setup_account'
             )
-        ]        
+        ]
         ordering = ['number']
         verbose_name = ('Account')
         verbose_name_plural = _('Accounts')
@@ -807,7 +797,7 @@ class Setting(AcctApp):
         verbose_name=_("Default Inventory Article Revenue Account"))
     default_sequence_number_inventory_asset = models.IntegerField(
         _("Default Sequence Number for Inventory Asset"), default=4)
-    default_sequence_number_inventory_article = models.IntegerField(        
+    default_sequence_number_inventory_article = models.IntegerField(
         _("Default Sequence Number for Inventory Article"), default=2)
     default_sequence_number_person = models.IntegerField(
         verbose_name=_("Default Sequence Number for Person"), default=5)
@@ -852,7 +842,7 @@ class Tax(AcctApp):
     ''' Master
     '''
     code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,  
+        _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'), blank=True, null=True,
@@ -907,13 +897,13 @@ class Rounding(AcctApp):
     ''' Rounding '''
     MODE = [(x.value, x.value) for x in ROUNDING]
     code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,  
+        _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'), default=dict,
         help_text=_("The name of the rounding."))
     account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,        
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='%(class)s_account',
         verbose_name=_('Account'),
         help_text=_('The account which collects the roundings'))
@@ -933,7 +923,7 @@ class Rounding(AcctApp):
                 fields=['setup', 'code', 'c_id'],
                 name='unique_setup_rounding'
             )
-        ]        
+        ]
         ordering = ['code']
         verbose_name = _("Rounding")
         verbose_name_plural = f"{_('Roundings')}"
@@ -942,18 +932,18 @@ class Rounding(AcctApp):
 class OrderCategory(AcctApp):
     ''' OrderCategory '''
     code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,  
+        _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
     name_plural = models.JSONField(
         _('name'), blank=True, null=True,
         help_text=_("he plural name of the category (e.g. 'Invoices')."))
     account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,        
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='%(class)s_account',
         verbose_name=_('Account'),
         help_text=_(
             """The ID of the account, which is typically the debtors
-            account for sales and the creditors account for purchase. """))             
+            account for sales and the creditors account for purchase. """))
     status = models.JSONField(
         _('status'),
         help_text=_(
@@ -1018,7 +1008,7 @@ class OrderTemplate(AcctApp):
 
 
 '''
-to do 
+to do
 
 class Article(AcctApp):
     """
@@ -1176,13 +1166,11 @@ class Ledger(AcctApp):
     code = models.CharField(
         _('Code'), max_length=50, help_text='Internal code')
     name = models.JSONField(
-        _('Name'), default=dict, help_text="The name of the ledger.")        
+        _('Name'), default=dict, help_text="The name of the ledger.")
     period = models.ForeignKey(
         FiscalPeriod, verbose_name=_('Fiscal Period'),
         on_delete=models.CASCADE, related_name='%(class)s_period',
         help_text=_("Fiscal period"))
-        
-    actions = []
 
     def __str__(self):
         return f"{multi_language(self.name)}, {self.period}"
@@ -1194,7 +1182,7 @@ class Ledger(AcctApp):
                 name='unique_ledger'
             )
         ]
-        ordering = ['-period', 'code']
+        ordering = ['-period__start', 'code']
         verbose_name = ('Ledger')
         verbose_name_plural = _('Ledgers')
 
@@ -1203,12 +1191,12 @@ class AcctLedger(AcctApp):
     ledger = models.ForeignKey(
         Ledger, verbose_name=_('Ledger'),
         on_delete=models.CASCADE, related_name='%(class)s_ledger',
-        help_text=_("Ledger assigned to the fiscal period"))    
+        help_text=_("Ledger assigned to the fiscal period"))
 
     class Meta:
         ordering = ['function', 'hrm']
         abstract = True
-    
+
 
 class LedgerAccount(AcctLedger):
     '''
@@ -1230,7 +1218,7 @@ class LedgerAccount(AcctLedger):
     class TYPE(models.TextChoices):
         CATEGORY = 'C', _('Category')
         ACCOUNT = 'A', _('Account')
-        
+
     hrm = models.CharField(
          _('HRM 2'), max_length=8, null=True, blank=True,
         help_text=_('HRM 2 number, e.g. 3100.01'))
@@ -1244,7 +1232,7 @@ class LedgerAccount(AcctLedger):
         on_delete=models.SET_NULL, related_name='%(class)s_parent',
         help_text=_('The parent category.'))
     function = models.CharField(
-         _('Function'), max_length=5, null=True, blank=True,        
+         _('Function'), max_length=5, null=True, blank=True,
         help_text=_(
             'Function code, e.g. 071, in Balance this is the balance '
             'this is the acount group belonging to one category'))
@@ -1255,10 +1243,11 @@ class LedgerAccount(AcctLedger):
 
     @property
     def cash_ctrl_ids(self):
-        fields = ['category', 'category_expense', 'category_revenue']
+        fields = [
+            'account', 'category', 'category_expense', 'category_revenue']
         return [
-            getattr(attr, 'c_id') for field in fields 
-            if ((attr := getattr(self, field, None)) 
+            getattr(attr, 'c_id') for field in fields
+            if ((attr := getattr(self, field, None))
                 and getattr(attr, 'c_id', None))
         ]
 
@@ -1295,7 +1284,7 @@ class LedgerBalance(LedgerAccount):
         _('Decrease'), max_digits=11, decimal_places=2, null=True, blank=True,
         help_text=_('The decrease in value during the year.')
     )
-    
+
     def __str__(self):
         return f"{self.hrm} {multi_language(self.name)}"
 
@@ -1313,12 +1302,12 @@ class LedgerBalance(LedgerAccount):
 class FunctionalLedger(LedgerAccount):
     category_expense = models.ForeignKey(
         AccountCategory, on_delete=models.CASCADE, blank=True, null=True,
-        verbose_name=_('Account Category'),
+        verbose_name=_('Account Category Expense'),
         related_name='%(class)s_category_expense',
         help_text="The underlying expense category.")
     category_revenue = models.ForeignKey(
         AccountCategory,  on_delete=models.CASCADE, blank=True, null=True,
-        verbose_name=_('Account Category'),
+        verbose_name=_('Account Category Revenue'),
         related_name='%(class)s_category_revenue',
         help_text="The underlying revenue category.")
 
@@ -1424,6 +1413,13 @@ class ChartOfAccountsTemplate(LogAbstract, NotesAbstract):
     '''Model for Chart of Accounts (Canton).
         visible for all, only editable by admin!
     '''
+    class ACCOUNT_TYPE_TEMPLATE(models.IntegerChoices):
+        # Used for Cantonal / Template Charts
+        BALANCE = (1, _('Bilanz'))
+        FUNCTIONAL = (2, _('Funktionale Gliederung'))
+        INCOME = (3, _('Erfolgsrechnung'))
+        INVEST = (5, _('Investitionsrechnung') )
+
     name = models.CharField(
         _('name'), max_length=250,
         help_text=_('Enter the name of the chart of accounts.'))
@@ -1570,6 +1566,20 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
     '''actual account for booking
         triggers signals.py pre_save
     '''
+    class ACCOUNT_TYPE(models.IntegerChoices):
+        # Used to display Accounting Charts with bookings, no functionals
+        BALANCE = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE.BALANCE
+        INCOME = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE.INCOME
+        INVEST = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE.INVEST
+
+    class CATEGORY_HRM(Enum):
+        # First digits account_number, name, DISCONTINUE
+        ASSET = [1], "ASSET"
+        LIABILITY = [2], "LIABILITY"
+        EXPENSE = [3, 5], "EXPENSE"
+        REVENUE = [4, 6], "REVENUE"
+        BALANCE = [9], "BALANCE"
+
     function = models.CharField(
          _('Function'), max_length=8, null=True, blank=True,
         help_text=_('Function code'))

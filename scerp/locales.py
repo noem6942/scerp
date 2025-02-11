@@ -103,6 +103,7 @@ APP_MODEL_ORDER = {
             'Ledger': ('L 21', ''),
             'LedgerBalance': ('L 22', ''),
             'LedgerPL': ('L 23', ''),
+            'LedgerIC': ('L 24', ''),
             
             # Inventory
             'Article': ('23', ' ⬇️'),            

@@ -409,8 +409,11 @@ class TaxAdmin(CashCtrlAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'code', 'display_name', 'display_percentage') + CASH_CTRL.LIST_DISPLAY
-    readonly_fields = ('display_name',)
+        'code', 'display_name', 'display_document_name',
+        'display_percentage') + CASH_CTRL.LIST_DISPLAY
+    list_display_links = ('code', 'display_name',)        
+    readonly_fields = (
+        'display_name', 'display_document_name', 'display_percentage_flat')
 
     # Search, filter
     search_fields = ('code', 'name')
@@ -423,16 +426,23 @@ class TaxAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'percentage', 'calc_type', 'display_percentage_flat'),
+                'display_name', 'code', 'percentage', 'calc_type', 
+                'percentage_flat', 'account'
+            ),
             'classes': ('collapse',),
         }),
-        (_('Text'), {
+        (_('Text'), {  # ← Corrected tuple structure
             'fields': (
                 *make_multilanguage('name'),
-                *make_multilanguage('document_name')),
+                *make_multilanguage('document_name'),
+            ),
             'classes': ('collapse',),
         }),
     )
+
+    @admin.display(description=_('Wording in document'))
+    def display_document_name(self, obj):
+        return multi_language(obj.document_name)
 
     @admin.display(description=_("Percentage"))
     def display_percentage(self, obj):
@@ -440,7 +450,7 @@ class TaxAdmin(CashCtrlAdmin):
 
     @admin.display(description=_("Percentage Flat"))
     def display_percentage_flat(self, obj):
-        return Display.percentage(obj.display_percentage_flat, 1)
+        return Display.percentage(obj.percentage_flat, 1)
 
 
 @admin.register(models.Rounding, site=admin_site)
@@ -644,10 +654,11 @@ class AccountCategoryAdmin(CashCtrlAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_name', 'number', 'display_parent'
+        'number', 'display_name', 'display_parent'
     ) + CASH_CTRL.LIST_DISPLAY
     readonly_fields = ('display_name',)
-
+    ordering = [Cast('number', CharField())]
+    
     # Search, filter
     search_fields = ('name', 'number')
     # list_filter = (TenantFilteredSetupListFilter,)
@@ -658,7 +669,7 @@ class AccountCategoryAdmin(CashCtrlAdmin):
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': ('number', 'parent', *make_multilanguage('name')),
+            'fields': ('number', 'parent', *make_multilanguage('name'),),
             'classes': ('expand',),
         }),
     )
@@ -692,6 +703,7 @@ class AccountAdmin(CashCtrlAdmin):
     ) + CASH_CTRL.LIST_DISPLAY
     list_display_links = ('display_name',)
     readonly_fields = ('display_name', 'function', 'hrm')
+    ordering = ['function', 'hrm', 'number']
 
     # Search, filter
     search_fields = ('name', 'number', 'function', 'hrm')
@@ -793,7 +805,7 @@ class LedgerAdmin(CashCtrlAdmin):
     list_per_page = 500  # Show 500 rows per page
 
     # Actions
-    actions = [a.add_balance, a.add_pl]
+    actions = [a.add_balance, a.add_pl, a.add_ic]
 
     @admin.display(description=_('Current'))
     def display_current(self, obj):
@@ -819,7 +831,7 @@ class LedgerBaseAdmin(CashCtrlAdmin):
     # Display
     list_display_links = ('display_account_name',)
     list_per_page = 1000  # Show 1000 i.e. most probably all results per page
-    ordering = ['function', 'hrm']
+    ordering = ['function', '-type' ,'hrm']
 
     # Search, filter
     search_fields = ('function', 'hrm', 'name')    
@@ -880,14 +892,14 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
         'display_decrease', 'display_closing_balance',
         'display_c_ids', 'notes'
     ) + CASH_CTRL.LIST_DISPLAY
-    # readonly_fields = ('closing_balance',)
+    #readonly_fields = ('closing_balance',)
 
     # Search, filter
     list_filter = (
-        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'function')
+        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync')
 
     # Actions
-    actions = [a.accounting_get_data, a.sync_balance]
+    actions = [a.accounting_get_data, a.sync_ledger]
 
     #Fieldsets
     fieldsets = (
@@ -920,8 +932,7 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
         return Display.big_number(obj.decrease)
 
 
-@admin.register(models.LedgerPL, site=admin_site)
-class LedgerPLAdmin(ExportActionMixin, LedgerBaseAdmin):
+class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
     """
     Django Admin for LedgerBalance model.
     """
@@ -940,7 +951,8 @@ class LedgerPLAdmin(ExportActionMixin, LedgerBaseAdmin):
     list_display = (
         'display_function', 'display_hrm', 'display_account_name',
         'expense', 'revenue', 'expense_budget', 'revenue_budget',
-        'expense_previous', 'revenue_previous', 'display_c_ids', 'notes'
+        'expense_previous', 'revenue_previous', 
+        'display_c_ids', 'notes'
     ) + CASH_CTRL.LIST_DISPLAY
     # readonly_fields = ('closing_balance',)
 
@@ -949,14 +961,15 @@ class LedgerPLAdmin(ExportActionMixin, LedgerBaseAdmin):
         filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'function')
 
     # Actions
-    actions = [a.accounting_get_data, a.sync_balance]
+    actions = [a.accounting_get_data, a.sync_ledger, a.de_sync_ledger]
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
                 'ledger', 'hrm', *make_multilanguage('name'), 'type',
-                'function', 'parent', 'account'),
+                'function', 'parent', 'account',
+                'category_expense', 'category_revenue',),
             'classes': ('expand',),
         }),
         ('Balances', {
@@ -982,6 +995,18 @@ class LedgerPLAdmin(ExportActionMixin, LedgerBaseAdmin):
     @admin.display(description=_('Decrease'))
     def display_decrease(self, obj):
         return Display.big_number(obj.decrease)
+
+
+@admin.register(models.LedgerPL, site=admin_site)
+class LedgerPL(LedgerFunctional):
+    pass
+
+
+@admin.register(models.LedgerIC, site=admin_site)
+class LedgerIC(LedgerFunctional):
+    pass
+    
+    
 
 
 """

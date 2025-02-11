@@ -40,19 +40,27 @@ class TenantFilteredSetupListFilter(SimpleListFilter):
 
 class LedgerFilteredSetupListFilter(SimpleListFilter):
     '''Needed as admin.py filter shows all filters values also of foreign
-        tenants
+        tenants; currently: don't allow to switch ledger
     '''
     title = _('Ledger')  # Display title in admin
     parameter_name = 'ledger'  # The query parameter name
 
     def lookups(self, request, model_admin):
         """Return the available options, filtered by tenant."""
+        '''
+        # allow to select
         tenant_data = get_tenant(request)  # Get the current tenant
+        print("*tenant_data", tenant_data)
 
-        # Get only the setups linked to this tenant
+        # Get only the ledgers linked to this tenant
         queryset = Ledger.objects.filter(
-            setup__id=tenant_data['setup_id'])
-
+            tenant__id=tenant_data['id']).order_by('name')
+        '''
+        
+        # don't allow to select
+        ledger_id = self.value()  # Get the selected ledger from URL params
+        queryset = Ledger.objects.filter(id=ledger_id)
+        
         # Return a list of tuples (ID, Display Name)
         return [(ledger.id, str(ledger)) for ledger in queryset]
 

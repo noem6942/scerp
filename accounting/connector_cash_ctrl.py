@@ -4,18 +4,21 @@ accounting/connector_cash_ctrl_new.py
 import logging
 from django.utils import timezone
 
+from scerp.exceptions import APIRequestError
 from scerp.mixins import make_timeaware
 from . import api_cash_ctrl
 from .models import (
-    CustomField as model_CustomField, 
+    APISetup, TOP_LEVEL_ACCOUNT,
+    CustomField as model_CustomField,
     Account as model_Account,
     Allocation
 )
 
-
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
 # Helpers
+TOP_LEVEL_NUMBERS = [x.value for x in TOP_LEVEL_ACCOUNT]
+
 class IGNORE:
     ''' keys not be sent to cashCtrl '''
     BASE =  [
@@ -30,6 +33,7 @@ class IGNORE:
     CODE = ['code']
 
 
+# Handle synchronization with cashCtrl, overall class ------------------------
 class cashCtrl:
     '''Handle synchronization with cashCtrl
 
@@ -273,7 +277,7 @@ class cashCtrl:
 
     def update_category(
             self, instance, source, assign, created, field_name,
-            foreign_key_model):
+            foreign_key_class):
         ''' used for uploading categories from cashCtrl '''
         # init
         __ = assign, created
@@ -291,6 +295,7 @@ class cashCtrl:
         related_model = instance._meta.get_field(field_name).related_model
 
         # check for new
+        return
         for round in ['get from existing', 'load categories']:
             category = related_model.objects.filter(c_id=category_id).first()
             setattr(instance, field_name, category)
@@ -298,8 +303,11 @@ class cashCtrl:
                 return
 
             # Load it
-            handler = foreign_key_model(self.setup, self.user)
-            handler.load(related_model)
+            handler = foreign_key_class(self.setup, self.user)
+            handler.load(related_model, round=round + 1)
+
+            if category:  # If it was created, stop looping
+                return
 
         logger.warning("no category found")
 
@@ -342,6 +350,7 @@ class cashCtrl:
             raise ValueError(response)
 
 
+# Handle synchronization with cashCtrl, individual classes -------------------
 class CustomFieldGroup(cashCtrl):
     api_class = api_cash_ctrl.CustomFieldGroup
     ignore_keys = (
@@ -374,9 +383,9 @@ class CustomField(cashCtrl):
             instance.code = f"custom {source['id']}"
 
         # group
-        foreign_key_model = CustomFieldGroup
+        foreign_key_class = CustomFieldGroup
         self.update_category(
-            instance, source, assign, created, 'group', foreign_key_model)
+            instance, source, assign, created, 'group', foreign_key_class)
 
 
 class Location(cashCtrl):
@@ -424,9 +433,9 @@ class CostCenterCategory(cashCtrl):
     def post_get(self, instance, source, assign, created):
         __ = instance, created
         # parent
-        foreign_key_model = CostCenterCategory
+        foreign_key_class = CostCenterCategory
         self.update_category(
-            instance, source, assign, created, 'parent', foreign_key_model)
+            instance, source, assign, created, 'parent', foreign_key_class)
 
 
 class CostCenter(cashCtrl):
@@ -441,15 +450,29 @@ class CostCenter(cashCtrl):
     def post_get(self, instance, source, assign, created):
         __ = instance, created
         # parent
-        foreign_key_model = CostCenterCategory
+        foreign_key_class = CostCenterCategory
         self.update_category(
-            instance, source, assign, created, 'category', foreign_key_model)
+            instance, source, assign, created, 'category', foreign_key_class)
 
 
 class AccountCategory(cashCtrl):
     api_class = api_cash_ctrl.AccountCategory
     ignore_keys = (
-        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + ['top'])    
+    
+    @staticmethod
+    def add_numbers(name, number):        
+        if number:
+            return f"{int(number)} {name}"
+        return name
+
+    @staticmethod
+    def skip_numbers(name):
+        if name and ' ' in name:
+            number, text = name.split(' ', 1)
+            if number.isnumeric():
+                return text
+        return name
 
     def pre_upload(self, instance, data):
         # Prepare parent_id
@@ -457,18 +480,36 @@ class AccountCategory(cashCtrl):
             data['parent_id'] = instance.parent.c_id
         else:
             data.pop('parent_id')
+            
+        # Encode numbers in headings
+        if self.setup.encode_numbers and not instance.is_top_level_account:
+            # Add numbers
+            data['name'] = {
+                language: self.add_numbers(value, data['number'])
+                for language, value in data['name'].items()
+            }
 
     def post_get(self, instance, source, assign, created):
         __ = instance, created
+        # Decode numbers in headings
+        if self.setup.encode_numbers:
+            # Skip numbers
+            if type(instance.name) == dict:
+                name_dict = {
+                    language: self.skip_numbers(value)
+                    for language, value in instance.name.items()
+                }
+                instance.name = name_dict
+        
         # parent
-        foreign_key_model = AccountCategory
+        foreign_key_class = AccountCategory
         self.update_category(
-            instance, source, assign, created, 'parent', foreign_key_model)
+            instance, source, assign, created, 'parent', foreign_key_class)
 
 
 class Account(cashCtrl):
     api_class = api_cash_ctrl.Account
-    ignore_keys = IGNORE.BASE
+    ignore_keys = IGNORE.BASE + ['top']
 
     def pre_upload(self, instance, data):
         # Prepare category_id
@@ -493,15 +534,34 @@ class Account(cashCtrl):
     def post_get(self, instance, source, assign, created):
         __ = instance, created
         # parent
-        foreign_key_model = AccountCategory
+        foreign_key_class = AccountCategory
         self.update_category(
-            instance, source, assign, created, 'category', foreign_key_model)
+            instance, source, assign, created, 'category', foreign_key_class)
 
 
 class Tax(cashCtrl):
     api_class = api_cash_ctrl.Tax
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
+
+    def pre_upload(self, instance, data):
+        # account
+        if getattr(instance, 'account', None):
+            data['account_id'] = instance.account.c_id
+        else:
+            raise ValueError("No account given.")
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+
+        # account
+        foreign_key_class = Account
+        self.update_category(
+            instance, source, assign, created, 'account', foreign_key_class)
 
 
 class Rounding(cashCtrl):
@@ -519,9 +579,9 @@ class Rounding(cashCtrl):
     def post_get(self, instance, source, assign, created):
         __ = instance, created
         # parent
-        foreign_key_model = Account
+        foreign_key_class = Account
         self.update_category(
-            instance, source, assign, created, 'account', foreign_key_model)
+            instance, source, assign, created, 'account', foreign_key_class)
 
 
 class Setting(cashCtrl):
@@ -535,6 +595,10 @@ class Setting(cashCtrl):
             self, model, params={}, delete_not_existing=False,
             **filter_kwargs):
         # Fetch data directly
+        round = filter_kwargs.pop('round', 1)
+        if round > 2:
+            return  # prevent recursion
+
         data = self.handler.read()
         data.update({
             'c_id': 1,  # always
@@ -544,7 +608,7 @@ class Setting(cashCtrl):
             'modified_at': timezone.now(),
             'modified_by': self.user
         })
-        
+
         # Add Accounts
         model_keys = [field.name for field in model._meta.get_fields()]
         for key, value in data.items():
@@ -553,7 +617,7 @@ class Setting(cashCtrl):
             if key.endswith('_account_id'):
                 data[key] = model_Account.objects.filter(
                     setup=self.setup, c_id=value).first()
-        
+
         # Save Settings
         instance, _created = model.objects.update_or_create(
             setup=self.setup, c_id=data.pop('c_id'), defaults=data)
@@ -569,3 +633,110 @@ class Title(cashCtrl):
         if created:
             # Fill out empty code
             instance.code = f"custom {source['id']}"
+
+
+# Handler for signals_cash_ctrl ---------------------------------------------
+class CashCtrlSync:
+    """
+    Handles synchronization between Django models and CashCtrl API.
+    """
+    def __init__(self, model, instance, api_class, language=None):
+        """
+        Initializes the sync handler with the instance and API connector.
+
+        :model: model of instance
+        :param instance: The model instance being processed.
+        :param api_class: Connector class for CashCtrl API.
+        :language: language for cashCtrl queries, use None for almost all cases
+        """
+        self.model = model
+        self.instance = instance
+        self.setup = instance if model == APISetup else instance.setup
+        self.api_class = api_class
+        self.language = language
+        self.handler = self.api_class(self.setup, language=self.language)
+        # time.sleep(5)
+
+    def save(self, created=False):
+        """
+        Handles the 'save' action (create or update).
+
+        :param created: Boolean indicating if this is a new instance.
+        """
+        if self.instance.is_enabled_sync and self.instance.sync_to_accounting:
+            # We only sync it this is True !!!
+            if created:
+                logger.info(f"Creating record {self.instance} in CashCtrl")
+                self.handler.create(self.instance)
+            else:
+                logger.info(f"Updating record {self.instance} in CashCtrl")
+                self.handler.update(self.instance)
+            return
+            try:
+                if created:
+                    logger.info(f"Creating record {self.instance} in CashCtrl")
+                    self.handler.create(self.instance)
+                else:
+                    logger.info(f"Updating record {self.instance} in CashCtrl")
+                    self.handler.update(self.instance)
+            except Exception as e:
+                logger.error(
+                    f"Failed to sync {self.instance} with CashCtrl: {e}")
+                raise APIRequestError(
+                    f"Failed to send data to CashCtrl API: {e}")
+
+    def delete(self):
+        """
+        Handles the 'delete' action.
+        """
+        if not self.instance.is_enabled_sync or not self.instance.c_id:
+            return  # nothing to sync
+
+        if getattr(self.instance, 'self.instance.stop_delete', False):
+            return
+
+        try:
+            self.instance.stop_delete = True
+            self.instance.save()
+            logger.info(f"Deleting record {self.instance} from CashCtrl")
+            self.handler.delete(self.instance)
+        except Exception as e:
+            logger.error(
+                f"Failed to delete {self.instance} from CashCtrl: {e}")
+            raise APIRequestError(
+                f"Failed to delete data from CashCtrl API: {e}")
+
+    def get(
+            self, params={}, delete_not_existing=False, model=None,
+            **filter_kwargs):
+        """
+        Handles the 'get' action (fetching data from CashCtrl).
+
+        :params: query params
+        :delete_not_existing:
+            delete a record in scerp if it was delete in cashCtrl
+        :model: use different model than in __init__ (esp. for APISetup)
+        :filter_kwargs: filter_kwargs for cashCtrl
+
+        The model class to retrieve.
+        """
+        # Init
+        model = model if model else self.model
+        user = self.instance.modified_by or self.instance.created_by
+
+        # Reassign handler with actual user
+        self.handler = self.api_class(
+            self.setup, user=user, language=self.language)
+
+        # Load data
+        logger.info(f"Fetching data for {self.instance} from CashCtrl")
+        self.handler.load(model, params, delete_not_existing, **filter_kwargs)
+        return
+        try:
+
+            self.handler.load(model, params, delete_not_existing, **filter_kwargs)
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch {self.instance} from CashCtrl: {e}")
+            raise APIRequestError(
+                f"Failed to fetch data from CashCtrl API: {e}")

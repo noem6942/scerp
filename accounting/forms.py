@@ -16,7 +16,7 @@ from scerp.admin import verbose_name_field
 from scerp.forms import MultilanguageForm, make_multilanguage_form
 
 from .models import (
-    ACCOUNT_TYPE_TEMPLATE, AccountPositionTemplate, ChartOfAccountsTemplate,
+    AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
     Ledger, LedgerBalance, LedgerPL, LedgerIC
@@ -67,8 +67,22 @@ class UnitAdminForm(NameAdminForm):
 
 
 class TaxAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+    MULTI_LANG_FIELDS = ['name', 'document_name']
+    
+    # Dynamically create fields for each language
+    class Meta:
         model = Tax
+        fields = '__all__'
+
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+    # Customizing field attributes
+    for lang_code in ['en', 'fr', 'de', 'it']:  # Adjust based on languages used
+        field_name = f"document_name_{lang_code}"
+        if field_name in locals():  # Ensure field exists
+            locals()[field_name].widget = forms.Textarea(
+                attrs={"rows": 1, "cols": 40})
 
 
 class LedgerAdminForm(NameAdminForm):
@@ -84,6 +98,11 @@ class LedgerBalanceAdminForm(NameAdminForm):
 class LedgerPLAdminForm(NameAdminForm):
     class Meta(NameAdminForm.Meta):
         model = LedgerPL
+
+
+class LedgerICAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = LedgerIC
 
 
 # Other multilanguage forms
@@ -169,9 +188,9 @@ class ChartOfAccountsForm(AdminActionForm):
             return
 
         # Check if mixed types
+        template = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE
         for type in types:
-            if type in [ACCOUNT_TYPE_TEMPLATE.INCOME,
-                        ACCOUNT_TYPE_TEMPLATE.INVEST]:
+            if type in [template.INCOME, template.INVEST]:
                 msg = _("Income or invest positions can only be created "
                         "from functionals.")
                 messages.error(request, msg)
@@ -194,14 +213,18 @@ class ChartOfAccountsBalanceForm(
         ChartOfAccountsForm):
     def __post_init__(self, modeladmin, request, queryset):
         self.assign_charts(request)
-        self.check_types(request, queryset, ACCOUNT_TYPE_TEMPLATE.BALANCE)
+        self.check_types(
+            request, queryset,
+            ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE.BALANCE)
 
 
 class ChartOfAccountsFunctionForm(
         ChartOfAccountsForm):
     def __post_init__(self, modeladmin, request, queryset):
         self.assign_charts(request)
-        self.check_types(request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL)
+        self.check_types(
+            request, queryset,
+            ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL)
 
 
 # AccountPosition
@@ -314,6 +337,32 @@ class LedgerBalanceUploadForm(AdminActionForm):
 
 
 class LedgerPLUploadForm(AdminActionForm):
+    excel_file = forms.FileField(
+        required=True,
+        label=_("Upload Excel File"),
+    help_text = _(
+        "Excel must contain the following columns: "
+        "'hrm', 'name', optionally: 'expense', 'revenue', 'expense_budget', "
+        "'revenue_budget', 'expense_previous', 'revenue_previous', 'notes'."
+    ))
+
+    class Meta:
+        help_text = format_html(_(
+            '''Upload Excel File to Balance.
+                Excel must contain the following colums:<br>
+                - hrm<br>
+                - name<br><br>
+                Optionally:<br>
+                - expense<br>
+                - revenue<br>
+                - expense_budget<br>
+                - revenue_budget<br>
+                - expense_previous<br>
+                - revenue_previous
+            '''))
+
+
+class LedgerICUploadForm(AdminActionForm):
     excel_file = forms.FileField(
         required=True,
         label=_("Upload Excel File"),

@@ -19,12 +19,11 @@ from scerp.admin import action_check_nr_selected
 from scerp.exceptions import APIRequestError
 
 from .import_export import (
-    LedgerBalanceImportExport, LedgerPLImportExport
+    LedgerBalanceImportExport, LedgerPLImportExport, LedgerICImportExport
 )
 from .models import (
-    APPLICATION, ACCOUNT_TYPE_TEMPLATE, APISetup,
-    AccountPositionTemplate,
-    ChartOfAccounts, AccountPosition, FiscalPeriod, 
+    APPLICATION, APISetup, ChartOfAccountsTemplate,
+    ChartOfAccounts, AccountPosition, FiscalPeriod,
     LedgerBalance, LedgerPL, LedgerIC
 )
 from . import forms, models
@@ -81,12 +80,16 @@ class Handler:
             self, request, params={}, delete_not_existing=False,
             **filter_kwargs):
         if self.handler:
+            print("*loading action")
+            self.handler.load(
+                self.model, params, delete_not_existing, **filter_kwargs)
+            '''
             try:
                 self.handler.load(
                     self.model, params, delete_not_existing, **filter_kwargs)
             except:
                 messages.error(request, _("API Error: cannot retrieve data"))
-
+            '''
 
 @admin.action(description=f"1. {_('Get data from account system')}")
 def accounting_get_data(modeladmin, request, queryset):
@@ -461,11 +464,12 @@ def apc_export(request, queryset, type_from, account_type, chart_id):
     setup = chart.period.setup
     count_created = 0
     count_updated = 0
+    template = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE
 
     # Copy
     for obj in queryset.all():
         # Adjust function and accounting numbers
-        if type_from == ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL:
+        if type_from == template.FUNCTIONAL:
             function = obj.account_number
         else:
             function = None
@@ -526,10 +530,11 @@ def apc_export_balance(modeladmin, request, queryset, data):
     '''
     __ = modeladmin  # disable pylint warning
     chart_id = data.get('chart')
+    template = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE
+
     if chart_id:
         apc_export(
-            request, queryset, ACCOUNT_TYPE_TEMPLATE.BALANCE,
-            ACCOUNT_TYPE_TEMPLATE.BALANCE, chart_id)
+            request, queryset, template.BALANCE, template.BALANCE, chart_id)
 
 @action_with_form(
     forms.ChartOfAccountsFunctionForm,
@@ -540,10 +545,11 @@ def apc_export_function_to_income(modeladmin, request, queryset, data):
     '''
     __ = modeladmin  # disable pylint warning
     chart_id = data.get('chart')
+    template = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE
+
     if chart_id:
         apc_export(
-            request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL,
-            ACCOUNT_TYPE_TEMPLATE.INCOME, chart_id)
+            request, queryset, template.FUNCTIONAL, template.INCOME, chart_id)
 
 @action_with_form(
     forms.ChartOfAccountsFunctionForm,
@@ -554,10 +560,11 @@ def apc_export_function_to_invest(modeladmin, request, queryset, data):
     '''
     __ = modeladmin  # disable pylint warning
     chart_id = data.get('chart')
+    template = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE
+
     if chart_id:
         apc_export(
-            request, queryset, ACCOUNT_TYPE_TEMPLATE.FUNCTIONAL,
-            ACCOUNT_TYPE_TEMPLATE.INVEST, chart_id)
+            request, queryset, template.FUNCTIONAL, template.INVEST, chart_id)
 
 
 # AccountPosition (apm)
@@ -672,20 +679,21 @@ def add_excel_to_ledger(model, request, queryset, data):
     """
     MAPPING = {
         LedgerBalance: LedgerBalanceImportExport,
-        LedgerPL: LedgerPLImportExport
+        LedgerPL: LedgerPLImportExport,
+        LedgerIC: LedgerICImportExport
     }
-    
+
     # Update the `responsible` field for all selected records
     excel_file = data.get('excel_file')
     if not excel_file:
         messages.error(request, _("No file uploaded."))
         return
-        
-    # Init    
+
+    # Init
     ledger = queryset.first()
-    handler = MAPPING[model]    
-    
-    #try:            
+    handler = MAPPING[model]
+
+    #try:
     process = handler(ledger, request)
     process.update_or_get(excel_file)
 
@@ -693,7 +701,7 @@ def add_excel_to_ledger(model, request, queryset, data):
 
     #except Exception as e:
     #    messages.error(request, _("Error processing Excel file: ") + str(e))
-        
+
 
 @action_with_form(
     forms.LedgerBalanceUploadForm, description=_('20 Insert or update into Balance')
@@ -713,13 +721,23 @@ def add_pl(modeladmin, request, queryset, data):
     Custom admin action to assign a responsible group to selected records.
     """
     add_excel_to_ledger(LedgerPL, request, queryset, data)
-    
+
+
+@action_with_form(
+    forms.LedgerICUploadForm, description=_('22 Insert or update into IC')
+)
+def add_ic(modeladmin, request, queryset, data):
+    """
+    Custom admin action to assign a responsible group to selected records.
+    """
+    add_excel_to_ledger(LedgerIC, request, queryset, data)
+
 
 @admin.action(description=_("2. Sync with Accounting"))
-def sync_balance(modeladmin, request, queryset):
+def sync_ledger(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, min_count=1):
         # Get instances before update
-        queryset = queryset.order_by(Cast('function', CharField()))
+        queryset = queryset.order_by('function', '-type', 'hrm')
 
         # Perform bulk update (NO SIGNALS fired)
         count = 0
@@ -743,3 +761,9 @@ def sync_balance(modeladmin, request, queryset):
 
         messages.error(
             request, _("{count} accounts synched.").format(count=count))
+
+
+@admin.action(description=_("3. De-sync frp, Accounting"))
+def de_sync_ledger(modeladmin, request, queryset):
+    if action_check_nr_selected(request, queryset, min_count=1):
+        queryset = queryset.update(is_enabled_sync=False)
