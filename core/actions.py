@@ -1,6 +1,6 @@
 '''core/actions.py
 '''
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.contrib.auth.models import User, Group
 from django.http import HttpResponseRedirect
 from django.urls import path
@@ -11,6 +11,18 @@ from scerp.admin import action_check_nr_selected
 from scerp.mixins import generate_random_password
 from . import forms
 from .models import UserProfile
+from .signals import tenant_post_save
+
+
+@admin.action(description=('Admin: Init setup'))
+def init_setup(modeladmin, request, queryset):    
+    # Check
+    if action_check_nr_selected(request, queryset, 1):        
+        instance = queryset.first() 
+        tenant_post_save(
+            modeladmin.model, instance, created=False, init=True, 
+            request=request)
+        messages.success(request, _("Scerp initialized"))
 
 
 @action_with_form(

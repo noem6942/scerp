@@ -20,10 +20,11 @@ from core.models import (
     LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantSetup,
     TenantLogo)
 from crm.models import (
-    PersonCategory as CrmPersonCategory,
     Title as CrmTitle,
-    PhysicalPerson as CrmPerson,
-    Employee as CrmEmployee
+    #Address as CrmAddress,
+    PersonCategory as CrmPersonCategory,    
+    Person as CrmPerson,
+    #Employee as CrmEmployee
 )
 from scerp.locales import CANTON_CHOICES
 
@@ -1663,28 +1664,22 @@ class Title(CrmTitle, AcctApp):
     class Meta:
         pass  # handle constraints in CRM
 
+
+class PersonCategory(CrmPersonCategory, AcctApp):
+    ''' Person Category; use this; do not enter data in CrmPersonCategory
+    '''
+    class Meta:
+        pass  # handle constraints in CRM
+
+
+class Person(CrmPerson, AcctApp):
+    '''Person; use this; do not enter data in CrmPerson
+        only edit data in scerp
+    '''
+    class Meta:
+        pass  # handle constraints in CRM
+
 """
-make like title
-class PersonCategory(CRM):
-    '''store categories
-    '''
-    crm = models.OneToOneField(
-        CrmPersonCategory,
-        on_delete=models.CASCADE,
-        related_name="person_category",
-        help_text="internal use for mapping")
-
-
-class Person(CRM):
-    '''store categories
-    '''
-    crm = models.OneToOneField(
-        CrmPerson,
-        on_delete=models.CASCADE,
-        related_name="person",
-        help_text="internal use for mapping")
-
-
 class Employee(CRM):
     '''store categories
     '''

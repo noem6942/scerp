@@ -77,43 +77,45 @@ APP_MODEL_ORDER = {
             'CustomFieldGroup': ('* 02', ''),
             'CustomField': ('* 03', ''),
             'Setting': ('* 04', ' ⬇️'),
-            
+
             # Accounting Admin
             'Location': ('* 10', ' ⬇️'),
             'CostCenterCategory': ('* 11', ''),
             'CostCenter': ('* 12', ''),
-            
-            'Currency': ('* 13', ''),            
-            'Tax': ('* 14', ''),                        
+
+            'Currency': ('* 13', ''),
+            'Tax': ('* 14', ''),
             'Rounding': ('* 15', ' ⬇️'),
             'SequenceNumber': ('* 16', ' ⬇️'),
-            'Unit': ('* 17', ''),            
-            
+            'Unit': ('* 17', ''),
+
             # CRM Admin
-            'Title': ('22', ''),             
-            
+            'Title': ('22', ''),
+            'PersonCategory': ('23', ''),
+            'Person': ('24', ''),
+
             # Inventory
             'OrderCategory': ('* 16', ' ⬇️'),
-            'OrderTemplate': ('* 17', ' ⬇️'),            
-            
+            'OrderTemplate': ('* 17', ' ⬇️'),
+
             # Accounting
-            'FiscalPeriod': ('* 18', ' ⬇️'),         
+            'FiscalPeriod': ('* 18', ' ⬇️'),
             'AccountCategory': ('L 19', ' ⬇️'),
             'Account': ('L 20', ' ⬇️'),
             'Ledger': ('L 21', ''),
             'LedgerBalance': ('L 22', ''),
             'LedgerPL': ('L 23', ''),
             'LedgerIC': ('L 24', ''),
-            
+
             # Inventory
-            'Article': ('23', ' ⬇️'),            
+            'Article': ('23', ' ⬇️'),
             'ChartOfAccountsTemplate': ('C 31', ''),
             'AccountPositionTemplate': ('C 11', ''),
             'ChartOfAccounts': ('C 42', ''),
             #'AccountPosition': ('C 43', ''),
         }
     },
- 
+
     'billing': {
         'symbol': 'B',
         'is_mandatory': False,

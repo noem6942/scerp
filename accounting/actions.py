@@ -763,7 +763,7 @@ def sync_ledger(modeladmin, request, queryset):
             request, _("{count} accounts synched.").format(count=count))
 
 
-@admin.action(description=_("3. De-sync frp, Accounting"))
-def de_sync_ledger(modeladmin, request, queryset):
+@admin.action(description=_("D. De-sync from Accounting"))
+def de_sync_accounting(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, min_count=1):
         queryset = queryset.update(is_enabled_sync=False)

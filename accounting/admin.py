@@ -9,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 from import_export.admin import ExportActionMixin
 
 from core.safeguards import get_tenant
+from crm.models import AddressPerson, Address
 from scerp.admin import (
      BaseAdmin, BaseTabularInline, Display,
      verbose_name_field, make_multilanguage, set_inactive, set_protected)
@@ -411,7 +412,7 @@ class TaxAdmin(CashCtrlAdmin):
     list_display = (
         'code', 'display_name', 'display_document_name',
         'display_percentage') + CASH_CTRL.LIST_DISPLAY
-    list_display_links = ('code', 'display_name',)        
+    list_display_links = ('code', 'display_name',)
     readonly_fields = (
         'display_name', 'display_document_name', 'display_percentage_flat')
 
@@ -426,7 +427,7 @@ class TaxAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'display_name', 'code', 'percentage', 'calc_type', 
+                'display_name', 'code', 'percentage', 'calc_type',
                 'percentage_flat', 'account'
             ),
             'classes': ('collapse',),
@@ -520,12 +521,37 @@ class SequenceNumberAdmin(CashCtrlAdmin):
         return multi_language(obj.name)
 
 
+@admin.register(models.PersonCategory, site=admin_site)
+class PersonCategoryAdmin(CashCtrlAdmin):
+    # Safeguards
+    related_tenant_fields = ['setup']
+
+    # Display these fields in the list view
+    list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
+    list_display_links = ('code', 'display_name')
+    readonly_fields = ('display_name',)
+
+    # Search, filter
+    search_fields = ['code', 'name']
+    list_filter = ('setup',)
+
+    # Actions
+    actions = [a.accounting_get_data, a.de_sync_accounting]
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', 'display_name', 'parent'),
+            'classes': ('expand',),
+        }),
+    )
+
+
 @admin.register(models.OrderCategory, site=admin_site)
 class OrderCategoryAdmin(CashCtrlAdmin):
     # Safeguards
     related_tenant_fields = ['setup']
-    is_readonly = True
-    warning = CASH_CTRL.WARNING_READ_ONLY
 
     # Display these fields in the list view
     list_display = ('display_name', 'due_days') + CASH_CTRL.LIST_DISPLAY
@@ -658,7 +684,7 @@ class AccountCategoryAdmin(CashCtrlAdmin):
     ) + CASH_CTRL.LIST_DISPLAY
     readonly_fields = ('display_name',)
     ordering = [Cast('number', CharField())]
-    
+
     # Search, filter
     search_fields = ('name', 'number')
     # list_filter = (TenantFilteredSetupListFilter,)
@@ -834,7 +860,7 @@ class LedgerBaseAdmin(CashCtrlAdmin):
     ordering = ['function', '-type' ,'hrm']
 
     # Search, filter
-    search_fields = ('function', 'hrm', 'name')    
+    search_fields = ('function', 'hrm', 'name')
 
     # Methods
     def get_import_data(self, request, *args, **kwargs):
@@ -951,7 +977,7 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
     list_display = (
         'display_function', 'display_hrm', 'display_account_name',
         'expense', 'revenue', 'expense_budget', 'revenue_budget',
-        'expense_previous', 'revenue_previous', 
+        'expense_previous', 'revenue_previous',
         'display_c_ids', 'notes'
     ) + CASH_CTRL.LIST_DISPLAY
     # readonly_fields = ('closing_balance',)
@@ -961,7 +987,7 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
         filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'function')
 
     # Actions
-    actions = [a.accounting_get_data, a.sync_ledger, a.de_sync_ledger]
+    actions = [a.accounting_get_data, a.sync_ledger, a.de_sync_accounting]
 
     #Fieldsets
     fieldsets = (
@@ -1005,8 +1031,8 @@ class LedgerPL(LedgerFunctional):
 @admin.register(models.LedgerIC, site=admin_site)
 class LedgerIC(LedgerFunctional):
     pass
-    
-    
+
+
 
 
 """
@@ -1292,3 +1318,88 @@ class AccountPositionAdmin(CashCtrlAdmin):
         if obj.c_id or obj.c_rev_id:
             return '🪙'  # (Coin): \U0001FA99
         return ' '
+
+
+@admin.register(Address, site=admin_site)
+class AddressAdmin(admin.ModelAdmin):   
+    # Safeguards
+    
+    # Display these fields in the list view
+    list_display = ('country', 'zip', 'city', 'address')
+    list_display_links = ('city',)        
+
+    # Search, filter
+    list_filter = ('zip', )
+    search_fields = ('country', 'zip', 'city', 'address')
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'country', 'zip', 'city', 'address'),
+            'classes': ('expand',),
+        }),
+    )    
+    
+
+class AddressInline(BaseTabularInline):  # or admin.StackedInline
+    # Safeguards
+    related_tenant_fields = ['setup', 'person']
+
+    # Inline
+    model = AddressPerson
+    fields = ['type', 'address', 'additional_information']
+    extra = 1  # Number of empty forms displayed
+    autocomplete_fields = ['address']  # Improves FK selection performance
+    show_change_link = True  # Shows a link to edit the related model
+    verbose_name = _("Addresses")
+
+
+@admin.register(models.Person, site=admin_site)
+class PersonAdmin(CashCtrlAdmin):
+# Safeguards
+    related_tenant_fields = ['setup', 'title']
+    has_tenant_field = True
+
+    # Display these fields in the list view
+    list_display = (
+        'company', 'first_name', 'last_name', 'category', 
+        'display_last_update') + CASH_CTRL.LIST_DISPLAY
+    list_display_links = ('company', 'first_name', 'last_name',)    
+    readonly_fields = ('nr',)
+
+    # Search, filter
+    list_filter = ('category',)
+    search_fields = ('company', 'first_name', 'last_name', 'alt_name')
+
+    #Fieldsets
+    fieldsets = (
+        (_('Basic Information'), {
+            'fields': (
+                'category', 'title', 'company', 'first_name', 'last_name', 
+                'alt_name', 'color'
+                ),
+            'description': _(
+                "Either 'Company' or 'First Name' & 'Last Name' must be filled."),
+        }),
+        (_('Company/Work Information'), {
+            'fields': ('industry', 'position', 'department', 'superior'),
+            'classes': ('collapse',),
+        }),
+        (_('Finance & Banking'), {
+            'fields': ('vat_uid', 'iban', 'bic', ),  # 'discount_percentage'
+            'classes': ('collapse',),
+        }),
+        (_('Additional Details'), {
+            'fields': ('date_birth', 'nr'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    inlines = [AddressInline]
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'category':
+            kwargs["queryset"] = models.PersonCategory.objects.exclude(
+                code__startswith='_')           
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)

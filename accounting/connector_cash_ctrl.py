@@ -635,6 +635,56 @@ class Title(cashCtrl):
             instance.code = f"custom {source['id']}"
 
 
+class PersonCategory(cashCtrl):
+    api_class = api_cash_ctrl.PersonCategory
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
+
+    def pre_upload(self, instance, data):
+        # Prepare parent_id
+        if getattr(instance, 'parent', None):
+            data['parent_id'] = instance.parent.c_id
+        else:
+            data.pop('parent_id')
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+            
+        # parent
+        foreign_key_class = PersonCategory
+        self.update_category(
+            instance, source, assign, created, 'parent', foreign_key_class)
+
+
+class OrderCategory(cashCtrl):
+    api_class = api_cash_ctrl.OrderCategory
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)    
+    
+    def pre_upload(self, instance, data):
+        # account
+        if getattr(instance, 'account', None):
+            data['account_id'] = instance.account.c_id
+        else:
+            raise ValueError("No account given.")
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+
+        # account
+        foreign_key_class = Account
+        self.update_category(
+            instance, source, assign, created, 'account', foreign_key_class)
+
+
 # Handler for signals_cash_ctrl ---------------------------------------------
 class CashCtrlSync:
     """

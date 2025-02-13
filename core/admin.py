@@ -62,6 +62,8 @@ class TenantAdmin(BaseAdmin):
     list_display = ('name', 'code', 'created_at')
     search_fields = ('name', 'code')
     
+    actions = [a.init_setup]
+    
     fieldsets = (
         (None, {
             'fields': ('name', 'code', 'is_app_time_trustee'),

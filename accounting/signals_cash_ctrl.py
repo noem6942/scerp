@@ -57,6 +57,12 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         # Open yaml
         init_data = read_yaml_file('accounting', YAML_FILENAME)
 
+        # PersonCategory
+        sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
+        sync.get(model=models.PersonCategory)        
+        
+        return
+
         # Round 1 data -----------------------------------------------
         # Create CustomFieldGroups
         for data in init_data['CustomFieldGroup']:
@@ -136,6 +142,10 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         # Title
         sync = conn.CashCtrlSync(sender, instance, conn.Title)
         sync.get(model=models.Title)
+        
+        # PersonCategory
+        sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
+        sync.get(model=models.PersonCategory)        
 
         # Round 2 data -----------------------------------------------
         # Create Root Additional Top AccountCategories
@@ -340,6 +350,22 @@ def title_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Title. '''
     sync = conn.CashCtrlSync(sender,instance, conn.Title)
     sync.delete()
+
+
+
+# PersonCategory
+@receiver(post_save, sender=models.PersonCategory)
+def person_category_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on PersonCategory. '''
+    sync = conn.CashCtrlSync(sender,instance, conn.PersonCategory)
+    sync.save(created=created)
+    
+ 
+@receiver(pre_delete, sender=models.PersonCategory)
+def title_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on PersonCategory. '''
+    sync = conn.CashCtrlSync(sender,instance, conn.PersonCategory)
+    sync.delete() 
 
 
 # Tax
