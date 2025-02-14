@@ -12,6 +12,7 @@ from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form, AdminActionForm
 
 from core.safeguards import get_tenant
+from crm.models import AddressPerson, ContactPerson
 from scerp.admin import verbose_name_field
 from scerp.forms import MultilanguageForm, make_multilanguage_form
 
@@ -19,6 +20,8 @@ from .models import (
     AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
+    BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
+    # OrderCategory,
     Ledger, LedgerBalance, LedgerPL, LedgerIC
 )
 
@@ -68,8 +71,7 @@ class UnitAdminForm(NameAdminForm):
 
 class TaxAdminForm(NameAdminForm):
     MULTI_LANG_FIELDS = ['name', 'document_name']
-    
-    # Dynamically create fields for each language
+
     class Meta:
         model = Tax
         fields = '__all__'
@@ -77,13 +79,41 @@ class TaxAdminForm(NameAdminForm):
     # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
-    # Customizing field attributes
-    for lang_code in ['en', 'fr', 'de', 'it']:  # Adjust based on languages used
-        field_name = f"document_name_{lang_code}"
-        if field_name in locals():  # Ensure field exists
-            locals()[field_name].widget = forms.Textarea(
-                attrs={"rows": 1, "cols": 40})
 
+class BookTemplateAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = BookTemplate
+
+
+class OrderCategoryContractAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name_plural']
+
+    class Meta:
+        model = OrderCategoryContract
+        fields = '__all__'
+
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+class OrderCategoryIncomingAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name_plural']
+
+    class Meta:
+        model = OrderCategoryIncoming
+        fields = '__all__'
+
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+"""
+class OrderCategoryAdminForm(NameAdminForm):
+    MULTI_LANG_FIELDS = ['name_plural', 'document_name']
+       
+    class Meta(NameAdminForm.Meta):
+        model = OrderCategory
+"""
 
 class LedgerAdminForm(NameAdminForm):
     class Meta(NameAdminForm.Meta):
@@ -129,6 +159,25 @@ class TitleAdminForm(MultilanguageForm):
 
     # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+
+class AddressPersonForm(forms.ModelForm):
+    class Meta:
+        model = AddressPerson
+        fields = ['type', 'address', 'additional_information']
+        widgets = {
+            'address': forms.Select(attrs={'style': 'width: 500px;'}),
+        }
+
+
+class ContactPersonForm(forms.ModelForm):
+    class Meta:
+        model = ContactPerson
+        fields = ['type', 'address']
+        widgets = {
+            'address': forms.TextInput(attrs={'size': 80}),  # Adjust width
+        }
 
 
 # AccountSetup
@@ -386,3 +435,5 @@ class LedgerICUploadForm(AdminActionForm):
                 - expense_previous<br>
                 - revenue_previous
             '''))
+
+

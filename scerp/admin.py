@@ -434,7 +434,7 @@ class BaseAdmin(ModelAdmin):
 
         # Add additional sections like Notes and Logging
         return self.fieldsets + (
-            (_('Notes and Status'), {
+            (_('Notes, Attachment and Status'), {
                 'fields': note_fields,
                 'classes': ('collapse',),
             }),

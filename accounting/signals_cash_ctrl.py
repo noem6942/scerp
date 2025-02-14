@@ -6,7 +6,7 @@ import logging
 import time
 
 from django.conf import settings
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models.signals import post_save, pre_save, pre_delete
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
@@ -186,14 +186,14 @@ Note that instances only get synced if saved in scerp (
 @receiver(post_save, sender=models.CustomFieldGroup)
 def custom_field_group_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CustomFieldGroup. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.CustomFieldGroup)
+    sync = conn.CashCtrlSync(sender, instance, conn.CustomFieldGroup)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.CustomFieldGroup)
 def custom_field_group_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CustomFieldGroup. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.CustomFieldGroup)
+    sync = conn.CashCtrlSync(sender, instance, conn.CustomFieldGroup)
     sync.delete()
 
 
@@ -201,7 +201,7 @@ def custom_field_group_pre_delete(sender, instance, **kwargs):
 @receiver(pre_save, sender=models.CustomField)
 def custom_field_pre_save(sender, instance, **kwargs):
     '''Signal handler for pre signals on CustomFieldGroup. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.CustomField)
+    sync = conn.CashCtrlSync(sender, instance, conn.CustomField)
     if not instance.type:
         # Assign type from group
         if instance.group:
@@ -212,14 +212,14 @@ def custom_field_pre_save(sender, instance, **kwargs):
 @receiver(post_save, sender=models.CustomField)
 def custom_field_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CustomField. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.CustomField)
+    sync = conn.CashCtrlSync(sender, instance, conn.CustomField)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.CustomField)
 def custom_field_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CustomField. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.CustomField)
+    sync = conn.CashCtrlSync(sender, instance, conn.CustomField)
     sync.delete()
 
 
@@ -227,7 +227,7 @@ def custom_field_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.FiscalPeriod)
 def fiscal_period_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on FiscalPeriod. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.FiscalPeriod)
+    sync = conn.CashCtrlSync(sender, instance, conn.FiscalPeriod)
     sync.save(created=created)
 
 
@@ -235,14 +235,14 @@ def fiscal_period_post_save(sender, instance, created, **kwargs):
 @receiver(post_save, sender=models.Currency)
 def currency_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Currency. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Currency)
+    sync = conn.CashCtrlSync(sender, instance, conn.Currency)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.Currency)
 def currency_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Currency. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Currency)
+    sync = conn.CashCtrlSync(sender, instance, conn.Currency)
     sync.delete()
 
 
@@ -250,7 +250,7 @@ def currency_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.CostCenterCategory)
 def cost_center_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CostCenterCategory. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.CostCenterCategory)
+    sync = conn.CashCtrlSync(sender, instance, conn.CostCenterCategory)
     sync.save(created=created)
 
 
@@ -263,7 +263,7 @@ def cost_center_category_pre_delete(sender, instance, **kwargs):
         cost_center.delete()  # This will cascade the delete,
 
     # Send the external API request
-    sync = conn.CashCtrlSync(sender,instance, conn.CostCenterCategory)
+    sync = conn.CashCtrlSync(sender, instance, conn.CostCenterCategory)
     sync.delete()
 
 
@@ -271,14 +271,14 @@ def cost_center_category_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.CostCenter)
 def cost_center_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CostCenter. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.CostCenter)
+    sync = conn.CashCtrlSync(sender, instance, conn.CostCenter)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.CostCenter)
 def cost_center_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CostCenter. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.CostCenter)
+    sync = conn.CashCtrlSync(sender, instance, conn.CostCenter)
     sync.delete()
 
 
@@ -286,7 +286,7 @@ def cost_center_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.AccountCategory)
 def account_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on AccountCategory. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.AccountCategory)
+    sync = conn.CashCtrlSync(sender, instance, conn.AccountCategory)
     sync.save(created=created)
 
 
@@ -303,7 +303,7 @@ def account_category_pre_delete(sender, instance, **kwargs):
         account.delete()  # This will cascade the delete
 
     # Send the external API request
-    sync = conn.CashCtrlSync(sender,instance, conn.AccountCategory)
+    sync = conn.CashCtrlSync(sender, instance, conn.AccountCategory)
     sync.delete()
 
 
@@ -311,14 +311,14 @@ def account_category_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.Account)
 def account_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Account. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Account)
+    sync = conn.CashCtrlSync(sender, instance, conn.Account)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.Account)
 def account_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Account. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Account)
+    sync = conn.CashCtrlSync(sender, instance, conn.Account)
     sync.delete()
 
 
@@ -326,14 +326,14 @@ def account_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.Rounding)
 def rounding_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Rounding. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Rounding)
+    sync = conn.CashCtrlSync(sender, instance, conn.Rounding)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.Rounding)
 def rounding_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Rounding. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Rounding)
+    sync = conn.CashCtrlSync(sender, instance, conn.Rounding)
     sync.delete()
 
 
@@ -341,30 +341,50 @@ def rounding_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.Title)
 def title_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Title. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Title)
+    sync = conn.CashCtrlSync(sender, instance, conn.Title)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.Title)
 def title_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Title. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Title)
+    sync = conn.CashCtrlSync(sender, instance, conn.Title)
     sync.delete()
-
 
 
 # PersonCategory
 @receiver(post_save, sender=models.PersonCategory)
 def person_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on PersonCategory. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.PersonCategory)
+    sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
     sync.save(created=created)
     
  
 @receiver(pre_delete, sender=models.PersonCategory)
-def title_pre_delete(sender, instance, **kwargs):
+def person_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on PersonCategory. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.PersonCategory)
+    sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
+    sync.delete() 
+
+
+# Person
+@receiver(post_save, sender=models.Person)
+def person_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Person '''
+    # This ensures the function only runs after Django fully saves all inlines.
+    transaction.on_commit(lambda: person_sync(sender, instance, created))
+    
+
+def person_sync(sender, instance, created):
+    '''This runs after all database transactions are complete'''
+    sync = conn.CashCtrlSync(sender, instance, conn.Person)
+    sync.save(created=created)
+ 
+ 
+@receiver(pre_delete, sender=models.Person)
+def person_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Person. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.Person)
     sync.delete() 
 
 
@@ -372,14 +392,14 @@ def title_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.Tax)
 def tax_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Tax. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Tax)
+    sync = conn.CashCtrlSync(sender, instance, conn.Tax)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.Tax)
 def tax_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Tax. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Tax)
+    sync = conn.CashCtrlSync(sender, instance, conn.Tax)
     sync.delete()
 
 
@@ -387,14 +407,14 @@ def tax_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.SequenceNumber)
 def sequence_number_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on SequenceNumber. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.SequenceNumber)
+    sync = conn.CashCtrlSync(sender, instance, conn.SequenceNumber)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.SequenceNumber)
 def sequence_number_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on SequenceNumber. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.SequenceNumber)
+    sync = conn.CashCtrlSync(sender, instance, conn.SequenceNumber)
     sync.delete()
 
 
@@ -402,14 +422,14 @@ def sequence_number_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.Unit)
 def unit_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Unit. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Unit)
+    sync = conn.CashCtrlSync(sender, instance, conn.Unit)
     sync.save(created=created)
 
 
 @receiver(pre_delete, sender=models.Unit)
 def unit_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Unit. '''
-    sync = conn.CashCtrlSync(sender,instance, conn.Unit)
+    sync = conn.CashCtrlSync(sender, instance, conn.Unit)
     sync.delete()
 
 

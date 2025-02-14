@@ -16,7 +16,11 @@ class Country(LogAbstract):
     """Model to represent a person's category.
     not used: parentId
     """
-    code = models.CharField(
+    alpha2 = models.CharField(
+        _('Country'),
+        max_length=2, help_text=_("2-letter country code")
+    )    
+    alpha3 = models.CharField(
         _('Country'),
         max_length=3, help_text=_("3-letter country code")
     )
@@ -33,16 +37,18 @@ class Country(LogAbstract):
         return default.id if default else None
 
     def __str__(self):
-        return f'{self.code}, {multi_language(self.name)}'
+        return f'{self.alpha3}, {multi_language(self.name)}'
 
     class Meta:
-        ordering = ['-is_default', 'code']
+        ordering = ['-is_default', 'alpha3']
         verbose_name = _('Country')
         verbose_name_plural = _('Countries')
 
 
 class Title(TenantAbstract):
-    """Model to represent a person's title."""
+    """Model to represent a person's title.
+        will be mapped to ech -> (mrMrs, title)
+    """
     class GENDER(models.TextChoices):
         # CashCtrl
         MALE = 'MALE', _('Male')
@@ -84,16 +90,42 @@ class Title(TenantAbstract):
 
 
 class Address(LogAbstract):
-    ''' Unique Address '''
-    address = models.CharField(
+    ''' Unique Address
+    ech Standard eCH-0010 
+        Datenstandard Postadresse für natürliche Personen, Firmen, 
+        Organisationen und Behörden
+    '''
+    # address
+    street = models.CharField(
         _('Address'), max_length=100, 
-        help_text=_("Street, house number")
+        help_text=_("Street")
     )
-    zip = models.CharField(
-        _('ZIP Code'), max_length=20,
-        help_text=_("Postal code for the address")
+    house_number = models.CharField(
+        _('House number'), max_length=50, blank=True, null=True,
+        help_text=_("house number")
     )
-    city = models.CharField(
+    dwelling_number = models.CharField(
+        _('Dwelling number'), max_length=30, blank=True, null=True,
+        help_text=_("house number")
+    )
+    swiss_zip_code = models.PositiveSmallIntegerField(
+        _('Swiss ZIP Code'), blank=True, null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(9999)],
+        help_text=_(
+            "Von der Schweizer Post vergebene Postleitzahl in der Form, "
+            "wie sie auf Briefen aufgedruckt wird.")
+    )
+    swiss_zip_code_add_on = models.PositiveSmallIntegerField(
+        _('Swiss ZIP Code On'), blank=True, null=True,
+        validators=[MinValueValidator(10000), MaxValueValidator(99999)],
+        help_text=_(
+            "Eindeutige, 5 stellige Schweizer Postleitzahl")
+    )
+    foreign_zip_code = models.CharField(
+        _('Foreign ZIP Code'), max_length=20, blank=True, null=True,
+        help_text=_("Ausländische Postleitzahl")
+    )    
+    town = models.CharField(
         _('City'), max_length=100,
         help_text=_("City of the address")
     )
@@ -103,17 +135,48 @@ class Address(LogAbstract):
         help_text=_("Country")
     )
 
+    @property
+    def zip(self):
+        if self.swiss_zip_code:
+            return self.swiss_zip_code
+        elif self.foreign_zip_code:
+            return f"{self.country.alpha2} {self.foreign_zip_code}"
+        return None
+
     def __str__(self):
-        return f"{self.country}, {self.zip} {self.city}, {address}"
+        if self.swiss_zip_code:
+            return (
+                f"{self.swiss_zip_code} {self.town}, {self.street} "
+                f"{self.house_number}")
+        else:
+            return (
+                f"{self.country} {self.foreign_zip_code} {self.town}, "
+                f"{self.street} {self.house_number}")
+
+    def save(self, *args, **kwargs):
+        if not self.zip:
+            raise ValidationError(_("No zip code given."))
+        
+        # clean
+        for field_name in ['street', 'house_number', 'dwelling_number']:
+            value = getattr(self, field_name)
+            if value:
+                setattr(self, field_name, value.strip())
+        
+        super().save(*args, **kwargs)        
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['country', 'zip', 'city', 'address'],
+                fields=[
+                    'country', 'swiss_zip_code', 'foreign_zip_code', 
+                    'street', 'house_number', 'dwelling_number'],
                 name='unique_address'
             )
         ]             
-        ordering = ['country', 'zip', 'city', 'address']
+        ordering = [
+            'country', 'swiss_zip_code', 'foreign_zip_code', 'town', 'street',
+            'house_number']
         verbose_name = _('Address Entry')
         verbose_name_plural = _('Addresses')
 
@@ -194,6 +257,13 @@ class PersonAbstract(TenantAbstract):
         verbose_name=_('Company'),
         help_text=('The name of the organization/company. Either firstName, lastName or company must be set.')
     )
+    title = models.ForeignKey(
+        Title,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text=_("The person's title (e.g. 'Mr.', 'Mrs.', 'Dr.').")
+    )    
     first_name = models.CharField(
         max_length=50,
         blank=True,
@@ -304,13 +374,6 @@ class PersonAbstract(TenantAbstract):
         verbose_name=_('Superior'),
         help_text=_("The superior of this person (for organizational chart)."),
     )
-    title = models.ForeignKey(
-        Title,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        help_text=_("The person's title (e.g. 'Mr.', 'Mrs.', 'Dr.').")
-    )
     vat_uid = models.CharField(
         max_length=32,
         blank=True,
@@ -326,14 +389,13 @@ class PersonAbstract(TenantAbstract):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        name = ''
         if self.company:
-            name += self.company + ': '
-        if self.first_name or self.last_name:
-            name += f'{self.last_name}, {self.first_name}'
+            if self.last_name:
+                return f"{self.company}, {self.last_name} {self.first_name}"
+            return self.company
         if self.date_birth:
-            name += f', {self.date_birth}'
-        return name
+            return f"{self.last_name} {self.first_name}, {self.date_birth}"
+        return f"{self.last_name} {self.first_name}"
 
     class Meta:
         abstract = True
@@ -344,9 +406,7 @@ class Person(PersonAbstract):
     A concrete physical person who can be a Subscriber and an Inhabitant, etc.
     use this for creditors, target: only use this for simplicity
     """
-    class Meta:
-        verbose_name = _('Person')
-        verbose_name_plural = _('Persons')
+    pass
 
 
 class Subscriber(TenantAbstract):
@@ -375,6 +435,9 @@ class Subscriber(TenantAbstract):
 class Inhabitant(TenantAbstract):
     """
     A person who is an inhabitant.
+    
+    https://www.bfs.admin.ch/bfs/de/home/register/personenregister/registerharmonisierung/meldewesen-datenaustausch.html
+    harm@bfs.admin.ch
     """
     person = models.OneToOneField(
         Person, on_delete=models.CASCADE, related_name='inhabitant')
@@ -478,6 +541,7 @@ class ContactAbstract(TenantAbstract):
 
 
 class ContactPerson(ContactAbstract):
+    ''' try to use only this '''
     person = models.ForeignKey(
         Person, verbose_name=_('Person'),
         on_delete=models.CASCADE, related_name='%(class)s_contact_person')
@@ -525,7 +589,7 @@ class AddressBuilding(TenantAbstract):
 
 class AddressAbstract(TenantAbstract):
     # Address Types Enum (choices for the 'type' field)
-    class AddressType(models.TextChoices):
+    class ADDRESS_TYPE(models.TextChoices):
         # CashCtrl
         MAIN = 'MAIN', _('Main Address')
         INVOICE = 'INVOICE', _('Invoice Address')
@@ -535,11 +599,16 @@ class AddressAbstract(TenantAbstract):
 
     type = models.CharField(
         _('Type'), max_length=10, 
-        choices=AddressType.choices, default=AddressType.MAIN,
+        choices=ADDRESS_TYPE.choices, default=ADDRESS_TYPE.MAIN,
         help_text=_("The type of address: MAIN, INVOICE, DELIVERY, OTHER.")
     )
+    post_office_box = models.CharField(
+        _('PO Box'), max_length=8, 
+        blank=True, null=True,
+        help_text=_("Post Office Box")
+    )    
     additional_information = models.CharField(
-        _('Additional Address Information'), max_length=10, blank=True, null=True,
+        _('Additional Address Information'), max_length=50, blank=True, null=True,
         help_text=_("e.g. PO, c/o")
     )    
 

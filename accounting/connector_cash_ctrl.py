@@ -4,14 +4,15 @@ accounting/connector_cash_ctrl_new.py
 import logging
 from django.utils import timezone
 
+from crm.models import AddressPerson, ContactPerson
 from scerp.exceptions import APIRequestError
 from scerp.mixins import make_timeaware
 from . import api_cash_ctrl
 from .models import (
-    APISetup, TOP_LEVEL_ACCOUNT,
+    APISetup, TOP_LEVEL_ACCOUNT, Allocation,
     CustomField as model_CustomField,
     Account as model_Account,
-    Allocation
+    Title as model_Titel
 )
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
@@ -458,10 +459,10 @@ class CostCenter(cashCtrl):
 class AccountCategory(cashCtrl):
     api_class = api_cash_ctrl.AccountCategory
     ignore_keys = (
-        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + ['top'])    
-    
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + ['top'])
+
     @staticmethod
-    def add_numbers(name, number):        
+    def add_numbers(name, number):
         if number:
             return f"{int(number)} {name}"
         return name
@@ -480,7 +481,7 @@ class AccountCategory(cashCtrl):
             data['parent_id'] = instance.parent.c_id
         else:
             data.pop('parent_id')
-            
+
         # Encode numbers in headings
         if self.setup.encode_numbers and not instance.is_top_level_account:
             # Add numbers
@@ -500,7 +501,7 @@ class AccountCategory(cashCtrl):
                     for language, value in instance.name.items()
                 }
                 instance.name = name_dict
-        
+
         # parent
         foreign_key_class = AccountCategory
         self.update_category(
@@ -653,18 +654,83 @@ class PersonCategory(cashCtrl):
         if created:
             # Fill out empty code
             instance.code = f"custom {source['id']}"
-            
+
         # parent
         foreign_key_class = PersonCategory
         self.update_category(
             instance, source, assign, created, 'parent', foreign_key_class)
 
 
+class Person(cashCtrl):
+    api_class = api_cash_ctrl.Person
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
+
+    @staticmethod
+    def make_address(addr):
+        value = addr.address.street
+        
+        if addr.address.house_number:
+            value += ' ' + addr.address.house_number
+        if addr.address.dwelling_number:
+            value += ', ' + addr.address.dwelling_number
+            
+        if addr.post_office_box:
+            value += '\n' + addr.post_office_box
+        if addr.additional_information:
+            value += '\n' + addr.additional_information            
+                    
+        return value
+
+    def pre_upload(self, instance, data):
+        # Prepare catgory_id
+        if getattr(instance, 'category', None):
+            data['category_id'] = instance.category.c_id
+        else:
+            raise ValueError("No catgory given.")
+
+        # Prepare title_id
+        if getattr(instance, 'title', None):
+            title_id = data.pop('title_id')
+            data['title_id'] = model_Titel.objects.get(id=title_id).c_id
+        else:
+            data.pop('title_id')
+
+        # Prepare superior_id
+        if getattr(instance, 'superior', None):
+            data['superior_id'] = instance.superior.c_id
+        else:
+            data.pop('superior_id')
+
+        # Make contacts
+        person_id = data.pop('person_ptr_id')
+        contacts = ContactPerson.objects.filter(person__id=person_id)
+        data['contacts'] = [{
+            'type': contact.type,
+            'address': contact.address
+        } for contact in contacts.order_by('id')]
+
+        # Make addresses, map ech --> cashCtrl
+        addresses = AddressPerson.objects.filter(person__id=person_id)
+        data['addresses'] = [{
+            'type': addr.type,
+            'address': self.make_address(addr),
+            'city': addr.address.town,
+            'country': addr.address.country.alpha3,
+            'zip': addr.address.zip
+        } for addr in addresses.order_by('id')]
+
+        print("*data", data)
+
+    def load(self, model, **kwargs):
+        raise ValueError("Load not defined for Person")
+
+
 class OrderCategory(cashCtrl):
     api_class = api_cash_ctrl.OrderCategory
     ignore_keys = (
-        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)    
-    
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
+
     def pre_upload(self, instance, data):
         # account
         if getattr(instance, 'account', None):

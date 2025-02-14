@@ -94,9 +94,13 @@ APP_MODEL_ORDER = {
             'PersonCategory': ('23', ''),
             'Person': ('24', ''),
 
-            # Inventory
-            'OrderCategory': ('* 16', ' ⬇️'),
-            'OrderTemplate': ('* 17', ' ⬇️'),
+            # Order Management
+            'BookTemplate': ('O. 15', ''),
+            'OrderCategoryContract': ('O. 16', ''),
+            'OrderCategoryIncoming': ('O. 17', ''),
+            'ContractOrder': ('O. 18', ''),
+            'IncomingOrder': ('O. 19', ''),
+            'OrderTemplate': ('O. 20', ''),
 
             # Accounting
             'FiscalPeriod': ('* 18', ' ⬇️'),

@@ -122,7 +122,7 @@ def tenant_post_save(sender, instance, created, **kwargs):
             for alpha3, country in alpha3_dict.items():
                 # Use update_or_create to store data
                 _obj, _created = Country.objects.update_or_create(
-                    code=alpha3,  # Lookup field
+                    alpha3=alpha3,  # Lookup field
                     defaults=country
                 )
 

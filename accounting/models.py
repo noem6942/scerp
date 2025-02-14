@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .api_cash_ctrl import (
-    URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE)
+    URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE)
 from scerp.mixins import multi_language
 
 
@@ -20,9 +20,10 @@ from core.models import (
     LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantSetup,
     TenantLogo)
 from crm.models import (
+    AddressPerson,
     Title as CrmTitle,
     #Address as CrmAddress,
-    PersonCategory as CrmPersonCategory,    
+    PersonCategory as CrmPersonCategory,
     Person as CrmPerson,
     #Employee as CrmEmployee
 )
@@ -880,7 +881,9 @@ class Tax(AcctApp):
             "The flat tax rate percentage (Saldo-/Pauschalsteuersatz)."))
 
     def __str__(self):
-        return self.code
+        if 'custom' in self.code:
+            return multi_language(self.name)
+        return f"{self.code} {multi_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -928,84 +931,6 @@ class Rounding(AcctApp):
         ordering = ['code']
         verbose_name = _("Rounding")
         verbose_name_plural = f"{_('Roundings')}"
-
-
-class OrderCategory(AcctApp):
-    ''' OrderCategory '''
-    code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,
-        help_text='Internal code for scerp')
-    name_plural = models.JSONField(
-        _('name'), blank=True, null=True,
-        help_text=_("he plural name of the category (e.g. 'Invoices')."))
-    account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='%(class)s_account',
-        verbose_name=_('Account'),
-        help_text=_(
-            """The ID of the account, which is typically the debtors
-            account for sales and the creditors account for purchase. """))
-    status = models.JSONField(
-        _('status'),
-        help_text=_(
-            "The status list (like 'Draft', 'Open', 'Paid', etc.) for this "
-            "order category."))
-    address_type = models.CharField(
-        _('address type'), max_length=20,
-        help_text=(
-            """Which address of the recipient to use in the order document.
-            Defaults to MAIN. Possible values: MAIN, INVOICE, DELIVERY,
-            OTHER."""))
-    due_days =  models.PositiveIntegerField(
-        _('Due Days'), null=True, blank=True,
-        help_text=_(
-            """The due days used by default for order objects in this category.
-            The order date + due days equals the due date."""))
-
-    @property
-    def local_name(self):
-        return multi_language(self.name_plural)
-
-    def __str__(self):
-        return self.local_name
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'code', 'c_id'],
-                name='unique_c_id_per_tenant_setup__order_category'
-            )
-        ]
-        ordering = ['name_plural']
-        verbose_name = _("Order Category")
-        verbose_name_plural = f"{_('Order Categories')}"
-
-
-class OrderTemplate(AcctApp):
-    '''Read - only
-    '''
-    name = models.CharField(
-        _('name'), max_length=200,
-        help_text=_("The name to describe and identify the template."))
-    is_default = models.BooleanField(
-        _('is default'),
-        help_text=_(
-            "Mark the template as the default template to use. Defaults to "
-            "false.  "))
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'name', 'c_id'],
-                name='unique_c_id_per_tenant_setup__order_template'
-            )
-        ]
-        ordering = ['name']
-        verbose_name = _("Order Template")
-        verbose_name_plural = f"{_('Order Templates')}"
 
 
 '''
@@ -1158,6 +1083,292 @@ class Article(AcctApp):
         verbose_name = _("Article")
         verbose_name_plural = _("Articles")
 '''
+
+
+# CRM models ----------------------------------------------------------------
+class Title(CrmTitle, AcctApp):
+    ''' Superset of CrmTitle which is not abstract
+    '''
+    class Meta:
+        pass  # handle constraints in CRM
+
+
+class PersonCategory(CrmPersonCategory, AcctApp):
+    ''' Person Category; use this; do not enter data in CrmPersonCategory
+    '''
+    class Meta:
+        pass  # handle constraints in CRM
+
+
+class Person(CrmPerson, AcctApp):
+    '''Person; use this; do not enter data in CrmPerson
+        only edit data in scerp
+    '''
+    class Meta:
+        verbose_name = _('Person')
+        verbose_name_plural = _('Persons')
+
+
+# Orders --------------------------------------------------------------------
+class BookTemplate(AcctApp):
+    ''' BookTemplates '''
+    code = models.CharField(
+        _('Code'), max_length=200,
+        help_text=_("internal code"))
+    name = models.JSONField(_('Name'))
+    account = models.ForeignKey(
+        Account, on_delete=models.CASCADE,
+        related_name='%(class)s_account',
+        verbose_name=_('Account'),
+        help_text="Typically a bank account in case of a payment template")
+    tax =  models.ForeignKey(
+        Tax, on_delete=models.CASCADE,
+        related_name='%(class)s_tax',
+        verbose_name=_('Tax'),
+        help_text="Tax rate in this book template.")
+
+    def __str__(self):
+        return f"{self.code} {multi_language(self.name)}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_c_id_per_tenant_setup__order_template'
+            )
+        ]
+        ordering = ['name']
+        verbose_name = _("Booking Template")
+        verbose_name_plural = f"{_('Booking Templates')}"
+
+
+class OrderCategory(AcctApp):
+    ''' OrderCategory '''
+    code = models.CharField(
+        _('Code'), max_length=50, null=True, blank=True,
+        help_text='Internal code for scerp')
+    name_plural = models.JSONField(
+        _('Name, plural'), blank=True, null=True,
+        help_text=_("he plural name of the category (e.g. 'Invoices')."))
+    account = models.ForeignKey(
+        Account, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='%(class)s_account',
+        verbose_name=_('Account'))
+    address_type = models.CharField(
+        _('address type'), max_length=20,
+        choices=AddressPerson.ADDRESS_TYPE.choices,
+        default=AddressPerson.ADDRESS_TYPE.MAIN,
+        help_text=(
+            '''Which address of the recipient to use in the order document.
+               Possible values: MAIN, INVOICE, DELIVERY, OTHER.'''))
+
+    def __str__(self):
+        return multi_language(self.name_plural)
+
+    class Meta:
+        ordering = ['code', 'name_plural']
+        abstract = True
+
+
+class OrderCategoryContract(OrderCategory):
+    '''Contract Order Category
+        use this to define booking details
+    '''
+    class STATUS(models.TextChoices):
+        DRAFT = 'Draft', _("Draft")
+        REQUEST = 'Request', _("Request")
+        OFFER_RECEIVED = 'Offer Received', _("Offer Received")
+        SHORTLISTED = 'Shortlisted', _("Shortlisted")
+        AWARDED = 'Awarded', _("Awarded")
+        RULING = 'Ruling', _("Ruling")
+        APPEAL = 'Appeal', _("Appeal")
+        CONTRACT_RECEIVED = 'Contract Received', _("Contract Received")
+        CONTRACT_SIGNED = 'Contract Signed', _("Contract Signed")
+        CANCELLED = 'Cancelled', _("Cancelled")
+        TERMINATED = 'Terminated', _("Terminated")
+        TERMINATION_CONFIRMED = 'Termination Confirmed', _("Termination Confirmed")
+        ARCHIVED = 'Archived', _("Archived")
+
+    COLOR_MAPPING = {
+        STATUS.DRAFT: COLOR.GRAY,
+        STATUS.REQUEST: COLOR.ORANGE,
+        STATUS.OFFER_RECEIVED: COLOR.BLUE,
+        STATUS.SHORTLISTED: COLOR.YELLOW,
+        STATUS.AWARDED: COLOR.VIOLET,
+        STATUS.RULING: COLOR.ORANGE,
+        STATUS.APPEAL: COLOR.RED,
+        STATUS.CONTRACT_RECEIVED: COLOR.BLUE,
+        STATUS.CONTRACT_SIGNED: COLOR.GREEN,
+        STATUS.CANCELLED: COLOR.BLACK,
+        STATUS.TERMINATED: COLOR.RED,
+        STATUS.TERMINATION_CONFIRMED: COLOR.BROWN,
+        STATUS.ARCHIVED: COLOR.GRAY,
+    }
+    book_type = BOOK_TYPE.CREDIT
+    book_templates = models.ManyToManyField(
+        BookTemplate, related_name='incoming_orders',
+        verbose_name = _("Book Templates"),
+        help_text=_("Definition of booking process"))
+    rounding = models.ForeignKey(
+        Rounding, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_rounding',
+        verbose_name=_('Rounding'))        
+        
+    @classmethod
+    def helptext_account():
+        return _("The creditors account for purchase.")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_order_category_contract'
+            )
+        ]
+        verbose_name = _("Category: Contract")
+        verbose_name_plural = _("Categories: Contracts")
+
+
+class OrderCategoryIncoming(OrderCategory):
+    '''Category for incoming invoices, 
+        keep this as compact as possible -> only Status used
+    '''
+    class STATUS(models.TextChoices):
+        OPEN = "Open", _("Open")
+        APPROVED_1 = "Approved 1", _("Approved 1")
+        APPROVED_2 = "Approved 2", _("Approved 2")
+        BOOKED = "Posted", _("Booked")
+        SUBMITTED = "Submitted", _("Submitted")
+        REMINDER_1 = "Reminder 1", _("Reminder 1")
+        REMINDER_2 = "Reminder 2", _("Reminder 2")
+        PAID = "Paid", _("Paid")
+        ARCHIVED = "Archived", _("Archived")
+        CANCELLED = "Cancelled", _("Cancelled")
+
+    COLOR_MAPPING = {
+        STATUS.OPEN: COLOR.GRAY,
+        STATUS.APPROVED_1: COLOR.GREEN,
+        STATUS.APPROVED_2: COLOR.GREEN,
+        STATUS.BOOKED: COLOR.VIOLET,
+        STATUS.SUBMITTED: COLOR.BLUE,
+        STATUS.REMINDER_1: COLOR.PINK,
+        STATUS.REMINDER_2: COLOR.ORANGE,
+        STATUS.PAID: COLOR.GREEN,
+        STATUS.ARCHIVED: COLOR.BLACK,
+        STATUS.CANCELLED: COLOR.YELLOW,
+    }
+    book_type = BOOK_TYPE.CREDIT
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_order_category_incoming'
+            )
+        ]
+        verbose_name = _(" Category Invoice")
+        verbose_name_plural = _("Category Invoices")
+
+
+class ContractOrder(AcctApp):
+    '''
+    '''
+    CUSTOM = [
+        ('valid_from', 'order_procurement_valid_from'),
+        ('valid_until', 'order_procurement_valid_until'),
+        ('notice_period_month', 'order_procurement_notice')
+    ]
+    supplier = models.ForeignKey(
+        Person, on_delete=models.PROTECT, related_name='contracts', 
+        verbose_name=_('Supplier'),
+        help_text=_('contract party'))  # to be mapped to multiple in cashCtrl
+    category = models.ForeignKey(
+        OrderCategoryContract, on_delete=models.CASCADE,
+        related_name='%(class)s_category',
+        verbose_name=_('Category'),
+        help_text=_('all booking details are defined in category'))
+    status = models.CharField(
+        _('Status'), max_length=50,
+        choices=OrderCategoryContract.STATUS.choices)
+    date = models.DateField(
+        _('Date'), null=True, blank=True)
+    description = models.CharField(
+        _('Description'), max_length=200, blank=True, null=True)
+    price_excl_vat = models.DecimalField(
+        _('Price (Excl. VAT)'), max_digits=11, decimal_places=2,
+        null=True, blank=True)
+    valid_from = models.DateField(
+        _('Valid From'), null=True, blank=True)
+    valid_until = models.DateField(
+        _('Valid Until'), null=True, blank=True)
+    notice_period_month = models.PositiveSmallIntegerField(
+        _('Notice Period (Months)'), null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.supplier.company}, {self.date}, {self.description}" 
+
+    class Meta:
+        verbose_name = _("Supplier Contract")
+        verbose_name_plural = _("Supplier Contracts")
+
+
+class IncomingOrder(AcctApp):
+    ''' IncomingOrder '''
+    category = models.ForeignKey(
+        OrderCategoryIncoming, on_delete=models.CASCADE,
+        related_name='%(class)s_category',
+        verbose_name=_('Category'),
+        help_text=_('all booking details are defined in category'))
+    date = models.DateField(
+        _('Date'), null=True, blank=True)
+    contract = models.ForeignKey(
+        ContractOrder, on_delete=models.PROTECT,
+        related_name='%(class)s_contract',
+        verbose_name=_('Contract'),
+        help_text=_("Contract or Order"))
+    description = models.TextField(
+        _('Description'), blank=True, null=True)
+    price_incl_vat = models.DecimalField(
+        _('Price (Incl. VAT)'), max_digits=11, decimal_places=2)
+    status = models.CharField(
+        _('Status'), max_length=50,
+        choices=OrderCategoryIncoming.STATUS.choices)
+    due_days = models.PositiveIntegerField(
+        _('Due Days'), null=True, blank=True,
+        help_text=_(
+            '''The due days used by default for order objects in this category.
+            The order date + due days equals the due date.'''))
+
+    def __str__(self):
+        return (
+            f"{self.contract.supplier.company}, {self.date}, "
+            f"{self.description}")
+
+    class Meta:
+        verbose_name = _("Incoming Invoice")
+        verbose_name_plural = _("Incoming Invoices")
+
+
+class OrderTemplate(AcctApp):
+    '''Read - only
+    '''
+    name = models.CharField(
+        _('name'), max_length=200,
+        help_text=_("The name to describe and identify the template."))
+    is_default = models.BooleanField(
+        _('is default'),
+        help_text=_(
+            "Mark the template as the default template to use. Defaults to "
+            "false.  "))
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = _("Order Template")
+        verbose_name_plural = f"{_('Order Templates')}"
+
 
 # scerp entities with foreign key to Ledger ---------------------------------
 class Ledger(AcctApp):
@@ -1656,28 +1867,6 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
         verbose_name = ('Account Position (Municipality)')
         verbose_name_plural = _('Account Positions')
 
-
-# CRM models ------------------------------------------------------------
-class Title(CrmTitle, AcctApp):
-    ''' Superset of CrmTitle which is not abstract
-    '''
-    class Meta:
-        pass  # handle constraints in CRM
-
-
-class PersonCategory(CrmPersonCategory, AcctApp):
-    ''' Person Category; use this; do not enter data in CrmPersonCategory
-    '''
-    class Meta:
-        pass  # handle constraints in CRM
-
-
-class Person(CrmPerson, AcctApp):
-    '''Person; use this; do not enter data in CrmPerson
-        only edit data in scerp
-    '''
-    class Meta:
-        pass  # handle constraints in CRM
 
 """
 class Employee(CRM):

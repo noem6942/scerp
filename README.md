@@ -3,7 +3,21 @@
 ## Description
 This is a Django-based project to manage the Swiss City ERP
 
+## Local tasks
+Libraries:
+    pipreqs . --ignore ignore --force
+    INFO: Successfully saved requirements file in .\requirements.txt
+
+Docu
+    sphinx-build -b html docs/source docs/build/html
+
 ## Installation
-1. Clone the repository:
-   ```bash
+Clone the repository:
+   ```bash```
    git clone https://github.com/noem6942/scerp
+
+Libraries:
+    pip install -r requirements.txt
+
+Docu:
+    sphinx-build -b html docs/source docs/build/html
