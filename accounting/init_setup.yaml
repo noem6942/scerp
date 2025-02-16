@@ -171,7 +171,18 @@ CustomField:
     is_multi: true
     values: []
 
-  - code: order_procurement_validity
+  - code: order_procurement_valid_from
+    group_ref: order_procurement
+    name:
+      de: Vertrag gültig bis
+      en: Contract valid until
+      fr: Contrat valable jusqu'au
+      it: Contratto valido fino al
+    data_type: DATE
+    is_multi: false
+    values: []
+
+  - code: order_procurement_valid_until
     group_ref: order_procurement
     name:
       de: Vertrag gültig bis
@@ -286,13 +297,18 @@ AccountCategories:
 
 
 PersonCategories:
+# already existing:
+#   - Customers
+#   - Vendors
+#   - Employees
+#
   - code: subscriber
     parent_ref: None
     name:
-      de: '*Abonnenten'
-      en: '*Subscribers'
-      fr: '*Abonnés'
-      it: '*Abbonati'
+      de: 'Abonnenten'
+      en: 'Subscribers'
+      fr: 'Abonnés'
+      it: 'Abbonati'
 
   - code: customer_service
     parent_ref: None

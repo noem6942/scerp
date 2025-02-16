@@ -13,7 +13,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils.text import slugify
 
-from crm.models import Country
 from scerp.locales import APP_CONFIG, APP_MODEL_ORDER, COUNTRY_CHOICES
 from scerp.mixins import get_admin, generate_random_password
 
@@ -202,71 +201,6 @@ class AppAdmin:
                     tenant.apps.add(app)
 
         logger.info(f"Register apps.")
-
-    def update_countries(self):
-        """
-        Initializes alpha3_dict by reading country data from JSON files
-        for each language defined in settings.LANGUAGES.
-        """
-        # Initialize the dictionary
-        alpha3_dict = {}        
-        languages = [lang for lang, _language in settings.LANGUAGES]
-        lang_dict = {
-            'name': {lang: None for lang in languages},
-            'is_default': False,            
-            'created_by': self.admin
-        }
-
-        # Parse
-        for lang in languages:
-            # Construct the path to the JSON file for the current language
-            path_to_file = os.path.join(
-                settings.BASE_DIR, 'crm', 'fixtures', 'countries', lang,
-                'countries.json'
-            )
-            try:
-                # Open and read the JSON file
-                with open(path_to_file, 'r', encoding='utf-8') as file:
-                    countries = json.load(file)  # Load JSON data
-
-                    # Build/update the dictionary using 'alpha3' as the key
-                    for country in countries:
-                        alpha3 = country['alpha3'].upper()
-
-                        if alpha3 not in alpha3_dict:
-                            # New country
-                            alpha3_dict[alpha3] = dict(lang_dict)
-                            if alpha3 == COUNTRY_DEFAULT:
-                                alpha3_dict[alpha3]['is_default'] = True
-
-                        # assign name
-                        alpha3_dict[alpha3]['name'][lang] = country['name']
-
-            except FileNotFoundError:
-                print(f"File not found for language '{lang}': {path_to_file}")
-            except json.JSONDecodeError:
-                print(f"""Error decoding JSON for language '{lang}'.
-                    Please check the file format.""")
-            except Exception as e:
-                print(f"An unexpected error occurred for language '{lang}': {e}")
-
-        # Save Db
-        # Begin a database transaction for better performance
-        with transaction.atomic():
-            for alpha3, country in alpha3_dict.items():
-                # Use update_or_create to store data
-                _obj, _created = Country.objects.update_or_create(
-                    code=alpha3,  # Lookup field
-                    defaults=country
-                )
-
-        # Info
-        logger.info(
-            f"Countries: '{ len(alpha3_dict) }' records created successfully."
-        )
-
-        # Return the final dictionary (optional, if needed elsewhere)
-        return alpha3_dict
 
     def update_documentation(self, app_name=None):
         """Creates a markdown file with sections

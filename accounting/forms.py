@@ -12,7 +12,7 @@ from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form, AdminActionForm
 
 from core.safeguards import get_tenant
-from crm.models import AddressPerson, ContactPerson
+from core.models import Address, Contact
 from scerp.admin import verbose_name_field
 from scerp.forms import MultilanguageForm, make_multilanguage_form
 
@@ -21,7 +21,7 @@ from .models import (
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
     BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
-    ArticleCategory, Article,
+    AddressMapping, ArticleCategory, Article, PersonCategory,
     Ledger, LedgerBalance, LedgerPL, LedgerIC
 )
 
@@ -178,10 +178,14 @@ class TitleAdminForm(MultilanguageForm):
     make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
+class PersonCategoryAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = PersonCategory
+
 
 class AddressPersonForm(forms.ModelForm):
     class Meta:
-        model = AddressPerson
+        model = AddressMapping
         fields = ['type', 'address', 'additional_information']
         widgets = {
             'address': forms.Select(attrs={'style': 'width: 500px;'}),
@@ -190,7 +194,7 @@ class AddressPersonForm(forms.ModelForm):
 
 class ContactPersonForm(forms.ModelForm):
     class Meta:
-        model = ContactPerson
+        model = Contact
         fields = ['type', 'address']
         widgets = {
             'address': forms.TextInput(attrs={'size': 80}),  # Adjust width

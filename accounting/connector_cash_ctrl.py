@@ -4,13 +4,13 @@ accounting/connector_cash_ctrl_new.py
 import logging
 from django.utils import timezone
 
-from crm.models import AddressPerson, ContactPerson
 from scerp.exceptions import APIRequestError
 from scerp.mixins import make_timeaware
 from . import api_cash_ctrl
 from .models import (
     APISetup, TOP_LEVEL_ACCOUNT, Allocation,
     CustomField as model_CustomField,
+    ContactMapping, AddressMapping,
     Account as model_Account,
     Title as model_Titel
 )
@@ -691,13 +691,8 @@ class Person(cashCtrl):
 
     @staticmethod
     def make_address(addr):
-        value = addr.address.street
-
-        if addr.address.house_number:
-            value += ' ' + addr.address.house_number
-        if addr.address.dwelling_number:
-            value += ', ' + addr.address.dwelling_number
-
+        value = addr.address.address
+        
         if addr.post_office_box:
             value += '\n' + addr.post_office_box
         if addr.additional_information:
@@ -708,9 +703,8 @@ class Person(cashCtrl):
     def pre_upload(self, instance, data):
         # Prepare catgory_id
         if getattr(instance, 'category', None):
+            print("*instance.category", instance.category.__dict__)
             data['category_id'] = instance.category.c_id
-        else:
-            raise ValueError("No catgory given.")
 
         # Prepare title_id
         if getattr(instance, 'title', None):
@@ -725,20 +719,19 @@ class Person(cashCtrl):
         else:
             data.pop('superior_id')
 
-        # Make contacts
-        person_id = data.pop('person_ptr_id')
-        contacts = ContactPerson.objects.filter(person__id=person_id)
+        # Make contacts        
+        contacts = ContactMapping.objects.filter(person__id=instance.id)
         data['contacts'] = [{
             'type': contact.type,
             'address': contact.address
         } for contact in contacts.order_by('id')]
 
-        # Make addresses, map ech --> cashCtrl
-        addresses = AddressPerson.objects.filter(person__id=person_id)
+        # Make addresses
+        addresses = AddressMapping.objects.filter(person__id=instance.id)
         data['addresses'] = [{
             'type': addr.type,
             'address': self.make_address(addr),
-            'city': addr.address.town,
+            'city': addr.address.city,
             'country': addr.address.country.alpha3,
             'zip': addr.address.zip
         } for addr in addresses.order_by('id')]

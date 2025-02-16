@@ -10,7 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from import_export.admin import ExportActionMixin
 
 from core.safeguards import get_tenant
-from crm.models import Address, AddressPerson, ContactPerson
+from core.models import Address, Contact
 from scerp.admin import (
      BaseAdmin, BaseTabularInline, Display,
      verbose_name_field, make_multilanguage, set_inactive, set_protected)
@@ -323,6 +323,7 @@ class CurrencyAdmin(CashCtrlAdmin):
 
     # Helpers
     form = forms.CurrencyAdminForm
+    
     # Display these fields in the list view
     list_display = ('code', 'is_default', 'rate') + CASH_CTRL.LIST_DISPLAY
     readonly_fields = ('display_description',)
@@ -374,12 +375,12 @@ class TitleAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'gender', 'display_name', ),
+                'code', 'gender', *make_multilanguage('name')),
             'classes': ('expand',),
         }),
         (_('Texts'), {
             'fields': (
-                *make_multilanguage('name'), *make_multilanguage('sentence')),
+                *make_multilanguage('sentence'),),
             'classes': ('collapse',),
         }),
     )
@@ -535,32 +536,6 @@ class SequenceNumberAdmin(CashCtrlAdmin):
     def local_name(self, obj):
         return multi_language(obj.name)
 
-
-@admin.register(models.PersonCategory, site=admin_site)
-class PersonCategoryAdmin(CashCtrlAdmin):
-    # Safeguards
-    related_tenant_fields = ['setup']
-
-    # Display these fields in the list view
-    list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
-    list_display_links = ('code', 'display_name')
-    readonly_fields = ('display_name',)
-
-    # Search, filter
-    search_fields = ['code', 'name']
-    list_filter = ('setup',)
-
-    # Actions
-    actions = [a.accounting_get_data, a.de_sync_accounting]
-
-    #Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': (
-                'code', 'display_name', 'parent'),
-            'classes': ('expand',),
-        }),
-    )
 
 """
 @admin.register(models.OrderCategory, site=admin_site)
@@ -1571,32 +1546,23 @@ class AccountPositionAdmin(CashCtrlAdmin):
 
 @admin.register(Address, site=admin_site)
 class AddressAdmin(admin.ModelAdmin):
-    # Safeguards
+    # Safeguards    
+    has_tenant_field = True
+    related_tenant_fields = ['tenant', 'person']
 
     # Display these fields in the list view
-    list_display = ('country', 'display_zip', 'town', 'street', 'house_number')
-    list_display_links = ('display_zip', 'town',)
+    list_display = ('country', 'zip', 'city', 'address')
+    list_display_links = ('zip', 'city',)
 
     # Search, filter
-    list_filter = ('swiss_zip_code', 'foreign_zip_code', )
-    search_fields = (
-        'country', 'swiss_zip_code', 'foreign_zip_code', 'street', 'town')
+    list_filter = ('zip', 'country', )
+    search_fields = ('zip', 'city', 'address')
 
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': (
-                ('swiss_zip_code', 'town'), 'street', 'house_number',
-                'dwelling_number'),
+            'fields': (('zip', 'city'), 'address'),
             'classes': ('expand',),
-        }),
-        (_('Foreign Address'), {
-            'fields': ('country', 'foreign_zip_code'),
-            'classes': ('collapse',),
-        }),
-        (_('Switzerland Details'), {
-            'fields': ('swiss_zip_code_add_on',),
-            'classes': ('collapse',),
         }),
     )
 
@@ -1609,17 +1575,14 @@ class AddressAdmin(admin.ModelAdmin):
 
         super().save_model(request, obj, form, change)
 
-    @admin.display(description=_('ZIP'))
-    def display_zip(self, obj):
-        return obj.zip
-
 
 class AddressInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
-    related_tenant_fields = ['setup', 'person']
-
+    has_tenant_field = True
+    related_tenant_fields = ['setup', 'person']    
+    
     # Inline
-    model = AddressPerson
+    model = models.AddressMapping
     form = forms.AddressPersonForm
     fields = ['type', 'address', 'post_office_box', 'additional_information']
     extra = 1  # Number of empty forms displayed
@@ -1630,15 +1593,47 @@ class AddressInline(BaseTabularInline):  # or admin.StackedInline
 
 class ContactInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
-    related_tenant_fields = ['setup', 'person']
+    has_tenant_field = True
+    related_tenant_fields = ['tenant', 'person']
 
     # Inline
-    model = ContactPerson
+    model = models.ContactMapping
     form = forms.ContactPersonForm
     fields = ['type', 'address']
     extra = 1  # Number of empty forms displayed
     show_change_link = True  # Shows a link to edit the related model
     verbose_name_plural = _("Contacts")
+
+
+@admin.register(models.PersonCategory, site=admin_site)
+class PersonCategoryAdmin(CashCtrlAdmin):
+    # Safeguards
+    related_tenant_fields = ['setup']
+
+    # Helpers
+    form = forms.PersonCategoryAdminForm
+
+    # Display these fields in the list view
+    list_display = ('code', 'display_name') + CASH_CTRL.LIST_DISPLAY
+    list_display_links = ('code', 'display_name')
+    readonly_fields = ('display_name',)
+
+    # Search, filter
+    search_fields = ['code', 'name']
+    list_filter = ('setup',)
+
+    # Actions
+    actions = [a.accounting_get_data, a.de_sync_accounting]
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', 'display_name', *make_multilanguage('name'),
+                'parent'),
+            'classes': ('expand',),
+        }),
+    )
 
 
 @admin.register(models.Person, site=admin_site)

@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, IntegrityError
 from django.db.models import UniqueConstraint
 from django.db.models.functions import Cast
@@ -18,15 +19,7 @@ from scerp.mixins import multi_language
 
 from core.models import (
     LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantSetup,
-    TenantLogo)
-from crm.models import (
-    AddressPerson,
-    Title as CrmTitle,
-    #Address as CrmAddress,
-    PersonCategory as CrmPersonCategory,
-    Person as CrmPerson,
-    #Employee as CrmEmployee
-)
+    TenantLogo, Country, Address, Contact)
 from scerp.locales import CANTON_CHOICES
 
 
@@ -988,7 +981,7 @@ class Article(AcctApp):
     """
     nr = models.CharField(
         _('Article Number'), max_length=50,
-        help_text=_("The article number."))        
+        help_text=_("The article number."))
     name = models.JSONField(
         _('Name'),
         help_text=_("The name of the article. For localized text, use XML format: "
@@ -1066,7 +1059,7 @@ class Article(AcctApp):
     unit = models.ForeignKey(
         Unit, on_delete=models.SET_NULL, blank=True, null=True,
         related_name='%(class)s_unit',
-        verbose_name=_('Unit'))        
+        verbose_name=_('Unit'))
 
     def __str__(self):
         return f"{self.nr} {multi_language(self.name)}"
@@ -1083,28 +1076,303 @@ class Article(AcctApp):
         verbose_name_plural = _("Articles")
 
 
-# CRM models ----------------------------------------------------------------
-class Title(CrmTitle, AcctApp):
-    ''' Superset of CrmTitle which is not abstract
-    '''
+# Person ----------------------------------------------------------------
+class Title(AcctApp):
+    """Model to represent a person's title.
+        will be mapped to ech -> (mrMrs, title)
+    """
+    class GENDER(models.TextChoices):
+        # CashCtrl
+        MALE = 'MALE', _('Male')
+        FEMALE = 'FEMALE', _('Female')
+
+    code = models.CharField(
+        _('Code'), max_length=50, help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('Name'),
+        blank=True,  null=True,  # null necessary to handle multi languages
+        help_text=_("The name of the title (i.e. the actual title).")
+    )
+    gender = models.CharField(
+        max_length=6,
+        choices=GENDER.choices,
+        blank=True,
+        null=True,
+        help_text=_("The person's biological gender (male or female). Possible values: MALE, FEMALE.")
+    )
+    sentence = models.JSONField(
+        _('Sentence'),
+        blank=True,  null=True,  # null necessary to handle multi languages
+        help_text=_("The letter salutation (e.g. 'Dear Mr.', etc.). May be used in mail.")
+    )
+
+    def __str__(self):
+        return f'{multi_language(self.name)}'
+
     class Meta:
-        pass  # handle constraints in CRM
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code'],
+                name='accounting_unique_title'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Title")
+        verbose_name_plural = _("Titles")
 
 
-class PersonCategory(CrmPersonCategory, AcctApp):
-    ''' Person Category; use this; do not enter data in CrmPersonCategory
-    '''
+class PersonCategory(AcctApp):
+    """Person's category.
+        not used: parentId
+    """
+    code = models.CharField(
+        _('Code'), max_length=50, null=True, blank=True,
+        help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('Name'),
+        help_text=_("The name of the category.")
+    )
+    discount_percentage = models.FloatField(
+        blank=True,
+        null=True,
+        validators=[
+            MinValueValidator(0.0, message=_("Discount percentage must be at least 0.")),
+            MaxValueValidator(100.0, message=_("Discount percentage cannot exceed 100."))
+        ],
+        help_text=_(
+            "Discount percentage for this person, which may be used for orders. "
+            "This can also be set on the category for all people in that category."
+        ),
+    )
+    parent = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="parents",
+        verbose_name=_('Parent'),
+        help_text=_("The ID of the parent category. Currently not used")
+    )
+
+    def __str__(self):
+        return multi_language(self.name)
+
     class Meta:
-        pass  # handle constraints in CRM
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code'],
+                name='person_cateogry_unique'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Person Category")
+        verbose_name_plural = _("Person Categories")
 
 
-class Person(CrmPerson, AcctApp):
-    '''Person; use this; do not enter data in CrmPerson
-        only edit data in scerp
+class Person(AcctApp):
+    '''Person
     '''
+    class COLOR(models.TextChoices):
+        # cashCtrl
+        # Ordered from lightest to darkest based on human readability
+        WHITE = 'WHITE', _('White')
+        YELLOW = 'YELLOW', _('Yellow')
+        ORANGE = 'ORANGE', _('Orange')
+        GREEN = 'GREEN', _('Green')
+        BLUE = 'BLUE', _('Blue')
+        PINK = 'PINK', _('Pink')
+        VIOLET = 'VIOLET', _('Violet')
+        RED = 'RED', _('Red')
+        BROWN = 'BROWN', _('Brown')
+        GRAY = 'GRAY', _('Gray')
+        BLACK = 'BLACK', _('Black')
+
+    company = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name=_('Company'),
+        help_text=('The name of the organization/company. Either firstName, lastName or company must be set.')
+    )
+    title = models.ForeignKey(
+        Title,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text=_("The person's title (e.g. 'Mr.', 'Mrs.', 'Dr.').")
+    )
+    first_name = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name=_('First Name'),
+        help_text=('The person\'s first (given) name. Either firstName, lastName or company must be set.')
+    )
+    last_name = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name=_('Last Name'),
+        help_text=('The person\'s last (family) name. Either firstName, lastName or company must be set.')
+    )
+    alt_name = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name=_('Alternative Name'),
+        help_text=_('An alternative name for this person (for organizational chart). Can contain localized text.')
+    )
+    bic = models.CharField(
+        max_length=11,
+        blank=True,
+        null=True,
+        verbose_name=_('BIC Code'),
+        help_text=_("The BIC (Business Identifier Code) of the person's bank.")
+    )
+    category = models.ForeignKey(
+        # retrieve automatically
+        PersonCategory, on_delete=models.PROTECT,
+        verbose_name=_('Category'),
+        help_text=_("The person's category.")
+    )
+    color = models.CharField(
+        max_length=10,
+        choices=COLOR.choices,
+        blank=True,
+        null=True,
+        help_text=_(
+            "The color to use for this person in the organizational chart. "
+            "Leave empty for white."
+        ),
+    )
+    date_birth = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name=_('Date of Birth'),
+        help_text=('The person\'s date of birth.')
+    )
+    department = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_('Department'),
+        help_text=('The department of the person within the company.')
+    )
+    discount_percentage = models.FloatField(
+        blank=True,
+        null=True,
+        validators=[
+            MinValueValidator(0.0, message=_("Discount percentage must be at least 0.")),
+            MaxValueValidator(100.0, message=_("Discount percentage cannot exceed 100."))
+        ],
+        help_text=_(
+            "Discount percentage for this person, which may be used for orders. "
+            "This can also be set on the category for all people in that category."
+        ),
+    )
+    iban = models.CharField(
+        max_length=32,
+        blank=True,
+        null=True,
+        verbose_name=_('IBAN'),
+        help_text=('The IBAN (International Bank Account Number) of the person.')
+    )
+    industry = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name=_('Industry'),
+        help_text=('The industry of the company or the trade/vocation of the person.')
+    )
+    language = models.CharField(
+        max_length=2,
+        choices=settings.LANGUAGES, blank=True, null=True,
+        verbose_name=_('Language'),
+        help_text=('The main language of the person. May be used for documents.')
+    )
+    nr = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name=_('Person Number'),
+        help_text=('The person number (e.g., customer no.).')
+    )
+    position = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text=_("The position (job title) of the person within the company."),
+    )
+    superior = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="subordinates",
+        verbose_name=_('Superior'),
+        help_text=_("The superior of this person (for organizational chart)."),
+    )
+    vat_uid = models.CharField(
+        max_length=32,
+        blank=True,
+        null=True,
+        verbose_name=_('VAT no.'),
+        help_text=_('The UID (VAT no.) of the company.')
+    )
+
+    def save(self, *args, **kwargs):
+        # Validate_person
+        if not self.first_name and not self.last_name and not self.company:
+            raise ValidationError(
+                _('Either First Name, Last Name or Company must be set.'))
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        if self.company:
+            if self.last_name:
+                return f"{self.company}, {self.last_name} {self.first_name}"
+            return self.company
+        if self.date_birth:
+            return f"{self.last_name} {self.first_name}, {self.date_birth}"
+        return f"{self.last_name} {self.first_name}"
+
     class Meta:
         verbose_name = _('Person')
         verbose_name_plural = _('Persons')
+
+
+class AddressMapping(AcctApp):
+    class TYPE(models.TextChoices):
+        # CashCtrl
+        MAIN = 'MAIN', _('Main Address')
+        INVOICE = 'INVOICE', _('Invoice Address')
+        DELIVERY = 'DELIVERY', _('Delivery Address')
+        OTHER = 'OTHER', _('Other Address')
+
+    type = models.CharField(max_length=20, choices=TYPE.choices)
+    person = models.ForeignKey(
+        Person, on_delete=models.CASCADE,
+        related_name='%(class)s_address',
+        verbose_name=_('Address'))    
+    address = models.ForeignKey(
+        Address, on_delete=models.CASCADE,
+        related_name='%(class)s_address',
+        verbose_name=_('Address'))
+    post_office_box = models.CharField(
+        _('PO Box'), max_length=8,
+        blank=True, null=True,
+        help_text=_("Post Office Box"))
+    additional_information = models.CharField(
+        _('Additional Address Information'),
+        max_length=50, blank=True, null=True,
+        help_text=_("e.g. c/o"))
+
+
+class ContactMapping(Contact):
+    person = models.ForeignKey(
+        Person, on_delete=models.CASCADE,
+        related_name='%(class)s_address',
+        verbose_name=_('Address'))    
+
 
 
 # Orders --------------------------------------------------------------------
@@ -1154,8 +1422,8 @@ class OrderCategory(AcctApp):
         verbose_name=_('Account'))
     address_type = models.CharField(
         _('address type'), max_length=20,
-        choices=AddressPerson.ADDRESS_TYPE.choices,
-        default=AddressPerson.ADDRESS_TYPE.MAIN,
+        choices=AddressMapping.TYPE.choices,
+        default=AddressMapping.TYPE.MAIN,
         help_text=(
             '''Which address of the recipient to use in the order document.
                Possible values: MAIN, INVOICE, DELIVERY, OTHER.'''))

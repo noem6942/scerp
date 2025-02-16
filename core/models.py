@@ -9,6 +9,7 @@ from django.utils.translation import get_language, gettext_lazy as _
 from scerp.locales import CANTON_CHOICES
 
 
+# Base
 class LogAbstract(models.Model):
     '''used for time stamp handling
     '''
@@ -68,6 +69,7 @@ class NotesAbstract(models.Model):
         abstract = True  # This makes it an abstract model
 
 
+# App
 class App(LogAbstract, NotesAbstract):
     ''' all available Apps
     '''
@@ -82,6 +84,7 @@ class App(LogAbstract, NotesAbstract):
         ordering = ['name']
 
 
+# Tenant, User, Message
 class Tenant(LogAbstract, NotesAbstract):
     '''only admin and trustees are allowed to create Tenants
         sends signals after creation!
@@ -277,3 +280,107 @@ class TenantLogo(TenantAbstract):
         ]
         verbose_name = _('tenant logo')
         verbose_name_plural =  _('tenant logos')
+
+
+# Base Entities: Country, Address, Contact
+class Country(LogAbstract):
+    """Model to represent a person's category.
+    not used: parentId
+    """
+    alpha2 = models.CharField(
+        _('Country'),
+        max_length=2, help_text=_("2-letter country code")
+    )    
+    alpha3 = models.CharField(
+        _('Country'),
+        max_length=3, help_text=_("3-letter country code")
+    )
+    name = models.JSONField(
+        _('Name'),
+        help_text=_("The name of the country")
+    )
+    is_default = models.BooleanField(
+        _('Is default'), default=False,
+        help_text=_("Default for data entry"))
+
+    def get_default_id():
+        default = Country.objects.filter(is_default=True).first()
+        return default.id if default else None
+
+    def __str__(self):
+        return f'{self.alpha3}, {multi_language(self.name)}'
+
+    class Meta:
+        ordering = ['-is_default', 'alpha3']
+        verbose_name = _('Country')
+        verbose_name_plural = _('Countries')
+
+
+class Address(TenantAbstract):
+    ''' Addresses, per Tenant
+    '''
+    # address
+    address = models.CharField(
+        _('Address'), max_length=100, 
+        help_text=_("Street, house number")
+    )
+    zip = models.CharField(
+        _('ZIP Code'), max_length=20,
+        help_text=_("Postal code for the address"))
+    city = models.CharField(
+        _('City'), max_length=100,
+        help_text=_("City of the address")
+    )
+    country = models.ForeignKey(
+        Country, on_delete=models.PROTECT, related_name="%(class)s_country",
+        verbose_name=_('Country'), default=Country.get_default_id,
+        help_text=_("Country")
+    )
+
+    def __str__(self):
+        if self.country.alpha3 == 'CHE':
+            return f"{self.zip} {self.city}, {self.address}"
+        return f"{self.country} {self.zip} {self.city}, {self.address}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['country', 'zip', 'address'],
+                name='unique_address'
+            )
+        ]             
+        ordering = ['country', 'zip', 'city']
+        verbose_name = _('Address Entry')
+        verbose_name_plural = _('Addresses')
+
+
+class Contact(TenantAbstract):
+
+    class TYPE(models.TextChoices):
+        # CashCtrl
+        EMAIL_INVOICE = 'EMAIL_INVOICE', _('Invoice Email')
+        EMAIL_WORK = 'EMAIL_WORK', _('Work Email')
+        EMAIL_PRIVATE = 'EMAIL_PRIVATE', _('Private Email')
+        PHONE_RECEPTION = 'PHONE_RECEPTION', _('Reception Phone')
+        PHONE_WORK = 'PHONE_WORK', _('Work Phone')
+        PHONE_PRIVATE = 'PHONE_PRIVATE', _('Private Phone')
+        MOBILE_WORK = 'MOBILE_WORK', _('Work Mobile')
+        MOBILE_PRIVATE = 'MOBILE_PRIVATE', _('Private Mobile')
+        FAX = 'FAX', _('Fax')
+        WEBSITE = 'WEBSITE', _('Website')
+        MESSENGER = 'MESSENGER', _('Messenger')
+        OTHER = 'OTHER', _('Other')
+
+    type = models.CharField(max_length=20, choices=TYPE.choices)
+    address = models.CharField(
+        _('Address'), max_length=100,
+        help_text=_("The actual contact information (e-mail address, phone number, etc.).")
+    )
+
+    class Meta:
+        abstract = True
+        verbose_name = _('Contact')
+        verbose_name_plural = _('Contacts')        
+
+    def __str__(self):
+        return f"{self.type} - {self.address}"
