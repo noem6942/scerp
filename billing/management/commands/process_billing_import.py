@@ -7,6 +7,7 @@ from django.core.management.base import BaseCommand
 from django.core.management import CommandError
 
 import billing.import_data as import_data
+from billing.gesoft_counter_data_import import Address, Product, Counter
 
 PATH = 'billing/fixtures/'
 
