@@ -463,7 +463,7 @@ class Unit(AcctApp):
     is_default = models.BooleanField(_("Is default"), default=False)
 
     def __str__(self):
-        return f"{self.code} {multi_language(self.name)}"
+        return multi_language(self.name)
 
     class Meta:
         constraints = [
@@ -933,13 +933,62 @@ class Rounding(AcctApp):
         verbose_name_plural = f"{_('Roundings')}"
 
 
-'''
-to do
+class ArticleCategory(AcctApp):
+    ''' ArticleCategory
+        allocation not implemented yet
+    '''
+    code = models.CharField(
+        _('Code'), max_length=50, help_text=_("internal code"))
+    name = models.JSONField(
+        _('Name'), help_text="The name of the cost center category.")
+    parent = models.ForeignKey(
+        'self', verbose_name=_('Parent'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_parent',
+        help_text=_('The parent category.'))
+    purchase_account = models.ForeignKey(
+        Account, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='%(class)s_purchase_account',
+        verbose_name=_('Account'),
+        help_text=_(
+            "Purchase account, which will be used when purchasing articles. "
+            "Leave empty"))
+    sales_account = models.ForeignKey(
+        Account, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='%(class)s_sales_account',
+        verbose_name=_('Account'),
+        help_text=_(
+            "Sales account, which will be used when selling articles. "
+            "Leave empty"))
+    sequence_nr = models.ForeignKey(
+        SequenceNumber, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='%(class)s_account',
+        verbose_name=_('Sequence Number'),
+        help_text=_(
+            "The ID of the sequence number used for services in this category. "
+            "Leave empty."))
+
+    def __str__(self):
+        return f"{self.code} {multi_language(self.name)}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_setup_article_category'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Article Category")
+        verbose_name_plural = _("Article Categories")
+
 
 class Article(AcctApp):
     """
     Article Model for inventory and sales management.
     """
+    nr = models.CharField(
+        _('Article Number'), max_length=50,
+        help_text=_("The article number."))        
     name = models.JSONField(
         _('Name'),
         help_text=_("The name of the article. For localized text, use XML format: "
@@ -949,140 +998,89 @@ class Article(AcctApp):
     )
     bin_location = models.CharField(
         _('Bin Location'),
-        max_length=255,
+        max_length=255, blank=True, null=True,
         help_text=_("The place within the building (e.g., A15, B04, C11). "
-                    "Ignored unless isStockArticle is true."),
-        null=True,
-        blank=True,
-    )
-    category_id = models.PositiveIntegerField(
-        _('Category ID'),
-        help_text=_("The ID of the category. See Article category."),
-        null=True,
-        blank=True,
-    )
-    currency_id = models.PositiveIntegerField(
-        _('Currency ID'),
-        help_text=_("The ID of the currency. Leave empty to use the default currency."),
-        null=True,
-        blank=True,
-    )
-    custom = models.JSONField(
-        _('Custom Fields'),
-        help_text=_("Custom field values in XML format: "
-                    "<values><customField1>My value</customField1></values>."),
-        null=True,
-        blank=True,
-    )
+                    "Ignored unless isStockArticle is true."))
+    category = models.ForeignKey(
+        ArticleCategory, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='%(class)s_category',
+        verbose_name=_('Category'))
+    currency = models.ForeignKey(
+        ArticleCategory, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='%(class)s_currency',
+        verbose_name=_('Currency'))
     description = models.JSONField(
-        _('Description'),
-        help_text=_("A description of the article. For localized text, use XML format: "
-                    "<values><de>German text</de><en>English text</en></values>."),
-        null=True,
-        blank=True,
-    )
-    is_inactive = models.BooleanField(
-        _('Is Inactive'),
-        default=False,
-        help_text=_("Mark the article as inactive. Defaults to false."),
-    )
+        _('Description'), null=True, blank=True,
+        help_text=_(
+            "A description of the article. For localized text, use XML format: "
+            "<values><de>German text</de><en>English text</en></values>."))
     is_purchase_price_gross = models.BooleanField(
-        _('Is Purchase Price Gross'),
-        default=False,
+        _('Is Purchase Price Gross'), default=False,
         help_text=_("Defines the purchase price as gross (including tax). Defaults to false."),
     )
     is_sales_price_gross = models.BooleanField(
-        _('Is Sales Price Gross'),
-        default=False,
+        _('Is Sales Price Gross'), default=False,
         help_text=_("Defines the sales price as gross (including tax). Defaults to false."),
     )
     is_stock_article = models.BooleanField(
-        _('Is Stock Article'),
-        default=False,
+        _('Is Stock Article'), default=False,
         help_text=_("Whether the article has stock and should be tracked."),
     )
     last_purchase_price = models.DecimalField(
-        _('Last Purchase Price'),
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text=_("The last purchase price of the article. Defaults to net unless isPurchasePriceGross is true."),
+        _('Last Purchase Price'), max_digits=11, decimal_places=2,
+        null=True, blank=True,
+        help_text=_(
+            "The last purchase price of the article. Defaults to net unless  "
+            "isPurchasePriceGross is true. Leave empty"),
     )
-    location_id = models.PositiveIntegerField(
-        _('Location ID'),
-        null=True,
-        blank=True,
-        help_text=_("The ID of the location (e.g., a warehouse). Ignored unless isStockArticle is true."),
-    )
+    location = models.ForeignKey(
+        Location, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='%(class)s_location',
+        verbose_name=_('Location'),
+        help_text=_("Location where the article can be found"))
     max_stock = models.PositiveIntegerField(
-        _('Max Stock'),
-        null=True,
-        blank=True,
-        help_text=_("The desired maximum stock of the article. Ignored unless isStockArticle is true."),
+        _('Max Stock'), null=True, blank=True,
+        help_text=_("The desired maximum stock of the article. Ignored unless "
+                    "isStockArticle is true."),
     )
     min_stock = models.PositiveIntegerField(
-        _('Min Stock'),
-        null=True,
-        blank=True,
-        help_text=_("The desired minimum stock of the article. Ignored unless isStockArticle is true."),
-    )
-    notes = models.TextField(
-        _('Notes'),
-        null=True,
-        blank=True,
-        help_text=_("Optional notes with limited HTML support. "
-                    "Allowed tags: a, p, div, etc."),
-    )
-    nr = models.CharField(
-        _('Article Number'),
-        max_length=50,
-        null=True,
-        blank=True,
-        help_text=_("The article number. Leave empty to auto-generate."),
-    )
+        _('Min Stock'), null=True, blank=True,
+        help_text=_("The desired minimum stock of the article. Ignored unless "
+                    "isStockArticle is true."),)
     sales_price = models.DecimalField(
-        _('Sales Price'),
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text=_("The sales price of the article. Defaults to net unless isSalesPriceGross is true."),
-    )
-    sequence_number_id = models.PositiveIntegerField(
-        _('Sequence Number ID'),
-        null=True,
-        blank=True,
-        help_text=_("The ID of the sequence number used to generate the article number."),
-    )
+        _('Sales Price'), max_digits=11, decimal_places=2,
+        null=True, blank=True,
+        help_text=_("The sales price of the article. Defaults to net unless "
+                    "isSalesPriceGross is true."))
+    sequence_nr = models.ForeignKey(
+        SequenceNumber, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='%(class)s_account',
+        verbose_name=_('Sequence Number'),
+        help_text=_(
+            "The ID of the sequence number used for services in this category. "
+            "Leave empty."))
     stock = models.PositiveIntegerField(
-        _('Stock'),
-        null=True,
-        blank=True,
-        help_text=_("The current stock of the article. Ignored unless isStockArticle is true."),
-    )
-    unit_id = models.CharField(
-        _('Unit ID'),
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text=_("The ID of the unit (like pcs., meters, liters)."),
-    )
+        _('Stock'), null=True, blank=True,
+        help_text=_("The current stock of the article. Ignored unless "
+                    "isStockArticle is true."))
+    unit = models.ForeignKey(
+        Unit, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='%(class)s_unit',
+        verbose_name=_('Unit'))        
 
     def __str__(self):
-        return multi_language(self.name)
+        return f"{self.nr} {multi_language(self.name)}"
 
     class Meta:
         ordering = ['nr']
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'c_id'],
-                name='unique_c_id_per_tenant_setup'
+                fields=['setup', 'nr'],
+                name='unique_setup_article'
             )
         ]
         verbose_name = _("Article")
         verbose_name_plural = _("Articles")
-'''
 
 
 # CRM models ----------------------------------------------------------------
@@ -1212,8 +1210,8 @@ class OrderCategoryContract(OrderCategory):
     rounding = models.ForeignKey(
         Rounding, on_delete=models.PROTECT, blank=True, null=True,
         related_name='%(class)s_rounding',
-        verbose_name=_('Rounding'))        
-        
+        verbose_name=_('Rounding'))
+
     @classmethod
     def helptext_account():
         return _("The creditors account for purchase.")
@@ -1230,7 +1228,7 @@ class OrderCategoryContract(OrderCategory):
 
 
 class OrderCategoryIncoming(OrderCategory):
-    '''Category for incoming invoices, 
+    '''Category for incoming invoices,
         keep this as compact as possible -> only Status used
     '''
     class STATUS(models.TextChoices):
@@ -1279,7 +1277,7 @@ class ContractOrder(AcctApp):
         ('notice_period_month', 'order_procurement_notice')
     ]
     supplier = models.ForeignKey(
-        Person, on_delete=models.PROTECT, related_name='contracts', 
+        Person, on_delete=models.PROTECT, related_name='contracts',
         verbose_name=_('Supplier'),
         help_text=_('contract party'))  # to be mapped to multiple in cashCtrl
     category = models.ForeignKey(
@@ -1305,7 +1303,7 @@ class ContractOrder(AcctApp):
         _('Notice Period (Months)'), null=True, blank=True)
 
     def __str__(self):
-        return f"{self.supplier.company}, {self.date}, {self.description}" 
+        return f"{self.supplier.company}, {self.date}, {self.description}"
 
     class Meta:
         verbose_name = _("Supplier Contract")
@@ -1777,6 +1775,7 @@ class AccountPositionTemplate(
 class AccountPosition(AccountPositionAbstract, AcctApp):
     '''actual account for booking
         triggers signals.py pre_save
+        allocations not implemented yet
     '''
     class ACCOUNT_TYPE(models.IntegerChoices):
         # Used to display Accounting Charts with bookings, no functionals
@@ -1806,7 +1805,6 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
         Group, verbose_name=_('responsible'), null=True, blank=True,
         on_delete=models.PROTECT, related_name='%(class)s_responsible',
         help_text=_('Responsible for budgeting and review'))
-    allocations = models.ManyToManyField(CostCenter)
     currency = models.ForeignKey(
         Currency, verbose_name=_('Currency'), null=True, blank=True,
         on_delete=models.PROTECT,

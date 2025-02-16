@@ -433,6 +433,36 @@ def unit_pre_delete(sender, instance, **kwargs):
     sync.delete()
 
 
+# ArticleCategory
+@receiver(post_save, sender=models.ArticleCategory)
+def article_category_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on ArticleCategory. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.ArticleCategory)
+    sync.save(created=created)
+    
+ 
+@receiver(pre_delete, sender=models.ArticleCategory)
+def article_category_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on ArticleCategory. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.ArticleCategory)
+    sync.delete() 
+
+
+# Article
+@receiver(post_save, sender=models.Article)
+def article_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Article. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.Article)
+    sync.save(created=created)
+    
+ 
+@receiver(pre_delete, sender=models.Article)
+def article_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Article. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.Article)
+    sync.delete() 
+
+
 # Ledger ------------------------------------------------------------------
 @receiver(post_save, sender=models.LedgerBalance)
 def ledger_balance_post_save(sender, instance, created, **kwargs):

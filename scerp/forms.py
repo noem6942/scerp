@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 from .admin import verbose_name_field, get_help_text, is_required_field
 
+
 def make_multilanguage_form(local, model, fields):
     '''
     Dynamically create fields for each language
@@ -25,9 +26,18 @@ def make_multilanguage_form(local, model, fields):
             # label
             label = f"{verbose_name} ({lang_name})"
 
+            # Use Textarea if it's a description field
+            widget = (
+                forms.Textarea(attrs={'rows': 1, 'cols': 80}) 
+                if (field_name.startswith('description')
+                    or field_name.startswith('sentence')) 
+                else forms.TextInput()
+            )
+            
             # assign to local form
             local[key] = forms.CharField(
-                required=required, label=label, help_text=help_text)
+                required=required, label=label, help_text=help_text,
+                widget=widget)
 
 
 class MultilanguageForm(forms.ModelForm):

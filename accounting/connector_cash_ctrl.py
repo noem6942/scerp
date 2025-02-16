@@ -400,11 +400,23 @@ class FiscalPeriod(cashCtrl):
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
 
+    def post_get(self, instance, source, assign, created):
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+
 
 class Currency(cashCtrl):
     api_class = api_cash_ctrl.Currency
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
+
+    def post_get(self, instance, source, assign, created):
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
 
 
 class SequenceNumber(cashCtrl):
@@ -412,11 +424,23 @@ class SequenceNumber(cashCtrl):
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
 
+    def post_get(self, instance, source, assign, created):
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+
 
 class Unit(cashCtrl):
     api_class = api_cash_ctrl.Unit
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
+
+    def post_get(self, instance, source, assign, created):
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
 
 
 class CostCenterCategory(cashCtrl):
@@ -663,23 +687,22 @@ class PersonCategory(cashCtrl):
 
 class Person(cashCtrl):
     api_class = api_cash_ctrl.Person
-    ignore_keys = (
-        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
+    ignore_keys = IGNORE.BASE
 
     @staticmethod
     def make_address(addr):
         value = addr.address.street
-        
+
         if addr.address.house_number:
             value += ' ' + addr.address.house_number
         if addr.address.dwelling_number:
             value += ', ' + addr.address.dwelling_number
-            
+
         if addr.post_office_box:
             value += '\n' + addr.post_office_box
         if addr.additional_information:
-            value += '\n' + addr.additional_information            
-                    
+            value += '\n' + addr.additional_information
+
         return value
 
     def pre_upload(self, instance, data):
@@ -749,6 +772,95 @@ class OrderCategory(cashCtrl):
         foreign_key_class = Account
         self.update_category(
             instance, source, assign, created, 'account', foreign_key_class)
+
+
+class ArticleCategory(cashCtrl):
+    api_class = api_cash_ctrl.ArticleCategory
+    ignore_keys = (
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
+
+    def pre_upload(self, instance, data):
+        # Prepare parent_id
+        if getattr(instance, 'parent', None):
+            data['parent_id'] = instance.parent.c_id
+        else:
+            data.pop('parent_id')
+
+        # Prepare purchase_account
+        if getattr(instance, 'purchase_account', None):
+            data['purchase_account_id'] = instance.purchase_account.c_id
+        else:
+            data.pop('purchase_account_id', None)
+
+        # Prepare sales_account
+        if getattr(instance, 'sales_account', None):
+            data['sales_account'] = instance.sales_account.c_id
+        else:
+            data.pop('sales_account_id', None)
+
+        # Prepare sequence_nr
+        if getattr(instance, 'sequence_nr', None):
+            data['sequence_nr_id'] = instance.sequence_nr.c_id
+        else:
+            data.pop('sequence_nr_id')
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # we do not update cashCtrl ArticleCategories
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+
+
+class Article(cashCtrl):
+    api_class = api_cash_ctrl.Article
+    ignore_keys = IGNORE.BASE
+
+    def pre_upload(self, instance, data):
+        # Prepare category_id
+        if getattr(instance, 'category', None):
+            data['category_id'] = instance.category.c_id
+        else:
+            data.pop('category_id')
+
+        # Prepare currency
+        if getattr(instance, 'currency', None):
+            data['currency_id'] = instance.currency.c_id
+        else:
+            data.pop('currency_id', None)
+
+        # Prepare location
+        if getattr(instance, 'location', None):
+            data['location_id'] = instance.location.c_id
+        else:
+            data.pop('locationt_id', None)
+
+        # Prepare sequence_nr
+        if getattr(instance, 'sequence_nr', None):
+            data['sequence_nr_id'] = instance.sequence_nr.c_id
+        else:
+            data.pop('sequence_nr_id')
+
+        # Prepare unit
+        if getattr(instance, 'unit', None):
+            data['unit_id'] = instance.unit.c_id
+        else:
+            data.pop('unit_id')
+            
+        print("*data", data)
+
+    def post_get(self, instance, source, assign, created):
+        __ = instance, created
+        # we do not update cashCtrl ArticleCategories
+        # code
+        if created:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+        # category
+        foreign_key_class = ArticleCategory
+        self.update_category(
+            instance, source, assign, created, 'category', foreign_key_class)
 
 
 # Handler for signals_cash_ctrl ---------------------------------------------

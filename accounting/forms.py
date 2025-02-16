@@ -21,7 +21,7 @@ from .models import (
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
     BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
-    # OrderCategory,
+    ArticleCategory, Article,
     Ledger, LedgerBalance, LedgerPL, LedgerIC
 )
 
@@ -103,6 +103,23 @@ class OrderCategoryIncomingAdminForm(MultilanguageForm):
         model = OrderCategoryIncoming
         fields = '__all__'
 
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+
+
+class ArticleCategoryAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = ArticleCategory
+
+
+class ArticleAdminForm(MultilanguageForm):
+    MULTI_LANG_FIELDS = ['name', 'description']
+
+    # Dynamically create fields for each language
+    class Meta:
+        model = Article
+        fields = '__all__'
+        
     # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 

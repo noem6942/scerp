@@ -101,6 +101,8 @@ APP_MODEL_ORDER = {
             'ContractOrder': ('O. 18', ''),
             'IncomingOrder': ('O. 19', ''),
             'OrderTemplate': ('O. 20', ''),
+            'ArticleCategory': ('O. 21', ''),
+            'Article': ('O. 22', ''),
 
             # Accounting
             'FiscalPeriod': ('* 18', ' ⬇️'),
@@ -112,7 +114,6 @@ APP_MODEL_ORDER = {
             'LedgerIC': ('L 24', ''),
 
             # Inventory
-            'Article': ('23', ' ⬇️'),
             'ChartOfAccountsTemplate': ('C 31', ''),
             'AccountPositionTemplate': ('C 11', ''),
             'ChartOfAccounts': ('C 42', ''),

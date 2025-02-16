@@ -5,8 +5,9 @@ from django.contrib.admin import SimpleListFilter
 from django.utils.translation import gettext_lazy as _
 
 from core.safeguards import get_tenant, filter_query_for_tenant
-from .models import APISetup, PersonCategory, FiscalPeriod, Ledger
-
+from .models import (
+    APISetup, PersonCategory, ArticleCategory, FiscalPeriod, Ledger
+)
 
 # Helpers
 def filter_queryset(model_admin, request, queryset):
@@ -77,14 +78,14 @@ class LedgerFilteredSetupListFilter(SimpleListFilter):
 class CategoryFilter(SimpleListFilter):
     title = 'Category'  # The filter title
     parameter_name = 'category'  # The query parameter name in the URL
-
+    
     def lookups(self, request, model_admin):
         """
         Return available filter options for the 'category' field,
         excluding categories with codes starting with "_".
         """
         # Get all categories excluding those whose code starts with "_"
-        categories = PersonCategory.objects.exclude(code__startswith='_')
+        categories = self.model.objects.exclude(code__startswith='_')
 
         # Return the list of categories to be displayed in the filter dropdown
         return [(category.id, str(category)) for category in categories]
@@ -97,3 +98,15 @@ class CategoryFilter(SimpleListFilter):
             # Apply filtering to the queryset based on the selected category
             return queryset.filter(category_id=self.value())
         return queryset  # Return the original queryset if no filter is applied
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+class PersonCategoryFilter(CategoryFilter):
+    model = PersonCategory
+    
+ 
+class ArticleCategoryFilter(CategoryFilter):
+    model = ArticleCategory 

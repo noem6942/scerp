@@ -1,5 +1,6 @@
 from django.contrib import admin, messages
 from django.contrib.admin import ModelAdmin
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
 from django.db.models import CharField
 from django.db.models.functions import Cast
@@ -934,7 +935,7 @@ class IncomingOrderAdmin(CashCtrlAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'date', 'description', 'status', 'contract'
+        'date', 'description', 'contract', 'status'
     ) + CASH_CTRL.LIST_DISPLAY_SHORT
     list_display_links = ('date', 'description',)
 
@@ -955,6 +956,99 @@ class IncomingOrderAdmin(CashCtrlAdmin):
     @admin.display(description=_('Supplier'))
     def display_supplier(self, obj):
         return self.display_link_to_company(obj.contract.supplier)
+
+    def save_model(self, request, obj, form, change):
+        # Check if status is being set to "approved"
+        if 'status' in form.changed_data and 'approved' in obj.status:
+            # Only allow users in "Finance" group to approve
+            if not request.user.groups.filter(name='Intern Finanzen').exists():
+                raise PermissionDenied(
+                    _("You are not allowed to approve invoices."))
+        
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(models.ArticleCategory, site=admin_site)
+class ArticleCategoryAdmin(CashCtrlAdmin):
+    # Safeguards
+    related_tenant_fields = [
+        'setup', 'parent', 'purchase_account', 'sales_account', 'sequence_nr']
+
+    # Helpers
+    form = forms.ArticleCategoryAdminForm
+
+    # Display these fields in the list view
+    list_display = (
+        'code', 'display_name', 'display_parent') + CASH_CTRL.LIST_DISPLAY
+    list_display_links = ('code', 'display_name',)
+    readonly_fields = ('display_name',)
+
+    # Search, filter
+    search_fields = ('code', 'name')
+    list_filter = ('setup',)
+
+    # Actions
+    actions = [a.accounting_get_data]
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', *make_multilanguage('name'), 'sales_account'
+            ),
+            'classes': ('expand',),
+        }),
+        (_("Extra"), {
+            'fields': (
+                'parent', 'purchase_account', 'sequence_nr'
+            ),
+            'classes': ('collapse',),
+        }),
+    )
+
+
+@admin.register(models.Article, site=admin_site)
+class ArticleAdmin(CashCtrlAdmin):
+    # Safeguards
+    related_tenant_fields = [
+        'setup', 'category', 'currency', 'location', 'sequence_nr', 'unit']
+
+    # Helpers
+    form = forms.ArticleAdminForm
+
+    # Display these fields in the list view
+    list_display = (
+        'nr', 'display_name', 'sales_price', 'unit') + CASH_CTRL.LIST_DISPLAY
+    list_display_links = ('nr', 'display_name')
+    readonly_fields = ('display_name',)
+
+    # Search, filter
+    search_fields = ('code', 'name')
+    list_filter = (filters.ArticleCategoryFilter, )
+
+    # Actions
+    actions = [a.accounting_get_data]
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'nr', 'category', *make_multilanguage('name'),
+                'sales_price', 'unit', *make_multilanguage('description')),
+            'classes': ('expand',),
+        }),
+        (_("Stock Management"), {
+            'fields': (
+                'location', 'bin_location', 'is_stock_article', 'stock',
+                'min_stock', 'max_stock', 'sequence_nr'),
+            'classes': ('collapse',),
+        }),
+        (_("Pricing"), {
+            'fields': ('currency', 'last_purchase_price', 
+                       'is_sales_price_gross', 'is_purchase_price_gross'),
+            'classes': ('collapse',),
+        }),
+    )
 
 
 # Ledger -------------------------------------------------------------------
@@ -1550,7 +1644,7 @@ class ContactInline(BaseTabularInline):  # or admin.StackedInline
 @admin.register(models.Person, site=admin_site)
 class PersonAdmin(CashCtrlAdmin):
 # Safeguards
-    related_tenant_fields = ['setup', 'title', 'superior']
+    related_tenant_fields = ['setup', 'title', 'superior', 'category']
     has_tenant_field = True
 
     # Display these fields in the list view
@@ -1561,7 +1655,7 @@ class PersonAdmin(CashCtrlAdmin):
     readonly_fields = ('nr',)
 
     # Search, filter
-    list_filter = (filters.CategoryFilter,)
+    list_filter = (filters.PersonCategoryFilter,)
     search_fields = ('company', 'first_name', 'last_name', 'alt_name')
 
     #Fieldsets
@@ -1589,9 +1683,3 @@ class PersonAdmin(CashCtrlAdmin):
     )
 
     inlines = [AddressInline, ContactInline]
-
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == 'category':
-            kwargs["queryset"] = models.PersonCategory.objects.exclude(
-                code__startswith='_')
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
