@@ -13,8 +13,9 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .api_cash_ctrl import (
-    URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE)
-from scerp.mixins import multi_language
+    URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE,
+    ORDER_TYPE)
+from scerp.mixins import primary_language
 
 
 from core.models import (
@@ -45,6 +46,7 @@ class TOP_LEVEL_ACCOUNT(models.TextChoices):
 
 TOP_LEVEL_ACCOUNT_NRS = [Decimal(x.value) for x in TOP_LEVEL_ACCOUNT]
 
+    
 
 # CashCtrl Basics ------------------------------------------------------------
 class APISetup(TenantAbstract):
@@ -145,7 +147,7 @@ class AcctApp(TenantAbstract):
         _("Sync to Accounting"), default=False,
         help_text=(
             "This records needs to be synched to cashctr, if the cycle is "
-            "over it gets reset to False"))
+            "over it gets reset to False"))    
 
     class Meta:
         abstract = True
@@ -456,7 +458,7 @@ class Unit(AcctApp):
     is_default = models.BooleanField(_("Is default"), default=False)
 
     def __str__(self):
-        return multi_language(self.name)
+        return primary_language(self.name)
 
     class Meta:
         constraints = [
@@ -519,7 +521,7 @@ class CostCenterCategory(AcctApp):
         help_text=_('The parent category.'))
 
     def __str__(self):
-        return f"{self.number} {multi_language(self.name)}"
+        return f"{self.number} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -565,7 +567,7 @@ class CostCenter(AcctApp):
             'that period.'))
 
     def __str__(self):
-        return f"{self.number} {multi_language(self.name)}"
+        return f"{self.number} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -601,7 +603,7 @@ class AccountCategory(AcctApp):
         return Decimal(str(self.number)) in TOP_LEVEL_ACCOUNT_NRS
 
     def __str__(self):
-        return f"{self.number} {multi_language(self.name)}"
+        return f"{self.number} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -685,7 +687,11 @@ class Account(AcctApp):
     )
 
     def __str__(self):
-        return f"{self.function} {self.hrm} {multi_language(self.name)}"
+        if not self.hrm or self.hrm[0] in ['1', '2']:  # balance
+            name = ''
+        elif self.function:
+            name = self.function + ' '
+        return f"{name}{self.hrm} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -873,10 +879,14 @@ class Tax(AcctApp):
         help_text=_(
             "The flat tax rate percentage (Saldo-/Pauschalsteuersatz)."))
 
+    def clean(self):
+        if not self.name:
+            raise ValidationError(_("Name must not be empty"))
+
     def __str__(self):
         if 'custom' in self.code:
-            return multi_language(self.name)
-        return f"{self.code} {multi_language(self.name)}"
+            return primary_language(self.name)
+        return f"{self.code} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -961,7 +971,7 @@ class ArticleCategory(AcctApp):
             "Leave empty."))
 
     def __str__(self):
-        return f"{self.code} {multi_language(self.name)}"
+        return f"{self.code} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -1062,7 +1072,7 @@ class Article(AcctApp):
         verbose_name=_('Unit'))
 
     def __str__(self):
-        return f"{self.nr} {multi_language(self.name)}"
+        return f"{self.nr} {primary_language(self.name)}"
 
     class Meta:
         ordering = ['nr']
@@ -1107,7 +1117,7 @@ class Title(AcctApp):
     )
 
     def __str__(self):
-        return f'{multi_language(self.name)}'
+        return f'{primary_language(self.name)}'
 
     class Meta:
         constraints = [
@@ -1155,7 +1165,7 @@ class PersonCategory(AcctApp):
     )
 
     def __str__(self):
-        return multi_language(self.name)
+        return primary_language(self.name)
 
     class Meta:
         constraints = [
@@ -1348,11 +1358,12 @@ class AddressMapping(AcctApp):
         DELIVERY = 'DELIVERY', _('Delivery Address')
         OTHER = 'OTHER', _('Other Address')
 
-    type = models.CharField(max_length=20, choices=TYPE.choices)
+    type = models.CharField(
+        _('Type'), max_length=20, choices=TYPE.choices)
     person = models.ForeignKey(
         Person, on_delete=models.CASCADE,
         related_name='%(class)s_address',
-        verbose_name=_('Address'))    
+        verbose_name=_('Address'))
     address = models.ForeignKey(
         Address, on_delete=models.CASCADE,
         related_name='%(class)s_address',
@@ -1366,70 +1377,123 @@ class AddressMapping(AcctApp):
         max_length=50, blank=True, null=True,
         help_text=_("e.g. c/o"))
 
+    def __str__(self):
+        return f"{self.address}"
+
+    class Meta:
+        ordering = ['type']
+        verbose_name = _('Address')
+        verbose_name_plural = _('Addresses')
+
 
 class ContactMapping(Contact):
     person = models.ForeignKey(
         Person, on_delete=models.CASCADE,
         related_name='%(class)s_address',
-        verbose_name=_('Address'))    
+        verbose_name=_('Address'))
 
 
 
 # Orders --------------------------------------------------------------------
 class BookTemplate(AcctApp):
-    ''' BookTemplates '''
+    '''
+    BookTemplates
+    not synchronized to cashCtrl
+    we use it for booking and order management
+    '''
+    class TYPE(models.TextChoices):
+        # CashCtrl
+        CREDITOR_BOOKING = 'C_BOOK', _('Creditor Booked')
+        CREDITOR_PAID = 'C_PAID', _('Creditor Paid')
+
     code = models.CharField(
         _('Code'), max_length=200,
         help_text=_("internal code"))
+    type = models.CharField(
+        _('Type'), max_length=10, choices=TYPE.choices,
+        help_text=('''Workflow process step'''))
     name = models.JSONField(_('Name'))
-    account = models.ForeignKey(
+    credit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
-        related_name='%(class)s_account',
-        verbose_name=_('Account'),
-        help_text="Typically a bank account in case of a payment template")
-    tax =  models.ForeignKey(
-        Tax, on_delete=models.CASCADE,
+        related_name='%(class)s_credit_account',
+        verbose_name=_('Credit Account'),
+        help_text="Typically the default creditor account in case of a payment")
+    debit_account = models.ForeignKey(
+        Account, on_delete=models.CASCADE,
+        related_name='%(class)s_debit_account',
+        verbose_name=_('Dedbt Account'),
+        help_text="Typically an expense account in case of a payment")
+    tax = models.ForeignKey(
+        Tax, on_delete=models.CASCADE, blank=True, null=True,
         related_name='%(class)s_tax',
         verbose_name=_('Tax'),
-        help_text="Tax rate in this book template.")
+        help_text="Tax rate to be applied.")
 
     def __str__(self):
-        return f"{self.code} {multi_language(self.name)}"
+        return f"{self.code}, {self.type}, {primary_language(self.name)}"
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['setup', 'code', 'type'],
                 name='unique_c_id_per_tenant_setup__order_template'
             )
         ]
-        ordering = ['name']
+        ordering = ['code', 'type']
         verbose_name = _("Booking Template")
         verbose_name_plural = f"{_('Booking Templates')}"
 
 
 class OrderCategory(AcctApp):
-    ''' OrderCategory '''
+    ''' OrderCategory
+    central category for booking:
+        status: get derived from STATUS
+        book_templates: only defined in OrderCategoryContract
+        bookType: defined in classes  DEBIT, CREDIT
+        due_days: defined in classes
+        footer, header: defined in classes
+        mail: empty for now
+        responsiblePersonId: empty for now
+        type: defined in classes  SALES, PURCHASE
+    '''
     code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,
+        _('Code'), max_length=50,
         help_text='Internal code for scerp')
+    name_singular = models.JSONField(
+        _('Name, singular'), blank=True, null=True,
+        help_text=_(
+            "The singular name of the category (e.g. 'Invoices'). "
+            "Fill if for at least one language."))
     name_plural = models.JSONField(
         _('Name, plural'), blank=True, null=True,
-        help_text=_("he plural name of the category (e.g. 'Invoices')."))
-    account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='%(class)s_account',
-        verbose_name=_('Account'))
+        help_text=_(
+            "The plural name of the category (e.g. 'Invoices'). "
+            "Fill if for at least one language."))
     address_type = models.CharField(
         _('address type'), max_length=20,
         choices=AddressMapping.TYPE.choices,
-        default=AddressMapping.TYPE.MAIN,
+        default=AddressMapping.TYPE.INVOICE,
         help_text=(
             '''Which address of the recipient to use in the order document.
                Possible values: MAIN, INVOICE, DELIVERY, OTHER.'''))
 
+    def clean(self):
+        # Check for required fields and raise validation error if missing
+        missing_fields = []
+
+        if not self.name_singular:
+            missing_fields.append("singular name")
+        if not self.name_plural:
+            missing_fields.append("plural name")
+
+        if missing_fields:
+            raise ValidationError(
+                _("The following fields are mandatory: %s.") %
+                ", ".join(missing_fields)
+            )
+
     def __str__(self):
-        return multi_language(self.name_plural)
+        return primary_language(self.name_plural)
 
     class Meta:
         ordering = ['code', 'name_plural']
@@ -1470,9 +1534,10 @@ class OrderCategoryContract(OrderCategory):
         STATUS.TERMINATION_CONFIRMED: COLOR.BROWN,
         STATUS.ARCHIVED: COLOR.GRAY,
     }
+    type = ORDER_TYPE.PURCHASE
     book_type = BOOK_TYPE.CREDIT
-    book_templates = models.ManyToManyField(
-        BookTemplate, related_name='incoming_orders',
+    bookings = models.ManyToManyField(
+        BookTemplate, related_name='bookings',
         verbose_name = _("Book Templates"),
         help_text=_("Definition of booking process"))
     rounding = models.ForeignKey(
@@ -1480,9 +1545,20 @@ class OrderCategoryContract(OrderCategory):
         related_name='%(class)s_rounding',
         verbose_name=_('Rounding'))
 
-    @classmethod
-    def helptext_account():
-        return _("The creditors account for purchase.")
+    '''
+    def clean(self):
+        super().clean()
+        if not self.bookings.count() < 2:
+            raise ValidationError(_("Select at least two booking templates"))
+    '''
+    
+    @property
+    def account(self):
+        # needed for cashCtrl
+        for booking in self.book_templates.all():
+            if booking.type == booking.TYPE.CREDITOR_BOOKING:
+                return booking.credit_account
+        return None
 
     class Meta:
         constraints = [
@@ -1503,7 +1579,7 @@ class OrderCategoryIncoming(OrderCategory):
         OPEN = "Open", _("Open")
         APPROVED_1 = "Approved 1", _("Approved 1")
         APPROVED_2 = "Approved 2", _("Approved 2")
-        BOOKED = "Posted", _("Booked")
+        # BOOKED = "Posted", _("Booked")
         SUBMITTED = "Submitted", _("Submitted")
         REMINDER_1 = "Reminder 1", _("Reminder 1")
         REMINDER_2 = "Reminder 2", _("Reminder 2")
@@ -1515,7 +1591,7 @@ class OrderCategoryIncoming(OrderCategory):
         STATUS.OPEN: COLOR.GRAY,
         STATUS.APPROVED_1: COLOR.GREEN,
         STATUS.APPROVED_2: COLOR.GREEN,
-        STATUS.BOOKED: COLOR.VIOLET,
+        # STATUS.BOOKED: COLOR.VIOLET,
         STATUS.SUBMITTED: COLOR.BLUE,
         STATUS.REMINDER_1: COLOR.PINK,
         STATUS.REMINDER_2: COLOR.ORANGE,
@@ -1523,7 +1599,28 @@ class OrderCategoryIncoming(OrderCategory):
         STATUS.ARCHIVED: COLOR.BLACK,
         STATUS.CANCELLED: COLOR.YELLOW,
     }
+    type = ORDER_TYPE.PURCHASE
     book_type = BOOK_TYPE.CREDIT
+    is_switch_recipient = True
+    due_days = models.PositiveSmallIntegerField(
+        _('Default due days'), default=30, null=True, blank=True)
+
+    def clean(self):
+        if not self.name:
+            raise ValidationError(_("Name must not be empty"))        
+        if not self.book_templates.count() < 2:
+            raise ValidationError(_("Select at least two booking templates"))
+
+    @property
+    def account(self):
+        # needed for cashCtrl
+        for booking in self.book_templates.all():
+            if booking.type == booking.TYPE.CREDITOR_BOOKING:
+                return booking.credit_account
+        return None
+
+    def __str__(self):
+        return f"{self.code} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -1551,11 +1648,12 @@ class ContractOrder(AcctApp):
     category = models.ForeignKey(
         OrderCategoryContract, on_delete=models.CASCADE,
         related_name='%(class)s_category',
-        verbose_name=_('Category'),
+        verbose_name=_('Category and Booking'),
         help_text=_('all booking details are defined in category'))
     status = models.CharField(
         _('Status'), max_length=50,
-        choices=OrderCategoryContract.STATUS.choices)
+        choices=OrderCategoryContract.STATUS.choices,
+        default=OrderCategoryContract.STATUS.AWARDED)
     date = models.DateField(
         _('Date'), null=True, blank=True)
     description = models.CharField(
@@ -1579,7 +1677,23 @@ class ContractOrder(AcctApp):
 
 
 class IncomingOrder(AcctApp):
-    ''' IncomingOrder '''
+    ''' IncomingOrder
+    Note:
+    When incomding order is created first booking is done:
+        account_id:
+            account given
+            (if empty taken from OrderCategory, but we avoid this)
+        items:
+            accountId: expense account, e.g. Wareneingang
+            name: derived from contract
+            unitPrice: use price_incl_vat
+            quantity: use 1
+            tax_id: derive from ...
+    '''
+    account = models.ForeignKey(
+        Account, on_delete=models.PROTECT,
+        related_name='%(class)s_account', verbose_name=_('Account'),
+        help_text=_("The creditors account for purchase."))
     category = models.ForeignKey(
         OrderCategoryIncoming, on_delete=models.CASCADE,
         related_name='%(class)s_category',
@@ -1599,11 +1713,19 @@ class IncomingOrder(AcctApp):
     status = models.CharField(
         _('Status'), max_length=50,
         choices=OrderCategoryIncoming.STATUS.choices)
+    items = models.JSONField(
+        _('Items'), default=dict,
+        help_text=_("Gets filled out automatically"))
     due_days = models.PositiveIntegerField(
         _('Due Days'), null=True, blank=True,
         help_text=_(
             '''The due days used by default for order objects in this category.
             The order date + due days equals the due date.'''))
+    responsible_person = models.ForeignKey(
+        Person, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_person',
+        verbose_name=_('Responsible'),
+        help_text=_('Clerk / Sachbearbeiter'))
 
     def __str__(self):
         return (
@@ -1651,7 +1773,7 @@ class Ledger(AcctApp):
         help_text=_("Fiscal period"))
 
     def __str__(self):
-        return f"{multi_language(self.name)}, {self.period}"
+        return f"{primary_language(self.name)}, {self.period}"
 
     class Meta:
         constraints = [
@@ -1730,7 +1852,7 @@ class LedgerAccount(AcctLedger):
         ]
 
     class Meta:
-        ordering = [Cast('function', models.CharField())]
+        ordering = ['function', '-type', 'hrm']
         abstract = True
 
 
@@ -1764,7 +1886,7 @@ class LedgerBalance(LedgerAccount):
     )
 
     def __str__(self):
-        return f"{self.hrm} {multi_language(self.name)}"
+        return f"{self.hrm} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -1791,9 +1913,9 @@ class FunctionalLedger(LedgerAccount):
 
     def __str__(self):
         if self.type == self.TYPE.CATEGORY:
-            return f"{self.function} {multi_language(self.name)}"
+            return f"{self.function} {primary_language(self.name)}"
         else:
-            return f"{self.function}.{self.hrm} {multi_language(self.name)}"
+            return f"{self.function}.{self.hrm} {primary_language(self.name)}"
 
     class Meta:
         abstract = True

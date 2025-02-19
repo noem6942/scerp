@@ -59,8 +59,8 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
 
         # PersonCategory
         sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
-        sync.get(model=models.PersonCategory)        
-        
+        sync.get(model=models.PersonCategory)
+
         return
 
         # Round 1 data -----------------------------------------------
@@ -142,10 +142,10 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         # Title
         sync = conn.CashCtrlSync(sender, instance, conn.Title)
         sync.get(model=models.Title)
-        
+
         # PersonCategory
         sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
-        sync.get(model=models.PersonCategory)        
+        sync.get(model=models.PersonCategory)
 
         # Round 2 data -----------------------------------------------
         # Create Root Additional Top AccountCategories
@@ -293,7 +293,7 @@ def account_category_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.AccountCategory)
 def account_category_pre_delete(sender, instance, **kwargs):
     ''''Signal handler for pre_delete signals on AccountCategory. '''
-    # Check protection    
+    # Check protection
     if instance.is_top_level_account:
         raise ValueError(_("Deletion is not allowed for {instance.number}."))
 
@@ -358,13 +358,13 @@ def person_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on PersonCategory. '''
     sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
     sync.save(created=created)
-    
- 
+
+
 @receiver(pre_delete, sender=models.PersonCategory)
 def person_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on PersonCategory. '''
     sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
-    sync.delete() 
+    sync.delete()
 
 
 # Person
@@ -373,19 +373,19 @@ def person_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Person '''
     # This ensures the function only runs after Django fully saves all inlines.
     transaction.on_commit(lambda: person_sync(sender, instance, created))
-    
+
 
 def person_sync(sender, instance, created):
     '''This runs after all database transactions are complete'''
     sync = conn.CashCtrlSync(sender, instance, conn.Person)
     sync.save(created=created)
- 
- 
+
+
 @receiver(pre_delete, sender=models.Person)
 def person_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Person. '''
     sync = conn.CashCtrlSync(sender, instance, conn.Person)
-    sync.delete() 
+    sync.delete()
 
 
 # Tax
@@ -439,13 +439,13 @@ def article_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on ArticleCategory. '''
     sync = conn.CashCtrlSync(sender, instance, conn.ArticleCategory)
     sync.save(created=created)
-    
- 
+
+
 @receiver(pre_delete, sender=models.ArticleCategory)
 def article_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on ArticleCategory. '''
     sync = conn.CashCtrlSync(sender, instance, conn.ArticleCategory)
-    sync.delete() 
+    sync.delete()
 
 
 # Article
@@ -454,13 +454,45 @@ def article_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Article. '''
     sync = conn.CashCtrlSync(sender, instance, conn.Article)
     sync.save(created=created)
-    
- 
+
+
 @receiver(pre_delete, sender=models.Article)
 def article_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Article. '''
     sync = conn.CashCtrlSync(sender, instance, conn.Article)
-    sync.delete() 
+    sync.delete()
+
+
+# OrderCategoryContract
+@receiver(post_save, sender=models.OrderCategoryContract)
+def order_category_contract_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on OrderCategoryContract. '''
+    # Ensure related M2M relationships are saved
+    sync = conn.CashCtrlSync(sender, instance, conn.OrderCategory)
+    sync.save(created=created)
+
+
+@receiver(pre_delete, sender=models.OrderCategoryContract)
+def order_category_contract_post_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on OrderCategoryContract. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.OrderCategoryContract)
+    sync.delete()
+
+
+# OrderCategoryIncoming
+@receiver(post_save, sender=models.OrderCategoryIncoming)
+def order_category_incoming_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on OrderCategoryIncoming. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.OrderCategoryIncoming)
+    sync.save(created=created)
+
+
+@receiver(pre_delete, sender=models.OrderCategoryIncoming)
+def order_category_incoming_post_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on OrderCategoryIncoming. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.OrderCategoryIncoming)
+    sync.delete()
+
 
 
 # Ledger ------------------------------------------------------------------
@@ -486,10 +518,6 @@ def ledger_pl_post_save(sender, instance, created, **kwargs):
 def ledger_ic_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Unit. '''
     __ = created
-    print("*gettting", instance.hrm)
     handler = LedgerICUpdate(sender, instance)
     if handler.needs_update:
-        print("*needs_update", instance.hrm)
         handler.save()
-    else:
-        print("*no need for update", instance.hrm)

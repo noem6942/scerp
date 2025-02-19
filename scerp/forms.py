@@ -6,12 +6,19 @@ from django.utils.translation import gettext_lazy as _
 from .admin import verbose_name_field, get_help_text, is_required_field
 
 
+# currently show only LANGUAGE_CODE_PRIMARY
+languages = [
+    (lang_code, lang) for lang_code, lang in settings.LANGUAGES
+    if lang_code == settings.LANGUAGE_CODE_PRIMARY
+]
+
+
 def make_multilanguage_form(local, model, fields):
     '''
     Dynamically create fields for each language
     '''
     for field_name in fields:
-        for language in settings.LANGUAGES:
+        for language in languages:
             # variables
             lang_code, lang_name = language
             key = f'{field_name}_{lang_code}'
@@ -43,14 +50,14 @@ def make_multilanguage_form(local, model, fields):
 class MultilanguageForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
-        # Initialize the form
+        # Initialize the form        
         super().__init__(*args, **kwargs)
 
         for field in self.MULTI_LANG_FIELDS:
             # Populate the dynamically created fields with data from the 'name' JSON field if it's available
             if self.instance.pk:  # Only do this if the instance already exists (i.e., it's an edit)
                 name_data = getattr(self.instance, field) or {}  # Get the name field (JSON data)
-                for lang_code, _ in settings.LANGUAGES:
+                for lang_code, _ in languages:
                     field_name = f'{field}_{lang_code}'
                     if lang_code in name_data:
                         self.fields[field_name].initial = name_data[lang_code]  # Set the initial value for the field
@@ -62,7 +69,7 @@ class MultilanguageForm(forms.ModelForm):
         # Build the JSON structure from the individual fields
         for field in self.MULTI_LANG_FIELDS:
             name_data = {}
-            for lang_code, _ in settings.LANGUAGES:
+            for lang_code, _ in languages:
                 lang_name = cleaned_data.get(f'{field}_{lang_code}', '')
                 if lang_name:
                     name_data[lang_code] = lang_name

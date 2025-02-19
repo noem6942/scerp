@@ -8,7 +8,7 @@ from accounting.models import Person
 from core.models import (
     LogAbstract, TenantAbstract, Country, Address, Contact)
 from scerp.admin import Display
-from scerp.mixins import multi_language
+from scerp.mixins import primary_language
 
 
 '''

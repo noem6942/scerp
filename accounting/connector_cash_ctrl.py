@@ -3,12 +3,13 @@ accounting/connector_cash_ctrl_new.py
 '''
 import logging
 from django.utils import timezone
+from django.utils.encoding import force_str
 
 from scerp.exceptions import APIRequestError
 from scerp.mixins import make_timeaware
 from . import api_cash_ctrl
 from .models import (
-    APISetup, TOP_LEVEL_ACCOUNT, Allocation,
+    APISetup, TOP_LEVEL_ACCOUNT, Allocation,     
     CustomField as model_CustomField,
     ContactMapping, AddressMapping,
     Account as model_Account,
@@ -703,7 +704,6 @@ class Person(cashCtrl):
     def pre_upload(self, instance, data):
         # Prepare catgory_id
         if getattr(instance, 'category', None):
-            print("*instance.category", instance.category.__dict__)
             data['category_id'] = instance.category.c_id
 
         # Prepare title_id
@@ -745,14 +745,26 @@ class Person(cashCtrl):
 class OrderCategory(cashCtrl):
     api_class = api_cash_ctrl.OrderCategory
     ignore_keys = (
-        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
-
+        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
+        
     def pre_upload(self, instance, data):
-        # account
-        if getattr(instance, 'account', None):
-            data['account_id'] = instance.account.c_id
-        else:
-            raise ValueError("No account given.")
+        # account, needed - we derive it from BookTemplates in models.py
+        data['account_id'] = model_Account.objects.filter(
+                setup=instance.setup).exclude(c_id=None).first().c_id            
+
+        # types
+        data['type'] = instance.type
+        data['book_type'] = instance.book_type
+        
+        # status, we only use minimal values as we do the booking ourselves
+        data['status'] = [{
+            'icon': instance.COLOR_MAPPING[status],
+            'name': force_str(status.label),  # Ensure proper string conversion
+        } for status in instance.STATUS]          
+        
+        # Rounding
+        if getattr(instance, 'rounding', None):
+            data['rounding_id'] = instance.rounding.c_id        
 
     def post_get(self, instance, source, assign, created):
         __ = instance, created
@@ -765,7 +777,7 @@ class OrderCategory(cashCtrl):
         foreign_key_class = Account
         self.update_category(
             instance, source, assign, created, 'account', foreign_key_class)
-
+        
 
 class ArticleCategory(cashCtrl):
     api_class = api_cash_ctrl.ArticleCategory
@@ -886,7 +898,8 @@ class CashCtrlSync:
         """
         if self.instance.is_enabled_sync and self.instance.sync_to_accounting:
             # We only sync it this is True !!!
-            if created:
+            if created or not self.instance.c_id:
+                # instance not created in cashCtrl, yet
                 logger.info(f"Creating record {self.instance} in CashCtrl")
                 self.handler.create(self.instance)
             else:

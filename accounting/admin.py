@@ -4,18 +4,19 @@ from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
 from django.db.models import CharField
 from django.db.models.functions import Cast
+from django.shortcuts import get_object_or_404
 from django.utils import formats
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from import_export.admin import ExportActionMixin
 
-from core.safeguards import get_tenant
-from core.models import Address, Contact
+from core.safeguards import get_tenant, save_logging
+from core.models import Country, Address, Contact
 from scerp.admin import (
      BaseAdmin, BaseTabularInline, Display,
-     verbose_name_field, make_multilanguage, set_inactive, set_protected)
+     verbose_name_field, make_language_fields, set_inactive, set_protected)
 from scerp.admin_site import admin_site
-from scerp.mixins import multi_language
+from scerp.mixins import primary_language
 
 from . import actions as a
 from . import filters, forms, models
@@ -46,7 +47,7 @@ class CASH_CTRL:
         'c_rev_last_updated',
         'c_rev_last_updated_by'
     ]
-    WARNING_READ_ONLY = _("Read only model. <i>Use cashControl for edits!</i>")   
+    WARNING_READ_ONLY = _("Read only model. <i>Use cashControl for edits!</i>")
     LIST_DISPLAY = (
         'display_last_update', 'c_id', 'message', 'is_enabled_sync')
     LIST_DISPLAY_SHORT = ('c_id', 'is_enabled_sync')
@@ -84,11 +85,16 @@ class APISetupAdmin(BaseAdmin):
             'classes': ('expand',),
         }),
     )
-
-
+    
 
 class CashCtrlAdmin(BaseAdmin):
     has_tenant_field = True
+
+    def get_default_api_setup(self, request):
+        ''' Fetch the default api setup '''
+        tenant = get_tenant(request)
+        return get_object_or_404(
+            models.APISetup, tenant__id=tenant['id'], is_default=True)
 
     def get_cash_ctrl_fields(self):
         fields = CASH_CTRL.FIELDS + CASH_CTRL.SUPER_USER_EDITABLE_FIELDS
@@ -140,19 +146,28 @@ class CashCtrlAdmin(BaseAdmin):
 
         # Only set default value if this is a new instance (obj is None)
         if not obj:
-            # Fetch the default setup value
-            tenant = get_tenant(request)
-            default_value = models.APISetup.objects.filter(
-                tenant__id=tenant['id'], is_default=True).first()
-
-            # If no default value found, raise an error
-            if not default_value:
-                raise IntegrityError(f"No API Setup found.")
-
-            # Set the default value for the 'setup' field in the form
-            form.base_fields['setup'].initial = default_value
+            # Set the default value for the 'setup' field in the form            
+            api_setup = self.get_default_api_setup(request)
+            form.base_fields['setup'].initial = api_setup
 
         return form
+
+    def save_inlines(self, request, form, formset, change):
+        """ Safe setup for inlines """
+        instances = formset.save(commit=False)  # Get unsaved inline instances
+        tenant = get_tenant(request)
+        
+        # Fetch the correct setup instance
+        api_setup = self.get_default_api_setup(request)
+        form.base_fields['setup'].initial = api_setup
+
+        for instance in instances:
+            if getattr(instance, 'setup_id', None):
+                if not instance.setup_id:  # Only set if it's not already set
+                    instance.setup = api_setup  # Assign the actual APISetup instance
+                instance.save()
+
+        formset.save_m2m()  # Save many-to-many relationships
 
     @admin.display(description=_('last update'))
     def display_last_update(self, obj):
@@ -161,14 +176,14 @@ class CashCtrlAdmin(BaseAdmin):
     @admin.display(description=_('Name'))
     def display_name(self, obj):
         try:
-            return multi_language(obj.name)
+            return primary_language(obj.name)
         except:
             return ''
 
     @admin.display(description=_('Name Plural'))
     def display_name_plural(self, obj):
         try:
-            return multi_language(obj.name_plural)
+            return primary_language(obj.name_plural)
         except:
             return ''
 
@@ -323,7 +338,7 @@ class CurrencyAdmin(CashCtrlAdmin):
 
     # Helpers
     form = forms.CurrencyAdminForm
-    
+
     # Display these fields in the list view
     list_display = ('code', 'is_default', 'rate') + CASH_CTRL.LIST_DISPLAY
     readonly_fields = ('display_description',)
@@ -343,14 +358,14 @@ class CurrencyAdmin(CashCtrlAdmin):
             'classes': ('expand',),
         }),
         (_('Description'), {
-            'fields': (*make_multilanguage('description'), ),
+            'fields': (*make_language_fields('description'), ),
             'classes': ('collapse',),
         }),
     )
 
     @admin.display(description=_('description'))
     def display_description(self, obj):
-        return multi_language(obj.description)
+        return primary_language(obj.description)
 
 
 @admin.register(models.Title, site=admin_site)
@@ -375,12 +390,12 @@ class TitleAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'gender', *make_multilanguage('name')),
+                'code', 'gender', *make_language_fields('name')),
             'classes': ('expand',),
         }),
         (_('Texts'), {
             'fields': (
-                *make_multilanguage('sentence'),),
+                *make_language_fields('sentence'),),
             'classes': ('collapse',),
         }),
     )
@@ -410,7 +425,7 @@ class UnitAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', *make_multilanguage('name')),
+                'code', *make_language_fields('name')),
             'classes': ('collapse',),
         }),
     )
@@ -446,20 +461,20 @@ class TaxAdmin(CashCtrlAdmin):
                 'display_name', 'code', 'percentage', 'calc_type',
                 'percentage_flat', 'account'
             ),
-            'classes': ('collapse',),
+            'classes': ('expand',),
         }),
-        (_('Text'), {  # ← Corrected tuple structure
+        (_('Text'), {
             'fields': (
-                *make_multilanguage('name'),
-                *make_multilanguage('document_name'),
+                *make_language_fields('name'),
+                *make_language_fields('document_name'),
             ),
-            'classes': ('collapse',),
+            'classes': ('expand',),
         }),
     )
 
     @admin.display(description=_('Wording in document'))
     def display_document_name(self, obj):
-        return multi_language(obj.document_name)
+        return primary_language(obj.document_name)
 
     @admin.display(description=_("Percentage"))
     def display_percentage(self, obj):
@@ -495,14 +510,14 @@ class RoundingAdmin(CashCtrlAdmin):
         (None, {
             'fields': (
                 'code', 'account', 'rounding', 'mode',
-                *make_multilanguage('name'),),
+                *make_language_fields('name'),),
             'classes': ('expand',),
         }),
     )
 
     @admin.display(description=_('Name'))
     def display_name(self, obj):
-        return multi_language(obj.name)
+        return primary_language(obj.name)
 
 
 @admin.register(models.SequenceNumber, site=admin_site)
@@ -534,45 +549,10 @@ class SequenceNumberAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('Name'))
     def local_name(self, obj):
-        return multi_language(obj.name)
+        return primary_language(obj.name)
 
 
 """
-@admin.register(models.OrderCategory, site=admin_site)
-class OrderCategoryAdmin(CashCtrlAdmin):
-    # Safeguards
-    related_tenant_fields = ['setup']
-
-    # Display these fields in the list view
-    list_display = ('display_name', 'due_days') + CASH_CTRL.LIST_DISPLAY
-    readonly_fields = ('display_name', 'display_status')
-
-    # Search, filter
-    search_fields = ['display_name', 'number']
-    list_filter = ('setup',)
-
-    # Actions
-    actions = [a.accounting_get_data]
-
-    #Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': (
-                'display_name', 'account_id', 'display_status', 'address_type',
-                'due_days'),
-            'classes': ('expand',),
-        }),
-    )
-
-    @admin.display(description=_('Name'))
-    def display_name(self, obj):
-        return multi_language(obj.name_plural)
-
-    @admin.display(description=_('Stati'))
-    def display_status(self, obj):
-        stati = [multi_language(x['name']) for x in obj.status]
-        return Display.list(stati)
-
 
 @admin.register(models.OrderTemplate, site=admin_site)
 class OrderTemplateAdmin(CashCtrlAdmin):
@@ -624,7 +604,7 @@ class CostCenterCategoryAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'number', 'parent', *make_multilanguage('name')),
+                'number', 'parent', *make_language_fields('name')),
             'classes': ('expand',),
         }),
     )
@@ -654,7 +634,7 @@ class CostCenterAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'number', 'category', *make_multilanguage('name')),
+                'number', 'category', *make_language_fields('name')),
             'classes': ('expand',),
         }),
     )
@@ -685,7 +665,7 @@ class AccountCategoryAdmin(CashCtrlAdmin):
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': ('number', 'parent', *make_multilanguage('name'),),
+            'fields': ('number', 'parent', *make_language_fields('name'),),
             'classes': ('expand',),
         }),
     )
@@ -735,7 +715,7 @@ class AccountAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'number', 'category', *make_multilanguage('name'),
+                'number', 'category', *make_language_fields('name'),
                 'currency', 'target_max', 'target_min', 'function', 'hrm'),
             'classes': ('expand',),
         }),
@@ -796,14 +776,17 @@ class SettingAdmin(CashCtrlAdmin):
 @admin.register(models.BookTemplate, site=admin_site)
 class BookTemplateAdmin(CashCtrlAdmin):
     # Safeguards
-    related_tenant_fields = ['setup', 'account', 'tax']
+    related_tenant_fields = [
+        'setup', 'credit_account', 'debit_account', 'tax']
+    optimize_foreigns = ['credit_account', 'debit_account', 'tax']
 
     # Helpers
     form = forms.BookTemplateAdminForm
 
     # Display these fields in the list view
     list_display = (
-        'code', 'display_name',  'account', 'tax'
+        'code', 'type', 'display_name',  'credit_account', 'debit_account', 
+        'tax'
     ) + CASH_CTRL.LIST_DISPLAY_SHORT
 
     # Search, filter
@@ -812,7 +795,9 @@ class BookTemplateAdmin(CashCtrlAdmin):
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': ('code', *make_multilanguage('name'), 'account', 'tax'),
+            'fields': (
+                'code', 'type', *make_language_fields('name'), 
+                'credit_account', 'debit_account', 'tax'),
             'classes': ('expand',),
         }),
     )
@@ -821,7 +806,7 @@ class BookTemplateAdmin(CashCtrlAdmin):
 @admin.register(models.OrderCategoryContract, site=admin_site)
 class OrderCategoryContractAdmin(CashCtrlAdmin):
     # Safeguards
-    related_tenant_fields = ['setup', 'account']
+    related_tenant_fields = ['setup', 'account', 'bookings']
 
     # Helpers
     form = forms.OrderCategoryContractAdminForm
@@ -837,8 +822,11 @@ class OrderCategoryContractAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', *make_multilanguage('name_plural'),
-                'account', 'address_type', 'book_templates', 'rounding'),
+                'code',  
+                *make_language_fields('name_singular'),
+                *make_language_fields('name_plural'),
+                'address_type', 'bookings', 'rounding'
+            ),
             'classes': ('expand',),
         }),
     )
@@ -863,7 +851,8 @@ class OrderCategoryIncomingAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', *make_multilanguage('name_plural')),
+                'code', 'account',  *make_language_fields('name_singular'),
+                *make_language_fields('name_plural')),
             'classes': ('expand',),
         }),
     )
@@ -878,6 +867,8 @@ class ContractOrderAdmin(CashCtrlAdmin):
     list_display = (
         'date', 'description', 'status', 'display_supplier', 'price_excl_vat'
     ) + CASH_CTRL.LIST_DISPLAY_SHORT
+    list_display_links = ('date', 'description')
+
 
     # Search, filter
     search_fields = ('supplier__company', 'description')
@@ -897,7 +888,7 @@ class ContractOrderAdmin(CashCtrlAdmin):
             'classes': ('expand',),
         }),
     )
-    
+
     @admin.display(description=_('Supplier'))
     def display_supplier(self, obj):
         return self.display_link_to_company(obj.supplier)
@@ -906,24 +897,25 @@ class ContractOrderAdmin(CashCtrlAdmin):
 @admin.register(models.IncomingOrder, site=admin_site)
 class IncomingOrderAdmin(CashCtrlAdmin):
     # Safeguards
-    related_tenant_fields = ['setup', 'supplier', 'category']
+    related_tenant_fields = ['setup', 'contract', 'category']
 
     # Display these fields in the list view
     list_display = (
-        'date', 'description', 'contract', 'status'
+        'date', 'description', 'status', 'display_supplier', 'price_incl_vat'
     ) + CASH_CTRL.LIST_DISPLAY_SHORT
-    list_display_links = ('date', 'description',)
+    list_display_links = ('date', 'description')
+
 
     # Search, filter
-    search_fields = ('contract__supplier__company', 'description')
+    search_fields = ('contract', 'description')
     list_filter = ('status', 'date')
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'category', 'contract', 'status', 'description', 'date',                
-                'price_incl_vat'),
+                'category', 'contract', 'status', 'description', 'date',
+                'price_incl_vat', 'responsible_person'),
             'classes': ('expand',),
         }),
     )
@@ -931,16 +923,6 @@ class IncomingOrderAdmin(CashCtrlAdmin):
     @admin.display(description=_('Supplier'))
     def display_supplier(self, obj):
         return self.display_link_to_company(obj.contract.supplier)
-
-    def save_model(self, request, obj, form, change):
-        # Check if status is being set to "approved"
-        if 'status' in form.changed_data and 'approved' in obj.status:
-            # Only allow users in "Finance" group to approve
-            if not request.user.groups.filter(name='Intern Finanzen').exists():
-                raise PermissionDenied(
-                    _("You are not allowed to approve invoices."))
-        
-        super().save_model(request, obj, form, change)
 
 
 @admin.register(models.ArticleCategory, site=admin_site)
@@ -969,7 +951,7 @@ class ArticleCategoryAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', *make_multilanguage('name'), 'sales_account'
+                'code', *make_language_fields('name'), 'sales_account'
             ),
             'classes': ('expand',),
         }),
@@ -1008,8 +990,8 @@ class ArticleAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'nr', 'category', *make_multilanguage('name'),
-                'sales_price', 'unit', *make_multilanguage('description')),
+                'nr', 'category', *make_language_fields('name'),
+                'sales_price', 'unit', *make_language_fields('description')),
             'classes': ('expand',),
         }),
         (_("Stock Management"), {
@@ -1019,7 +1001,7 @@ class ArticleAdmin(CashCtrlAdmin):
             'classes': ('collapse',),
         }),
         (_("Pricing"), {
-            'fields': ('currency', 'last_purchase_price', 
+            'fields': ('currency', 'last_purchase_price',
                        'is_sales_price_gross', 'is_purchase_price_gross'),
             'classes': ('collapse',),
         }),
@@ -1040,6 +1022,7 @@ class LedgerAdmin(CashCtrlAdmin):
         'code', 'display_name', 'period',
         'link_to_balance', 'link_to_pl', 'link_to_ic',
         'display_current')
+    list_display_links = ('code', 'display_name', )
 
     # Search, filter
     search_fields = ('code', 'name', 'period__name')
@@ -1047,7 +1030,7 @@ class LedgerAdmin(CashCtrlAdmin):
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': ('code', *make_multilanguage('name'), 'period'),
+            'fields': ('code', *make_language_fields('name'), 'period'),
             'classes': ('expand',),
         }),
     )
@@ -1109,7 +1092,7 @@ class LedgerBaseAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('Name'))
     def display_account_name(self, obj):
-        name = multi_language(obj.name)
+        name = primary_language(obj.name)
         if obj.type == self.model.TYPE.CATEGORY:
             if len(obj.hrm) == 1:
                 name = name.upper()
@@ -1146,16 +1129,16 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
 
     # Search, filter
     list_filter = (
-        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync')
+        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'type')
 
     # Actions
-    actions = [a.accounting_get_data, a.sync_ledger]
+    actions = [a.accounting_get_data, a.de_sync_accounting]
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'ledger', 'hrm', *make_multilanguage('name'), 'type',
+                'ledger', 'hrm', *make_language_fields('name'), 'type',
                 'function', 'parent', 'category', 'account'),
             'classes': ('expand',),
         }),
@@ -1208,16 +1191,17 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
 
     # Enable filtering options
     list_filter = (
-        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'function')
+        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 
+        'type', 'function')
 
     # Actions
-    actions = [a.accounting_get_data, a.sync_ledger, a.de_sync_accounting]
+    actions = [a.accounting_get_data, a.de_sync_accounting]
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'ledger', 'hrm', *make_multilanguage('name'), 'type',
+                'ledger', 'hrm', *make_language_fields('name'), 'type',
                 'function', 'parent', 'account',
                 'category_expense', 'category_revenue',),
             'classes': ('expand',),
@@ -1292,7 +1276,7 @@ class ArticleAdmin(CashCtrlAdmin):
 
     @admin.display(description=_('Name'))
     def display_name(self, obj):
-        return multi_language(obj.name)
+        return primary_language(obj.name)
 
     @admin.display(description=_('price in CHF'))
     def display_sales_price(self, obj):
@@ -1544,67 +1528,6 @@ class AccountPositionAdmin(CashCtrlAdmin):
         return ' '
 
 
-@admin.register(Address, site=admin_site)
-class AddressAdmin(admin.ModelAdmin):
-    # Safeguards    
-    has_tenant_field = True
-    related_tenant_fields = ['tenant', 'person']
-
-    # Display these fields in the list view
-    list_display = ('country', 'zip', 'city', 'address')
-    list_display_links = ('zip', 'city',)
-
-    # Search, filter
-    list_filter = ('zip', 'country', )
-    search_fields = ('zip', 'city', 'address')
-
-    #Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': (('zip', 'city'), 'address'),
-            'classes': ('expand',),
-        }),
-    )
-
-    def save_model(self, request, obj, form, change):
-        # Save logging
-        if obj.pk:
-            obj.modified_by = request.user
-        else:
-            obj.created_by = request.user
-
-        super().save_model(request, obj, form, change)
-
-
-class AddressInline(BaseTabularInline):  # or admin.StackedInline
-    # Safeguards
-    has_tenant_field = True
-    related_tenant_fields = ['setup', 'person']    
-    
-    # Inline
-    model = models.AddressMapping
-    form = forms.AddressPersonForm
-    fields = ['type', 'address', 'post_office_box', 'additional_information']
-    extra = 1  # Number of empty forms displayed
-    autocomplete_fields = ['address']  # Improves FK selection performance
-    show_change_link = True  # Shows a link to edit the related model
-    verbose_name_plural = _("Addresses")
-
-
-class ContactInline(BaseTabularInline):  # or admin.StackedInline
-    # Safeguards
-    has_tenant_field = True
-    related_tenant_fields = ['tenant', 'person']
-
-    # Inline
-    model = models.ContactMapping
-    form = forms.ContactPersonForm
-    fields = ['type', 'address']
-    extra = 1  # Number of empty forms displayed
-    show_change_link = True  # Shows a link to edit the related model
-    verbose_name_plural = _("Contacts")
-
-
 @admin.register(models.PersonCategory, site=admin_site)
 class PersonCategoryAdmin(CashCtrlAdmin):
     # Safeguards
@@ -1629,11 +1552,66 @@ class PersonCategoryAdmin(CashCtrlAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'display_name', *make_multilanguage('name'),
+                'code', 'display_name', *make_language_fields('name'),
                 'parent'),
             'classes': ('expand',),
         }),
     )
+
+
+@admin.register(Address, site=admin_site)
+class AddressAdmin(admin.ModelAdmin):
+    # Safeguards
+    related_tenant_fields = ['tenant', 'person']
+
+    # Display these fields in the list view
+    list_display = ('country', 'zip', 'city', 'address')
+    list_display_links = ('zip', 'city',)
+
+    # Search, filter
+    list_filter = ('zip', 'country', )
+    search_fields = ('zip', 'city', 'address')
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (('zip', 'city'), 'address', 'country'),
+            'classes': ('expand',),
+        }),
+    )
+
+    def get_changeform_initial_data(self, request):
+        """Set default country to 'CHE' (Switzerland) by fetching the instance."""
+        return {'country': get_object_or_404(Country, alpha3='CHE')}
+
+
+class AddressInline(BaseTabularInline):
+    # Safeguards
+    has_tenant_field = True
+    related_tenant_fields = ['setup', 'person']
+
+    # Inline
+    model = models.AddressMapping
+    form = forms.AddressPersonForm
+    fields = ['type', 'address', 'post_office_box', 'additional_information']
+    extra = 1  # Number of empty forms displayed
+    autocomplete_fields = ['address']  # Improves FK selection performance
+    show_change_link = True  # Shows a link to edit the related model
+    verbose_name_plural = _("Addresses")
+
+
+class ContactInline(BaseTabularInline):  # or admin.StackedInline
+    # Safeguards
+    has_tenant_field = True
+    related_tenant_fields = ['tenant', 'person']
+
+    # Inline
+    model = models.ContactMapping
+    form = forms.ContactPersonForm
+    fields = ['type', 'address']
+    extra = 1  # Number of empty forms displayed
+    show_change_link = True  # Shows a link to edit the related model
+    verbose_name_plural = _("Contacts")
 
 
 @admin.register(models.Person, site=admin_site)
@@ -1652,6 +1630,9 @@ class PersonAdmin(CashCtrlAdmin):
     # Search, filter
     list_filter = (filters.PersonCategoryFilter,)
     search_fields = ('company', 'first_name', 'last_name', 'alt_name')
+
+    # Actions
+    actions = [a.sync_accounting, a.de_sync_accounting]
 
     #Fieldsets
     fieldsets = (
@@ -1678,3 +1659,7 @@ class PersonAdmin(CashCtrlAdmin):
     )
 
     inlines = [AddressInline, ContactInline]
+
+    def save_formset(self, request, form, formset, change):
+        """ Ensure setup is set before saving. """
+        self.save_inlines(request, form, formset, change)

@@ -86,7 +86,7 @@ class BookTemplateAdminForm(NameAdminForm):
 
 
 class OrderCategoryContractAdminForm(MultilanguageForm):
-    MULTI_LANG_FIELDS = ['name_plural']
+    MULTI_LANG_FIELDS = ['name_singular', 'name_plural']
 
     class Meta:
         model = OrderCategoryContract
@@ -97,7 +97,7 @@ class OrderCategoryContractAdminForm(MultilanguageForm):
 
 
 class OrderCategoryIncomingAdminForm(MultilanguageForm):
-    MULTI_LANG_FIELDS = ['name_plural']
+    MULTI_LANG_FIELDS = ['name_singular', 'name_plural']
 
     class Meta:
         model = OrderCategoryIncoming

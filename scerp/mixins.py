@@ -16,6 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
+
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
 # helpers, use this for all models in all apps
@@ -83,13 +84,28 @@ def generate_random_password(length=settings.PASSWORD_LENGTH):
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
-def make_timeaware(naive_datetime):
-    '''used to save datetimes from external data
-    '''
-    return timezone.make_aware(naive_datetime, current_timezone)
-
-
 def make_multi_language(name, language=None):
+    '''
+    Creates a dictionary with language codes as keys and initializes all 
+    values as None, except for the primary or specified language, which 
+    is assigned the given name.
+
+    Args:
+        name (str): The value to assign to the primary or specified language.
+        language (str, optional): The language code to assign `name` to. 
+                                  Defaults to the primary language from settings.
+
+    Returns:
+        dict: A dictionary where keys are language codes, and values are either 
+              None or the provided name for the selected language.
+    
+    Example:
+        >>> make_multi_language('Hello')
+        {'en': 'Hello', 'de': None, 'fr': None, 'es': None}
+
+        >>> make_multi_language('Hallo', 'de')
+        {'en': None, 'de': 'Hallo', 'fr': None, 'es': None}
+    '''
     value = {lang: None for lang, _ in settings.LANGUAGES}
     if not language:
         language = settings.LANGUAGE_CODE_PRIMARY
@@ -97,7 +113,13 @@ def make_multi_language(name, language=None):
     return value
 
 
-def multi_language(value_dict):
+def make_timeaware(naive_datetime):
+    '''used to save datetimes from external data
+    '''
+    return timezone.make_aware(naive_datetime, current_timezone)
+
+
+def primary_language(value_dict):
     '''show language default instead of all values
     '''    
     if value_dict is None or isinstance(value_dict, str):

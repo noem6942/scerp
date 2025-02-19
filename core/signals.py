@@ -16,8 +16,7 @@ from django.utils.crypto import get_random_string
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 
-from .models import App, Tenant, TenantSetup, TenantLogo, UserProfile
-from crm.models import Country
+from .models import App, Tenant, TenantSetup, TenantLogo, UserProfile, Country
 from scerp.mixins import is_url_friendly
 
 
@@ -68,7 +67,7 @@ def tenant_post_save(sender, instance, created, **kwargs):
         request = kwargs.get('request')
         country_default = kwargs.get('country_default', 'che').upper()
         
-        # crm.Country ------------------------------------------------------
+        # Country ------------------------------------------------------
         """
         Initializes alpha3_dict by reading country data from JSON files
         for each language defined in settings.LANGUAGES.

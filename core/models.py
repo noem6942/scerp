@@ -5,8 +5,8 @@ from django.contrib.auth.models import Group, User
 from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
 
-
 from scerp.locales import CANTON_CHOICES
+from scerp.mixins import primary_language
 
 
 # Base
@@ -141,6 +141,10 @@ class TenantSetup(LogAbstract, NotesAbstract):
         _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
         help_text=_('The main language of the person. May be used for documents.')
     )
+    show_only_primary_language = models.BooleanField(
+        _('Show only primary language'), default=True,
+        help_text=_('Show only primary language in forms')
+    )    
     type = models.CharField(
          _('Type'), max_length=1, choices=TYPE.choices,
         null=True, blank=True,
@@ -308,7 +312,7 @@ class Country(LogAbstract):
         return default.id if default else None
 
     def __str__(self):
-        return f'{self.alpha3}, {multi_language(self.name)}'
+        return f'{self.alpha3}, {primary_language(self.name)}'
 
     class Meta:
         ordering = ['-is_default', 'alpha3']
@@ -373,7 +377,7 @@ class Contact(TenantAbstract):
 
     type = models.CharField(max_length=20, choices=TYPE.choices)
     address = models.CharField(
-        _('Address'), max_length=100,
+        _('Contact'), max_length=100,
         help_text=_("The actual contact information (e-mail address, phone number, etc.).")
     )
 

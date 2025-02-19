@@ -130,10 +130,17 @@ def get_help_text(model, field_name):
     return model._meta.get_field(field_name).help_text
 
 
-def make_multilanguage(field_name):
+def make_language_fields(field_name):      
+    # Currently show only LANGUAGE_CODE_PRIMARY
+    languages = [
+        (lang_code, lang) for lang_code, lang in settings.LANGUAGES
+        if lang_code == settings.LANGUAGE_CODE_PRIMARY
+    ]
+    
+    # Check if only show preferred languagen
     return [
         f'{field_name}_{lang_code}'
-        for lang_code, _lang in settings.LANGUAGES
+        for lang_code, _lang in languages
     ]
 
 
@@ -308,6 +315,7 @@ def filter_foreignkeys(modeladmin, db_field, request, kwargs):
                 tenant_id=tenant_id)
         else:
             kwargs['queryset'] = related_model.objects.none()
+
 
 def filter_manytomany(modeladmin, db_field, request, **kwargs):
     """
@@ -515,7 +523,7 @@ class BaseAdmin(ModelAdmin):
         """
         # Check if tenant mandatory
         add_tenant = getattr(self, 'has_tenant_field', False)
-
+        print("*add_tenant")
         # Check tenant
         if add_tenant and not getattr(instance, 'tenant', None):
             # Get the tenant from the request
@@ -532,30 +540,38 @@ class BaseAdmin(ModelAdmin):
         if isinstance(queryset, HttpResponseForbidden):
             messages.error(request, f"{queryset.content.decode()}")
             return  # Early return to prevent further processing
+        print("*APISetup")
+        
+        # Save the model instance first (this ensures it gets an id)
+        super().save_model(request, instance, form, change)
 
+        # Now that the object has an id, save the many-to-many relationships
+        if instance.pk:  # Ensure the instance has been saved and has an ID
+            instance.bookings.set(form.cleaned_data['bookings'])        
+        
         # Only save the model if there are no errors
-        with transaction.atomic():
-            super().save_model(request, instance, form, change)
         try:
-            # Wrap the database operation in an atomic block
             with transaction.atomic():
+                print("*1")
                 super().save_model(request, instance, form, change)
+                print("*2")
         except IntegrityError as e:
             if "Duplicate entry" in str(e):
-                msg = _("Unique constraints violated")
-                messages.error(request, f"{msg}: {e}")
+                messages.error(request, _("Unique constraints violated."))
             else:
-                messages.error(request, f"An error occurred: {str(e)}")
+                messages.error(request, _("A database error occurred."))
         except APIRequestError as e:
-            # Catch the custom exception and show a user-friendly message
-            messages.error(request, f"Error: {str(e)}")
+            messages.error(request, _("API request failed: ") + str(e))
+        except Exception as e:
+            messages.error(request, _("Unexpected error: ") + str(e))
+
 
     def save_related(self, request, form, formsets, change):
         """
         Used for inlines
         Loop through each formset to check if we have some required fields
         that can be derived from form.instance
-        """
+        """        
         # See if some special fields need to be considered
         save_for_related = getattr(self, 'save_for_related', [])
 

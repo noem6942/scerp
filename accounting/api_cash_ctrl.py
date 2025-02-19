@@ -254,11 +254,17 @@ class CashCtrl():
     MAX_TRIES = 5  # Maximum number of retries
     SLEEP_DURATION = 2  # Sleep duration between retries in second
 
-    def __init__(self, org, api_key, language='en'):
+    def __init__(self, org, api_key, language='en', convert_dt=True):
+        # Auth
         self.org = org
         self.api_key = api_key
         self.auth = (api_key, '')
+        
+        # Params
         self.language = language
+        self.convert_dt = convert_dt
+        
+        # Data
         self.data = None  # data can be loaded (list, read) or posted
 
     def url(self):
@@ -334,7 +340,8 @@ class CashCtrl():
         post_data = {}
         for key, value in data.items():
             key = camel_to_snake(key)
-            if key in ('created',  'last_updated', 'start', 'end'):
+            if (self.convert_dt and 
+                    key in ('created',  'last_updated', 'start', 'end')):
                 try:
                     value = self.str_to_dt(value)
                 except:
@@ -779,19 +786,22 @@ class OrderBookEntry(CashCtrl):
     actions = ['list']  # not working ever used?
 
 class OrderCategory(CashCtrl):
-    '''see public api desc'''
+    '''see public api desc
+        list: use params = {'type': ORDER_TYPE.PURCHASE}
+    '''
     url = 'order/category/'
     actions = ['list']
 
-    def list(self, params=None, **filter_kwargs):
+    def list(self, params=None, **filter_kwargs):        
         # Get data
-        categories = super().list(params=None, **filter_kwargs)
+        categories = super().list(params=params, **filter_kwargs)
 
+        '''
         # Convert stati names
         for category in categories:
             for status in category['status']:
                 status['name'] = xmltodict.parse(status['name'])
-
+        '''
         return categories
 
 class OrderDocument(CashCtrl):
@@ -843,3 +853,19 @@ class Element(CashCtrl):
     '''see public api desc'''
     url = 'report/element/'
     actions = ['list', 'create']
+
+
+def greet():
+    print("Hello from the greet function!")
+
+
+if __name__ == "__main__":
+    print("Testing.")
+    
+    org = 'test167'
+    api = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
+    
+    conn = OrderBookEntry(org, api, convert_dt=False)
+    orders = conn.list(params={'id': 22})
+    for order in orders:
+        print("*", order)

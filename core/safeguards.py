@@ -27,6 +27,7 @@ Role model:
 """
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
 from core.models import Tenant, TenantSetup, UserProfile
 
@@ -64,6 +65,8 @@ def set_tenant(request, tenant_id):
             'setup_id': tenant_setup.id,
             'name': tenant_setup.tenant.name,
             'language': tenant_setup.language,
+            'show_only_primary_language': (
+                tenant_setup.show_only_primary_language),
             'logo': (
                 tenant_setup.logo.url if tenant_setup.logo else settings.LOGO)
         }
@@ -126,8 +129,5 @@ def save_logging(
         if not tenant:
             # get tenant
             tenant_data = get_tenant(request)
-            tenant = Tenant.objects.filter(id=tenant_data['id']).first()
-        if tenant:
-            instance.tenant = tenant
-        else:
-            raise ValidationError(_('No appropriate tenant given'))
+            tenant = get_object_or_404(Tenant, id=tenant_data['id'])
+        instance.tenant = tenant

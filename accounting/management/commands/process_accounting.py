@@ -1,15 +1,13 @@
-# accounting/process_accounting.py
-'''usage:
-    python manage.py process_accounting cmd
-    
-    gesoft:
-        python manage.py process_accounting import --import=gesoft --tenant_code=test167 --org_name=test167 --chart_id=1 --filepath="./accounting/fixtures/transfer ge_soft/Bilanz 2023 AGEM.xlsx" --account_type 1
-        python manage.py process_accounting import --import=gesoft --tenant_code=test167 --org_name=test167 --chart_id=1 --filepath="./accounting/fixtures/transfer ge_soft/Erfolgsrechnung 2023 AGEM.xlsx" --account_type 3
-        python manage.py process_accounting import --import=gesoft --tenant_code=test167 --org_name=test167 --chart_id=1 --filepath="./accounting/fixtures/transfer ge_soft/IR-F JR Detail  (Q) SO_BE HRM2 DLIHB.SO.IR15.xlsx" --account_type 5
+'''
+accounting/management/commands/process_accounting.py
+
+usage:
+   python manage.py process_accounting sync --org_name=test167 --ledger_id=1 --category=ic --max_count=100
+
 '''
 from django.core.management.base import BaseCommand
-from accounting.import_accounts import save_accounts
-from accounting.import_accounts_gesoft import ACCOUNT_TYPE, Import
+
+from accounting.import_export import SyncLedger
 
 
 class Command(BaseCommand):
@@ -19,65 +17,29 @@ class Command(BaseCommand):
         # Required positional argument
         parser.add_argument(
             'action', type=str, 
-            choices=['import'],
-            help='Specify the action: create')
+            choices=['sync'],
+            help='Sync ledger')
         
         # Optional arguments
         parser.add_argument(
-            '--import', type=str, 
-            choices=['gesoft'],
+            '--category', type=str, 
+            choices=['balance', 'pl', 'ic'],
             help='Optional code, ')        
         parser.add_argument(
-            '--tenant_code', type=str, help='Optional code tenant')
+            '--org_name', type=str, help='org_name')
         parser.add_argument(
-            '--org_name', type=str, help='Optional org_name')
+            '--ledger_id', type=int, help='ledger_id')        
         parser.add_argument(
-            '--chart_id', type=int, help='Chart id')
-        parser.add_argument(
-            '--filepath', type=str, 
-            help='file, e.g. ./accounting/fixtures/transfer ge_soft/Bilanz 2023 AGEM.xlsx')
-        choices = [f'{x.value}: {x.label}' for x in ACCOUNT_TYPE]
-        parser.add_argument(
-            '--account_type', type=int, 
-            choices=[x.value for x in ACCOUNT_TYPE],
-            help=f'file, e.g. {choices}')
-
+            '--max_count', type=int, help='max number of records (< 100)')     
+            
     def handle(self, *args, **options):
-        # Retrieve options
+        # Retrieve action
         action = options['action']
-        import_ = options.get('import')
-        tenant_code = options.get('tenant_code')
-        org_name = options.get('org_name')
-        chart_id = options.get('chart_id')
-        file_path = options.get('filepath')
-        account_type = options.get('account_type')
 
         # Perform actions based on the retrieved options
-        if action == 'import':
-            # Init
-            accounts = []
-            
-            if import_ == 'gesoft':
-                if account_type == ACCOUNT_TYPE.BALANCE:
-                    i = Import(file_path, account_type)
-                    accounts = i.get_accounts()                    
-                    save_accounts(accounts, tenant_code, org_name, chart_id)
-                    
-                elif account_type == ACCOUNT_TYPE.INCOME:
-                    i = Import(file_path, account_type)
-                    accounts = i.get_accounts()                 
-
-                    if accounts:
-                        save_accounts(accounts, tenant_code, org_name, chart_id)
-                        
-                elif account_type == ACCOUNT_TYPE.INVEST:
-                    i = Import(file_path, account_type)
-                    accounts = i.get_accounts()
-                                        
-                    if accounts:
-                        save_accounts(accounts, tenant_code, org_name, chart_id)
-                    
-            # Output        
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Created {len(accounts)} accounts.'))
+        if action == 'sync':
+            sync = SyncLedger(options.get('category'))
+            org_name = options.get('org_name')
+            ledger_id = options.get('ledger_id')
+            max_count = options.get('max_count', 100)
+            sync.load(org_name, ledger_id, max_count)

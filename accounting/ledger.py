@@ -34,8 +34,8 @@ class Ledger:
 
         # validate name
         if isinstance(instance.name, dict):
-            for language, value in instance.name.items():
-                if len(value) > 100:
+            for language, value in instance.name.items():                
+                if value and len(value) > 100:
                     msg = _("{name} more than 100 chars").format(
                         name=instance.name)
                     raise ValueError(msg)
@@ -106,7 +106,7 @@ class Ledger:
         return instance
 
 
-# Ledger to cashCtrl Mapper, called by  signals_cash_ctrl -------------------
+# Ledger to cashCtrl Mapper, called by signals_cash_ctrl -------------------
 class LedgeUpdate:
 
     def __init__(self, model, instance):
@@ -123,12 +123,10 @@ class LedgeUpdate:
         category = None  # Initialize category to avoid reference before assignment
 
         for field_name in self.category_fields:
-            print("*field_name", field_name)
-
             # Check if category already exists
             category = getattr(self.instance, field_name, None)
             if category:  # Update if category exists
-                if self.instance.parent:
+                if self.instance.parent:                    
                     category.name = self.instance.name
                     category.number = self.get_number(field_name)
                     category.sync_to_accounting = True
@@ -145,7 +143,7 @@ class LedgeUpdate:
                 else:
                     # Top level, get AccountCategory from get_top_category
                     create, category = self.get_top_category(field_name)
-
+                    
                 # Step 2: Create AccountCategory if necessary
                 #   If setup, number is already existing we reuse the
                 #   category (most probably from the previous year)
@@ -164,6 +162,7 @@ class LedgeUpdate:
                                 is_scerp=True
                             )
                         ))
+                    # print("*Create new category", category)    
                     # Ensure `pre_save` and `post_save` run and assign `c_id`
                     category.refresh_from_db()
 
@@ -188,7 +187,6 @@ class LedgeUpdate:
             account.save()
         else:
             # Update or create new
-            print("*Update or create new account")
             account, created = Account.objects.update_or_create(
                 setup=self.instance.setup,
                 number=self.get_number(),
@@ -222,7 +220,7 @@ class LedgeUpdate:
             self.instance.account = account
             self.instance.sync_to_accounting = False
             self.instance.save()
-            print("*safe instance")
+            
     def save(self):
         if self.instance.type == self.model.TYPE.CATEGORY:
             self.update_or_create_category()
@@ -301,12 +299,11 @@ class LedgerFunctionalUpdate(LedgeUpdate):
         return create, parent
 
     def get_account_category(self):
-        if str(self.instance.hrm).startswith(self.top_level_expense.value):
-            print("*category_expense")
+        # Get all expense cases:
+        if ('9000.' in self.instance.hrm  # special case
+                or self.instance.hrm[0] in ['3', '5']):
             return self.instance.parent.category_expense
-        print("*category_revenue")
         return self.instance.parent.category_revenue
-
 
 class LedgerPLUpdate(LedgerFunctionalUpdate):
     top_level_expense = TOP_LEVEL_ACCOUNT.PL_EXPENSE  # "3.1"

@@ -1,17 +1,22 @@
 '''
 accounting/import_export.py
 '''
+import logging
 import openpyxl
 from decimal import Decimal
 
 from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext as _
 
 
 from scerp.mixins import make_multi_language
-from .models import LedgerBalance, LedgerPL, LedgerIC
+from .models import Ledger, LedgerBalance, LedgerPL, LedgerIC
+
+
+logger = logging.getLogger(__name__)
 
 
 class ImportExport:
@@ -46,9 +51,9 @@ class ImportExport:
                             value = str(value)  # Otherwise, keep as is
                 else:
                     # For other cells, check number conversion
-                    try: 
+                    try:
                         # Force two decimal places
-                        value = f"{Decimal(value):.2f}"  
+                        value = f"{Decimal(value):.2f}"
                     except:
                         pass
 
@@ -60,9 +65,8 @@ class ImportExport:
 
         # Init
         data_list = []
-        last_row = None
-        merged_once = False  # Track if merge happened once
-        
+        last_row = None  # last complete row
+
         request = self.request
 
         # Process rows (skipping header)
@@ -73,37 +77,22 @@ class ImportExport:
             if not data['name']:
                 msg = _(f"row {nr} skipping, has no name").format(nr=nr)
                 messages.info(request, msg)
+                last_row = None  # reset
                 continue
 
             # Validate hrm
             if not data['hrm']:
                 # Check merging
-                if (last_row and last_row['hrm'] and last_row['name']
-                        and not merged_once):
+                if last_row and last_row['hrm'] and last_row['name']:
                     # Merge line breaks in name
                     last_row['name'] += ' ' + data['name']
                     msg = _(f"row {nr} merging name").format(nr=nr)
                     messages.info(request, msg)
-                    
-                    merged_once = True  # Prevent further merges
                     continue
-
-                # Check headings
-                if '.' not in data['hrm']:  # is heading
-                    level = len(data['hrm'])
-                    level_last = len(last_row['hrm'])
-                    if level > 1 and level != level_last + 1:
-                        msg = _(f"row {nr}: level not consistant").format(
-                            nr=nr)
-                        messages.info(request, msg)
-                        continue
-
-            # Append data
-            last_row = data
-            data_list.append(data)
-
-            # Reset merge flag on a valid row
-            merged_once = False
+            else:              
+                # Append data
+                last_row = data
+                data_list.append(data)
 
         # Create_or_update
         updates, creates = 0, 0
@@ -125,8 +114,8 @@ class ImportExport:
             })
 
             # Create
-            # Ensures the transaction is fully completed                        
-            with transaction.atomic():              
+            # Ensures the transaction is fully completed
+            with transaction.atomic():
                 obj, created = self.model.objects.update_or_create(
                     ledger=data.pop('ledger'),
                     hrm=data.pop('hrm'),
@@ -159,3 +148,34 @@ class LedgerICImportExport(ImportExport):
         'hrm', 'name', 'expense', 'revenue',
         'expense_budget', 'revenue_budget',
         'expense_previous', 'revenue_previous', 'notes']
+
+
+class SyncLedger:
+    '''
+    call this by management console as admin.py has its problems
+    '''
+    def __init__(self, category):
+        self.model = {
+            'balance': LedgerBalance,
+            'pl': LedgerPL,
+            'ic': LedgerIC
+        }.get(category.lower())
+
+    def load(self, org_name, ledger_id, max_count=9999):
+        queryset = self.model.objects.filter(
+            ledger__id=ledger_id, setup__org_name=org_name,
+            is_enabled_sync=False
+        ).order_by('function', '-type', 'hrm')[:max_count]
+
+        for position in queryset:
+            try:
+                position.is_enabled_sync = True
+                position.sync_to_accounting = True
+                position.save(update_fields=[
+                    'is_enabled_sync', 'sync_to_accounting'])
+
+                # Manually trigger signals if necessary (after save)
+                position.refresh_from_db()
+                logger.info(f"synched {position.hrm}.")
+            except:
+                logger.error(f"could not synch {position.hrm}.")

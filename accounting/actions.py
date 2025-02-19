@@ -24,8 +24,9 @@ from .import_export import (
 from .models import (
     APPLICATION, APISetup, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, FiscalPeriod,
-    LedgerBalance, LedgerPL, LedgerIC
+    LedgerAccount, LedgerBalance, LedgerPL, LedgerIC
 )
+
 from . import forms, models
 from . import connector_cash_ctrl as conn
 from .import_accounts_canton import Import
@@ -733,37 +734,45 @@ def add_ic(modeladmin, request, queryset, data):
     add_excel_to_ledger(LedgerIC, request, queryset, data)
 
 
-@admin.action(description=_("2. Sync with Accounting"))
-def sync_ledger(modeladmin, request, queryset):
-    if action_check_nr_selected(request, queryset, min_count=1):
-        # Get instances before update
-        queryset = queryset.order_by('function', '-type', 'hrm')
+# helper for sync_ledger
+def sync_queryset(request, queryset):
+    ''' sync ledger positions to account positions '''
+    count = 0
+    for index, instance in enumerate(queryset.all()):
+        if instance.is_enabled_sync:
+            msg = _("{hrm} is already synched.").format(
+                hrm=instance.hrm)
+            messages.error(request, msg)
+        else:
+            try:
+                with transaction.atomic():
+                    # Here we save the instance but disable signals temporarily
+                    instance.is_enabled_sync = True
+                    instance.sync_to_accounting = True
+                    instance.save(update_fields=['is_enabled_sync', 'sync_to_accounting'])
 
-        # Perform bulk update (NO SIGNALS fired)
-        count = 0
+                    # Manually trigger signals if necessary (after save)
+                    instance.refresh_from_db()
 
-        # Manually trigger signals
-        for instance in queryset.all():
-            if instance.is_enabled_sync:
-                msg = _("{hrm} is already synched.").format(
-                    hrm=instance.hrm)
+                    count += 1
+            except Exception as e:
+                msg = _("Could not sync {hrm}: {error}").format(hrm=instance.hrm, error=str(e))
                 messages.error(request, msg)
-            else:
-                try:
-                    with transaction.atomic():
-                        instance.is_enabled_sync = True
-                        instance.sync_to_accounting = True
-                        instance.save()
-                        count += 1
-                except:
-                    msg = _("Could not sync {hrm}").format(hrm=instance.hrm)
-                    messages.error(request, msg)
+    return count
 
-        messages.error(
-            request, _("{count} accounts synched.").format(count=count))
+
+@admin.action(description=_("S. Sync with Accounting"))
+def sync_accounting(modeladmin, request, queryset):
+    ''' set is_enabled_sync to True and save to trigger post_save '''
+    if action_check_nr_selected(request, queryset, min_count=1):
+        for instance in queryset.all():
+            if not instance.is_enabled_sync:
+                instance.is_enabled_sync = True
+                instance.save()
 
 
 @admin.action(description=_("D. De-sync from Accounting"))
 def de_sync_accounting(modeladmin, request, queryset):
+    ''' update is_enabled_sync to False '''
     if action_check_nr_selected(request, queryset, min_count=1):
         queryset = queryset.update(is_enabled_sync=False)

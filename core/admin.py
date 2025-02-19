@@ -98,7 +98,10 @@ class TenantSetupAdmin(BaseAdmin):
     # Define which fields are in the form
     fieldsets = (
         (None, {
-            'fields': ('canton', 'type', 'display_users'),  # Including the display method here is okay for readonly display
+            'fields': (
+                'canton', 'type', 'language', 'show_only_primary_language',
+                'display_users'
+            ),  # Including the display method here is okay for readonly display
             'classes': ('expand',),            
         }),
     )
