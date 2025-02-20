@@ -6,10 +6,12 @@ from django.utils import timezone
 from django.utils.encoding import force_str
 
 from scerp.exceptions import APIRequestError
-from scerp.mixins import make_timeaware
+from scerp.mixins import get_translations, make_timeaware
+
 from . import api_cash_ctrl
+from .api_cash_ctrl import convert_to_xml
 from .models import (
-    APISetup, TOP_LEVEL_ACCOUNT, Allocation,     
+    APISetup, TOP_LEVEL_ACCOUNT, Allocation,
     CustomField as model_CustomField,
     ContactMapping, AddressMapping,
     Account as model_Account,
@@ -323,10 +325,11 @@ class cashCtrl:
         # Save
         if response.get('success', False):
             instance.c_id = response['insert_id']
-        instance.save()
-
-        # Raise Error if cashCtrl error
-        if not instance.c_id:
+            if getattr(self, 'pre_save', None):
+                self.pre_save(instance)
+            instance.save()
+        else:
+            # Raise Error if cashCtrl error
             raise ValueError(response)
 
     def create(self, instance):
@@ -350,6 +353,11 @@ class cashCtrl:
 
         if not response.get('success', False):
             raise ValueError(response)
+
+    def read(self, c_id):
+        # Send to cashCtrl
+        response = self.handler.read(params={'id': c_id})
+        return response
 
 
 # Handle synchronization with cashCtrl, individual classes -------------------
@@ -439,7 +447,7 @@ class Unit(cashCtrl):
 
     def post_get(self, instance, source, assign, created):
         # code
-        if created:
+        if not instance.code:
             # Fill out empty code
             instance.code = f"custom {source['id']}"
 
@@ -580,7 +588,7 @@ class Tax(cashCtrl):
     def post_get(self, instance, source, assign, created):
         __ = instance, created
         # code
-        if created:
+        if not instance.code:
             # Fill out empty code
             instance.code = f"custom {source['id']}"
 
@@ -604,6 +612,11 @@ class Rounding(cashCtrl):
 
     def post_get(self, instance, source, assign, created):
         __ = instance, created
+        # code
+        if not instance.code:
+            # Fill out empty code
+            instance.code = f"custom {source['id']}"
+
         # parent
         foreign_key_class = Account
         self.update_category(
@@ -693,7 +706,7 @@ class Person(cashCtrl):
     @staticmethod
     def make_address(addr):
         value = addr.address.address
-        
+
         if addr.post_office_box:
             value += '\n' + addr.post_office_box
         if addr.additional_information:
@@ -719,7 +732,7 @@ class Person(cashCtrl):
         else:
             data.pop('superior_id')
 
-        # Make contacts        
+        # Make contacts
         contacts = ContactMapping.objects.filter(person__id=instance.id)
         data['contacts'] = [{
             'type': contact.type,
@@ -744,40 +757,156 @@ class Person(cashCtrl):
 
 class OrderCategory(cashCtrl):
     api_class = api_cash_ctrl.OrderCategory
-    ignore_keys = (
-        IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
-        
-    def pre_upload(self, instance, data):
-        # account, needed - we derive it from BookTemplates in models.py
-        data['account_id'] = model_Account.objects.filter(
-                setup=instance.setup).exclude(c_id=None).first().c_id            
+    ignore_keys = IGNORE.BASE + IGNORE.NOTES + IGNORE.CODE
 
-        # types
-        data['type'] = instance.type
-        data['book_type'] = instance.book_type
-        
+    def pre_upload(self, instance, data):
+        # Assign general category values
+        sequence_number = instance.sequence_number
+        data.update({
+            'type': instance.type,
+            'book_type': instance.book_type,
+            'is_display_item_gross': instance.is_display_item_gross,
+            'sequence_nr_id': (
+                sequence_number.c_id if sequence_number else None)
+        })
+
+    def pre_save(self, instance):
+        ''' store status and  book_template '''
+        # load data from cashCtrl
+        data = self.read(instance.c_id)
+
+        # status
+        STATUS = instance.STATUS
+        status_data = {}
+        for index, status in enumerate(STATUS):
+            key = status.value
+            value = data['data']['status'][index]
+            status_data[key] = {'id': value['id']}
+        instance.status_data = status_data
+
+    def load(self, model, **kwargs):
+        raise ValueError("Load not defined for OrderCategory")
+
+
+class OrderCategoryContract(OrderCategory):
+
+    def pre_upload(self, instance, data):
+        # basics
+        super().pre_upload(instance, data)
+
+        # Update
+        data['account_id'] = instance.account.c_id
+
         # status, we only use minimal values as we do the booking ourselves
+        STATUS = instance.STATUS
         data['status'] = [{
             'icon': instance.COLOR_MAPPING[status],
-            'name': force_str(status.label),  # Ensure proper string conversion
-        } for status in instance.STATUS]          
-        
+            'name': convert_to_xml(
+                get_translations(force_str(status.label))),
+        } for status in STATUS]
+
+        print("*data", data)
+
+    def load(self, model, **kwargs):
+        raise ValueError("Load not defined for OrderCategoryContract")
+
+
+class OrderCategoryIncoming(OrderCategory):
+
+    def pre_upload(self, instance, data):
+        # basics
+        super().pre_upload(instance, data)
+
+        # accounts
+        data['account_id'] = instance.credit_account.c_id
+        bank_account = instance.bank_account.c_id
+
+        # status, we only use minimal values as we do the booking ourselves
+        STATUS = instance.STATUS
+        data['status'] = [{
+            'icon': instance.COLOR_MAPPING[status],
+            'name': convert_to_xml(
+                get_translations(force_str(status.label))),
+            'is_book': instance.BOOKING_MAPPING[status],
+        } for status in STATUS]
+
+        # BookTemplates
+        data['book_templates'] = [{
+            'accountId': data['account_id'],
+            'name': convert_to_xml(get_translations('Booking')),
+            'taxId': instance.tax.c_id if instance.tax else None
+        }, {
+            'accountId': bank_account,
+            'name': convert_to_xml(get_translations('Payment'))
+        }]
+
         # Rounding
         if getattr(instance, 'rounding', None):
-            data['rounding_id'] = instance.rounding.c_id        
+            data['rounding_id'] = instance.rounding.c_id
 
-    def post_get(self, instance, source, assign, created):
-        __ = instance, created
-        # code
-        if created:
-            # Fill out empty code
-            instance.code = f"custom {source['id']}"
+    def load(self, model, **kwargs):
+        raise ValueError("Load not defined for OrderCategoryIncoming")
 
-        # account
-        foreign_key_class = Account
-        self.update_category(
-            instance, source, assign, created, 'account', foreign_key_class)
-        
+
+class Order(cashCtrl):
+    api_class = api_cash_ctrl.Order
+    ignore_keys = IGNORE.BASE
+
+    def pre_upload(self, instance, data):
+        # Category, person
+        data['category_id'] = instance.category.c_id
+        if instance.responsible_person:
+            data['responsible_person_id'] = instance.responsible_person.c_id
+
+        # Status
+        status_data = instance.category.status_data.get(instance.status, None)
+        if status_data:
+            data['status_id'] = status_data['id']
+
+    def load(self, model, **kwargs):
+        raise ValueError("Load not defined for OrderCategoryIncoming")
+
+
+class OrderContract(Order):
+
+    def pre_upload(self, instance, data):
+        super().pre_upload(instance, data)
+
+        # associate
+        if instance.associate:
+            data['associate_id'] = instance.associate.c_id
+
+        # Create one item with total price
+        data['items'] = [{
+            'accountId': instance.category.account.c_id,
+            'name': instance.description,
+            'unitPrice': float(instance.price_excl_vat)
+        }]
+
+
+class IncomingOrder(Order):
+
+    def pre_upload(self, instance, data):
+        super().pre_upload(instance, data)
+
+        # associate
+        data['associate_id'] = instance.contract.associate.c_id
+
+        # Create one item with total price
+        data['items'] = [{
+            'accountId': instance.category.expense_account.c_id,
+            'name': instance.description,
+            'unitPrice': float(instance.price_incl_vat)
+        }]
+
+        # Rounding
+        if getattr(instance.category, 'rounding', None):
+            data['rounding_id'] = instance.category.rounding.c_id
+
+        # Due days
+        if getattr(instance, 'due_days', None):
+            data['due_days'] = instance.category.due_days
+
 
 class ArticleCategory(cashCtrl):
     api_class = api_cash_ctrl.ArticleCategory
@@ -852,7 +981,7 @@ class Article(cashCtrl):
             data['unit_id'] = instance.unit.c_id
         else:
             data.pop('unit_id')
-            
+
         print("*data", data)
 
     def post_get(self, instance, source, assign, created):

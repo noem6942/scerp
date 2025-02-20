@@ -15,6 +15,8 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
+from django.conf import settings
+from django.utils.translation import activate, get_language, gettext
 
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
@@ -55,7 +57,7 @@ def read_excel_file(file_path, convert_to_str=True):
 
 def read_yaml_file(app_name, filename_yaml):
     '''
-    Load the YAML file with app_name as parent dir 
+    Load the YAML file with app_name as parent dir
     '''
     file_path = os.path.join(
         settings.BASE_DIR, app_name, filename_yaml)
@@ -84,21 +86,36 @@ def generate_random_password(length=settings.PASSWORD_LENGTH):
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
+def get_translations(text):
+    ''' return language map for text if existing '''
+    name = {}
+    current_language = get_language()  # Store the currently active language
+
+    for lang_code, lang_name in settings.LANGUAGES:
+        activate(lang_code)  # Temporarily activate the language
+        name[lang_code] = gettext(text)  # get translation
+
+    # Restore the original language
+    activate(current_language)
+
+    return name
+
+
 def make_multi_language(name, language=None):
     '''
-    Creates a dictionary with language codes as keys and initializes all 
-    values as None, except for the primary or specified language, which 
+    Creates a dictionary with language codes as keys and initializes all
+    values as None, except for the primary or specified language, which
     is assigned the given name.
 
     Args:
         name (str): The value to assign to the primary or specified language.
-        language (str, optional): The language code to assign `name` to. 
+        language (str, optional): The language code to assign `name` to.
                                   Defaults to the primary language from settings.
 
     Returns:
-        dict: A dictionary where keys are language codes, and values are either 
+        dict: A dictionary where keys are language codes, and values are either
               None or the provided name for the selected language.
-    
+
     Example:
         >>> make_multi_language('Hello')
         {'en': 'Hello', 'de': None, 'fr': None, 'es': None}
@@ -121,7 +138,7 @@ def make_timeaware(naive_datetime):
 
 def primary_language(value_dict):
     '''show language default instead of all values
-    '''    
+    '''
     if value_dict is None or isinstance(value_dict, str):
         return value_dict
 
@@ -136,21 +153,21 @@ def primary_language(value_dict):
         values = dict(value_dict)
     else:
         values = {lang: None for lang, _ in settings.LANGUAGES}
-        
+
     if values and language in values:
         return values[language]
     elif values and settings.LANGUAGE_CODE_PRIMARY in values:
         return values[language]
     return str(value_dict)
-    
+
 
 # signals, load and init yaml data
 def init_yaml_data(
         app_name, tenant, created_by, filename_yaml, accounting_setup=None,
         model_filter=[]):
-            
+
     return  # currently no installations when create a new tenant
-    
+
     # Load the YAML file
     file_path = os.path.join(
         settings.BASE_DIR, app_name, filename_yaml)
@@ -165,7 +182,6 @@ def init_yaml_data(
                     continue
                 for data in data_list:
                     # Prepare data
-                    print("*data", data)
                     data.update({
                         'tenant': tenant,
                         'created_by': created_by

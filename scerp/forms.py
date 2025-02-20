@@ -40,6 +40,12 @@ def make_multilanguage_form(local, model, fields):
                     or field_name.startswith('sentence')) 
                 else forms.TextInput()
             )
+            widget = (
+                forms.Textarea(attrs={'rows': 1, 'cols': 80})
+                if (field_name.startswith('description') 
+                    or field_name.startswith('sentence'))
+                else forms.TextInput(attrs={'size': 80})
+            )
             
             # assign to local form
             local[key] = forms.CharField(

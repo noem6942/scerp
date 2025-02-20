@@ -520,11 +520,9 @@ class BaseAdmin(ModelAdmin):
     def save_model(self, request, instance, form, change):
         """
         Override save to include additional logging or other custom logic.
-        """
-        # Check if tenant mandatory
-        add_tenant = getattr(self, 'has_tenant_field', False)
-        print("*add_tenant")
+        """        
         # Check tenant
+        add_tenant = getattr(self, 'has_tenant_field', False)
         if add_tenant and not getattr(instance, 'tenant', None):
             # Get the tenant from the request
             tenant_data = get_tenant(request)
@@ -540,21 +538,14 @@ class BaseAdmin(ModelAdmin):
         if isinstance(queryset, HttpResponseForbidden):
             messages.error(request, f"{queryset.content.decode()}")
             return  # Early return to prevent further processing
-        print("*APISetup")
-        
-        # Save the model instance first (this ensures it gets an id)
-        super().save_model(request, instance, form, change)
-
-        # Now that the object has an id, save the many-to-many relationships
-        if instance.pk:  # Ensure the instance has been saved and has an ID
-            instance.bookings.set(form.cleaned_data['bookings'])        
-        
+    
         # Only save the model if there are no errors
+        with transaction.atomic():
+            super().save_model(request, instance, form, change)
+        return
         try:
             with transaction.atomic():
-                print("*1")
                 super().save_model(request, instance, form, change)
-                print("*2")
         except IntegrityError as e:
             if "Duplicate entry" in str(e):
                 messages.error(request, _("Unique constraints violated."))

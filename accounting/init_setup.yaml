@@ -82,7 +82,6 @@ CustomField:
     is_multi: false
     values: []
 
-
   - code: order_incoming_approval
     group_ref: order_incoming
     name:
@@ -160,17 +159,6 @@ CustomField:
     is_multi: false
     values: []
 
-  - code: order_procurement_approval
-    group_ref: order_procurement
-    name:
-      de: Unterzeichnet / Bewilligt
-      en: Signed / Approved
-      fr: Signé / Approuvé
-      it: Firmato / Approvato
-    data_type: PERSON
-    is_multi: true
-    values: []
-
   - code: order_procurement_valid_from
     group_ref: order_procurement
     name:
@@ -204,17 +192,6 @@ CustomField:
     is_multi: false
     values: []
 
-  # - code: person_category
-  #  group_ref: person
-  #    name:
-  #      de: Kategorie
-  #      en: Category
-  #      fr: Catégorie
-  #      it: Categoria
-  #    data_type: ACCOUNT
-  #    is_multi: true
-  #    values: []
-
 
 # Config Data --------------------------------------------------------
 Location:
@@ -229,7 +206,7 @@ FiscalPeriod: []
 
 Currency: []
 
-Rounding: []
+Rounding:
 
 SequenceNumber: []
 
@@ -361,7 +338,7 @@ OrderCategories:
       fr: "Factures sortantes"
       it: "Fatture in uscita"
     status:
-      # Status: Entwurf (Draft)
+      # Status: Entwurforder_procurement_valid_from  (Draft)
       # Represents a document or invoice in the draft phase. Color is GRAY.
       - icon: GRAY
         name:

@@ -155,7 +155,6 @@ class CashCtrlAdmin(BaseAdmin):
     def save_inlines(self, request, form, formset, change):
         """ Safe setup for inlines """
         instances = formset.save(commit=False)  # Get unsaved inline instances
-        tenant = get_tenant(request)
         
         # Fetch the correct setup instance
         api_setup = self.get_default_api_setup(request)
@@ -201,6 +200,10 @@ class CashCtrlAdmin(BaseAdmin):
             return "-"  # Fallback if company is missing
         url = f"../person/{person.id}/"
         return format_html('<a href="{}">{}</a>', url, person.company)
+
+    @admin.display(description=_('Parent'))
+    def display_type(self, obj):
+        return obj.category.get_type_display()
 
 
 @admin.register(models.CustomFieldGroup, site=admin_site)
@@ -806,14 +809,49 @@ class BookTemplateAdmin(CashCtrlAdmin):
 @admin.register(models.OrderCategoryContract, site=admin_site)
 class OrderCategoryContractAdmin(CashCtrlAdmin):
     # Safeguards
-    related_tenant_fields = ['setup', 'account', 'bookings']
+    related_tenant_fields = ['setup']
 
     # Helpers
     form = forms.OrderCategoryContractAdminForm
 
     # Display these fields in the list view
     list_display = (
-        'code', 'display_name_plural') + CASH_CTRL.LIST_DISPLAY_SHORT
+        'type', 'code', 'display_name_plural') + CASH_CTRL.LIST_DISPLAY_SHORT
+    list_display_links = ('type', 'code', 'display_name_plural')
+    
+    # Search, filter
+    search_fields = ('code', 'name_singular', 'name_plural')
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', 'type', 
+                *make_language_fields('name_singular'),
+                *make_language_fields('name_plural'), 'status_data'
+            ),
+            'classes': ('expand',),
+        }),
+    )
+
+
+@admin.register(models.OrderCategoryIncoming, site=admin_site)
+class OrderCategoryIncomingAdmin(CashCtrlAdmin):
+    # Safeguards
+    related_tenant_fields = [
+        'setup', 'credit_account', 'expense_account', 'bank_account', 'tax',
+        'currency']
+    optimize_foreigns = [
+        'setup', 'credit_account', 'expense_account', 'bank_account', 'tax',
+        'currency']
+
+    # Helpers
+    form = forms.OrderCategoryIncomingAdminForm
+
+    # Display these fields in the list view
+    list_display = (
+        'code', 'display_name_plural', 'expense_account', 'currency'
+    ) + CASH_CTRL.LIST_DISPLAY_SHORT
 
     # Search, filter
     search_fields = ('code', 'name')
@@ -825,104 +863,111 @@ class OrderCategoryContractAdmin(CashCtrlAdmin):
                 'code',  
                 *make_language_fields('name_singular'),
                 *make_language_fields('name_plural'),
-                'address_type', 'bookings', 'rounding'
+            ),
+            'classes': ('expand',),
+        }),
+        (_('Booking'), {
+            'fields': (
+                'address_type', 'credit_account', 'expense_account', 
+                'bank_account', 'tax', 'rounding', 'currency', 'due_days'
             ),
             'classes': ('expand',),
         }),
     )
 
 
-@admin.register(models.OrderCategoryIncoming, site=admin_site)
-class OrderCategoryIncomingAdmin(CashCtrlAdmin):
-    # Safeguards
-    related_tenant_fields = ['setup', 'account']
+class OrderIncomingAdmin(CashCtrlAdmin):
 
-    # Helpers
-    form = forms.OrderCategoryIncomingAdminForm
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # Call super() first to let filter_foreignkeys (or any other logic) run
+        formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+        # Get setup
+        api_setup = self.get_default_api_setup(request)
+        
+        # Ensure filtering applies to 'responsible_person'
+        if db_field.name == "responsible_person" and formfield is not None:
+            formfield.queryset = models.Person.objects.filter(
+                setup=api_setup, category__c_id=models.PERSON_TYPE.EMPLOYEE)
+        
+        return formfield
+
+    @admin.display(description=_('Type'))
+    def display_type(self, obj):
+        return obj.category.get_type_display()
+    
+
+@admin.register(models.OrderContract, site=admin_site)
+class OrderContractAdmin(OrderIncomingAdmin):
+    # Safeguards
+    related_tenant_fields = [
+        'setup', 'associate', 'category', 'currency', 'responsible_person']
+    optimize_foreigns = [
+        'setup', 'associate', 'category', 'currency', 'responsible_person']    
 
     # Display these fields in the list view
     list_display = (
-        'code', 'display_name_plural') + CASH_CTRL.LIST_DISPLAY_SHORT
-
-    # Search, filter
-    search_fields = ('code', 'name')
-
-    #Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': (
-                'code', 'account',  *make_language_fields('name_singular'),
-                *make_language_fields('name_plural')),
-            'classes': ('expand',),
-        }),
-    )
-
-
-@admin.register(models.ContractOrder, site=admin_site)
-class ContractOrderAdmin(CashCtrlAdmin):
-    # Safeguards
-    related_tenant_fields = ['setup', 'supplier', 'category']
-
-    # Display these fields in the list view
-    list_display = (
-        'date', 'description', 'status', 'display_supplier', 'price_excl_vat'
-    ) + CASH_CTRL.LIST_DISPLAY_SHORT
-    list_display_links = ('date', 'description')
-
-
+        'date', 'display_type', 'description', 'display_supplier', 
+        'price_excl_vat', 'currency', 'status'
+    ) + CASH_CTRL.LIST_DISPLAY_SHORT    
+    list_display_links = ('date', 'display_type', 'description')
+ 
     # Search, filter
     search_fields = ('supplier__company', 'description')
-    list_filter = ('status', 'date')
-
+    list_filter = ('category', 'status', 'date') 
+    
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'category', 'supplier', 'status', 'description', 'date',
-                'price_excl_vat'),
+                'category', 'associate', 'status', 'description', 'date',
+                'price_excl_vat', 'currency'),
             'classes': ('expand',),
         }),
         (_('Contractual'), {
-            'fields': (
-                'valid_from', 'valid_until', 'notice_period_month'),
+            'fields': (            
+                'valid_from', 'valid_until', 'notice_period_month',
+                'responsible_person'),
             'classes': ('expand',),
         }),
     )
 
-    @admin.display(description=_('Supplier'))
+    @admin.display(description=_('Partner'))
     def display_supplier(self, obj):
-        return self.display_link_to_company(obj.supplier)
-
+        return self.display_link_to_company(obj.associate)
 
 @admin.register(models.IncomingOrder, site=admin_site)
-class IncomingOrderAdmin(CashCtrlAdmin):
+class IncomingOrderAdmin(OrderIncomingAdmin):
     # Safeguards
-    related_tenant_fields = ['setup', 'contract', 'category']
-
+    related_tenant_fields = [
+        'setup', 'contract', 'category', 'responsible_person']
+    optimize_foreigns = [
+        'setup', 'contract', 'category', 'responsible_person']    
+    
     # Display these fields in the list view
     list_display = (
-        'date', 'description', 'status', 'display_supplier', 'price_incl_vat'
-    ) + CASH_CTRL.LIST_DISPLAY_SHORT
-    list_display_links = ('date', 'description')
-
-
+        'date', 'display_type', 'description', 'display_supplier', 
+        'price_incl_vat', 'category__currency', 'status'
+    ) + CASH_CTRL.LIST_DISPLAY_SHORT       
+    list_display_links = ('date', 'display_type', 'description')
+ 
     # Search, filter
-    search_fields = ('contract', 'description')
-    list_filter = ('status', 'date')
-
+    search_fields = ('contract__associate_company', 'description')
+    list_filter = ('category', 'status', 'date')     
+    
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
                 'category', 'contract', 'status', 'description', 'date',
-                'price_incl_vat', 'responsible_person'),
+                'price_incl_vat', 'due_days', 'responsible_person'),
             'classes': ('expand',),
         }),
     )
 
-    @admin.display(description=_('Supplier'))
+    @admin.display(description=_('Partner'))
     def display_supplier(self, obj):
-        return self.display_link_to_company(obj.contract.supplier)
+        return self.display_link_to_company(obj.contract.associate)
 
 
 @admin.register(models.ArticleCategory, site=admin_site)

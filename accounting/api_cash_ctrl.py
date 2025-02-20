@@ -73,32 +73,6 @@ COUNTRY_CODES = [
     'ZWE', 'ISL']
 
 
-# mixins, we change right at down and uploading of data
-def camel_to_snake(name):
-    ''' we don't use cashCtrl camel field names '''
-    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
-
-
-def snake_to_camel(snake_str):
-    ''' we don't use cashCtrl camel field names '''
-    components = snake_str.split('_')
-    camel_case_str = ''.join(x.title() for x in components)
-
-    # ensure the first letter is lowercase and return
-    return camel_case_str[0].lower() + camel_case_str[1:]
-
-# TEMP use, delete if new connector_cash is ready
-def value_to_xml(value):
-    ''' use cashctrl <values> xml '''
-    # Check if value is a dictionary
-    if isinstance(value, dict) and 'values' in value:
-        xmlstr = xmltodict.unparse(value['values'], full_document=False)
-        return '<values>' + xmlstr + '</values>'
-    elif isinstance(value, dict) or isinstance(value, list):
-        return json.dumps(value)
-    # Return original value
-    return value
 
 '''
 cashCtrl definitions:
@@ -228,10 +202,114 @@ class GENDER:
     MALE = 'MALE'
 
 
+class PERSON_TYPE:
+    CLIENT = 1
+    SUPPLIER = 2
+    EMPLOYEE = 3
+
+
 class ORDER_TYPE:
     '''see public api desc'''
     SALES = 'SALES'
     PURCHASE = 'PURCHASE'
+
+
+# Helpers
+
+# Conversions
+def camel_to_snake(name):
+    ''' we don't use cashCtrl camel field names '''
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+
+
+def snake_to_camel(snake_str):
+    ''' we don't use cashCtrl camel field names '''
+    components = snake_str.split('_')
+    camel_case_str = ''.join(x.title() for x in components)
+
+    # ensure the first letter is lowercase and return
+    return camel_case_str[0].lower() + camel_case_str[1:]
+
+
+def str_to_dt(dt_string):
+    '''Convert to a datetime object
+        dt_string = '2024-10-14 09:58:33.0'
+    '''
+    return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S.%f')
+
+
+# Xml <-> JSON
+def clean_value(value):
+    ''' use cashctrl <values> xml and remove <values> '''
+    if isinstance(value, str) and value.startswith('<values>'):
+        try:
+            # XML to dict
+            # Skip 'values' if it exists, otherwise return the
+            # original dictionary
+            value_dict = xmltodict.parse(value)
+            return value_dict.get('values', value_dict)
+        except Exception as e:
+            raise ValueError(f"{value}: Could not parse XML: {str(e)}")
+
+    # Return original value
+    return value
+
+
+def convert_to_xml(value):
+    '''
+    Converts a dictionary into an XML-formatted string, where each key-value
+    pair is wrapped in a single `<values>` tag.
+
+    If the input `value` is a dictionary, the function iterates over each
+    key-value pair, converts them into an XML string using
+    `xmltodict.unparse`, and wraps the result in `<values>` tags.
+
+    If the input `value` is not a dictionary, it is returned as-is.
+
+    Args:
+        value (dict or any): The input data to be converted to XML. If not a
+            dictionary, it is returned unchanged.
+
+    Returns:
+        str or any: An XML-formatted string if the input is a dictionary, or
+            the original value if it is not.
+
+    Example:
+        Input:
+            value = {
+                'de': 'Freund',
+                'en': 'foo'
+            }
+
+        Output:
+            "<values><de>Freund</de><en>foo</en></values>"
+    '''
+    # Check if value is a dictionary
+    if isinstance(value, dict):
+        value = dict(values=value)
+        xmlstr = xmltodict.unparse(value['values'], full_document=False)
+        return '<values>' + xmlstr + '</values>'
+    elif isinstance(value, list):  # Now only checking for lists
+        return json.dumps(value)
+
+    # Return original value
+    return value
+
+
+def clean_dict(data, convert_dt=True):
+    ''' convert cashctrl data '''
+    post_data = {}
+    for key, value in data.items():
+        key = camel_to_snake(key)
+        if (convert_dt and 
+                key in ('created',  'last_updated', 'start', 'end')):
+            try:
+                value = str_to_dt(value)
+            except:
+                pass
+        post_data[key] = clean_value(value)
+    return post_data
 
 
 class CashCtrl():
@@ -270,84 +348,6 @@ class CashCtrl():
     def url(self):
         ''' defined in child class '''
         return getattr(self, 'url')
-
-    @staticmethod
-    def str_to_dt(dt_string):
-        '''Convert to a datetime object
-            dt_string = '2024-10-14 09:58:33.0'
-        '''
-        return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S.%f')
-
-    # Xml <-> JSON
-    @staticmethod
-    def clean_value(value):
-        ''' use cashctrl <values> xml and remove <values> '''
-        if isinstance(value, str) and value.startswith('<values>'):
-            try:
-                # XML to dict
-                # Skip 'values' if it exists, otherwise return the
-                # original dictionary
-                value_dict = xmltodict.parse(value)
-                return value_dict.get('values', value_dict)
-            except Exception as e:
-                raise ValueError(f"{value}: Could not parse XML: {str(e)}")
-
-        # Return original value
-        return value
-
-    @staticmethod
-    def process_to_xml(value):
-        '''
-        Converts a dictionary into an XML-formatted string, where each key-value
-        pair is wrapped in a single `<values>` tag.
-
-        If the input `value` is a dictionary, the function iterates over each
-        key-value pair, converts them into an XML string using
-        `xmltodict.unparse`, and wraps the result in `<values>` tags.
-
-        If the input `value` is not a dictionary, it is returned as-is.
-
-        Args:
-            value (dict or any): The input data to be converted to XML. If not a
-                dictionary, it is returned unchanged.
-
-        Returns:
-            str or any: An XML-formatted string if the input is a dictionary, or
-                the original value if it is not.
-
-        Example:
-            Input:
-                value = {
-                    'de': 'Freund',
-                    'en': 'foo'
-                }
-
-            Output:
-                "<values><de>Freund</de><en>foo</en></values>"
-        '''
-        # Check if value is a dictionary
-        if isinstance(value, dict):
-            value = dict(values=value)
-            xmlstr = xmltodict.unparse(value['values'], full_document=False)
-            return '<values>' + xmlstr + '</values>'
-        elif isinstance(value, dict) or isinstance(value, list):
-            return json.dumps(value)
-        # Return original value
-        return value
-
-    def clean_dict(self, data):
-        ''' convert cashctrl data '''
-        post_data = {}
-        for key, value in data.items():
-            key = camel_to_snake(key)
-            if (self.convert_dt and 
-                    key in ('created',  'last_updated', 'start', 'end')):
-                try:
-                    value = self.str_to_dt(value)
-                except:
-                    pass
-            post_data[key] = self.clean_value(value)
-        return post_data
 
     # REST API CashCtrl: post, get
     def get(self, url, params, timeout=10):
@@ -401,7 +401,7 @@ class CashCtrl():
             elif isinstance(value, Decimal):
                 value = float(value)
             else:
-                value = self.process_to_xml(value)
+                value = convert_to_xml(value)
             post_data[camel_key] = value
 
         # Retry mechanism for rate-limiting
@@ -431,7 +431,7 @@ class CashCtrl():
                         f"{content.get('errors')}")
 
                 # Clean and return response content
-                return self.clean_dict(content)
+                return clean_dict(content, self.convert_dt)
 
             except requests.exceptions.Timeout:
                 logging.error(
@@ -469,7 +469,10 @@ class CashCtrl():
         url = self.BASE.format(
             org=self.org, url=self.url, params=params, action='list')
         response = self.get(url, params)
-        self.data = [self.clean_dict(x) for x in response.json()['data']]
+        self.data = [
+            clean_dict(x, self.convert_dt) 
+            for x in response.json()['data']
+        ]
         return self.data
 
     def read(self, params=None):
@@ -484,7 +487,8 @@ class CashCtrl():
 
         # Return content
         if content:
-            self.data = self.clean_dict(json.loads(content.decode(DECODE)))
+            self.data = clean_dict(
+                json.loads(content.decode(DECODE)), self.convert_dt)
             return self.data
         raise Exception("response has no _content ")
 
@@ -500,7 +504,8 @@ class CashCtrl():
 
         # Return content
         if content:
-            self.data = self.clean_dict(json.loads(content.decode(DECODE)))
+            self.data = clean_dict(
+                json.loads(content.decode(DECODE)), self.convert_dt)
             return self.data
         raise Exception("response has no _content ")
 
@@ -865,7 +870,75 @@ if __name__ == "__main__":
     org = 'test167'
     api = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
     
-    conn = OrderBookEntry(org, api, convert_dt=False)
-    orders = conn.list(params={'id': 22})
-    for order in orders:
-        print("*", order)
+    data = {
+        'account_id': 1018,  # 20000.10	Kreditoren ER - SF WV
+        'name_singular': {
+            'de': 'Rechnungseingang (Test 1)',
+            'en': 'Invoice',
+            'fr': 'Facture',
+            'it': 'Fattura'
+        },
+        'name_plural': {
+            'de': 'Rechnungseingang (Test 2)',
+            'en': 'Invoices',
+            'fr': 'Factures',
+            'it': 'Fatture'
+        },    
+        'status': [
+            {          
+              'name': {'de': 'Offen'},          
+              'icon': 'BLUE',     
+              'isBook': True,      
+            },
+            {         
+              'name': {'de': 'Genehmigt'},          
+              'icon': 'VIOLET',     
+              'isBook': False,
+            },
+            {         
+              'name': {'de': 'Erinnert 1'},          
+              'icon': 'RED',
+              'isBook': True,
+            },
+            {          
+              'name': {'de': 'Erinnert 2'},          
+              'icon': 'RED',
+              'isBook': True,
+            },
+            {
+              'action_id': 'BOOK_TEMPLATE_8',
+              'name': {'de': 'Storniert'},          
+              'icon': 'GREEN',
+              'isBook': True,
+            },
+            {
+              'actionId': 'CATEGORY_16',
+              'name': {'de': 'Storniert'},          
+              'icon': 'YELLOW',     
+              'isBook': True,
+            }
+        ],
+        'type': 'PURCHASE',
+        'book_type': 'CREDIT',
+        'address_type': 'INVOICE',
+        'due_days': 30,
+        'header': 'Hello0',
+        'header': 'Buchungseingang',
+        'book_templates': [
+            {
+              'accountId': 996,  # 10020.10	KK Raiffeisenbank Wasserversorgung 
+              'taxId': None,
+              'name': {'de': 'Zahlung'},          
+            },
+            {
+              'accountId': None,
+              'taxId': None,
+              'name': {'de': 'Skonto'},                    
+            }
+        ],    
+    }    
+    print("*d", data)
+    data['book_templates'] = []
+    conn = OrderCategory(org, api, convert_dt=False)
+    response = conn.create(data=data)    
+    print("*", response)

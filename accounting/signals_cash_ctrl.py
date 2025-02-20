@@ -61,8 +61,6 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
         sync.get(model=models.PersonCategory)
 
-        return
-
         # Round 1 data -----------------------------------------------
         # Create CustomFieldGroups
         for data in init_data['CustomFieldGroup']:
@@ -79,6 +77,8 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
             setup_data_add_logging(setup, data)
             _obj, _created = models.CustomField.objects.update_or_create(
                 setup=setup, code=data.pop('code'), defaults=data)
+
+        return
 
         # Create Location, upload not working in cashCtrl
         for data in init_data['Location']:
@@ -468,7 +468,7 @@ def article_pre_delete(sender, instance, **kwargs):
 def order_category_contract_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on OrderCategoryContract. '''
     # Ensure related M2M relationships are saved
-    sync = conn.CashCtrlSync(sender, instance, conn.OrderCategory)
+    sync = conn.CashCtrlSync(sender, instance, conn.OrderCategoryContract)
     sync.save(created=created)
 
 
@@ -493,6 +493,35 @@ def order_category_incoming_post_pre_delete(sender, instance, **kwargs):
     sync = conn.CashCtrlSync(sender, instance, conn.OrderCategoryIncoming)
     sync.delete()
 
+
+# ContractOrder
+@receiver(post_save, sender=models.OrderContract)
+def order_contract_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on OrderContract. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.OrderContract)
+    sync.save(created=created)
+
+
+@receiver(pre_delete, sender=models.OrderContract)
+def order_contract_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on OrderContract. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.OrderContract)
+    sync.delete()
+
+
+# IncomingOrder
+@receiver(post_save, sender=models.IncomingOrder)
+def incoming_order_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on IncomingOrder. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.IncomingOrder)
+    sync.save(created=created)
+
+
+@receiver(pre_delete, sender=models.IncomingOrder)
+def incoming_order_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on IncomingOrder. '''
+    sync = conn.CashCtrlSync(sender, instance, conn.IncomingOrder)
+    sync.delete()
 
 
 # Ledger ------------------------------------------------------------------
