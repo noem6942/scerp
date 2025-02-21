@@ -12,18 +12,20 @@ from django.db.models.functions import Cast
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from core.models import (
+    LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantSetup,
+    TenantLogo, Country, Address, Contact, 
+    TitleX , 
+    PersonCategoryX, 
+    PersonX,
+    PersonAddress
+)
+from scerp.locales import CANTON_CHOICES
+from scerp.mixins import get_code_w_name, primary_language
 from .api_cash_ctrl import (
     URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE,
     ORDER_TYPE, PERSON_TYPE)
-from scerp.mixins import primary_language
-
-
-from core.models import (
-    LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantSetup,
-    TenantLogo, Country, Address, Contact)
-from scerp.locales import CANTON_CHOICES
-
-
+    
 # Definitions
 class APPLICATION(models.TextChoices):
     CASH_CTRL = 'CC', 'Cash Control'
@@ -87,10 +89,6 @@ class APISetup(TenantAbstract):
         return self.org_name
 
     @property
-    def api_key_hidden(self):
-        return '*' * len(self.api_key)
-
-    @property
     def url(self):
         return URL_ROOT.format(org=self.org_name)
 
@@ -114,8 +112,9 @@ class APISetup(TenantAbstract):
         verbose_name_plural = _('Accounting Setups')
 
 
-class AcctApp(TenantAbstract):
-    '''id_cashctrl gets set after first synchronization
+class AcctAppBase(models.Model):
+    '''
+    attributes to manage cashCtrl sync
     '''
     # CashCtrl
     c_id = models.PositiveIntegerField(
@@ -149,10 +148,11 @@ class AcctApp(TenantAbstract):
             "This records needs to be synched to cashctr, if the cycle is "
             "over it gets reset to False"))
 
-    def get_code_w_name(self):
-        code = self.code + ' ' if self.code else ''
-        return f"{code} {primary_language(self.name)}"
+    class Meta:
+        abstract = True
 
+
+class AcctApp(TenantAbstract, AcctAppBase):
     class Meta:
         abstract = True
 
@@ -174,10 +174,10 @@ class CustomFieldGroup(AcctApp):
         help_text='''
             The type of group, meaning: which module the group belongs to.
             Possible values: JOURNAL, ACCOUNT, INVENTORY_ARTICLE,
-            INVENTORY_ASSET, ORDER, PERSON, FILE.''')
+            INVENTORY_ASSET, ORDER, PersonX, FILE.''')
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
 
     class Meta:
         constraints = [
@@ -216,7 +216,7 @@ class CustomField(AcctApp):
         help_text='''
             The type of group, meaning: which module the group belongs to.
             Possible values: JOURNAL, ACCOUNT, INVENTORY_ARTICLE,
-            INVENTORY_ASSET, ORDER, PERSON, FILE.''')
+            INVENTORY_ASSET, ORDER, PersonX, FILE.''')
     data_type = models.CharField(
         _("Data Type"), max_length=50, choices=DATA_TYPE,
         help_text='''
@@ -243,7 +243,7 @@ class CustomField(AcctApp):
         return f"customField{self.c_id}"
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
 
     class Meta:
         constraints = [
@@ -438,7 +438,7 @@ class SequenceNumber(AcctApp):
         super().save(*args, **kwargs)
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
 
     class Meta:
         constraints = [
@@ -463,7 +463,7 @@ class Unit(AcctApp):
     is_default = models.BooleanField(_("Is default"), default=False)
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
 
     class Meta:
         constraints = [
@@ -889,7 +889,7 @@ class Tax(AcctApp):
             raise ValidationError(_("Name must not be empty"))
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
         
     class Meta:
         constraints = [
@@ -925,7 +925,7 @@ class Rounding(AcctApp):
         help_text=_("The rounding mode. Defaults to HALF_UP."))
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
 
     class Meta:
         constraints = [
@@ -974,7 +974,7 @@ class ArticleCategory(AcctApp):
             "Leave empty."))
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
 
     class Meta:
         constraints = [
@@ -1120,7 +1120,7 @@ class Title(AcctApp):
     )
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
 
     class Meta:
         constraints = [
@@ -1153,7 +1153,7 @@ class PersonCategory(AcctApp):
             MaxValueValidator(100.0, message=_("Discount percentage cannot exceed 100."))
         ],
         help_text=_(
-            "Discount percentage for this person, which may be used for orders. "
+            "Discount percentage for this PersonX, which may be used for orders. "
             "This can also be set on the category for all people in that category."
         ),
     )
@@ -1168,7 +1168,7 @@ class PersonCategory(AcctApp):
     )
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
 
     class Meta:
         constraints = [
@@ -1208,7 +1208,7 @@ class Person(AcctApp):
         help_text=('The name of the organization/company. Either firstName, lastName or company must be set.')
     )
     title = models.ForeignKey(
-        Title,
+        TitleX,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -1244,7 +1244,7 @@ class Person(AcctApp):
     )
     category = models.ForeignKey(
         # retrieve automatically
-        PersonCategory, on_delete=models.PROTECT,
+        PersonCategoryX, on_delete=models.PROTECT,
         verbose_name=_('Category'),
         help_text=_("The person's category.")
     )
@@ -1278,7 +1278,7 @@ class Person(AcctApp):
             MaxValueValidator(100.0, message=_("Discount percentage cannot exceed 100."))
         ],
         help_text=_(
-            "Discount percentage for this person, which may be used for orders. "
+            "Discount percentage for this PersonX, which may be used for orders. "
             "This can also be set on the category for all people in that category."
         ),
     )
@@ -1351,49 +1351,6 @@ class Person(AcctApp):
     class Meta:
         verbose_name = _('Person')
         verbose_name_plural = _('Persons')
-
-
-class AddressMapping(AcctApp):
-    class TYPE(models.TextChoices):
-        # CashCtrl
-        MAIN = 'MAIN', _('Main Address')
-        INVOICE = 'INVOICE', _('Invoice Address')
-        DELIVERY = 'DELIVERY', _('Delivery Address')
-        OTHER = 'OTHER', _('Other Address')
-
-    type = models.CharField(
-        _('Type'), max_length=20, choices=TYPE.choices)
-    person = models.ForeignKey(
-        Person, on_delete=models.CASCADE,
-        related_name='%(class)s_address',
-        verbose_name=_('Address'))
-    address = models.ForeignKey(
-        Address, on_delete=models.CASCADE,
-        related_name='%(class)s_address',
-        verbose_name=_('Address'))
-    post_office_box = models.CharField(
-        _('PO Box'), max_length=8,
-        blank=True, null=True,
-        help_text=_("Post Office Box"))
-    additional_information = models.CharField(
-        _('Additional Address Information'),
-        max_length=50, blank=True, null=True,
-        help_text=_("e.g. c/o"))
-
-    def __str__(self):
-        return f"{self.address}"
-
-    class Meta:
-        ordering = ['type']
-        verbose_name = _('Address')
-        verbose_name_plural = _('Addresses')
-
-
-class ContactMapping(Contact):
-    person = models.ForeignKey(
-        Person, on_delete=models.CASCADE,
-        related_name='%(class)s_address',
-        verbose_name=_('Address'))
 
 
 
@@ -1656,8 +1613,8 @@ class OrderCategoryIncoming(OrderCategory):
         _('Default due days'), default=30, null=True, blank=True)
     address_type = models.CharField(
         _('address type'), max_length=20,
-        choices=AddressMapping.TYPE.choices,
-        default=AddressMapping.TYPE.INVOICE,
+        choices=PersonAddress.TYPE.choices,
+        default=PersonAddress.TYPE.INVOICE,
         help_text=(
             '''Which address of the recipient to use in the order document.
                Possible values: MAIN, INVOICE, DELIVERY, OTHER.'''))
@@ -1686,7 +1643,7 @@ class OrderContract(AcctApp):
         ('notice_period_month', 'order_procurement_notice')
     ]    
     associate = models.ForeignKey(
-        Person, on_delete=models.PROTECT, related_name='associate',
+        PersonX, on_delete=models.PROTECT, related_name='associate',
         verbose_name=_('Contract party'),
         help_text=_('Supplier or Client'))  # to be mapped to multiple in cashCtrl    
     category = models.ForeignKey(
@@ -1709,7 +1666,7 @@ class OrderContract(AcctApp):
         Currency, on_delete=models.PROTECT, null=True, blank=True,
         verbose_name=_('Currency'), default=Currency.get_default_id)   
     responsible_person = models.ForeignKey(
-        Person, on_delete=models.PROTECT, blank=True, null=True,
+        PersonX, on_delete=models.PROTECT, blank=True, null=True,
         related_name='%(class)s_person',
         verbose_name=_('Responsible'),
         help_text=_('Principal'))        
@@ -1767,7 +1724,7 @@ class IncomingOrder(AcctApp):
         _('Due Days'), null=True, blank=True,
         help_text=_('''Leave blank to calculate from contract'''))
     responsible_person = models.ForeignKey(
-        Person, on_delete=models.PROTECT, blank=True, null=True,
+        PersonX, on_delete=models.PROTECT, blank=True, null=True,
         related_name='%(class)s_person',
         verbose_name=_('Clerk'),
         help_text=_('Clerk'))
@@ -1817,7 +1774,7 @@ class Ledger(AcctApp):
         help_text=_("Fiscal period"))
 
     def __str__(self):        
-        return self.get_code_w_name()
+        return self.get_code_w_name(self)
 
     class Meta:
         constraints = [

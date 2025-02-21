@@ -16,7 +16,7 @@ from scerp.admin import (
      BaseAdmin, BaseTabularInline, Display,
      verbose_name_field, make_language_fields, set_inactive, set_protected)
 from scerp.admin_site import admin_site
-from scerp.mixins import primary_language
+from scerp.mixins import primary_language, show_hidden
 
 from . import actions as a
 from . import filters, forms, models
@@ -60,7 +60,7 @@ class APISetupAdmin(BaseAdmin):
     related_tenant_fields = ['tenant']
 
     # Display these fields in the list view
-    list_display = ('tenant', 'org_name', 'api_key_hidden')
+    list_display = ('tenant', 'org_name', 'display_api_key')
     search_fields = ('tenant', 'org_name')
 
     # Actions
@@ -85,6 +85,10 @@ class APISetupAdmin(BaseAdmin):
             'classes': ('expand',),
         }),
     )
+    
+    @admin.display(description=_('API Key'))
+    def display_api_key(self):
+        return show_hidden(self.api_key)      
     
 
 class CashCtrlAdmin(BaseAdmin):
@@ -1572,7 +1576,7 @@ class AccountPositionAdmin(CashCtrlAdmin):
             return '🪙'  # (Coin): \U0001FA99
         return ' '
 
-
+'''
 @admin.register(models.PersonCategory, site=admin_site)
 class PersonCategoryAdmin(CashCtrlAdmin):
     # Safeguards
@@ -1607,7 +1611,8 @@ class PersonCategoryAdmin(CashCtrlAdmin):
 @admin.register(Address, site=admin_site)
 class AddressAdmin(admin.ModelAdmin):
     # Safeguards
-    related_tenant_fields = ['tenant', 'person']
+    related_tenant_fields = ['tenant', 'person', 'categories']
+    optimize_foreigns = ['tenant', 'person', 'categories']
 
     # Display these fields in the list view
     list_display = ('country', 'zip', 'city', 'address')
@@ -1620,7 +1625,7 @@ class AddressAdmin(admin.ModelAdmin):
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': (('zip', 'city'), 'address', 'country'),
+            'fields': (('zip', 'city'), 'address', 'country', 'categories'),
             'classes': ('expand',),
         }),
     )
@@ -1708,3 +1713,4 @@ class PersonAdmin(CashCtrlAdmin):
     def save_formset(self, request, form, formset, change):
         """ Ensure setup is set before saving. """
         self.save_inlines(request, form, formset, change)
+'''

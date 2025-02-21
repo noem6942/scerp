@@ -35,7 +35,12 @@ APP_MODEL_ORDER = {
             'TenantLocation': ('3', ''),
             'TenantSetup': ('4', ''),
             'TenantLogo': ('5', ''),
-            'UserProfile': ('6', '')
+            'UserProfile': ('6', ''),
+            # CRM Admin
+            'AddressCategory': ('21', ''),
+            'TitleX': ('22', ''),
+            'PersonCategoryX': ('23', ''),
+            'PersonX': ('24', ''),            
         }
     },
     'crm': {

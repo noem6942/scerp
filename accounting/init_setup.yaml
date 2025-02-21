@@ -162,10 +162,10 @@ CustomField:
   - code: order_procurement_valid_from
     group_ref: order_procurement
     name:
-      de: Vertrag gültig bis
-      en: Contract valid until
-      fr: Contrat valable jusqu'au
-      it: Contratto valido fino al
+      de: Vertrag gültig von
+      en: Contract valid from
+      fr: Contrat valable de
+      it: Contratto valido per
     data_type: DATE
     is_multi: false
     values: []
@@ -206,7 +206,7 @@ FiscalPeriod: []
 
 Currency: []
 
-Rounding:
+Rounding: []
 
 SequenceNumber: []
 

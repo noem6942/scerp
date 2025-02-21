@@ -1,0 +1,112 @@
+'''
+scerp/admin_new.py
+
+use this for optimized safeguards
+'''
+from django.contrib import admin
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from .models import ParentModel, ChildModel, SomeModel
+
+
+class InlineAdmin(admin.TabularInline)
+    '''
+    safeguards and optimizing for inlines
+    '''
+    def get_queryset(self, request):
+        """Filter by tenant and optimize queries."""
+        queryset = super().get_queryset(request)
+        queryset = queryset.filter(parent__tenant=request.session.get("tenant"))
+
+        # Optimize queries
+        if self.optimize_foreigns:
+            queryset = queryset.select_related(*self.optimize_foreigns)
+        if self.optimize_many_to_many:
+            queryset = queryset.prefetch_related(*self.optimize_many_to_many)
+
+        return queryset
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Filter ForeignKey choices by tenant in inlines."""
+        if db_field.name == "some_foreign_key":
+            kwargs["queryset"] = SomeModel.objects.filter(
+                tenant=request.session.get("tenant")
+            ).select_related("related_field")  # Optimize query
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        """Filter and optimize ManyToMany choices in inlines."""
+        if db_field.name == "some_m2m_field":
+            kwargs["queryset"] = SomeModel.objects.filter(
+                tenant=request.session.get("tenant")
+            ).prefetch_related("related_field")  # Optimize query
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+        
+        
+class ChildInline(InlineAdmin):
+    # Init
+    model = ChildModel
+    extra = 0  # Avoid unnecessary empty forms
+
+    # Define ForeignKey & ManyToMany optimizations    
+    optimize_foreigns = ["parent", "some_foreign_key"]
+    optimize_many_to_many = ["some_m2m_field"]    
+
+
+class ParentAdmin(admin.ModelAdmin)
+    def get_queryset(self, request):
+        """Limit queryset to the current tenant and optimize queries."""
+        queryset = super().get_queryset(request)
+        queryset = queryset.filter(tenant=request.session.get("tenant"))
+
+        # Optimize queries
+        if self.optimize_foreigns:
+            queryset = queryset.select_related(*self.optimize_foreigns)
+        if self.optimize_many_to_many:
+            queryset = queryset.prefetch_related(*self.optimize_many_to_many)
+
+        return queryset
+
+    def save_model(self, request, obj, form, change):
+        """Assign tenant and created_by user when saving."""
+        if not obj.pk:  # Only set on creation
+            obj.tenant = request.session.get("tenant")
+            obj.created_by = request.user
+        obj.save()
+
+    def save_related(self, request, form, formsets, change):
+        """Ensure ManyToMany relationships also belong to the same tenant."""
+        super().save_related(request, form, formsets, change)
+        for field in obj._meta.many_to_many:
+            m2m_manager = getattr(obj, field.name)
+            related_queryset = m2m_manager.all()
+            for related_obj in related_queryset:
+                if related_obj.tenant != obj.tenant:
+                    m2m_manager.remove(related_obj)  # Remove non-tenant records
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Filter ForeignKey choices by tenant."""
+        if db_field.name == "some_foreign_key":
+            kwargs["queryset"] = SomeModel.objects.filter(
+                tenant=request.session.get("tenant")
+            ).select_related("related_field")  # Optimize query
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        """Filter and optimize ManyToMany choices."""
+        if db_field.name == "some_m2m_field":
+            kwargs["queryset"] = SomeModel.objects.filter(
+                tenant=request.session.get("tenant")
+            ).prefetch_related("related_field")  # Optimize query
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+        
+
+@admin.register(ParentModel, site=admin_site)
+class ParentModelAdmin(ParentAdmin):
+    # Define ForeignKey & ManyToMany optimizations
+    optimize_foreigns = ["created_by", "tenant"]
+    optimize_many_to_many = ["some_m2m_field"]    
+    
+    # Display
+    list_display = ("name", "tenant", "created_by")
+    readonly_fields = ("tenant", "created_by")

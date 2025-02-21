@@ -64,12 +64,17 @@ def read_yaml_file(app_name, filename_yaml):
     with open(file_path, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)
 
-
+# Models
 def get_admin():
     '''
     Handsome for assigning base logging data to have the admin user
     '''
     return User.objects.get(username='admin')
+
+
+def get_code_w_name(instance):
+    code = instance.code + ' ' if instance.code else ''
+    return f"{code} {primary_language(instance.name)}"
 
 
 def is_url_friendly(name):
@@ -78,6 +83,10 @@ def is_url_friendly(name):
     slugified_name = slugify(name)
     # Check if the slugified name is non-empty and identical to the original, lowercased name
     return slugified_name == name.lower() and bool(slugified_name)
+
+    
+def show_hidden(key):
+    return '*' * len(key)  
 
 
 def generate_random_password(length=settings.PASSWORD_LENGTH):

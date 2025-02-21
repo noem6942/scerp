@@ -1,5 +1,7 @@
 # core/models.py
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.contrib.auth.models import Group, User
 from django.utils import timezone
@@ -144,7 +146,7 @@ class TenantSetup(LogAbstract, NotesAbstract):
     show_only_primary_language = models.BooleanField(
         _('Show only primary language'), default=True,
         help_text=_('Show only primary language in forms')
-    )    
+    )
     type = models.CharField(
          _('Type'), max_length=1, choices=TYPE.choices,
         null=True, blank=True,
@@ -287,6 +289,31 @@ class TenantLogo(TenantAbstract):
 
 
 # Base Entities: Country, Address, Contact
+class AddressCategory(TenantAbstract):    
+    class TYPE(models.TextChoices):
+        # CashCtrl
+        AREA = 'Area', _('Area')
+        REGION = 'Region', _('Region')
+        ROUTE = 'Route', _('Route')        
+        OTHER = 'OTHER', _('Other')
+
+    type = models.CharField(max_length=20, choices=TYPE.choices)
+    code = models.CharField(
+        _('Code'), max_length=50, help_text=_("Code"))
+    name = models.CharField(
+        _('Name'), max_length=100, help_text=_("Name"))
+    description = models.TextField(
+        _('Description'), blank=True, null=True)
+
+    class Meta:
+        ordering = ['code', 'name']
+        verbose_name = _('Address Category')
+        verbose_name_plural = _('Address Categories')
+
+    def __str__(self):
+        return f"{self.type} {self.name}"
+
+
 class Country(LogAbstract):
     """Model to represent a person's category.
     not used: parentId
@@ -294,7 +321,7 @@ class Country(LogAbstract):
     alpha2 = models.CharField(
         _('Country'),
         max_length=2, help_text=_("2-letter country code")
-    )    
+    )
     alpha3 = models.CharField(
         _('Country'),
         max_length=3, help_text=_("3-letter country code")
@@ -325,7 +352,7 @@ class Address(TenantAbstract):
     '''
     # address
     address = models.CharField(
-        _('Address'), max_length=100, 
+        _('Address'), max_length=100,
         help_text=_("Street, house number")
     )
     zip = models.CharField(
@@ -340,6 +367,11 @@ class Address(TenantAbstract):
         verbose_name=_('Country'), default=Country.get_default_id,
         help_text=_("Country")
     )
+    categories = models.ManyToManyField(
+        AddressCategory, related_name='address_categories',
+        verbose_name=_('Category'), blank=True,
+        help_text=_('Categorize address for planning or statistical analysis.')
+    )
 
     def __str__(self):
         if self.country.alpha3 == 'CHE':
@@ -352,7 +384,7 @@ class Address(TenantAbstract):
                 fields=['country', 'zip', 'address'],
                 name='unique_address'
             )
-        ]             
+        ]
         ordering = ['country', 'zip', 'city']
         verbose_name = _('Address Entry')
         verbose_name_plural = _('Addresses')
@@ -384,7 +416,293 @@ class Contact(TenantAbstract):
     class Meta:
         abstract = True
         verbose_name = _('Contact')
-        verbose_name_plural = _('Contacts')        
+        verbose_name_plural = _('Contacts')
 
     def __str__(self):
         return f"{self.type} - {self.address}"
+
+
+class TitleX(TenantAbstract):
+    """
+    Model to represent a person's title.
+        this will trigger a create / update event to accounting
+    """
+    class GENDER(models.TextChoices):
+        # CashCtrl
+        MALE = 'MALE', _('Male')
+        FEMALE = 'FEMALE', _('Female')
+
+    code = models.CharField(
+        _('Code'), max_length=50, help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('Name'),
+        blank=True,  null=True,  # null necessary to handle multi languages
+        help_text=_("The name of the title (i.e. the actual title)."))
+    gender = models.CharField(
+        _('Gender'), max_length=6, blank=True, null=True,
+        choices=GENDER.choices,
+        help_text=_(
+            "The person's biological gender (male or female). Possible "
+            "values: MALE, FEMALE."))
+    sentence = models.JSONField(
+        _('Sentence'), blank=True,  null=True,  # null necessary to handle multi languages
+        help_text=_(
+            "The letter salutation (e.g. 'Dear Mr.', etc.). May be used in "
+            "mail."))
+
+    def __str__(self):
+        return primary_language(self.name)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code'],
+                name='core_unique_title'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Title")
+        verbose_name_plural = _("Titles")
+
+
+class PersonCategoryX(TenantAbstract):
+    """
+    this will trigger a create / update event to accounting
+    """
+    code = models.CharField(
+        _('Code'), max_length=50, null=True, blank=True,
+        help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('Name'),
+        help_text=_("The name of the category.")
+    )
+
+    def __str__(self):
+        return primary_language(self.name)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code'],
+                name='person_category_unique'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Person Category")
+        verbose_name_plural = _("Person Categories")
+
+
+class PersonX(TenantAbstract):
+    '''
+    this will trigger a create / update event to accounting
+    '''
+    class COLOR(models.TextChoices):
+        # cashCtrl
+        # Ordered from lightest to darkest based on human readability
+        WHITE = 'WHITE', _('White')
+        YELLOW = 'YELLOW', _('Yellow')
+        ORANGE = 'ORANGE', _('Orange')
+        GREEN = 'GREEN', _('Green')
+        BLUE = 'BLUE', _('Blue')
+        PINK = 'PINK', _('Pink')
+        VIOLET = 'VIOLET', _('Violet')
+        RED = 'RED', _('Red')
+        BROWN = 'BROWN', _('Brown')
+        GRAY = 'GRAY', _('Gray')
+        BLACK = 'BLACK', _('Black')
+        
+    company = models.CharField(
+        _('Company'), max_length=100, blank=True, null=True,
+        help_text=_(
+            "The name of the organization/company. Either firstName, lastName "
+            "or company must be set."))
+    title = models.ForeignKey(
+        TitleX,
+        on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name=_('Title'), related_name="title",
+        help_text=_("The person's title (e.g. 'Mr.', 'Mrs.', 'Dr.')."))
+    first_name = models.CharField(
+        _('First Name'), max_length=50, blank=True, null=True,
+        help_text=_(
+            "The person\'s first (given) name. Either firstName, lastName or "
+            "company must be set."))
+    last_name = models.CharField(
+        _('Last Name'), max_length=50, blank=True, null=True,
+        help_text=_(
+            "The person\'s last (family) name. Either firstName, lastName or "
+            "company must be set."))
+    alt_name = models.CharField(
+        _('Alternative Name'), max_length=100, blank=True, null=True,
+        help_text=_(
+            "An alternative name for this person (for organizational chart). "
+            "Can contain localized text."))
+    bic = models.CharField(
+        _('BIC Code'), max_length=11, blank=True, null=True,
+        help_text=_("The BIC (Business Identifier Code) of the person's bank."))
+    category = models.ForeignKey(
+        PersonCategoryX, on_delete=models.PROTECT, related_name='category',
+        verbose_name=_('Category'), help_text=_("The person's category."))
+    color = models.CharField(
+        max_length=10, choices=COLOR.choices, blank=True, null=True,
+        help_text=_(
+            "The color to use for this person in the organizational chart or "
+            "for internal categorization."))
+    date_birth = models.DateField(
+        _('Date of Birth'), blank=True, null=True,
+        help_text=('The person\'s date of birth.'))
+    department = models.CharField(
+        _('Department'), max_length=100, blank=True, null=True,
+        help_text=_('The department of the person within the company.'))
+    discount_percentage = models.FloatField(
+        _('Discount'), blank=True, null=True,
+        validators=[
+            MinValueValidator(0.0, message=_("Discount percentage must be at least 0.")),
+            MaxValueValidator(100.0, message=_("Discount percentage cannot exceed 100."))
+        ],
+        help_text=_(
+            "Discount percentage for this person, which may be used for orders. "
+            "This can also be set on the category for all people in that category."
+        ),
+    )
+    iban = models.CharField(
+        _('IBAN'), max_length=32, blank=True, null=True,
+        help_text=('The IBAN (International Bank Account Number) of the person.')
+    )
+    industry = models.CharField(
+        _('Industry'), max_length=100, blank=True, null=True,
+        help_text=_(
+            "The industry of the company or the trade/vocation of the person."))
+    language = models.CharField(
+        _('Language'), max_length=2, blank=True, null=True,
+        choices=settings.LANGUAGES,
+        help_text=('The main language of the person. May be used for documents.'))
+    nr = models.CharField(
+        _('Person Number'), max_length=50, blank=True, null=True,
+        help_text=('The person number (e.g., customer no.).'))
+    position = models.CharField(
+        _("Position"), max_length=100, blank=True, null=True,
+        help_text=_(
+            "The position (job title) of the person within the company."))
+    superior = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="subordinates", verbose_name=_('Superior'),
+        help_text=_("The superior of this person (for organizational chart)."))
+    vat_uid = models.CharField(
+        _('VAT no.'), max_length=32, blank=True, null=True,
+        help_text=_('The UID (VAT no.) of the company.'))
+    photo = models.ImageField(
+        _('photo'), upload_to='profile_photos/', blank=True, null=True,
+        help_text=_('Load up your personal photo.'))
+        
+    def clean(self, *args, **kwargs):
+        # Validate_person
+        if not self.first_name and not self.last_name and not self.company:
+            raise ValidationError(
+                _('Either First Name, Last Name or Company must be set.'))    
+
+    def __str__(self):
+        if self.company:
+            if self.last_name:
+                return f"{self.company}, {self.last_name} {self.first_name}"
+            return self.company
+        if self.date_birth:
+            return f"{self.last_name} {self.first_name}, {self.date_birth}"
+        return f"{self.last_name} {self.first_name}"
+
+    class Meta:
+        verbose_name = _('Person')
+        verbose_name_plural = _('Persons')
+
+
+class PersonAddress(TenantAbstract):
+    '''
+    Map Address to Person
+    '''
+    class TYPE(models.TextChoices):
+        # CashCtrl
+        MAIN = 'MAIN', _('Main Address')
+        INVOICE = 'INVOICE', _('Invoice Address')
+        DELIVERY = 'DELIVERY', _('Delivery Address')
+        OTHER = 'OTHER', _('Other Address')
+
+    type = models.CharField(
+        _('Type'), max_length=20, choices=TYPE.choices)
+    person = models.ForeignKey(
+        PersonX, on_delete=models.CASCADE,
+        related_name='%(class)s_address',
+        verbose_name=_('Address'))
+    address = models.ForeignKey(
+        Address, on_delete=models.CASCADE,
+        related_name='%(class)s_address',
+        verbose_name=_('Address'))
+    post_office_box = models.CharField(
+        _('PO Box'), max_length=8,
+        blank=True, null=True,
+        help_text=_("Post Office Box"))
+    additional_information = models.CharField(
+        _('Additional Address Information'),
+        max_length=50, blank=True, null=True,
+        help_text=_("e.g. c/o"))
+
+    def __str__(self):
+        return f"{self.address}"
+
+    class Meta:
+        ordering = ['type']
+        verbose_name = _('Address')
+        verbose_name_plural = _('Addresses')
+
+
+class PersonContact(Contact):
+    '''
+    Map Contact to Person
+    '''
+    person = models.ForeignKey(
+        PersonX, on_delete=models.CASCADE,
+        related_name='%(class)s_address',
+        verbose_name=_('Address'))
+
+
+# Buildings, Rooms
+class BuildingX(TenantAbstract):
+    ''' Used to identify own buildings '''
+    name = models.CharField(max_length=200, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name}, {self.address}"
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = _('Building')
+        verbose_name_plural = _('Buildings')
+
+
+class BuildingAddress(TenantAbstract):
+    address = models.ForeignKey(
+        Address, verbose_name=_('Address'),
+        on_delete=models.CASCADE, related_name='%(class)s_address_building')
+    building = models.ForeignKey(
+        BuildingX, verbose_name=_('Accounting Setup'),
+        on_delete=models.CASCADE, related_name='%(class)s_building')
+
+
+class BuildingRoom(TenantAbstract):
+    ''' Used to identify own rooms '''
+    name = models.CharField(_('Name'), max_length=200)
+    building = models.ForeignKey(
+        BuildingX, verbose_name=_('Building'),
+        on_delete=models.CASCADE, related_name='%(class)s_building')
+
+    def __str__(self):
+        return f"{self.name}, {self.address}"
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = _('Building')
+        verbose_name_plural = _('Buildings')
+
+
+class RoomContact(Contact):
+    room = models.ForeignKey(
+        BuildingRoom, verbose_name=_('Person'),
+        on_delete=models.CASCADE, related_name='%(class)s_room')

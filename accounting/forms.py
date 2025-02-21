@@ -11,17 +11,18 @@ from django.utils.translation import gettext as _
 
 from django_admin_action_forms import action_with_form, AdminActionForm
 
+from core.models import PersonAddress as AddressMapping
 from core.safeguards import get_tenant
 from core.models import Address, Contact
 from scerp.admin import verbose_name_field
-from scerp.forms import MultilanguageForm, make_multilanguage_form
+from scerp.forms import MultilanguageForm, make_language_fields_form
 
 from .models import (
     AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, Title, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
     BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
-    AddressMapping, ArticleCategory, Article, PersonCategory,
+    ArticleCategory, Article, PersonCategory,
     Ledger, LedgerBalance, LedgerPL, LedgerIC
 )
 
@@ -37,7 +38,7 @@ class NameAdminForm(MultilanguageForm):
         fields = '__all__'
 
     # Dynamically create fields for each language
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+    make_language_fields_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
 class RoundingAdminForm(NameAdminForm):
@@ -77,7 +78,7 @@ class TaxAdminForm(NameAdminForm):
         fields = '__all__'
 
     # Dynamically create fields for each language
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+    make_language_fields_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
 class BookTemplateAdminForm(NameAdminForm):
@@ -93,7 +94,7 @@ class OrderCategoryContractAdminForm(MultilanguageForm):
         fields = '__all__'
 
     # Dynamically create fields for each language
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+    make_language_fields_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
 class OrderCategoryIncomingAdminForm(MultilanguageForm):
@@ -104,7 +105,7 @@ class OrderCategoryIncomingAdminForm(MultilanguageForm):
         fields = '__all__'
 
     # Dynamically create fields for each language
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+    make_language_fields_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
 class ArticleCategoryAdminForm(NameAdminForm):
@@ -121,7 +122,7 @@ class ArticleAdminForm(MultilanguageForm):
         fields = '__all__'
         
     # Dynamically create fields for each language
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+    make_language_fields_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
 """
@@ -162,7 +163,7 @@ class CurrencyAdminForm(NameAdminForm):
         fields = '__all__'
 
     # Dynamically create fields for each language
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+    make_language_fields_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
 # Title
@@ -175,7 +176,7 @@ class TitleAdminForm(MultilanguageForm):
         fields = '__all__'
 
     # Dynamically create fields for each language
-    make_multilanguage_form(locals(), Meta.model, MULTI_LANG_FIELDS)
+    make_language_fields_form(locals(), Meta.model, MULTI_LANG_FIELDS)
 
 
 class PersonCategoryAdminForm(NameAdminForm):

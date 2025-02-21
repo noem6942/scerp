@@ -22,6 +22,8 @@ from django.utils.translation import get_language, gettext_lazy as _
 from core.models import Message, Tenant
 from core.safeguards import get_tenant, filter_query_for_tenant, save_logging
 from .exceptions import APIRequestError
+from .mixins import primary_language
+
 
 GUI_ROOT = settings.ADMIN_ROOT
 SPACE = '\u00a0'  # invisible space
@@ -520,7 +522,7 @@ class BaseAdmin(ModelAdmin):
     def save_model(self, request, instance, form, change):
         """
         Override save to include additional logging or other custom logic.
-        """        
+        """       
         # Check tenant
         add_tenant = getattr(self, 'has_tenant_field', False)
         if add_tenant and not getattr(instance, 'tenant', None):
@@ -582,3 +584,15 @@ class BaseAdmin(ModelAdmin):
 
         # Call the default save_related method to save the inline models
         super().save_related(request, form, formsets, change)
+
+    # decorators     
+    @admin.display(description=_('Name'))
+    def display_name(self, obj):        
+        try:
+            return primary_language(obj.name)
+        except:
+            return ''    
+
+    @admin.display(description=_('Photo'))
+    def display_photo(self, obj):
+        return Display.photo(obj.photo)
