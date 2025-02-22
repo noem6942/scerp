@@ -38,9 +38,9 @@ APP_MODEL_ORDER = {
             'UserProfile': ('6', ''),
             # CRM Admin
             'AddressCategory': ('21', ''),
-            'TitleX': ('22', ''),
-            'PersonCategoryX': ('23', ''),
-            'PersonX': ('24', ''),            
+            'Title': ('22', ''),
+            'PersonCategory': ('23', ''),
+            'Person': ('24', ''),            
         }
     },
     'crm': {
@@ -123,6 +123,11 @@ APP_MODEL_ORDER = {
             'AccountPositionTemplate': ('C 11', ''),
             'ChartOfAccounts': ('C 42', ''),
             #'AccountPosition': ('C 43', ''),
+            
+            # Core / Crm
+            'Title': ('C 51', ''),
+            'PersonCategory': ('C 52', ''),
+            'Person': ('C 53', ''),
         }
     },
 

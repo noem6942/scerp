@@ -336,57 +336,6 @@ def rounding_pre_delete(sender, instance, **kwargs):
     sync.delete()
 
 
-# Title
-@receiver(post_save, sender=models.Title)
-def title_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on Title. '''
-    sync = conn.CashCtrlSync(sender, instance, conn.Title)
-    sync.save(created=created)
-
-
-@receiver(pre_delete, sender=models.Title)
-def title_pre_delete(sender, instance, **kwargs):
-    '''Signal handler for pre_delete signals on Title. '''
-    sync = conn.CashCtrlSync(sender, instance, conn.Title)
-    sync.delete()
-
-
-# PersonCategory
-@receiver(post_save, sender=models.PersonCategory)
-def person_category_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on PersonCategory. '''
-    sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
-    sync.save(created=created)
-
-
-@receiver(pre_delete, sender=models.PersonCategory)
-def person_category_pre_delete(sender, instance, **kwargs):
-    '''Signal handler for pre_delete signals on PersonCategory. '''
-    sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
-    sync.delete()
-
-
-# Person
-@receiver(post_save, sender=models.Person)
-def person_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on Person '''
-    # This ensures the function only runs after Django fully saves all inlines.
-    transaction.on_commit(lambda: person_sync(sender, instance, created))
-
-
-def person_sync(sender, instance, created):
-    '''This runs after all database transactions are complete'''
-    sync = conn.CashCtrlSync(sender, instance, conn.Person)
-    sync.save(created=created)
-
-
-@receiver(pre_delete, sender=models.Person)
-def person_pre_delete(sender, instance, **kwargs):
-    '''Signal handler for pre_delete signals on Person. '''
-    sync = conn.CashCtrlSync(sender, instance, conn.Person)
-    sync.delete()
-
-
 # Tax
 @receiver(post_save, sender=models.Tax)
 def tax_post_save(sender, instance, created, **kwargs):
@@ -553,20 +502,39 @@ def ledger_ic_post_save(sender, instance, created, **kwargs):
 
 # core.models ----------------------------------------------------------
 # Helpers
-def get_or_create_accounting_instance(model, instance, created):    
+def get_or_create_accounting_instance(model, instance, created):
+    # Init
     setup = models.APISetup.objects.filter(
-        tenant=instance.tenant, is_default=True).first()    
-    if created:        
-        return model.objects.create(core=instance, setup=setup)        
-    return model.objects.get(core=instance, setup=setup)
-     
+        tenant=instance.tenant, is_default=True).first()
+    create = created
+
+    # Check if existing
+    if not created:
+        account_instance = model.objects.filter(
+            core=instance, setup=setup).first()
+        if not account_instance:
+            create = True
+
+    # Create
+    if create:
+        account_instance = model.objects.create(
+            tenant=instance.tenant,
+            setup=setup,            
+            core=instance,
+            is_enabled_sync=True,
+            sync_to_accounting=True,
+            created_by=instance.created_by
+        )
+        
+    return account_instance, create
+
 
 # Title
 @receiver(post_save, sender=TitleCrm)
-def incoming_order_post_save(sender, instance, created, **kwargs):
+def title_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Title. '''
     model = models.Title
-    accounting_instance = get_or_create_accounting_instance(
+    accounting_instance, created = get_or_create_accounting_instance(
         model, instance, created)    
     sync = conn.CashCtrlSync(
         model, instance, conn.Title, accounting_instance=accounting_instance)
@@ -574,11 +542,59 @@ def incoming_order_post_save(sender, instance, created, **kwargs):
 
 
 @receiver(pre_delete, sender=models.TitleCrm)
-def incoming_order_pre_delete(sender, instance, **kwargs):
+def title_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on IncomingOrder. '''
     model = models.Title
-    accounting_instance = get_or_create_accounting_instance(
-        model, instance, created)    
+    accounting_instance, created = get_or_create_accounting_instance(
+        model, instance, created=False)
     sync = conn.CashCtrlSync(
         model, instance, conn.Title, accounting_instance=accounting_instance)
+    sync.delete()
+
+
+# PersonCategory
+@receiver(post_save, sender=PersonCategoryCrm)
+def person_category_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on PersonCategory. '''
+    model = models.PersonCategory
+    accounting_instance, created = get_or_create_accounting_instance(
+        model, instance, created)    
+    sync = conn.CashCtrlSync(
+        model, instance, conn.PersonCategory, 
+        accounting_instance=accounting_instance)
+    sync.save(created=created)
+
+
+@receiver(pre_delete, sender=models.PersonCategoryCrm)
+def person_category_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on PersonCategory. '''
+    model = models.PersonCategory
+    accounting_instance, created = get_or_create_accounting_instance(
+        model, instance, created=False)
+    sync = conn.CashCtrlSync(
+        model, instance, conn.PersonCategory, 
+        accounting_instance=accounting_instance)
+    sync.delete()
+
+
+# Person
+@receiver(post_save, sender=PersonCrm)
+def person_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Person. '''
+    model = models.Person
+    accounting_instance, created = get_or_create_accounting_instance(
+        model, instance, created)    
+    sync = conn.CashCtrlSync(
+        model, instance, conn.Person, accounting_instance=accounting_instance)
+    sync.save(created=created)
+
+
+@receiver(pre_delete, sender=models.PersonCrm)
+def person_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on IncomingOrder. '''
+    model = models.Person
+    accounting_instance, created = get_or_create_accounting_instance(
+        model, instance, created=False)
+    sync = conn.CashCtrlSync(
+        model, instance, conn.Person, accounting_instance=accounting_instance)
     sync.delete()

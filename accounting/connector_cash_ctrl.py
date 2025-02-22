@@ -5,6 +5,7 @@ import logging
 from django.utils import timezone
 from django.utils.encoding import force_str
 
+from core.models import PersonAddress, PersonContact
 from scerp.exceptions import APIRequestError
 from scerp.mixins import get_translations, make_timeaware
 
@@ -13,9 +14,10 @@ from .api_cash_ctrl import convert_to_xml
 from .models import (
     APISetup, TOP_LEVEL_ACCOUNT, Allocation,
     CustomField as model_CustomField,
-    ContactMapping, AddressMapping,
     Account as model_Account,
-    Title as model_Titel
+    Title as model_Title,
+    PersonCategory as model_PersonCategory,
+    Person as model_Person,
 )
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
@@ -25,13 +27,16 @@ TOP_LEVEL_NUMBERS = [x.value for x in TOP_LEVEL_ACCOUNT]
 
 class IGNORE:
     ''' keys not be sent to cashCtrl '''
-    BASE =  [
+    TENANT = [
         'id', 'created_at', 'created_by_id', 'modified_at', 'modified_by_id',
         'attachment', 'version_id', 'is_protected', 'tenant_id',
+    ]
+    CASH_CTRL = [
         'c_id', 'c_created', 'c_created_by', 'c_last_updated',
         'c_last_updated_by', 'setup_id', 'message', 'is_enabled_sync',
         'last_received', 'sync_to_accounting'
     ]
+    BASE = TENANT + CASH_CTRL
     IS_INACTIVE = ['is_inactive']
     NOTES = ['notes']
     CODE = ['code']
@@ -77,6 +82,17 @@ class cashCtrl:
         # Assign handler
         self.handler = self.api_class(
             self.setup.org_name, self.setup.api_key, language)
+
+        # Assigned at create and update
+        self.instance = None
+        self.instance_accounting = None  # usually empty
+
+    def init_create_or_update(self, instance, instance_accounting):
+        self.instance = instance
+        self.instance_accounting = instance_accounting  # usually empty
+
+        # the instance that contains the c_*, usually self.instance
+        self.control = instance_accounting or instance
 
     def init_custom_fields(self, model):
         # Init
@@ -125,8 +141,8 @@ class cashCtrl:
             self.pre_upload(instance, data)
 
         # Add id if existing
-        if instance.c_id:
-            data['id'] = instance.c_id
+        if self.control.c_id:
+            data['id'] = self.control.c_id
 
         return data
 
@@ -316,33 +332,28 @@ class cashCtrl:
         logger.warning("no category found")
 
     # C(R)UD
-    def close_transaction(self, instance, instance_cash_ctrl, response):
-        # Close the transaction
-        instance_parent = instance
-        instance_child = (
-            instance_cash_ctrl if instance_cash_ctrl else instance)
-
+    def close_transaction(self, response):
         # Prevent further signals
-        instance_child.sync_to_accounting = False
+        self.control.sync_to_accounting = False
 
         # Save
         if response.get('success', False):
             # Assign insert_id
-            instance_child.c_id = response['insert_id']
+            self.control.c_id = response['insert_id']
+
+            if self.instance_accounting:
+                # save data in instance_accounting
+                self.control.save()
 
             # Process presave
             if getattr(self, 'pre_save', None):
-                self.pre_save(instance_parent)
-            instance_parent.save()
-
-            # Save child if necessary (Title, PersonCategory, Person)
-            if instance_child != instance_parent:
-                instance_child.save()
+                self.pre_save(self.instance)
+            self.instance.save()
         else:
             # Raise Error if cashCtrl error
             raise ValueError(response)
 
-    def create(self, instance, instance_cash_ctrl=None):
+    def create_or_update(self, instance, instance_cash_ctrl):
         '''
         params:
             - instance: instance that contains the data
@@ -351,20 +362,19 @@ class cashCtrl:
                 this is only used for Title, PersonCategory and Person
                 otherwise it's always None
         '''
+        # Init
+        self.init_create_or_update(instance, instance_cash_ctrl)
+
         # Send to cashCtrl
         data = self.upload_prepare(instance)
         response = self.handler.create(data)
-        self.close_transaction(instance, instance_cash_ctrl, response)
+        self.close_transaction(response)
+
+    def create(self, instance, instance_cash_ctrl=None):
+        self.create_or_update(instance, instance_cash_ctrl)
 
     def update(self, instance, instance_cash_ctrl=None):
-        '''
-        params:
-            see above
-        '''
-        # Send to cashCtrl
-        data = self.upload_prepare(instance)
-        response = self.handler.update(data)
-        self.close_transaction(instance, instance_cash_ctrl, response)
+        self.create_or_update(instance, instance_cash_ctrl)
 
     def delete(self, instance):
         response = self.handler.delete(instance.c_id)
@@ -689,11 +699,8 @@ class Title(cashCtrl):
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
 
-    def post_get(self, instance, source, assign, created):
-        __ = instance, created
-        if created:
-            # Fill out empty code
-            instance.code = f"custom {source['id']}"
+    def post_get(self, **kwarte):
+        raise ValueError("Load not defined for Person")
 
 
 class PersonCategory(cashCtrl):
@@ -701,29 +708,13 @@ class PersonCategory(cashCtrl):
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
 
-    def pre_upload(self, instance, data):
-        # Prepare parent_id
-        if getattr(instance, 'parent', None):
-            data['parent_id'] = instance.parent.c_id
-        else:
-            data.pop('parent_id')
-
-    def post_get(self, instance, source, assign, created):
-        __ = instance, created
-        # code
-        if created:
-            # Fill out empty code
-            instance.code = f"custom {source['id']}"
-
-        # parent
-        foreign_key_class = PersonCategory
-        self.update_foreign_key_class(
-            instance, source, assign, created, 'parent', foreign_key_class)
+    def post_get(self, **kwarte):
+        raise ValueError("Load not defined for Person")
 
 
 class Person(cashCtrl):
     api_class = api_cash_ctrl.Person
-    ignore_keys = IGNORE.BASE
+    ignore_keys = IGNORE.BASE + ['photo']
 
     @staticmethod
     def make_address(addr):
@@ -739,30 +730,41 @@ class Person(cashCtrl):
     def pre_upload(self, instance, data):
         # Prepare catgory_id
         if getattr(instance, 'category', None):
-            data['category_id'] = instance.category.c_id
+            category = model_PersonCategory.objects.filter(
+                core=instance.category).first()
+            if not category:
+                raise ValueError('Category not found or synchronized.')                
+            data['category_id'] = category.c_id
 
         # Prepare title_id
         if getattr(instance, 'title', None):
-            title_id = data.pop('title_id')
-            data['title_id'] = model_Titel.objects.get(id=title_id).c_id
+            title = model_Title.objects.filter(
+                core__id=data.pop('title_id')).first()
+            if not title:
+                raise ValueError('title not found or synchronized.')
+            data['title_id'] = title.c_id
         else:
             data.pop('title_id')
 
         # Prepare superior_id
         if getattr(instance, 'superior', None):
-            data['superior_id'] = instance.superior.c_id
+            person = model_Person.objects.filter(
+                core=instance.superior).first()
+            if not person:
+                raise ValueError('Superior not found or synchronized.')                
+            data['superior_id'] = person.c_id
         else:
             data.pop('superior_id')
 
         # Make contacts
-        contacts = ContactMapping.objects.filter(person__id=instance.id)
+        contacts = PersonContact.objects.filter(person=instance)
         data['contacts'] = [{
             'type': contact.type,
             'address': contact.address
         } for contact in contacts.order_by('id')]
 
         # Make addresses
-        addresses = AddressMapping.objects.filter(person__id=instance.id)
+        addresses = PersonAddress.objects.filter(person=instance)
         data['addresses'] = [{
             'type': addr.type,
             'address': self.make_address(addr),
@@ -770,8 +772,6 @@ class Person(cashCtrl):
             'country': addr.address.country.alpha3,
             'zip': addr.address.zip
         } for addr in addresses.order_by('id')]
-
-        print("*data", data)
 
     def load(self, model, **kwargs):
         raise ValueError("Load not defined for Person")
@@ -1059,7 +1059,7 @@ class CashCtrlSync:
 
     def save(self, created=False):
         """
-        Handles the 'save' action (create or update).
+        Handles the 'save' action from signals (create or update).
 
         :param created: Boolean indicating if this is a new instance.
         """
@@ -1089,7 +1089,7 @@ class CashCtrlSync:
 
     def delete(self):
         """
-        Handles the 'delete' action.
+        Handles the 'delete' action.from signals
         """
         if not self.control.is_enabled_sync or not self.control.c_id:
             return  # nothing to sync
@@ -1107,7 +1107,8 @@ class CashCtrlSync:
             self, params={}, delete_not_existing=False, model=None,
             **filter_kwargs):
         """
-        Handles the 'get' action (fetching data from CashCtrl).
+        Handles the 'get' action, e.g. from admin.py
+        (fetching data from CashCtrl).
 
         :params: query params
         :delete_not_existing:

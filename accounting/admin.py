@@ -1542,3 +1542,45 @@ class AccountPositionAdmin(CashCtrlAdmin):
         if obj.c_id or obj.c_rev_id:
             return '🪙'  # (Coin): \U0001FA99
         return ' '
+
+
+# Core Title, PersonCategory, Person
+class Core(CashCtrlAdmin):
+    # Safeguards
+    related_tenant_fields = ['setup', 'core']
+    optimize_foreigns = ['setup', 'core']
+
+    # Display these fields in the list view
+    list_display = ('core', ) + CASH_CTRL.LIST_DISPLAY    
+
+    # Actions
+    actions = [a.accounting_get_data]
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': ('core', ),
+            'classes': ('expand',),
+        }),
+    )
+    
+    def has_add_permission(self, request):
+        return False  # Prevent adding new instances
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # Prevent deleting instances    
+    
+
+@admin.register(models.Title, site=admin_site)
+class TitleAdmin(Core):
+    pass
+    
+
+@admin.register(models.PersonCategory, site=admin_site)
+class PersonCategoryAdmin(Core):
+    pass
+    
+
+@admin.register(models.Person, site=admin_site)
+class PersonAdmin(Core):
+    pass

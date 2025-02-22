@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.contrib.auth.models import User
 from django.db import models, IntegrityError
 from django.db.models import UniqueConstraint
 from django.db.models.functions import Cast
@@ -14,24 +15,18 @@ from django.utils.translation import gettext_lazy as _
 
 from core.models import (
     LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantSetup,
-    TenantLogo, Country, Address, Contact,
+    TenantLogo, Country, Address, Contact, PersonAddress
+)
+from core.models import (
     Title as TitleCrm,
     PersonCategory as PersonCategoryCrm,
-    Person as PersonCrm,
-    PersonAddress
+    Person as PersonCrm
 )
 from scerp.locales import CANTON_CHOICES
 from scerp.mixins import get_code_w_name, primary_language
 from .api_cash_ctrl import (
     URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE,
     ORDER_TYPE, PERSON_TYPE)
-
-class ContactMapping:
-    pass
-
-class AddressMapping:
-    pass
-
 
 
 # Definitions
@@ -1098,7 +1093,24 @@ class Article(AcctApp):
 
 
 # Person ----------------------------------------------------------------
-class Title(AcctAppBase):
+class Core(AcctApp):
+    # redefine the related classes
+    tenant = models.ForeignKey(
+        Tenant, on_delete=models.CASCADE,
+        related_name='%(class)s_core_tenant', 
+        help_text='every instance must have a tenant')
+    created_by = models.ForeignKey(
+        User, verbose_name=_('created by'),
+        on_delete=models.CASCADE, related_name='%(class)s_core_created')
+    modified_by = models.ForeignKey(
+        User, verbose_name=_('modified by'), null=True, blank=True,
+        on_delete=models.CASCADE, related_name='%(class)s_core_modified')
+        
+    class Meta:
+        abstract = True
+
+
+class Title(Core):
     '''
     Title.
     Map core title to accounting system, not shown in any GUI
@@ -1115,7 +1127,7 @@ class Title(AcctAppBase):
         ]
 
 
-class PersonCategory(AcctAppBase):
+class PersonCategory(Core):
     '''
     Person's category.
     Map core person category to accounting system, not shown in any GUI
@@ -1133,7 +1145,7 @@ class PersonCategory(AcctAppBase):
         ]
 
 
-class Person(AcctAppBase):
+class Person(Core):
     '''
     Person.
     Map core person to accounting system, not shown in any GUI

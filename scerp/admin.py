@@ -542,9 +542,6 @@ class BaseAdmin(ModelAdmin):
             return  # Early return to prevent further processing
     
         # Only save the model if there are no errors
-        with transaction.atomic():
-            super().save_model(request, instance, form, change)
-        return
         try:
             with transaction.atomic():
                 super().save_model(request, instance, form, change)
