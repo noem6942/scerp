@@ -4,7 +4,6 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils.translation import gettext_lazy as _
 
-from accounting.models import Person
 from core.models import (
     LogAbstract, TenantAbstract, Country, Address, Contact)
 from scerp.admin import Display

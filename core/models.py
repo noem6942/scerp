@@ -422,7 +422,7 @@ class Contact(TenantAbstract):
         return f"{self.type} - {self.address}"
 
 
-class TitleX(TenantAbstract):
+class Title(TenantAbstract):
     """
     Model to represent a person's title.
         this will trigger a create / update event to accounting
@@ -465,7 +465,7 @@ class TitleX(TenantAbstract):
         verbose_name_plural = _("Titles")
 
 
-class PersonCategoryX(TenantAbstract):
+class PersonCategory(TenantAbstract):
     """
     this will trigger a create / update event to accounting
     """
@@ -492,7 +492,7 @@ class PersonCategoryX(TenantAbstract):
         verbose_name_plural = _("Person Categories")
 
 
-class PersonX(TenantAbstract):
+class Person(TenantAbstract):
     '''
     this will trigger a create / update event to accounting
     '''
@@ -517,9 +517,9 @@ class PersonX(TenantAbstract):
             "The name of the organization/company. Either firstName, lastName "
             "or company must be set."))
     title = models.ForeignKey(
-        TitleX,
+        Title,
         on_delete=models.SET_NULL, null=True, blank=True,
-        verbose_name=_('Title'), related_name="title",
+        verbose_name=_('Title'), related_name="%(class)s_title",
         help_text=_("The person's title (e.g. 'Mr.', 'Mrs.', 'Dr.')."))
     first_name = models.CharField(
         _('First Name'), max_length=50, blank=True, null=True,
@@ -540,7 +540,8 @@ class PersonX(TenantAbstract):
         _('BIC Code'), max_length=11, blank=True, null=True,
         help_text=_("The BIC (Business Identifier Code) of the person's bank."))
     category = models.ForeignKey(
-        PersonCategoryX, on_delete=models.PROTECT, related_name='category',
+        PersonCategory, on_delete=models.PROTECT, 
+        related_name='%(class)s_category',
         verbose_name=_('Category'), help_text=_("The person's category."))
     color = models.CharField(
         max_length=10, choices=COLOR.choices, blank=True, null=True,
@@ -585,7 +586,8 @@ class PersonX(TenantAbstract):
             "The position (job title) of the person within the company."))
     superior = models.ForeignKey(
         'self', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="subordinates", verbose_name=_('Superior'),
+        related_name="%(class)s_subordinates", 
+        verbose_name=_('Superior'),
         help_text=_("The superior of this person (for organizational chart)."))
     vat_uid = models.CharField(
         _('VAT no.'), max_length=32, blank=True, null=True,
@@ -628,7 +630,7 @@ class PersonAddress(TenantAbstract):
     type = models.CharField(
         _('Type'), max_length=20, choices=TYPE.choices)
     person = models.ForeignKey(
-        PersonX, on_delete=models.CASCADE,
+        Person, on_delete=models.CASCADE,
         related_name='%(class)s_address',
         verbose_name=_('Address'))
     address = models.ForeignKey(
@@ -658,7 +660,7 @@ class PersonContact(Contact):
     Map Contact to Person
     '''
     person = models.ForeignKey(
-        PersonX, on_delete=models.CASCADE,
+        Person, on_delete=models.CASCADE,
         related_name='%(class)s_address',
         verbose_name=_('Address'))
 

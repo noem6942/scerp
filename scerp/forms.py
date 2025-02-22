@@ -59,7 +59,7 @@ class MultilanguageForm(forms.ModelForm):
         # Initialize the form        
         super().__init__(*args, **kwargs)
 
-        for field in self.MULTI_LANG_FIELDS:
+        for field in self.multi_lang_fields:
             # Populate the dynamically created fields with data from the 'name' JSON field if it's available
             if self.instance.pk:  # Only do this if the instance already exists (i.e., it's an edit)
                 name_data = getattr(self.instance, field) or {}  # Get the name field (JSON data)
@@ -73,7 +73,7 @@ class MultilanguageForm(forms.ModelForm):
         cleaned_data = super().clean()
 
         # Build the JSON structure from the individual fields
-        for field in self.MULTI_LANG_FIELDS:
+        for field in self.multi_lang_fields:
             name_data = {}
             for lang_code, _ in languages:
                 lang_name = cleaned_data.get(f'{field}_{lang_code}', '')

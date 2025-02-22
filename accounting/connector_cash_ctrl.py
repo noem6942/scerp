@@ -279,7 +279,7 @@ class cashCtrl:
         logger.info(
             f'{model}: updated {updated}, created {created}, deleted {deleted}')
 
-    def update_category(
+    def update_foreign_key_class(
             self, instance, source, assign, created, field_name,
             foreign_key_class):
         ''' used for uploading categories from cashCtrl '''
@@ -316,33 +316,55 @@ class cashCtrl:
         logger.warning("no category found")
 
     # C(R)UD
-    def close_transaction(self, instance, response):
+    def close_transaction(self, instance, instance_cash_ctrl, response):
         # Close the transaction
+        instance_parent = instance
+        instance_child = (
+            instance_cash_ctrl if instance_cash_ctrl else instance)
 
         # Prevent further signals
-        instance.sync_to_accounting = False
+        instance_child.sync_to_accounting = False
 
         # Save
         if response.get('success', False):
-            instance.c_id = response['insert_id']
+            # Assign insert_id
+            instance_child.c_id = response['insert_id']
+
+            # Process presave
             if getattr(self, 'pre_save', None):
-                self.pre_save(instance)
-            instance.save()
+                self.pre_save(instance_parent)
+            instance_parent.save()
+
+            # Save child if necessary (Title, PersonCategory, Person)
+            if instance_child != instance_parent:
+                instance_child.save()
         else:
             # Raise Error if cashCtrl error
             raise ValueError(response)
 
-    def create(self, instance):
+    def create(self, instance, instance_cash_ctrl=None):
+        '''
+        params:
+            - instance: instance that contains the data
+            - instance_cash_ctrl:
+                instance_cash_ctrl that contains the c_* data
+                this is only used for Title, PersonCategory and Person
+                otherwise it's always None
+        '''
         # Send to cashCtrl
         data = self.upload_prepare(instance)
         response = self.handler.create(data)
-        self.close_transaction(instance, response)
+        self.close_transaction(instance, instance_cash_ctrl, response)
 
-    def update(self, instance):
+    def update(self, instance, instance_cash_ctrl=None):
+        '''
+        params:
+            see above
+        '''
         # Send to cashCtrl
         data = self.upload_prepare(instance)
         response = self.handler.update(data)
-        self.close_transaction(instance, response)
+        self.close_transaction(instance, instance_cash_ctrl, response)
 
     def delete(self, instance):
         response = self.handler.delete(instance.c_id)
@@ -394,7 +416,7 @@ class CustomField(cashCtrl):
 
         # group
         foreign_key_class = CustomFieldGroup
-        self.update_category(
+        self.update_foreign_key_class(
             instance, source, assign, created, 'group', foreign_key_class)
 
 
@@ -468,7 +490,7 @@ class CostCenterCategory(cashCtrl):
         __ = instance, created
         # parent
         foreign_key_class = CostCenterCategory
-        self.update_category(
+        self.update_foreign_key_class(
             instance, source, assign, created, 'parent', foreign_key_class)
 
 
@@ -485,7 +507,7 @@ class CostCenter(cashCtrl):
         __ = instance, created
         # parent
         foreign_key_class = CostCenterCategory
-        self.update_category(
+        self.update_foreign_key_class(
             instance, source, assign, created, 'category', foreign_key_class)
 
 
@@ -537,7 +559,7 @@ class AccountCategory(cashCtrl):
 
         # parent
         foreign_key_class = AccountCategory
-        self.update_category(
+        self.update_foreign_key_class(
             instance, source, assign, created, 'parent', foreign_key_class)
 
 
@@ -569,7 +591,7 @@ class Account(cashCtrl):
         __ = instance, created
         # parent
         foreign_key_class = AccountCategory
-        self.update_category(
+        self.update_foreign_key_class(
             instance, source, assign, created, 'category', foreign_key_class)
 
 
@@ -594,7 +616,7 @@ class Tax(cashCtrl):
 
         # account
         foreign_key_class = Account
-        self.update_category(
+        self.update_foreign_key_class(
             instance, source, assign, created, 'account', foreign_key_class)
 
 
@@ -619,7 +641,7 @@ class Rounding(cashCtrl):
 
         # parent
         foreign_key_class = Account
-        self.update_category(
+        self.update_foreign_key_class(
             instance, source, assign, created, 'account', foreign_key_class)
 
 
@@ -695,7 +717,7 @@ class PersonCategory(cashCtrl):
 
         # parent
         foreign_key_class = PersonCategory
-        self.update_category(
+        self.update_foreign_key_class(
             instance, source, assign, created, 'parent', foreign_key_class)
 
 
@@ -993,7 +1015,7 @@ class Article(cashCtrl):
             instance.code = f"custom {source['id']}"
         # category
         foreign_key_class = ArticleCategory
-        self.update_category(
+        self.update_foreign_key_class(
             instance, source, assign, created, 'category', foreign_key_class)
 
 
@@ -1002,7 +1024,8 @@ class CashCtrlSync:
     """
     Handles synchronization between Django models and CashCtrl API.
     """
-    def __init__(self, model, instance, api_class, language=None):
+    def __init__(self, model, instance, api_class, language=None,
+            accounting_instance=None):
         """
         Initializes the sync handler with the instance and API connector.
 
@@ -1010,14 +1033,29 @@ class CashCtrlSync:
         :param instance: The model instance being processed.
         :param api_class: Connector class for CashCtrl API.
         :language: language for cashCtrl queries, use None for almost all cases
+        :accounting_instance if given this is the seperate instance that
+            contains the c_* fields (only used for Title, PersonCategory,
+            Person)
         """
         self.model = model
         self.instance = instance
-        self.setup = instance if model == APISetup else instance.setup
+        self.accounting_instance = accounting_instance
+
+        if self.accounting_instance:
+            self.control = self.accounting_instance
+        else:
+            self.control = self.instance
+
+        # setup
+        if model == APISetup:
+            self.setup = instance
+        else:
+            self.setup = self.control.setup
+
+        # Assign
         self.api_class = api_class
         self.language = language
         self.handler = self.api_class(self.setup, language=self.language)
-        # time.sleep(5)
 
     def save(self, created=False):
         """
@@ -1025,15 +1063,16 @@ class CashCtrlSync:
 
         :param created: Boolean indicating if this is a new instance.
         """
-        if self.instance.is_enabled_sync and self.instance.sync_to_accounting:
+        if self.control.is_enabled_sync and self.control.sync_to_accounting:
             # We only sync it this is True !!!
-            if created or not self.instance.c_id:
+            # Re-arranage later !!!!!!!!!!!!
+            if created or not self.control.c_id:
                 # instance not created in cashCtrl, yet
                 logger.info(f"Creating record {self.instance} in CashCtrl")
-                self.handler.create(self.instance)
+                self.handler.create(self.instance, self.accounting_instance)
             else:
                 logger.info(f"Updating record {self.instance} in CashCtrl")
-                self.handler.update(self.instance)
+                self.handler.update(self.instance, self.accounting_instance)
             return
             try:
                 if created:
@@ -1052,17 +1091,12 @@ class CashCtrlSync:
         """
         Handles the 'delete' action.
         """
-        if not self.instance.is_enabled_sync or not self.instance.c_id:
+        if not self.control.is_enabled_sync or not self.control.c_id:
             return  # nothing to sync
 
-        if getattr(self.instance, 'self.instance.stop_delete', False):
-            return
-
         try:
-            self.instance.stop_delete = True
-            self.instance.save()
             logger.info(f"Deleting record {self.instance} from CashCtrl")
-            self.handler.delete(self.instance)
+            self.handler.delete(self.control)
         except Exception as e:
             logger.error(
                 f"Failed to delete {self.instance} from CashCtrl: {e}")

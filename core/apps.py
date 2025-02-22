@@ -9,3 +9,6 @@ class CoreConfig(AppConfig):
     def ready(self):
         # Import signal handlers to register them
         import core.signals
+
+         # Import signal handlers to handel Title, PersonCategory, Person
+        import accounting.signals_cash_ctrl

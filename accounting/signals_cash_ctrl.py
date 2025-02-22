@@ -11,9 +11,14 @@ from django.db.models.signals import post_save, pre_save, pre_delete
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
+from core.models import (
+    Title as TitleCrm,
+    PersonCategory as PersonCategoryCrm,
+    Person as PersonCrm
+)
 from scerp.mixins import read_yaml_file
-from .ledger import LedgerBalanceUpdate, LedgerPLUpdate, LedgerICUpdate
 from . import models, connector_cash_ctrl as conn
+from .ledger import LedgerBalanceUpdate, LedgerPLUpdate, LedgerICUpdate
 
 
 # Set up logging
@@ -31,14 +36,9 @@ def setup_data_add_logging(setup, data):
 
 
 # Signal Handlers
-# These handlers connect the appropriate signals to the helper functions.
 
-'''
-APISetup
+# APISetup ----------------------------------------------------------------
 
-
-Creation triggers many create events
-'''
 @receiver(post_save, sender=models.APISetup)
 def api_setup_post_save(sender, instance, created=False, **kwargs):
     '''Post action for APISetup:
@@ -176,9 +176,8 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         sync.get(model=models.Tax)
 
 
+# accounting.models ----------------------------------------------------------
 '''
-cashCtrl models
-
 Note that instances only get synced if saved in scerp (
     i.e. self.received_from_scerp() is True
 '''
@@ -550,3 +549,36 @@ def ledger_ic_post_save(sender, instance, created, **kwargs):
     handler = LedgerICUpdate(sender, instance)
     if handler.needs_update:
         handler.save()
+
+
+# core.models ----------------------------------------------------------
+# Helpers
+def get_or_create_accounting_instance(model, instance, created):    
+    setup = models.APISetup.objects.filter(
+        tenant=instance.tenant, is_default=True).first()    
+    if created:        
+        return model.objects.create(core=instance, setup=setup)        
+    return model.objects.get(core=instance, setup=setup)
+     
+
+# Title
+@receiver(post_save, sender=TitleCrm)
+def incoming_order_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Title. '''
+    model = models.Title
+    accounting_instance = get_or_create_accounting_instance(
+        model, instance, created)    
+    sync = conn.CashCtrlSync(
+        model, instance, conn.Title, accounting_instance=accounting_instance)
+    sync.save(created=created)
+
+
+@receiver(pre_delete, sender=models.TitleCrm)
+def incoming_order_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on IncomingOrder. '''
+    model = models.Title
+    accounting_instance = get_or_create_accounting_instance(
+        model, instance, created)    
+    sync = conn.CashCtrlSync(
+        model, instance, conn.Title, accounting_instance=accounting_instance)
+    sync.delete()

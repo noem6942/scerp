@@ -4,22 +4,16 @@ from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import User, Group
 from django.utils.translation import gettext_lazy as _
 
-from accounting.forms import (
-    AddressPersonForm,
-    TitleAdminForm,
-    PersonCategoryAdminForm,
-    ContactPersonForm
-)
 from core.safeguards import get_tenant, filter_query_for_tenant
 from scerp.admin import (
     BaseAdmin, BaseTabularInline, Display, make_language_fields
 )
 from scerp.admin_site import admin_site
-from . import actions as a
+from . import actions as a, forms
 from .models import (
     Message, Tenant, TenantSetup, TenantLogo, AddressCategory, UserProfile,
-    AddressCategory, Address, PersonAddress, Contact, PersonContact, TitleX,
-    PersonCategoryX, PersonX)
+    AddressCategory, Address, PersonAddress, Contact, PersonContact, Title,
+    PersonCategory, Person)
 from .safeguards import get_available_tenants, set_tenant
 
 
@@ -163,13 +157,13 @@ class AddressCategoryAdmin(BaseAdmin):
         return Display.photo_h(obj.logo)
 
 
-@admin.register(TitleX, site=admin_site)
+@admin.register(Title, site=admin_site)
 class TitleAdmin(BaseAdmin):
     # Safeguards
     has_tenant_field = True
 
     # Helpers
-    form = TitleAdminForm
+    form = forms.TitleAdminForm
     # Display these fields in the list view
     list_display = ('code', 'display_name')
     readonly_fields = ('display_name',)
@@ -193,13 +187,13 @@ class TitleAdmin(BaseAdmin):
     )
 
 
-@admin.register(PersonCategoryX, site=admin_site)
+@admin.register(PersonCategory, site=admin_site)
 class PersonCategoryAdmin(BaseAdmin):
     # Safeguards
     has_tenant_field = True
 
     # Helpers
-    form = PersonCategoryAdminForm
+    form = forms.PersonCategoryAdminForm
 
     # Display these fields in the list view
     list_display = ('code', 'display_name')
@@ -253,7 +247,7 @@ class AddressInline(BaseTabularInline):
 
     # Inline
     model = PersonAddress
-    form = AddressPersonForm
+    form = forms.PersonAddressForm
     fields = ['type', 'address', 'post_office_box', 'additional_information']
     extra = 1  # Number of empty forms displayed
     autocomplete_fields = ['address']  # Improves FK selection performance
@@ -268,14 +262,14 @@ class ContactInline(BaseTabularInline):  # or admin.StackedInline
 
     # Inline
     model = PersonContact
-    form = ContactPersonForm
+    form = forms.PersonContactForm
     fields = ['type', 'address']
     extra = 1  # Number of empty forms displayed
     show_change_link = True  # Shows a link to edit the related model
     verbose_name_plural = _("Contacts")
 
 
-@admin.register(PersonX, site=admin_site)
+@admin.register(Person, site=admin_site)
 class PersonAdmin(BaseAdmin):
     # Safeguards
     has_tenant_field = True
