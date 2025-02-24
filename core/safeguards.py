@@ -29,6 +29,7 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
+
 from core.models import Tenant, TenantSetup, UserProfile
 
 
@@ -115,19 +116,27 @@ def get_tenant(request):
     return request.session.get('tenant')
 
 
-def save_logging(
-        instance, request=None, add_tenant=False, tenant=None, user=None):
+def get_tenant_data(request):
+    '''
+    get tenant data from request.session, use this in future
+    '''
+    return request.session.get('tenant')
+
+
+def get_tenant_instance(request):
+    '''
+    get Tenant instance from request.session, use this in future
+    '''
+    tenant_data = get_tenant_data(request)
+    tenant = Tenant.objects.get_object_or_404(id=tenant_data['id'])
+    return tenant
+
+
+def save_logging(instance, request=None, user=None):
     # set created_by, modified_by
     if instance.pk:
         # Set the user who modified it
-        instance.modified_by = request.user or user
+        instance.modified_by = user or request.user
     else:
         # New object, set the creator
-        instance.created_by = request.user or user
-
-    if add_tenant:
-        if not tenant:
-            # get tenant
-            tenant_data = get_tenant(request)
-            tenant = get_object_or_404(Tenant, id=tenant_data['id'])
-        instance.tenant = tenant
+        instance.created_by = user or request.user

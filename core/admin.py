@@ -2,24 +2,36 @@
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import User, Group
+from django.contrib.contenttypes.admin import GenericTabularInline
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from core.safeguards import get_tenant, filter_query_for_tenant
 from scerp.admin import (
     BaseAdmin, BaseTabularInline, Display, make_language_fields
 )
 from scerp.admin_site import admin_site
 from . import actions as a, forms
 from .models import (
-    Message, Tenant, TenantSetup, TenantLogo, AddressCategory, UserProfile,
+    Message, Tenant, TenantSetup, Attachment, TenantLogo, UserProfile,
     AddressCategory, Address, PersonAddress, Contact, PersonContact, Title,
     PersonCategory, Person)
-from .safeguards import get_available_tenants, set_tenant
+from .safeguards import (
+    get_available_tenants, get_tenant, get_tenant_data, get_tenant_instance,
+    set_tenant)
 
 
-# Register User, Group
-admin_site.register(User, UserAdmin)
-admin_site.register(Group, GroupAdmin)
+# Generic Attachments
+class AttachmentInline(GenericTabularInline):
+    model = Attachment
+    extra = 1  # Number of empty forms to display by default
+    fields = ('file', 'uploaded_at')  
+    readonly_fields = ('uploaded_at',)  # Make uploaded_at read-only
+
+    def save_model(self, request, obj, form, change):
+        # Set the tenant and created_by fields based on the current user and tenant from the request
+        obj.tenant = get_tenant_instance(request)
+        obj.created_by = request.user
+        super().save_model(request, instance, form, change) 
 
 
 @admin.register(Message, site=admin_site)
@@ -43,12 +55,12 @@ class MessageAdmin(BaseAdmin):
 
 @admin.register(UserProfile, site=admin_site)
 class UserProfileAdmin(BaseAdmin):
-    list_display = ('user', 'display_photo', 'group_names')
+    list_display = ('user', 'person_photo', 'group_names')
     search_fields = ('user__username',)
     readonly_fields = ('user', 'group_names')
     fieldsets = (
         (None, {
-            'fields': ('user', 'photo', 'group_names'),
+            'fields': ('user', 'person', 'group_names'),
             'classes': ('expand',),
         }),
     )
@@ -57,6 +69,9 @@ class UserProfileAdmin(BaseAdmin):
     def group_names(self, obj):
         return Display.list([x.name for x in obj.groups])
 
+    @admin.display(description=_(''))
+    def person_photo(self, obj):
+        return Display.photo(obj.person.photo)
 
 @admin.register(Tenant, site=admin_site)
 class TenantAdmin(BaseAdmin):
@@ -273,12 +288,16 @@ class ContactInline(BaseTabularInline):  # or admin.StackedInline
 class PersonAdmin(BaseAdmin):
     # Safeguards
     has_tenant_field = True
-    related_tenant_fields = ['title', 'superior', 'category']
+    related_tenant_fields = [
+        'tenant', 'version', 'title', 'superior', 'category']
+    optimize_foreigns = [
+        'tenant', 'version', 'title', 'superior', 'category']
 
     # Display these fields in the list view
     list_display = (
-        'company', 'first_name', 'last_name', 'category', 'display_photo')
-    list_display_links = ('company', 'first_name', 'last_name',)
+        'company', 'first_name', 'last_name', 'category', 'display_photo',
+        'notes_hint', 'attachment_icon')
+    list_display_links = ('company', 'first_name', 'last_name', 'attachment_icon')
     readonly_fields = ('nr',)
 
     # Search, filter
@@ -309,4 +328,4 @@ class PersonAdmin(BaseAdmin):
         }),
     )
     
-    inlines = [AddressInline, ContactInline]
+    inlines = [AddressInline, ContactInline, AttachmentInline]

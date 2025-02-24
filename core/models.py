@@ -1,9 +1,14 @@
 # core/models.py
+import os
+
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.contrib.auth.models import Group, User
 from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
 
@@ -27,7 +32,7 @@ class LogAbstract(models.Model):
         on_delete=models.CASCADE, related_name='%(class)s_modified')
 
     class Meta:
-        abstract = True  # This makes it an abstract model
+        abstract = True
 
 
 class NotesAbstract(models.Model):
@@ -220,29 +225,6 @@ class Message(LogAbstract, NotesAbstract):
         verbose_name_plural = _('Messages')
 
 
-class UserProfile(LogAbstract, NotesAbstract):
-    user = models.OneToOneField(
-        User, verbose_name=_('User'), on_delete=models.CASCADE,
-        related_name='profile',
-        help_text=_(
-            "Registered User. Click the 'pencil' to assign the user to groups"))
-    photo = models.ImageField(
-        _('photo'), upload_to='profile_photos/', blank=True, null=True,
-        help_text=_('Load up your personal photo.'))
-
-    def __str__(self):
-        return f'{self.user.last_name.upper()}, {self.user.first_name}'
-
-    @property
-    def groups(self):
-        return self.user.groups.all().order_by('name')
-
-    class Meta:
-        ordering = ['user__last_name', 'user__first_name']
-        verbose_name = _('User')
-        verbose_name_plural =  _('Users')
-
-
 class TenantAbstract(LogAbstract, NotesAbstract):
     ''' used for all models that refer to one tenant
     '''
@@ -253,6 +235,36 @@ class TenantAbstract(LogAbstract, NotesAbstract):
 
     class Meta:
         abstract = True
+
+
+# Attachment
+class Attachment(LogAbstract):
+    '''
+    A generic attachment model that allows files to be attached to any model.
+    '''
+    tenant = models.ForeignKey(
+        Tenant, on_delete=models.CASCADE, related_name='%(class)s_tenant',
+        verbose_name=_('Tenant'), help_text=_('assignment of tenant / client'))
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()  # Instance ID of that model
+    content_object = GenericForeignKey('content_type', 'object_id')  # The actual model instance
+
+    file = models.FileField(
+        _('File'), upload_to='attachments/')  # Temporary placeholder
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def get_attachment_upload_path(self, filename):
+        # Create a path that includes tenant ID
+        path = self.tenant.code
+        # Build the path string, e.g., 'attachments/test_125/'
+        return os.path.join('attachments', path, filename)
+
+    # Override the file field's upload_to dynamically
+    # Use the custom method
+    file = models.FileField(upload_to=get_attachment_upload_path)
+
+    def __str__(self):
+        return f'Attachment {self.id} for {self.content_object}'
 
 
 class TenantLogo(TenantAbstract):
@@ -289,12 +301,12 @@ class TenantLogo(TenantAbstract):
 
 
 # Base Entities: Country, Address, Contact
-class AddressCategory(TenantAbstract):    
+class AddressCategory(TenantAbstract):
     class TYPE(models.TextChoices):
         # CashCtrl
         AREA = 'Area', _('Area')
         REGION = 'Region', _('Region')
-        ROUTE = 'Route', _('Route')        
+        ROUTE = 'Route', _('Route')
         OTHER = 'OTHER', _('Other')
 
     type = models.CharField(max_length=20, choices=TYPE.choices)
@@ -510,7 +522,7 @@ class Person(TenantAbstract):
         BROWN = 'BROWN', _('Brown')
         GRAY = 'GRAY', _('Gray')
         BLACK = 'BLACK', _('Black')
-        
+
     company = models.CharField(
         _('Company'), max_length=100, blank=True, null=True,
         help_text=_(
@@ -540,7 +552,7 @@ class Person(TenantAbstract):
         _('BIC Code'), max_length=11, blank=True, null=True,
         help_text=_("The BIC (Business Identifier Code) of the person's bank."))
     category = models.ForeignKey(
-        PersonCategory, on_delete=models.PROTECT, 
+        PersonCategory, on_delete=models.PROTECT,
         related_name='%(class)s_category',
         verbose_name=_('Category'), help_text=_("The person's category."))
     color = models.CharField(
@@ -586,7 +598,7 @@ class Person(TenantAbstract):
             "The position (job title) of the person within the company."))
     superior = models.ForeignKey(
         'self', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="%(class)s_subordinates", 
+        related_name="%(class)s_subordinates",
         verbose_name=_('Superior'),
         help_text=_("The superior of this person (for organizational chart)."))
     vat_uid = models.CharField(
@@ -595,12 +607,13 @@ class Person(TenantAbstract):
     photo = models.ImageField(
         _('photo'), upload_to='profile_photos/', blank=True, null=True,
         help_text=_('Load up your personal photo.'))
-        
+    attachments = GenericRelation('Attachment')  # Enables reverse relation
+
     def clean(self, *args, **kwargs):
         # Validate_person
         if not self.first_name and not self.last_name and not self.company:
             raise ValidationError(
-                _('Either First Name, Last Name or Company must be set.'))    
+                _('Either First Name, Last Name or Company must be set.'))
 
     def __str__(self):
         if self.company:
@@ -663,6 +676,30 @@ class PersonContact(Contact):
         Person, on_delete=models.CASCADE,
         related_name='%(class)s_address',
         verbose_name=_('Address'))
+
+
+class UserProfile(LogAbstract, NotesAbstract):
+    user = models.OneToOneField(
+        User, verbose_name=_('User'), on_delete=models.CASCADE,
+        related_name='profile',
+        help_text=_(
+            "Registered User. Click the 'pencil' to assign the user to groups"))
+    person = models.OneToOneField(
+        Person, verbose_name=_('User Details'), on_delete=models.CASCADE,
+        related_name='%(class)s_person',
+        help_text=_("Details and photo of person"))
+
+    def __str__(self):
+        return f'{self.user.last_name.upper()}, {self.user.first_name}'
+
+    @property
+    def groups(self):
+        return self.user.groups.all().order_by('name')
+
+    class Meta:
+        ordering = ['user__last_name', 'user__first_name']
+        verbose_name = _('User')
+        verbose_name_plural =  _('Users')
 
 
 # Buildings, Rooms

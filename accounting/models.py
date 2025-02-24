@@ -91,6 +91,18 @@ class APISetup(TenantAbstract):
     def __str__(self):
         return self.org_name
 
+    @classmethod
+    def get_setup(cls, tenant=None, tenant_id=None,**kwargs):
+        ''' 
+        get api_setup from different parameters
+        currently only one accounting system --> derive only from tenant
+        '''
+        if tenant:
+            return cls.models.objects.get(tenant=tenant, default=True)
+        elif tenant_id:
+            return cls.models.objects.get(tenant__id=tenant_id, default=True)        
+        raise ValidationError('No tenant given')
+
     @property
     def url(self):
         return URL_ROOT.format(org=self.org_name)
@@ -1154,6 +1166,14 @@ class Person(Core):
         PersonCrm, on_delete=models.CASCADE,
         related_name='%(class)s_core', help_text='origin')
  
+    @classmethod
+    def get_accounting_object(cls, person_id):
+        accounting_object = cls.objects.filter(
+            core__id=person_id).first()
+        if accounting_object:
+            return accounting_object
+        raise ValidationError("No accounting_object found for person")
+ 
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -1451,9 +1471,9 @@ class OrderContract(AcctApp):
         ('notice_period_month', 'order_procurement_notice')
     ]
     associate = models.ForeignKey(
-        PersonCrm, on_delete=models.PROTECT, related_name='associate',
+        PersonCrm, on_delete=models.PROTECT, related_name='associate_2',
         verbose_name=_('Contract party'),
-        help_text=_('Supplier or Client'))  # to be mapped to multiple in cashCtrl
+        help_text=_('Supplier or Client'))  # to be mapped to multiple in cashCtrl        
     category = models.ForeignKey(
         OrderCategoryContract, on_delete=models.CASCADE,
         related_name='%(class)s_category',
@@ -1468,8 +1488,7 @@ class OrderContract(AcctApp):
         _('Description'), max_length=200, blank=True, null=True,
         help_text=_("e.g. Office contract from Jan 2022 to Dec. 2028 "))
     price_excl_vat = models.DecimalField(
-        _('Price (Excl. VAT)'), max_digits=11, decimal_places=2,
-        null=True, blank=True)
+        _('Price (Excl. VAT)'), max_digits=11, decimal_places=2)
     currency = models.ForeignKey(
         Currency, on_delete=models.PROTECT, null=True, blank=True,
         verbose_name=_('Currency'), default=Currency.get_default_id)
@@ -1484,7 +1503,7 @@ class OrderContract(AcctApp):
     notice_period_month = models.PositiveSmallIntegerField(
         _('Notice Period (Months)'), null=True, blank=True)
 
-    def __str__(self):
+    def __str__(self): 
         return f"{self.associate.company}, {self.date}, {self.description}"
 
     class Meta:
@@ -1668,6 +1687,12 @@ class LedgerBalance(LedgerAccount):
     Used for HRM 2 account management:
     - category: leave empty to calculate later
     '''
+    class SIDE(models.IntegerChoices):
+        ASSET = 1, _('Asset')
+        LIABILITY = 2, _('Liabilities')
+        
+    side = models.PositiveSmallIntegerField(
+        _('Side'), choices=SIDE, help_text=_("Assets or liabilities"))  
     category = models.ForeignKey(
         AccountCategory, verbose_name=_('Account Category'),
         on_delete=models.PROTECT, blank=True, null=True,
@@ -1729,6 +1754,12 @@ class FunctionalLedger(LedgerAccount):
 
 
 class LedgerPL(FunctionalLedger):
+    class SIDE(models.IntegerChoices):
+        expense = 3, _('Expense')
+        revenue = 4, _('Revenue')
+        
+    side = models.PositiveSmallIntegerField(
+        _('Side'), choices=SIDE, help_text=_("Expense or Revenue"))         
     expense = models.DecimalField(
         _('Expense'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The expense amount.')
@@ -1770,6 +1801,12 @@ class LedgerPL(FunctionalLedger):
 
 
 class LedgerIC(FunctionalLedger):
+    class SIDE(models.IntegerChoices):
+        expense = 5, _('Expense')
+        revenue = 6, _('Revenue')
+        
+    side = models.PositiveSmallIntegerField(
+        _('Side'), choices=SIDE, help_text=_("Expense or Revenue"))           
     expense = models.DecimalField(
         _('Expense'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The expense amount.')

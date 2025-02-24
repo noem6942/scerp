@@ -41,6 +41,10 @@ class Ledger:
                     raise ValueError(msg)
 
     @staticmethod
+    def get_side(hrm):
+        return int(hrm[0])
+
+    @staticmethod
     def make_function(value_str):
         if '.' in value_str:
             return str(int(float(value_str)))
@@ -57,7 +61,7 @@ class Ledger:
                 # derive from hrm
                 instance.parent = self.model.objects.filter(
                     setup=instance.setup,
-                    type=self.model.TYPE.CATEGORY,
+                    type=self.model.TYPE.CATEGORY,                    
                     hrm__lte=hrm
                 ).order_by('hrm').last()
             else:
@@ -90,6 +94,7 @@ class Ledger:
         # Init
         instance = self.instance
         instance.hrm = instance.hrm.strip()
+        instance.side = self.get_side(instance.hrm)
 
         # Calc
         if '.' in instance.hrm:

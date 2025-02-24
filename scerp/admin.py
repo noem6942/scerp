@@ -540,6 +540,10 @@ class BaseAdmin(ModelAdmin):
         if isinstance(queryset, HttpResponseForbidden):
             messages.error(request, f"{queryset.content.decode()}")
             return  # Early return to prevent further processing
+
+        with transaction.atomic():
+            super().save_model(request, instance, form, change)
+        return
     
         # Only save the model if there are no errors
         try:
@@ -593,3 +597,20 @@ class BaseAdmin(ModelAdmin):
     @admin.display(description=_('Photo'))
     def display_photo(self, obj):
         return Display.photo(obj.photo)
+
+    @admin.display(description=_(''))
+    def attachment_icon(self, obj):
+        """Displays a paperclip 📎 or folder 📂 icon if attachments exist."""
+        if obj.attachments.exists():  # ✅ Efficient query
+            return "📂"  # You can also use "📎" or "🗂️"
+        return ""  # No icon if no attachments'
+
+    @admin.display(description=_(''))
+    def notes_hint(self, obj):
+        """Displays a hint (tooltip) with the note text if available."""
+        if obj.notes:
+            return format_html(
+                '<span style="cursor: pointer; border-bottom: 1px dotted #555;" '
+                'title="{}">📝</span>', obj.notes
+            )  # ✅ Cursor + underline effect
+        return ""  

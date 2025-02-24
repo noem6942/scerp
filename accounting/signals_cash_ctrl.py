@@ -591,7 +591,7 @@ def person_post_save(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=models.PersonCrm)
 def person_pre_delete(sender, instance, **kwargs):
-    '''Signal handler for pre_delete signals on IncomingOrder. '''
+    '''Signal handler for pre_delete signals on Person. '''
     model = models.Person
     accounting_instance, created = get_or_create_accounting_instance(
         model, instance, created=False)

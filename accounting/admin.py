@@ -849,18 +849,19 @@ class OrderCategoryIncomingAdmin(CashCtrlAdmin):
 
 class OrderIncomingAdmin(CashCtrlAdmin):
 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):        
         # Call super() first to let filter_foreignkeys (or any other logic) run
         formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+        ''' currently all persons shown 
         # Get setup
         api_setup = self.get_default_api_setup(request)
         
         # Ensure filtering applies to 'responsible_person'
         if db_field.name == "responsible_person" and formfield is not None:
             formfield.queryset = models.Person.objects.filter(
-                setup=api_setup, category__c_id=models.PERSON_TYPE.EMPLOYEE)
-        
+                tenant=api_setup, category__c_id=models.PERSON_TYPE.EMPLOYEE)
+        '''
         return formfield
 
     @admin.display(description=_('Type'))
@@ -1144,8 +1145,7 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
     #readonly_fields = ('closing_balance',)
 
     # Search, filter
-    list_filter = (
-        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 'type')
+    list_filter = ('side', 'is_enabled_sync', 'type')
 
     # Actions
     actions = [a.accounting_get_data, a.de_sync_accounting]
@@ -1206,9 +1206,7 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
     # readonly_fields = ('closing_balance',)
 
     # Enable filtering options
-    list_filter = (
-        filters.LedgerFilteredSetupListFilter, 'is_enabled_sync', 
-        'type', 'function')
+    list_filter = ('side', 'is_enabled_sync', 'type', 'function')
 
     # Actions
     actions = [a.accounting_get_data, a.de_sync_accounting]

@@ -733,7 +733,7 @@ class Person(cashCtrl):
             category = model_PersonCategory.objects.filter(
                 core=instance.category).first()
             if not category:
-                raise ValueError('Category not found or synchronized.')                
+                raise ValueError('Category not found or synchronized.')
             data['category_id'] = category.c_id
 
         # Prepare title_id
@@ -751,7 +751,7 @@ class Person(cashCtrl):
             person = model_Person.objects.filter(
                 core=instance.superior).first()
             if not person:
-                raise ValueError('Superior not found or synchronized.')                
+                raise ValueError('Superior not found or synchronized.')
             data['superior_id'] = person.c_id
         else:
             data.pop('superior_id')
@@ -800,6 +800,7 @@ class OrderCategory(cashCtrl):
         # status
         STATUS = instance.STATUS
         status_data = {}
+        print("*data['data']['status']", data['data']['status'])
         for index, status in enumerate(STATUS):
             key = status.value
             value = data['data']['status'][index]
@@ -837,6 +838,7 @@ class OrderCategoryIncoming(OrderCategory):
 
     def pre_upload(self, instance, data):
         # basics
+        print("*****")
         super().pre_upload(instance, data)
 
         # accounts
@@ -896,7 +898,8 @@ class OrderContract(Order):
 
         # associate
         if instance.associate:
-            data['associate_id'] = instance.associate.c_id
+            person = model_Person.get_accounting_object(instance.associate.id)
+            data['associate_id'] = person.c_id
 
         # Create one item with total price
         data['items'] = [{
@@ -910,9 +913,6 @@ class IncomingOrder(Order):
 
     def pre_upload(self, instance, data):
         super().pre_upload(instance, data)
-
-        # associate
-        data['associate_id'] = instance.contract.associate.c_id
 
         # Create one item with total price
         data['items'] = [{

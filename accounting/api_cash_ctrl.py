@@ -10,6 +10,7 @@ from time import sleep
 
 import json
 import logging
+import os
 import re
 import requests
 import xmltodict
@@ -238,6 +239,13 @@ def str_to_dt(dt_string):
     '''
     return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S.%f')
 
+def slugify_filename(filename):
+    """Converts a filename into a safe format."""
+    filename = filename.lower()  # Convert to lowercase
+    filename = re.sub(r'[^\w\s.-]', '', filename)  # Remove special characters except dot & hyphen
+    # filename = re.sub(r'\s+', '_', filename)  # Replace spaces with underscores
+    return filename
+
 
 # Xml <-> JSON
 def clean_value(value):
@@ -302,7 +310,7 @@ def clean_dict(data, convert_dt=True):
     post_data = {}
     for key, value in data.items():
         key = camel_to_snake(key)
-        if (convert_dt and 
+        if (convert_dt and
                 key in ('created',  'last_updated', 'start', 'end')):
             try:
                 value = str_to_dt(value)
@@ -337,11 +345,11 @@ class CashCtrl():
         self.org = org
         self.api_key = api_key
         self.auth = (api_key, '')
-        
+
         # Params
         self.language = language
         self.convert_dt = convert_dt
-        
+
         # Data
         self.data = None  # data can be loaded (list, read) or posted
 
@@ -352,29 +360,19 @@ class CashCtrl():
     # REST API CashCtrl: post, get
     def get(self, url, params, timeout=10):
         '''
-        Get from cash_ctrl with timeout handling.
+        Get from CashCtrl with timeout handling.
         '''
-        # Add language
-        if not params.get('language'):
-            params['lang'] = self.language
-
-        # Request
+        # Ensure language parameter is always set
+        params.setdefault('lang', self.language)  
         try:
             response = requests.get(
                 url, params=params, auth=self.auth, timeout=timeout)
-            if response.status_code != 200:
-                # Decode the content and include it in the error message
-                content = getattr(response, '_content', None)
-                error_message = content.decode(DECODE) if content else ''
-                raise Exception(
-                    f"Get request failed with status {response.status_code}. "
-                    f"Error message: {error_message}"
-                )
+                
+            # Raise an HTTPError for bad responses (4xx, 5xx)                
+            response.raise_for_status()  
             return response
-        except requests.exceptions.Timeout:
-            raise Exception(f"Request to {url} timed out after {timeout} seconds.")
         except requests.exceptions.RequestException as e:
-            raise Exception(f"An error occurred during the request: {e}")
+            raise Exception(f"Request failed: {e}")
 
     def post(self, url, data=None, params={}, timeout=10):
         """
@@ -424,7 +422,7 @@ class CashCtrl():
                         f"{response.text}"
                     )
 
-                content = response.json()                
+                content = response.json()
                 if not content.get('success', False):
                     raise Exception(
                         f"POST request error in '{url}': {content['message']},"
@@ -453,6 +451,67 @@ class CashCtrl():
             f"request to '{url}'."
         )
 
+    # File management
+    def upload_file(self, file_path):
+        file_name = file_path.split('/')[-1]
+        mime_type = 'application/octet-stream'  # Default MIME type
+
+        # Step 1: Prepare
+        url = self.BASE.format(org=self.org, url=self.url, action='prepare')
+        files = json.dumps([{'name': file_name, 'mimeType': mime_type}])
+
+        response = requests.post(
+            url, auth=self.auth, files={'files': (None, files)})
+        response_data = response.json()
+
+        if not response_data.get('success'):
+            raise Exception('Failed to prepare file upload')
+
+        file_info = response_data['data'][0]
+        file_id = file_info['fileId']
+        write_url = file_info['writeUrl']
+
+        # Step 2: Put (Upload the file)
+        with open(file_path, 'rb') as f:
+            put_response = requests.put(write_url, data=f)
+
+        if put_response.status_code != 200:
+            raise Exception('Failed to upload file')
+
+        
+        # Step 3: Persist
+        persist_url = (
+            f'https://{self.org}.cashctrl.com/api/v1/file/persist.json')
+        persist_response = requests.post(
+            persist_url, auth=self.auth, data={'ids': file_id})
+
+        if not persist_response.json().get('success'):
+            raise Exception('Failed to persist file')
+
+        return file_id, file_name
+
+    def download_file(self, file_id, output_path):
+        # Read data to get name
+        data = self.read(file_id)        
+
+        # Download
+        params = {'id': file_id}
+        url = self.BASE_DIR.format(
+            org=self.org, url=self.url, action='get')        
+        response = requests.get(
+            url, auth=self.auth,  params=params, allow_redirects=True)
+        
+        if response.status_code == 200:
+            # If output_path is a directory, use file_id as the filename
+            if os.path.isdir(output_path):
+                file_name = slugify_filename(data['name'])
+                output_path = os.path.join(output_path,file_name)
+
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+        else:
+            raise Exception(f'Failed to download file: {response}')
+
     # REST API mine: list, read, create, update, delete, data
     def list(self, params=None, **filter_kwargs):
         ''' cash_ctrl list '''
@@ -470,44 +529,28 @@ class CashCtrl():
             org=self.org, url=self.url, params=params, action='list')
         response = self.get(url, params)
         self.data = [
-            clean_dict(x, self.convert_dt) 
+            clean_dict(x, self.convert_dt)
             for x in response.json()['data']
         ]
         return self.data
 
-    def read(self, params=None):
-        ''' cash_ctrl read '''
-        # Get data
+    def read(self, id=None, params=None):
+        """ Fetch a single entry by ID. """
         if params is None:
-            params = {}  # Initialize the dictionary only when needed
+            params = {}
+
+        if id:
+            params["id"] = id  # Ensure ID is included
+
         url = self.BASE.format(
-            org=self.org, url=self.url, params=params, action='read')
+            org=self.org, url=self.url, params=params, action="read")
         response = self.get(url, params)
-        content = getattr(response, '_content', None)
-
-        # Return content
-        if content:
-            self.data = clean_dict(
-                json.loads(content.decode(DECODE)), self.convert_dt)
-            return self.data
-        raise Exception("response has no _content ")
-
-    def json_data(self, params=None):
-        ''' cash_ctrl read '''
-        # Get data
-        if params is None:
-            params = {}  # Initialize the dictionary only when needed
-        url = self.BASE.format(
-            org=self.org, url=self.url, params=params, action='data')
-        response = self.get(url, params)
-        content = getattr(response, '_content', None)
-
-        # Return content
-        if content:
-            self.data = clean_dict(
-                json.loads(content.decode(DECODE)), self.convert_dt)
-            return self.data
-        raise Exception("response has no _content ")
+        
+        if response.status_code == 200:     
+            data = response.json()
+            if data.get('success', False):
+                return data.get('data')  # Directly return parsed JSON
+        return response
 
     def create(self, data=None, params={}):
         ''' cash_ctrl create '''
@@ -523,13 +566,31 @@ class CashCtrl():
         response = self.post(url, data=data, params={})
         return response  # e.g. {'success': True, 'message': 'Account saved', 'insert_id': 183}
 
-    def delete(self, *ids):
-        ''' cash_ctrl delete '''
+    def delete(self, *ids, force=None):
+        ''' cash_ctrl delete 
+            force is only used for File; 
+                if True file gets permanently deleted else it gets moved to the
+                archive
+        '''
         data = {'ids': ','.join([str(id) for id in ids])}
         url = self.BASE.format(
             org=self.org, url=self.url, data=data, action='delete')
         response = self.post(url, data=data)
         return response  # e.g. {'success': True, 'message': '1 account deleted'}
+
+    def attach_files(self, id, file_ids):
+        '''
+        Attach files with id file_ids to object id, 
+        see https://app.cashctrl.com/static/help/en/api/index.html#examples
+        '''
+        data = {
+            "id": id,
+            "file_ids": ",".join(map(str, file_ids))  # Convert list to comma-separated string
+        }
+        url = self.BASE.format(
+            org=self.org, url=self.url, data=data, action='update_attachments')
+        response = self.post(url, data=data)        
+        return response
 
 
 # Element Classes
@@ -615,6 +676,28 @@ class File(CashCtrl):
     '''see public api desc'''
     url = 'file/'
     actions = ['list']
+
+    def delete(self, file_id, archive=True):
+        super().delete(file_id, force=not archive)
+
+    def download(self, file_id, output_path):
+        self.download_file(file_id, output_path)
+
+    def upload(self, file_path, data={}):
+        '''
+            data: if not empty categorize file with category, name, 
+                description, notes, custom
+        '''
+        file_id, file_name = self.upload_file(file_path)
+        if data:
+            # Cataloge file
+            data.update({
+                'id': file_id,
+                'name': data.pop('name', file_name)
+            })
+            self.create(data)
+        
+        return file_id, file_name
 
 class FileCategory(CashCtrl):
     '''see public api desc'''
@@ -797,7 +880,7 @@ class OrderCategory(CashCtrl):
     url = 'order/category/'
     actions = ['list']
 
-    def list(self, params=None, **filter_kwargs):        
+    def list(self, params=None, **filter_kwargs):
         # Get data
         categories = super().list(params=params, **filter_kwargs)
 
