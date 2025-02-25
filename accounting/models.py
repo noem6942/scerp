@@ -1692,7 +1692,8 @@ class LedgerBalance(LedgerAccount):
         LIABILITY = 2, _('Liabilities')
         
     side = models.PositiveSmallIntegerField(
-        _('Side'), choices=SIDE, help_text=_("Assets or liabilities"))  
+        _('Side'), choices=SIDE, blank=True, null=True,
+        help_text=_("Assets or liabilities"))  
     category = models.ForeignKey(
         AccountCategory, verbose_name=_('Account Category'),
         on_delete=models.PROTECT, blank=True, null=True,
@@ -1753,13 +1754,7 @@ class FunctionalLedger(LedgerAccount):
         abstract = True
 
 
-class LedgerPL(FunctionalLedger):
-    class SIDE(models.IntegerChoices):
-        expense = 3, _('Expense')
-        revenue = 4, _('Revenue')
-        
-    side = models.PositiveSmallIntegerField(
-        _('Side'), choices=SIDE, help_text=_("Expense or Revenue"))         
+class LedgerPL(FunctionalLedger):    
     expense = models.DecimalField(
         _('Expense'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The expense amount.')
@@ -1800,13 +1795,7 @@ class LedgerPL(FunctionalLedger):
         verbose_name_plural = _('Profit/Loss')
 
 
-class LedgerIC(FunctionalLedger):
-    class SIDE(models.IntegerChoices):
-        expense = 5, _('Expense')
-        revenue = 6, _('Revenue')
-        
-    side = models.PositiveSmallIntegerField(
-        _('Side'), choices=SIDE, help_text=_("Expense or Revenue"))           
+class LedgerIC(FunctionalLedger):        
     expense = models.DecimalField(
         _('Expense'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The expense amount.')

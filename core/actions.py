@@ -7,7 +7,7 @@ from django.urls import path
 from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
 
-from scerp.admin import action_check_nr_selected
+from scerp.actions import action_check_nr_selected
 from scerp.mixins import generate_random_password
 from . import forms
 from .models import UserProfile

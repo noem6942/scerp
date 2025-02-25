@@ -1206,7 +1206,7 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
     # readonly_fields = ('closing_balance',)
 
     # Enable filtering options
-    list_filter = ('side', 'is_enabled_sync', 'type', 'function')
+    list_filter = 'is_enabled_sync', 'type', 'function')
 
     # Actions
     actions = [a.accounting_get_data, a.de_sync_accounting]

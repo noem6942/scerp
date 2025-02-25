@@ -7,17 +7,16 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from scerp.admin import (
-    BaseAdmin, BaseTabularInline, Display, make_language_fields
+    BaseAdmin, BaseTabularInline, Display, make_language_fields,
+    BaseAdminNew
 )
+from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 from . import actions as a, forms
 from .models import (
     Message, Tenant, TenantSetup, Attachment, TenantLogo, UserProfile,
     AddressCategory, Address, PersonAddress, Contact, PersonContact, Title,
     PersonCategory, Person)
-from .safeguards import (
-    get_available_tenants, get_tenant, get_tenant_data, get_tenant_instance,
-    set_tenant)
 
 
 # Generic Attachments
@@ -173,15 +172,15 @@ class AddressCategoryAdmin(BaseAdmin):
 
 
 @admin.register(Title, site=admin_site)
-class TitleAdmin(BaseAdmin):
+class TitleAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
-    has_tenant_field = True
+    protected_foreigns = ['tenant']
 
     # Helpers
     form = forms.TitleAdminForm
     # Display these fields in the list view
     list_display = ('code', 'display_name')
-    readonly_fields = ('display_name',)
+    readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ('code', 'name')
@@ -199,13 +198,15 @@ class TitleAdmin(BaseAdmin):
                 *make_language_fields('sentence'),),
             'classes': ('collapse',),
         }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
     )
 
 
 @admin.register(PersonCategory, site=admin_site)
 class PersonCategoryAdmin(BaseAdmin):
     # Safeguards
-    has_tenant_field = True
+    protected_foreigns = ['tenant']
 
     # Helpers
     form = forms.PersonCategoryAdminForm
@@ -231,8 +232,7 @@ class PersonCategoryAdmin(BaseAdmin):
 @admin.register(Address, site=admin_site)
 class AddressAdmin(BaseAdmin):
     # Safeguards
-    has_tenant_field = True
-    related_tenant_fields = ['category']    
+    protected_foreigns = ['tenant', 'category']
 
     # Display these fields in the list view
     list_display = ('country', 'zip', 'city', 'address')
@@ -257,9 +257,8 @@ class AddressAdmin(BaseAdmin):
 
 class AddressInline(BaseTabularInline):
     # Safeguards
-    has_tenant_field = True
-    related_tenant_fields = ['tenant', 'person']
-
+    protected_foreigns = ['tenant', 'person']
+    
     # Inline
     model = PersonAddress
     form = forms.PersonAddressForm
@@ -272,8 +271,7 @@ class AddressInline(BaseTabularInline):
 
 class ContactInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
-    has_tenant_field = True
-    related_tenant_fields = ['tenant', 'person']
+    protected_foreigns = ['tenant', 'person']
 
     # Inline
     model = PersonContact
@@ -286,12 +284,7 @@ class ContactInline(BaseTabularInline):  # or admin.StackedInline
 
 @admin.register(Person, site=admin_site)
 class PersonAdmin(BaseAdmin):
-    # Safeguards
-    has_tenant_field = True
-    related_tenant_fields = [
-        'tenant', 'version', 'title', 'superior', 'category']
-    optimize_foreigns = [
-        'tenant', 'version', 'title', 'superior', 'category']
+    protected_foreigns = ['tenant', 'version', 'title', 'superior', 'category']
 
     # Display these fields in the list view
     list_display = (

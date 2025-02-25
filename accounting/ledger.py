@@ -41,10 +41,6 @@ class Ledger:
                     raise ValueError(msg)
 
     @staticmethod
-    def get_side(hrm):
-        return int(hrm[0])
-
-    @staticmethod
     def make_function(value_str):
         if '.' in value_str:
             return str(int(float(value_str)))
@@ -94,7 +90,12 @@ class Ledger:
         # Init
         instance = self.instance
         instance.hrm = instance.hrm.strip()
-        instance.side = self.get_side(instance.hrm)
+        
+        if self.model == LedgerBalance:        
+            try:
+                instance.side = int(instance.hrm[0])
+            except:
+                instance.side = None
 
         # Calc
         if '.' in instance.hrm:

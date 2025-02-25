@@ -34,54 +34,6 @@ from core.models import Tenant, TenantSetup, UserProfile
 
 
 # Security mixins
-def filter_query_for_tenant(request, query):
-    tenant = get_tenant(request)
-
-    # filter query
-    try:
-        x = tenant['id']
-    except:
-        raise ValidationError(f'No tenant id {tenant}')
-
-    if tenant['id']:
-        return query.filter(tenant__id=tenant['id'])
-    else:
-        return query.none()
-
-
-def set_tenant(request, tenant_id):
-    '''set tenant data on request.session
-    '''
-    # Recheck if allowed
-    queryset = TenantSetup.objects.filter(tenant__id=tenant_id)
-    if not request.user.is_superuser or not getattr(
-            settings, 'ADMIN_ACCESS_ALL', False):
-        queryset = queryset.filter(users=request.user)
-
-    # Save
-    if queryset:
-        tenant_setup = queryset.first()
-        request.session['tenant'] = {
-            'id': tenant_id,
-            'setup_id': tenant_setup.id,
-            'name': tenant_setup.tenant.name,
-            'language': tenant_setup.language,
-            'show_only_primary_language': (
-                tenant_setup.show_only_primary_language),
-            'logo': (
-                tenant_setup.logo.url if tenant_setup.logo else settings.LOGO)
-        }
-        return tenant_setup.tenant
-    else:
-        raise PermissionDenied(_('User has no access to tenant'))
-
-
-def set_year(request, year):
-    tenant = get_tenant(request)
-    if tenant:
-        request.session['tenant']['year'] = year
-
-
 def get_available_tenants(request, recheck_from_db=False):
     # Check if the user is a superuser with global access to all tenants
     if not recheck_from_db:
@@ -110,12 +62,6 @@ def get_available_tenants(request, recheck_from_db=False):
     return available_tenants
 
 
-def get_tenant(request):
-    '''get tenant data from request.session
-    '''
-    return request.session.get('tenant')
-
-
 def get_tenant_data(request):
     '''
     get tenant data from request.session, use this in future
@@ -123,13 +69,15 @@ def get_tenant_data(request):
     return request.session.get('tenant')
 
 
-def get_tenant_instance(request):
+def get_tenant(request):
     '''
     get Tenant instance from request.session, use this in future
     '''
     tenant_data = get_tenant_data(request)
-    tenant = Tenant.objects.get_object_or_404(id=tenant_data['id'])
-    return tenant
+    if tenant_data:
+        tenant = get_object_or_404(Tenant, id=tenant_data['id'])
+        return tenant
+    return None
 
 
 def save_logging(instance, request=None, user=None):
@@ -140,3 +88,31 @@ def save_logging(instance, request=None, user=None):
     else:
         # New object, set the creator
         instance.created_by = user or request.user
+
+
+def set_tenant(request, tenant_id):
+    '''set tenant data on request.session
+    '''
+    # Recheck if allowed
+    queryset = TenantSetup.objects.filter(tenant__id=tenant_id)
+    if not request.user.is_superuser or not getattr(
+            settings, 'ADMIN_ACCESS_ALL', False):
+        queryset = queryset.filter(users=request.user)
+
+    # Save
+    if queryset:
+        tenant_setup = queryset.first()
+        request.session['tenant'] = {
+            'id': tenant_id,
+            'setup_id': tenant_setup.id,
+            'code': tenant_setup.tenant.code,
+            'name': tenant_setup.tenant.name,
+            'language': tenant_setup.language,
+            'show_only_primary_language': (
+                tenant_setup.show_only_primary_language),
+            'logo': (
+                tenant_setup.logo.url if tenant_setup.logo else settings.LOGO)
+        }
+        return tenant_setup.tenant
+    else:
+        raise PermissionDenied(_('User has no access to tenant'))

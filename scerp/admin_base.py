@@ -1,0 +1,302 @@
+"""
+scerp/admin.py
+
+Admin configuration for the scerp app.
+
+This module contains the configuration for models and views that manage the admin interface.
+"""
+from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+from django.http import HttpResponseRedirect
+from django.utils.translation import gettext_lazy as _
+
+from accounting.models import APISetup
+from core.safeguards import get_tenant_data, save_logging
+from .exceptions import APIRequestError
+
+class FIELDS:
+    LOGGING = ('modified_at', 'modified_by', 'created_at', 'created_by')
+    LOGGING_TENANT = LOGGING + ('tenant',)
+    LOGGING_SETUP = LOGGING_TENANT + ('setup',)
+    LOGGING_SAVE = ('tenant', 'setup', 'created_by')
+    NOTES = ('notes', 'is_protected', 'is_inactive')    
+
+
+class FIELDSET:
+    NOTES_AND_STATUS = (
+        _('Notes and Status'), {
+            'fields': FIELDS.NOTES,
+            'classes': ('collapse',),
+        })
+    LOGGING = (
+        _('Logging'), {
+            'fields': FIELDS.LOGGING,
+            'classes': ('collapse',),
+        })       
+    LOGGING_TENANT = (
+        _('Logging'), {
+            'fields': FIELDS.LOGGING_TENANT,
+            'classes': ('collapse',),
+        }) 
+    LOGGING_SETUP = (
+        _('Logging'), {
+            'fields': FIELDS.LOGGING_SETUP,
+            'classes': ('collapse',),
+        })         
+
+class TenantFilteringAdmin(admin.ModelAdmin):
+    '''
+    A base admin class that handles tenant filtering efficiently.
+    '''
+    protected_foreigns = []  # ForeignKey optimization fields
+    protected_many_to_many = []  # ManyToMany optimization fields
+    has_errors = False
+
+    def get_tenant_and_setup(self, request):
+        """
+        Retrieve tenant_id and setup once per request, but only fetch `setup`
+        if the model has a `setup` field.
+        """
+        if not hasattr(request, "_cached_tenant_setup"):
+            print("*request", request.session.get('tenant'))
+            tenant_data = get_tenant_data(request)  # Fetch tenant info
+            tenant_id = tenant_data.get('id')
+
+            # Check if the model has a 'setup' field before calling APISetup.get_setup
+            fields = {
+                field.name 
+                for field in self.model._meta.get_fields()
+            } if self.model else set()
+            
+            if "setup" in fields and tenant_id:
+                setup = APISetup.get_setup(tenant_id=tenant_id) 
+            else:
+                setup = None
+
+            request._cached_tenant_setup = {
+                "tenant_id": tenant_id, 
+                "setup": setup
+            }
+        
+        return request._cached_tenant_setup
+
+    def get_queryset(self, request):
+        '''
+        Filter the queryset by setup (if present) or tenant.
+        '''
+        queryset = super().get_queryset(request)
+
+        if not self.model:
+            return queryset  # No model associated
+
+        fields = {
+            field.name 
+            for field in self.model._meta.get_fields()
+        }  # Fast lookup
+        tenant_setup_data = self.get_tenant_and_setup(request)
+        tenant_id = tenant_setup_data["tenant_id"]
+        setup = tenant_setup_data["setup"]
+
+        # Prefer filtering by 'setup' if the field exists
+        if "setup" in fields and setup:
+            queryset = queryset.filter(setup=setup)
+        elif "tenant" in fields and tenant_id:
+            queryset = queryset.filter(tenant__id=tenant_id)
+
+        # Optimize ForeignKey and ManyToMany fields
+        if self.protected_foreigns:
+            queryset = queryset.select_related(*self.protected_foreigns)
+        if self.protected_many_to_many:
+            queryset = queryset.prefetch_related(*self.protected_many_to_many)
+
+        return queryset
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        '''
+        Filter ForeignKey choices by setup (if available) or tenant.
+        '''
+        if db_field.name in self.protected_foreigns:
+            tenant_setup_data = self.get_tenant_and_setup(request)
+            tenant_id = tenant_setup_data["tenant_id"]
+            setup = tenant_setup_data["setup"]
+
+            fields = {
+                field.name for field in self.model._meta.get_fields()
+            }  # Fast lookup
+
+            if db_field.name == "setup" and "setup" in fields and setup:
+                kwargs["queryset"] = db_field.related_model.objects.filter(
+                    id=setup.id)
+            elif (db_field.name == "tenant" and 
+                    "tenant" in fields and tenant_id):
+                kwargs["queryset"] = db_field.related_model.objects.filter(
+                    id=tenant_id)
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        '''
+        Filter and optimize ManyToMany choices by setup (if available) or tenant.
+        '''
+        if db_field.name in self.protected_many_to_many:
+            # Fetch cached tenant & setup
+            tenant_setup_data = self.get_tenant_and_setup(request)  
+            tenant_id = tenant_setup_data["tenant_id"]
+            setup = tenant_setup_data["setup"]
+
+            fields = {
+                field.name 
+                for field in self.model._meta.get_fields()
+            }  # Use a set for fast lookup
+
+            # Prefer filtering by 'setup' if available
+            if db_field.name == "setup" and "setup" in fields and setup:
+                kwargs["queryset"] = db_field.related_model.objects.filter(
+                    id=setup.id)
+            elif (db_field.name == "tenant" and "tenant" in fields 
+                    and tenant_id):
+                kwargs["queryset"] = db_field.related_model.objects.filter(
+                    id=tenant_id)
+
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+
+    def delete_model(self, request, obj):
+        try:
+            with transaction.atomic():  # Ensure atomic deletion
+                obj.delete()
+
+        except APIRequestError as e:
+            raise ValidationError(f"Cannot delete: {e}")  # Prevents Django from proceeding
+
+        except Exception as e:
+            messages.error(request, f"Error deleting category: {e}")
+
+    def delete_queryset(self, request, queryset):
+        count = 0
+        for obj in queryset:
+            try:
+                with transaction.atomic():  # Ensures each delete is independent
+                    obj.delete()
+                count += 1
+            except Exception as e:
+                messages.warning(request, f"{obj}: {str(e)}")
+
+        msg = "{count} records successfully deleted.".format(count=count)
+        messages.info(request, msg)
+
+    def response_change(self, request, obj):
+        if obj.is_protected or self.has_errors:
+            return HttpResponseRedirect(request.path)  # No success message
+
+        return super().response_change(request, obj)
+
+    def save_model(self, request, instance, form, change):
+        """
+        Override save to enforce tenant/setup assignment, log actions, 
+        and handle errors.
+        """  
+        # Check if protected and has been protected
+        if instance.is_protected:
+            if change:
+                old_instance = self.model.objects.get(pk=instance.pk)
+                if getattr(old_instance, 'is_protected', None):
+                    messages.warning(request, _('Record is protected.'))
+                    return
+        
+        # Fetch cached tenant & setup data  
+        tenant_setup_data = self.get_tenant_and_setup(request)
+        tenant_id = tenant_setup_data["tenant_id"]
+        setup = tenant_setup_data["setup"]
+
+        # Ensure tenant/setup is set if they exist in protected_foreigns  
+        protected_foreigns = getattr(self, "protected_foreigns", [])
+        print("*protected_foreigns", protected_foreigns, tenant_id)
+        if ("tenant" in protected_foreigns and tenant_id 
+                and not getattr(instance, 'tenant', None)):
+            # Assign the ID directly to avoid unnecessary lookups
+            instance.tenant_id = tenant_id  
+            
+        if ("setup" in protected_foreigns and setup 
+                and not getattr(instance, 'setup', None)):
+            instance.setup = setup
+
+        # Proceed with logging  
+        save_logging(instance, request)  
+
+        # Atomic save with error handling   
+        self.has_errors = True
+        try:
+            with transaction.atomic():                
+                super().save_model(request, instance, form, change)
+                self.has_errors = False
+        except IntegrityError as e:
+            if "Duplicate entry" in str(e):
+                messages.error(request, _("Unique constraints violated."))
+            else:
+                messages.error(request, _("A database error occurred."))
+        except APIRequestError as e:
+            messages.error(request, _("API request failed: ") + str(e))
+        except Exception as e:
+            messages.error(request, _("Unexpected error: ") + str(e))
+
+    def save_related(self, request, form, formsets, change):
+        """
+        Handle inlines by ensuring related objects get required fields from form.instance.
+        """
+        for formset in formsets:
+            model = getattr(formset, "model", None)
+            if not model:
+                continue  # Skip formsets without an associated model
+
+            field_names = {field.name for field in model._meta.get_fields()}  # Use set for O(1) lookup
+
+            for obj in formset.save(commit=False):
+                # Assign required fields from form.instance to related objects
+                for field_name in LOGGING_SAVE:
+                    if field_name in field_names:
+                        value = getattr(form.instance, field_name, None)
+                        setattr(obj, field_name, value)
+
+                obj.save()  # Save the object
+
+            # Ensure ManyToMany relationships are saved
+            formset.save_m2m()
+
+        # Call the default save_related method to handle remaining inline models
+        super().save_related(request, form, formsets, change)
+
+
+# Custom inline class to handle deletion logic for related models
+class RelatedModelInline(admin.TabularInline):
+
+    def delete_model(self, request, obj):
+        try:
+            obj.delete()  # Direct delete with signal triggering
+        except APIRequestError as e:
+            raise ValidationError(f"Cannot delete: {e}")  # Prevents Django from proceeding
+        except Exception as e:
+            logger.error(f"Error deleting {obj}: {str(e)}")
+            messages.error(request, f"Error deleting {obj}: {e}")
+
+    def delete_queryset(self, request, queryset):
+        count = 0
+        errors = []
+        for obj in queryset:
+            try:
+                with transaction.atomic():  # Ensures each delete is safe
+                    obj.delete()  # This triggers external signals
+                count += 1
+            except Exception as e:
+                errors.append(f"{obj}: {str(e)}")  # Collect errors for later reporting
+
+        messages.info(request, f"{count} related records successfully deleted.")
+        if errors:
+            messages.warning(request, "Some deletions failed:\n" + "\n".join(errors))
+
+    def save_related(self, request, form, formsets, change):
+        """
+        Optionally override to ensure any special processing or fields
+        for related models are saved before the parent model.
+        """
+        super().save_related(request, form, formsets, change)
