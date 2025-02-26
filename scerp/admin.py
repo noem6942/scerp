@@ -1,11 +1,11 @@
-"""
+'''
 scerp/admin.py
 
 Admin configuration for the scerp app.
 
 Helpers for admin.py
 
-"""
+'''
 import json
 
 from django.conf import settings
@@ -23,10 +23,10 @@ from .mixins import primary_language
 
 # format
 def format_big_number(value, thousand_separator=None, round_digits=None):
-    """
+    '''
     use settings.THOUSAND_SEPARATOR and 2 commas for big numbers
     value: float
-    """
+    '''
     if value is None:
         return None
 
@@ -37,25 +37,25 @@ def format_big_number(value, thousand_separator=None, round_digits=None):
     # Format number
     if thousand_separator is None:
         thousand_separator = settings.THOUSAND_SEPARATOR
-    return f"{value:,.2f}".replace(',', thousand_separator)
+    return f'{value:,.2f}'.replace(',', thousand_separator)
 
 
 def format_percent(value, precision):
-    """
+    '''
     use settings.THOUSAND_SEPARATOR and 2 commas for big numbers
     value: float
-    """
+    '''
     if value is None:
         return None
 
     # Format number
-    return f"{value:,.{precision}f}%"
+    return f'{value:,.{precision}f}%'
 
 
 def get_help_text(model, field_name):
-    """
+    '''
     Get help text from model
-    """
+    '''
     # pylint: disable=W0212
     return model._meta.get_field(field_name).help_text
 
@@ -75,18 +75,18 @@ def make_language_fields(field_name):
 
 
 def is_required_field(model, field_name):
-    """
+    '''
     Check if required field
-    """
+    '''
     # pylint: disable=W0212
     field = model._meta.get_field(field_name)
     return not field.blank and not field.null
 
 
 def verbose_name_field(model, field_name):
-    """
+    '''
     Get verbose_name from model
-    """
+    '''
     # pylint: disable=W0212
     return model._meta.get_field(field_name).verbose_name
 
@@ -97,17 +97,17 @@ class Display:
         return '✔' if value else '✘'
 
     def datetime(value, default='-'):
-        """
+        '''
         Display date time nice
-        """
+        '''
         if value is None:
             return default
         return date_format(value, format='DATETIME_FORMAT')
 
     def big_number(value, round_digits=None, thousand_separator=None):
-        """
+        '''
         use settings.THOUSAND_SEPARATOR and 2 commas for big numberss
-        """
+        '''
         if value is None:
             return None
 
@@ -119,19 +119,19 @@ class Display:
                 thousand_separator=thousand_separator)
         except:
             number_str = value
-        html = '<span style="text-align: right; display: block;">{}</span>'
+        html = "<span style='text-align: right; display: block;'>{}</span>"
         return format_html(html, number_str)
 
     def percentage(value, precision=1):
-        """
+        '''
         show percenate with{ precision} commas
-        """
+        '''
         if value is None:
             return None
 
         # Format number
         number_str = format_percent(value, precision)
-        html = '<span style="text-align: right; display: block;">{}</span>'
+        html = "<span style='text-align: right; display: block;'>{}</span>"
         return format_html(html, number_str)
 
     def hierarchy(level, name):
@@ -139,15 +139,15 @@ class Display:
             add spaces before the string if is_category == False
         '''
         if level == 1:
-            return format_html(f"<b>{name.upper()}</b>")
+            return format_html(f'<b>{name.upper()}</b>')
         if level == 2:
-            return format_html(f"<b>{name}</b>")
-        return format_html(f"<i>{name}</i>")
+            return format_html(f'<b>{name}</b>')
+        return format_html(f'<i>{name}</i>')
 
     def json(value, sort=False):
-        """
+        '''
         Print string for json
-        """
+        '''
         if not value:
             return ''
 
@@ -155,17 +155,18 @@ class Display:
             # Format JSON data with indentation and render it as preformatted text
             formatted_json = json.dumps(value, indent=4, ensure_ascii=False)
             return format_html(
-                '<pre style="font-family: monospace;">{}</pre>', formatted_json)
+                "<pre style='font-family: monospace;'>{}</pre>", 
+                formatted_json)
         except ValueError as e:
-            return f"Value Error displaying data: {e}"
+            return f'Value Error displaying data: {e}'
         except (KeyError, TypeError) as e:  # Catch specific exceptions
-            return f"Key or Type Error displaying data: {e}"
+            return f'Key or Type Error displaying data: {e}'
         except Exception as e:  # pylint: disable=W0718
             # Last resort: Catch any other exceptions
-            return f"Unexpected error displaying data: {e}"
+            return f'Unexpected error displaying data: {e}'
 
     def link(url, name):
-        """
+        '''
         Generates a clickable link for the Django admin interface.
 
         Args:
@@ -174,27 +175,27 @@ class Display:
 
         Returns:
             str: HTML string with a clickable link.
-        """
-        return format_html('<a href="{}" target="_blank">{}</a>', url, name)
+        '''
+        return format_html("<a href='{}' target='_blank'>{}</a>", url, name)
 
     def list(items):
-        output_list = [f"<li>{item}</li>" for item in items]
+        output_list = [f'<li>{item}</li>' for item in items]
         return format_html(''.join(output_list))
 
     def photo(url_field):
-        """
+        '''
         Display photo
-        """
+        '''
         if url_field:
             return mark_safe(
-                f'<img src="{url_field.url}" width="60" height="60" '
-                f'style="object-fit: cover;" />')
+                f"<img src='{url_field.url}' width='60' height='60' "
+                f"style='object-fit: cover;' />")
         return ''
 
     def verbose_name(def_cls, field):
-        """
+        '''
         Display verbose name from field
-        """
+        '''
         f_cls = getattr(def_cls, 'Field')
         return getattr(f_cls, field)['verbose_name']
 
@@ -223,19 +224,27 @@ class BaseAdminNew:
         except:
             return ''
 
+    @admin.display(description=_('last update'))
+    def display_number(self, obj):
+        return Display.big_number(obj.number)
+
+    @admin.display(description='')
+    def display_is_inactive(self, obj):
+        return '🔒' if obj.is_inactive else ''
+
     @admin.display(description=_('Photo'))
     def display_photo(self, obj):
         return Display.photo(obj.photo)
 
-    @admin.display(description=_(''))
-    def attachment_icon(self, obj):
+    @admin.display(description='')
+    def display_attachment_icon(self, obj):
         """Displays a paperclip 📎 or folder 📂 icon if attachments exist."""
         if obj.attachments.exists():  # ✅ Efficient query
             return "📂"  # You can also use "📎" or "🗂️"
         return ""  # No icon if no attachments'
 
-    @admin.display(description=_(''))
-    def notes_hint(self, obj):
+    @admin.display(description='')
+    def display_notes_hint(self, obj):
         """Displays a hint (tooltip) with the note text if available."""
         if obj.notes:
             return format_html(
@@ -262,14 +271,14 @@ class BaseAdmin(TenantFilteringAdmin):
     def display_photo(self, obj):
         return Display.photo(obj.photo)
 
-    @admin.display(description=_(''))
+    @admin.display(description='')
     def attachment_icon(self, obj):
         """Displays a paperclip 📎 or folder 📂 icon if attachments exist."""
         if obj.attachments.exists():  # ✅ Efficient query
             return "📂"  # You can also use "📎" or "🗂️"
         return ""  # No icon if no attachments'
 
-    @admin.display(description=_(''))
+    @admin.display(description='')
     def notes_hint(self, obj):
         """Displays a hint (tooltip) with the note text if available."""
         if obj.notes:

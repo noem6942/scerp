@@ -14,7 +14,7 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.utils.translation import get_language, gettext_lazy as _
 
-from core.safeguards import get_tenant, get_available_tenants, set_tenant
+from core.safeguards import get_tenant_data, get_available_tenants, set_tenant
 from core.models import Message, Tenant, TenantSetup
 from .locales import APP_CONFIG, APP_MODEL_ORDER
 
@@ -58,14 +58,14 @@ class Site(AdminSite):
                 return HttpResponseForbidden(_("No tenant selected."))            
             
         # Handle GET request: Get the current tenant and available tenants
-        tenant = get_tenant(request)  # get_tenant
+        tenant_data = get_tenant_data(request)  # get_tenant
         available_tenants = get_available_tenants(request)
         
         # Pass available tenants and selected tenant ID to the template
         extra_context = extra_context or {}
         extra_context.update({
             'available_tenants': available_tenants,
-            'tenant': tenant
+            'tenant': tenant_data
         })
         
         # Render the regular admin index page
@@ -82,7 +82,6 @@ class Site(AdminSite):
 
         # Get the default app list from the superclass
         app_list = super().get_app_list(request)
-        tenant = get_tenant(request)
 
         if app_label is None:
             # Process the general admin index page
@@ -112,7 +111,7 @@ class Site(AdminSite):
     def _get_ordered_app_list(self, app_list, request):
         '''Generate an ordered list of all apps.'''
         ordered_app_list = []
-        tenant = get_tenant(request)
+        tenant = get_tenant_data(request)
         
         # Builds App Setup
         app_setup = dict(APP_MODEL_ORDER)
@@ -138,8 +137,8 @@ class Site(AdminSite):
                 and (not app_info.get('needs_tenant', True) or tenant)
             )
         ]
-        ordered_app_list.extend(remaining_apps)
-
+        ordered_app_list.extend(remaining_apps)    
+        
         return ordered_app_list
 
     def _get_app_detail_list(self, app_list, app_label):

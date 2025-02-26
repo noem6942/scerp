@@ -434,7 +434,18 @@ class Contact(TenantAbstract):
         return f"{self.type} - {self.address}"
 
 
-class Title(TenantAbstract):
+class Sync(TenantAbstract):
+    sync_to_accounting = models.BooleanField(
+        _("Sync to Accounting"), default=True,
+        help_text=(
+            "This records needs to be synched to cashctr, if the cycle is "
+            "over it gets reset to False"))    
+
+    class Meta:
+        abstract = True
+
+
+class Title(Sync):
     """
     Model to represent a person's title.
         this will trigger a create / update event to accounting
@@ -462,6 +473,7 @@ class Title(TenantAbstract):
             "The letter salutation (e.g. 'Dear Mr.', etc.). May be used in "
             "mail."))
 
+
     def __str__(self):
         return primary_language(self.name)
 
@@ -477,7 +489,7 @@ class Title(TenantAbstract):
         verbose_name_plural = _("Titles")
 
 
-class PersonCategory(TenantAbstract):
+class PersonCategory(Sync):
     """
     this will trigger a create / update event to accounting
     """
@@ -504,7 +516,7 @@ class PersonCategory(TenantAbstract):
         verbose_name_plural = _("Person Categories")
 
 
-class Person(TenantAbstract):
+class Person(Sync):
     '''
     this will trigger a create / update event to accounting
     '''

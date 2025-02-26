@@ -98,9 +98,9 @@ class APISetup(TenantAbstract):
         currently only one accounting system --> derive only from tenant
         '''
         if tenant:
-            return cls.models.objects.get(tenant=tenant, default=True)
+            return cls.objects.get(tenant=tenant, is_default=True)
         elif tenant_id:
-            return cls.models.objects.get(tenant__id=tenant_id, default=True)        
+            return cls.objects.get(tenant__id=tenant_id, is_default=True)        
         raise ValidationError('No tenant given')
 
     @property
@@ -1128,7 +1128,7 @@ class Title(Core):
     Map core title to accounting system, not shown in any GUI
     '''
     core = models.ForeignKey(
-        TitleCrm, on_delete=models.CASCADE,
+        TitleCrm, on_delete=models.CASCADE, 
         related_name='%(class)s_core', help_text='origin')
 
     class Meta:
@@ -1136,7 +1136,7 @@ class Title(Core):
             models.UniqueConstraint(
                 fields=['setup', 'core'],
                 name='accounting_unique_title')
-        ]
+        ] 
 
 
 class PersonCategory(Core):
@@ -1150,11 +1150,14 @@ class PersonCategory(Core):
     parent = None  # we do not use this
 
     class Meta:
+        pass
+        """
         constraints = [
             models.UniqueConstraint(
                 fields=['setup', 'core'],
                 name='accounting_unique_person_category')
         ]
+        """
 
 
 class Person(Core):

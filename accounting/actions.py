@@ -15,7 +15,7 @@ from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
 
 from core.safeguards import save_logging
-from scerp.admin import action_check_nr_selected
+from scerp.actions import action_check_nr_selected
 from scerp.exceptions import APIRequestError
 
 from .import_export import (
@@ -29,6 +29,7 @@ from .models import (
 
 from . import forms, models
 from . import connector_cash_ctrl as conn
+from . import connector_cash_ctrl_2 as conn2
 from .import_accounts_canton import Import
 from .mixins import AccountPositionCheck
 from .signals_cash_ctrl import api_setup_post_save
@@ -761,6 +762,22 @@ def sync_queryset(request, queryset):
     return count
 
 
+# Account
+@admin.action(description=f"1. {_('Get data from account system 2')}")
+def accounting_get_data_2(modeladmin, request, queryset):
+    ''' load data '''
+    api = getattr(conn2, modeladmin.model.__name__, None)
+    language = None  # i.e. English
+    if api:
+        handler = api()        
+        setup = queryset.first().setup
+        tenant = setup.tenant
+        handler.get(modeladmin.model, setup, request.user, update=False)
+    else:
+        messages.warning(request, _("Cannot retrieve data for this list"))
+
+
+# Default row actions, accounting
 @admin.action(description=_("S. Sync with Accounting"))
 def sync_accounting(modeladmin, request, queryset):
     ''' set is_enabled_sync to True and save to trigger post_save '''
@@ -776,3 +793,4 @@ def de_sync_accounting(modeladmin, request, queryset):
     ''' update is_enabled_sync to False '''
     if action_check_nr_selected(request, queryset, min_count=1):
         queryset = queryset.update(is_enabled_sync=False)
+

@@ -3,6 +3,7 @@ from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import User, Group
 from django.contrib.contenttypes.admin import GenericTabularInline
+from django.shortcuts import get_object_or_404
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
@@ -14,7 +15,7 @@ from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 from . import actions as a, forms
 from .models import (
-    Message, Tenant, TenantSetup, Attachment, TenantLogo, UserProfile,
+    Message, Tenant, TenantSetup, Attachment, TenantLogo, UserProfile, Country,
     AddressCategory, Address, PersonAddress, Contact, PersonContact, Title,
     PersonCategory, Person)
 
@@ -34,7 +35,7 @@ class AttachmentInline(GenericTabularInline):
 
 
 @admin.register(Message, site=admin_site)
-class MessageAdmin(BaseAdmin):
+class MessageAdmin(TenantFilteringAdmin, BaseAdminNew):
     ''' currently only a superuser function '''
     list_display = (
         'name', 'severity', 'modified_at', 'show_recipients', 'is_inactive')
@@ -53,15 +54,22 @@ class MessageAdmin(BaseAdmin):
 
 
 @admin.register(UserProfile, site=admin_site)
-class UserProfileAdmin(BaseAdmin):
-    list_display = ('user', 'person_photo', 'group_names')
+class UserProfileAdmin(TenantFilteringAdmin, BaseAdminNew):
+    # Display these fields in the list view
+    list_display = ('user__username', 'person_photo', 'group_names')
+    readonly_fields = ('user', 'group_names') + FIELDS.LOGGING
+    
+    # Search, filter  
     search_fields = ('user__username',)
-    readonly_fields = ('user', 'group_names')
+    
+    # Fieldsets
     fieldsets = (
         (None, {
             'fields': ('user', 'person', 'group_names'),
             'classes': ('expand',),
         }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING,     
     )
 
     @admin.display(description=_('Groups'))
@@ -72,18 +80,27 @@ class UserProfileAdmin(BaseAdmin):
     def person_photo(self, obj):
         return Display.photo(obj.person.photo)
 
+
 @admin.register(Tenant, site=admin_site)
-class TenantAdmin(BaseAdmin):
+class TenantAdmin(TenantFilteringAdmin, BaseAdminNew):
+    # Display these fields in the list view
     list_display = ('name', 'code', 'created_at')
+    readonly_fields = FIELDS.LOGGING
+    
+    # Search, filter    
     search_fields = ('name', 'code')
 
+    # Actions
     actions = [a.init_setup]
 
+    # Fieldsets
     fieldsets = (
         (None, {
             'fields': ('name', 'code', 'is_app_time_trustee'),
             'classes': ('expand',),
         }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING,        
     )
 
     def save_model(self, request, obj, form, change):
@@ -102,15 +119,22 @@ class TenantAdmin(BaseAdmin):
 
 
 @admin.register(TenantSetup, site=admin_site)
-class TenantSetupAdmin(BaseAdmin):
-    has_tenant_field = True
+class TenantSetupAdmin(TenantFilteringAdmin, BaseAdminNew):
+    # Safeguards
+    protected_foreigns = ['tenant']
+    
+    # Display these fields in the list view
     list_display = (
-        'tenant', 'display_users', 'group_names', 'display_apps', 'created_at')
-    search_fields = ('tenant',)
-    readonly_fields = ('display_users', )
+        'display_users', 'group_names', 'display_apps', 'created_at')
+    readonly_fields = ('display_users', ) + FIELDS.LOGGING_TENANT
+    
+    # Search, filter    
+    search_fields = ('tenant',)    
+    
+    # Actions
     actions = [a.tenant_setup_create_user]
 
-    # Define which fields are in the form
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -119,6 +143,8 @@ class TenantSetupAdmin(BaseAdmin):
             ),  # Including the display method here is okay for readonly display
             'classes': ('expand',),
         }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,        
     )
 
     @admin.display(description=_('Apps'))
@@ -138,26 +164,41 @@ class TenantSetupAdmin(BaseAdmin):
 
 
 @admin.register(TenantLogo, site=admin_site)
-class TenantLogoAdmin(BaseAdmin):
-    has_tenant_field = True
+class TenantLogoAdmin(TenantFilteringAdmin, BaseAdminNew):
+    # Safeguards
+    protected_foreigns = ['tenant']
+    
+    # Display these fields in the list view
     list_display = ('tenant', 'name', 'type', 'display_logo')
+    readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
+    
+    # Search, filter
     search_fields = ('tenant', 'name')
+    
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': ('name', 'type', 'logo'),
             'classes': ('expand',),
         }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,        
     )
 
     @admin.display(description=_('logo'))
     def display_logo(self, obj):
         return Display.photo_h(obj.logo)
-
-
+        
+        
+# Address, Persons ---------------------------------------------------------
 @admin.register(AddressCategory, site=admin_site)
 class AddressCategoryAdmin(BaseAdmin):
-    has_tenant_field = True
+    # Safeguards
+    protected_foreigns = ['tenant']
+    
+    # Display these fields in the list view
     list_display = ('type', 'code', 'name')
+    
     search_fields = ('type', 'code', 'name')
     fieldsets = (
         (None, {
@@ -178,6 +219,7 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdminNew):
 
     # Helpers
     form = forms.TitleAdminForm
+    
     # Display these fields in the list view
     list_display = ('code', 'display_name')
     readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
@@ -186,7 +228,7 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdminNew):
     search_fields = ('code', 'name')
     list_filter = ('gender',)
 
-    #Fieldsets
+    # Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -204,7 +246,7 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdminNew):
 
 
 @admin.register(PersonCategory, site=admin_site)
-class PersonCategoryAdmin(BaseAdmin):
+class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
     protected_foreigns = ['tenant']
 
@@ -214,7 +256,7 @@ class PersonCategoryAdmin(BaseAdmin):
     # Display these fields in the list view
     list_display = ('code', 'display_name')
     list_display_links = ('code', 'display_name')
-    readonly_fields = ('display_name',)
+    readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ['code', 'name']
@@ -226,13 +268,15 @@ class PersonCategoryAdmin(BaseAdmin):
                 'code', 'display_name', *make_language_fields('name')),
             'classes': ('expand',),
         }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
     )
 
 
 @admin.register(Address, site=admin_site)
 class AddressAdmin(BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'category']
+    protected_foreigns = ['tenant']
 
     # Display these fields in the list view
     list_display = ('country', 'zip', 'city', 'address')
@@ -283,15 +327,16 @@ class ContactInline(BaseTabularInline):  # or admin.StackedInline
 
 
 @admin.register(Person, site=admin_site)
-class PersonAdmin(BaseAdmin):
+class PersonAdmin(TenantFilteringAdmin, BaseAdminNew):
     protected_foreigns = ['tenant', 'version', 'title', 'superior', 'category']
 
     # Display these fields in the list view
     list_display = (
-        'company', 'first_name', 'last_name', 'category', 'display_photo',
-        'notes_hint', 'attachment_icon')
-    list_display_links = ('company', 'first_name', 'last_name', 'attachment_icon')
-    readonly_fields = ('nr',)
+        'company', 'first_name', 'last_name', 'category', 'display_photo'
+    ) + FIELDS.ICON_DISPLAY
+    list_display_links = (
+        'company', 'first_name', 'last_name') + FIELDS.LINK_ATTACHMENT
+    readonly_fields = ('nr',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
     list_filter = ('category',)
@@ -318,7 +363,9 @@ class PersonAdmin(BaseAdmin):
         (_('Personal Details'), {
             'fields': ('date_birth', 'photo', 'nr'),
             'classes': ('collapse',),
-        }),
+        }),        
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
     )
     
     inlines = [AddressInline, ContactInline, AttachmentInline]

@@ -15,12 +15,16 @@ from accounting.models import APISetup
 from core.safeguards import get_tenant_data, save_logging
 from .exceptions import APIRequestError
 
+
 class FIELDS:
     LOGGING = ('modified_at', 'modified_by', 'created_at', 'created_by')
     LOGGING_TENANT = LOGGING + ('tenant',)
     LOGGING_SETUP = LOGGING_TENANT + ('setup',)
     LOGGING_SAVE = ('tenant', 'setup', 'created_by')
-    NOTES = ('notes', 'is_protected', 'is_inactive')    
+    NOTES = ('notes', 'is_protected', 'is_inactive')      
+    ICON_DISPLAY = (
+        'display_is_inactive', 'display_notes_hint', 'display_attachment_icon')
+    LINK_ATTACHMENT = ('display_attachment_icon',)
 
 
 class FIELDSET:
@@ -45,6 +49,7 @@ class FIELDSET:
             'classes': ('collapse',),
         })         
 
+
 class TenantFilteringAdmin(admin.ModelAdmin):
     '''
     A base admin class that handles tenant filtering efficiently.
@@ -54,12 +59,11 @@ class TenantFilteringAdmin(admin.ModelAdmin):
     has_errors = False
 
     def get_tenant_and_setup(self, request):
-        """
+        '''
         Retrieve tenant_id and setup once per request, but only fetch `setup`
         if the model has a `setup` field.
-        """
-        if not hasattr(request, "_cached_tenant_setup"):
-            print("*request", request.session.get('tenant'))
+        '''
+        if not hasattr(request, '_cached_tenant_setup'):            
             tenant_data = get_tenant_data(request)  # Fetch tenant info
             tenant_id = tenant_data.get('id')
 
@@ -69,14 +73,14 @@ class TenantFilteringAdmin(admin.ModelAdmin):
                 for field in self.model._meta.get_fields()
             } if self.model else set()
             
-            if "setup" in fields and tenant_id:
+            if 'setup' in fields and tenant_id:
                 setup = APISetup.get_setup(tenant_id=tenant_id) 
             else:
                 setup = None
 
             request._cached_tenant_setup = {
-                "tenant_id": tenant_id, 
-                "setup": setup
+                'tenant_id': tenant_id, 
+                'setup': setup
             }
         
         return request._cached_tenant_setup
@@ -95,13 +99,13 @@ class TenantFilteringAdmin(admin.ModelAdmin):
             for field in self.model._meta.get_fields()
         }  # Fast lookup
         tenant_setup_data = self.get_tenant_and_setup(request)
-        tenant_id = tenant_setup_data["tenant_id"]
-        setup = tenant_setup_data["setup"]
+        tenant_id = tenant_setup_data['tenant_id']
+        setup = tenant_setup_data['setup']
 
         # Prefer filtering by 'setup' if the field exists
-        if "setup" in fields and setup:
+        if 'setup' in fields and setup:
             queryset = queryset.filter(setup=setup)
-        elif "tenant" in fields and tenant_id:
+        elif 'tenant' in fields and tenant_id:
             queryset = queryset.filter(tenant__id=tenant_id)
 
         # Optimize ForeignKey and ManyToMany fields
@@ -118,19 +122,19 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         '''
         if db_field.name in self.protected_foreigns:
             tenant_setup_data = self.get_tenant_and_setup(request)
-            tenant_id = tenant_setup_data["tenant_id"]
-            setup = tenant_setup_data["setup"]
+            tenant_id = tenant_setup_data['tenant_id']
+            setup = tenant_setup_data['setup']
 
             fields = {
                 field.name for field in self.model._meta.get_fields()
             }  # Fast lookup
 
-            if db_field.name == "setup" and "setup" in fields and setup:
-                kwargs["queryset"] = db_field.related_model.objects.filter(
+            if db_field.name == 'setup' and 'setup' in fields and setup:
+                kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=setup.id)
-            elif (db_field.name == "tenant" and 
-                    "tenant" in fields and tenant_id):
-                kwargs["queryset"] = db_field.related_model.objects.filter(
+            elif (db_field.name == 'tenant' and 
+                    'tenant' in fields and tenant_id):
+                kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=tenant_id)
 
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
@@ -142,8 +146,8 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         if db_field.name in self.protected_many_to_many:
             # Fetch cached tenant & setup
             tenant_setup_data = self.get_tenant_and_setup(request)  
-            tenant_id = tenant_setup_data["tenant_id"]
-            setup = tenant_setup_data["setup"]
+            tenant_id = tenant_setup_data['tenant_id']
+            setup = tenant_setup_data['setup']
 
             fields = {
                 field.name 
@@ -151,15 +155,31 @@ class TenantFilteringAdmin(admin.ModelAdmin):
             }  # Use a set for fast lookup
 
             # Prefer filtering by 'setup' if available
-            if db_field.name == "setup" and "setup" in fields and setup:
-                kwargs["queryset"] = db_field.related_model.objects.filter(
+            if db_field.name == 'setup' and 'setup' in fields and setup:
+                kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=setup.id)
-            elif (db_field.name == "tenant" and "tenant" in fields 
+            elif (db_field.name == 'tenant' and 'tenant' in fields 
                     and tenant_id):
-                kwargs["queryset"] = db_field.related_model.objects.filter(
+                kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=tenant_id)
 
         return super().formfield_for_manytomany(db_field, request, **kwargs)
+
+    def get_form(self, request, obj=None, **kwargs):
+        ''' 
+        set sync_to_accounting to True if existing so the data gets 
+        synchronized
+        '''        
+        form = super().get_form(request, obj, **kwargs)
+        
+        if obj:
+            if hasattr(obj, 'sync_to_accounting'):
+                obj.sync_to_accounting = True
+        else:
+            # This is for new objects, so set sync_to_accounting to True initially
+            form.base_fields['sync_to_accounting'].initial = True
+        
+        return form
 
     def delete_model(self, request, obj):
         try:
@@ -167,10 +187,10 @@ class TenantFilteringAdmin(admin.ModelAdmin):
                 obj.delete()
 
         except APIRequestError as e:
-            raise ValidationError(f"Cannot delete: {e}")  # Prevents Django from proceeding
+            raise ValidationError(f'Cannot delete: {e}')  # Prevents Django from proceeding
 
         except Exception as e:
-            messages.error(request, f"Error deleting category: {e}")
+            messages.error(request, f'Error deleting category: {e}')
 
     def delete_queryset(self, request, queryset):
         count = 0
@@ -180,9 +200,9 @@ class TenantFilteringAdmin(admin.ModelAdmin):
                     obj.delete()
                 count += 1
             except Exception as e:
-                messages.warning(request, f"{obj}: {str(e)}")
+                messages.warning(request, f'{obj}: {str(e)}')
 
-        msg = "{count} records successfully deleted.".format(count=count)
+        msg = '{count} records successfully deleted.'.format(count=count)
         messages.info(request, msg)
 
     def response_change(self, request, obj):
@@ -192,10 +212,10 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         return super().response_change(request, obj)
 
     def save_model(self, request, instance, form, change):
-        """
+        '''
         Override save to enforce tenant/setup assignment, log actions, 
         and handle errors.
-        """  
+        '''  
         # Check if protected and has been protected
         if instance.is_protected:
             if change:
@@ -206,18 +226,17 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         
         # Fetch cached tenant & setup data  
         tenant_setup_data = self.get_tenant_and_setup(request)
-        tenant_id = tenant_setup_data["tenant_id"]
-        setup = tenant_setup_data["setup"]
+        tenant_id = tenant_setup_data['tenant_id']
+        setup = tenant_setup_data['setup']
 
         # Ensure tenant/setup is set if they exist in protected_foreigns  
-        protected_foreigns = getattr(self, "protected_foreigns", [])
-        print("*protected_foreigns", protected_foreigns, tenant_id)
-        if ("tenant" in protected_foreigns and tenant_id 
+        protected_foreigns = getattr(self, 'protected_foreigns', [])
+        if ('tenant' in protected_foreigns and tenant_id 
                 and not getattr(instance, 'tenant', None)):
             # Assign the ID directly to avoid unnecessary lookups
             instance.tenant_id = tenant_id  
             
-        if ("setup" in protected_foreigns and setup 
+        if ('setup' in protected_foreigns and setup 
                 and not getattr(instance, 'setup', None)):
             instance.setup = setup
 
@@ -225,27 +244,31 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         save_logging(instance, request)  
 
         # Atomic save with error handling   
-        self.has_errors = True
+        self.has_errors = True   
+        with transaction.atomic():                
+            super().save_model(request, instance, form, change)
+            self.has_errors = False        
+        return
         try:
             with transaction.atomic():                
                 super().save_model(request, instance, form, change)
                 self.has_errors = False
         except IntegrityError as e:
-            if "Duplicate entry" in str(e):
-                messages.error(request, _("Unique constraints violated."))
+            if 'Duplicate entry' in str(e):
+                messages.error(request, _('Unique constraints violated.'))
             else:
-                messages.error(request, _("A database error occurred."))
+                messages.error(request, _('A database error occurred.'))
         except APIRequestError as e:
-            messages.error(request, _("API request failed: ") + str(e))
+            messages.error(request, _('API request failed: ') + str(e))
         except Exception as e:
-            messages.error(request, _("Unexpected error: ") + str(e))
+            messages.error(request, _('Unexpected error: ') + str(e))
 
     def save_related(self, request, form, formsets, change):
-        """
+        '''
         Handle inlines by ensuring related objects get required fields from form.instance.
-        """
+        '''
         for formset in formsets:
-            model = getattr(formset, "model", None)
+            model = getattr(formset, 'model', None)
             if not model:
                 continue  # Skip formsets without an associated model
 
@@ -253,7 +276,7 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
             for obj in formset.save(commit=False):
                 # Assign required fields from form.instance to related objects
-                for field_name in LOGGING_SAVE:
+                for field_name in FIELDS.LOGGING_SAVE:
                     if field_name in field_names:
                         value = getattr(form.instance, field_name, None)
                         setattr(obj, field_name, value)
@@ -274,10 +297,10 @@ class RelatedModelInline(admin.TabularInline):
         try:
             obj.delete()  # Direct delete with signal triggering
         except APIRequestError as e:
-            raise ValidationError(f"Cannot delete: {e}")  # Prevents Django from proceeding
+            raise ValidationError(f'Cannot delete: {e}')  # Prevents Django from proceeding
         except Exception as e:
-            logger.error(f"Error deleting {obj}: {str(e)}")
-            messages.error(request, f"Error deleting {obj}: {e}")
+            logger.error(f'Error deleting {obj}: {str(e)}')
+            messages.error(request, f'Error deleting {obj}: {e}')
 
     def delete_queryset(self, request, queryset):
         count = 0
@@ -288,15 +311,15 @@ class RelatedModelInline(admin.TabularInline):
                     obj.delete()  # This triggers external signals
                 count += 1
             except Exception as e:
-                errors.append(f"{obj}: {str(e)}")  # Collect errors for later reporting
+                errors.append(f'{obj}: {str(e)}')  # Collect errors for later reporting
 
-        messages.info(request, f"{count} related records successfully deleted.")
+        messages.info(request, f'{count} related records successfully deleted.')
         if errors:
-            messages.warning(request, "Some deletions failed:\n" + "\n".join(errors))
+            messages.warning(request, 'Some deletions failed:\n' + '\n'.join(errors))
 
     def save_related(self, request, form, formsets, change):
-        """
+        '''
         Optionally override to ensure any special processing or fields
         for related models are saved before the parent model.
-        """
+        '''
         super().save_related(request, form, formsets, change)

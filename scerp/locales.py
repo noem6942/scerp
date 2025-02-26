@@ -35,12 +35,11 @@ APP_MODEL_ORDER = {
             'TenantLocation': ('3', ''),
             'TenantSetup': ('4', ''),
             'TenantLogo': ('5', ''),
-            'UserProfile': ('6', ''),
-            # CRM Admin
+            'UserProfile': ('6', ''),        
             'AddressCategory': ('21', ''),
             'Title': ('22', ''),
             'PersonCategory': ('23', ''),
-            'Person': ('24', ''),            
+            'Person': ('24', ''),                
         }
     },
     'crm': {
@@ -48,10 +47,6 @@ APP_MODEL_ORDER = {
         'is_mandatory': True,
         'needs_tenant': True,
         'models': {
-            'Title': ('1', ''),
-            'Subscriber': ('2', ''),
-            'Employee': ('3', ''),
-            'BusinessPartner': ('4', '')
         }
     },
     'meeting': {

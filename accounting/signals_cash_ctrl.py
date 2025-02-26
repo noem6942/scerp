@@ -7,7 +7,8 @@ import time
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.db.models.signals import post_save, pre_save, pre_delete
+from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import pre_delete, post_delete
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
@@ -17,6 +18,7 @@ from core.models import (
     Person as PersonCrm
 )
 from scerp.mixins import read_yaml_file
+from . import connector_cash_ctrl_2 as conn2
 from . import models, connector_cash_ctrl as conn
 from .ledger import LedgerBalanceUpdate, LedgerPLUpdate, LedgerICUpdate
 
@@ -56,6 +58,15 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
 
         # Open yaml
         init_data = read_yaml_file('accounting', YAML_FILENAME)
+
+        # Get request from init
+        request = kwargs.get('request')
+
+        # Get titles
+        sync = conn2.Title()
+        sync.get(TitleCrm, models.Title, instance, request.user, update=False)
+
+        return
 
         # PersonCategory
         sync = conn.CashCtrlSync(sender, instance, conn.PersonCategory)
@@ -185,15 +196,19 @@ Note that instances only get synced if saved in scerp (
 @receiver(post_save, sender=models.CustomFieldGroup)
 def custom_field_group_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CustomFieldGroup. '''
-    sync = conn.CashCtrlSync(sender, instance, conn.CustomFieldGroup)
-    sync.save(created=created)
+    __ = sender
+    if instance.sync_to_accounting:
+        api = conn2.CustomFieldGroup()
+        api.save(instance, created)
 
 
 @receiver(pre_delete, sender=models.CustomFieldGroup)
 def custom_field_group_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CustomFieldGroup. '''
-    sync = conn.CashCtrlSync(sender, instance, conn.CustomFieldGroup)
-    sync.delete()
+    __ = sender
+    if instance.c_id:
+        api = conn2.CustomFieldGroup()
+        api.delete(instance)
 
 
 # CustomField
@@ -519,13 +534,13 @@ def get_or_create_accounting_instance(model, instance, created):
     if create:
         account_instance = model.objects.create(
             tenant=instance.tenant,
-            setup=setup,            
+            setup=setup,
             core=instance,
             is_enabled_sync=True,
             sync_to_accounting=True,
             created_by=instance.created_by
         )
-        
+
     return account_instance, create
 
 
@@ -533,23 +548,18 @@ def get_or_create_accounting_instance(model, instance, created):
 @receiver(post_save, sender=TitleCrm)
 def title_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Title. '''
-    model = models.Title
-    accounting_instance, created = get_or_create_accounting_instance(
-        model, instance, created)    
-    sync = conn.CashCtrlSync(
-        model, instance, conn.Title, accounting_instance=accounting_instance)
-    sync.save(created=created)
+    __ = sender
+    if instance.sync_to_accounting:
+        api = conn2.Title()
+        api.save(instance, created)
 
 
-@receiver(pre_delete, sender=models.TitleCrm)
+@receiver(post_delete, sender=models.Title)
 def title_pre_delete(sender, instance, **kwargs):
-    '''Signal handler for pre_delete signals on IncomingOrder. '''
-    model = models.Title
-    accounting_instance, created = get_or_create_accounting_instance(
-        model, instance, created=False)
-    sync = conn.CashCtrlSync(
-        model, instance, conn.Title, accounting_instance=accounting_instance)
-    sync.delete()
+    '''Signal handler for post_delete signals on Title. '''
+    if instance.c_id:
+        api = conn2.Title()
+        api.delete(instance)
 
 
 # PersonCategory
@@ -558,21 +568,21 @@ def person_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on PersonCategory. '''
     model = models.PersonCategory
     accounting_instance, created = get_or_create_accounting_instance(
-        model, instance, created)    
+        model, instance, created)
     sync = conn.CashCtrlSync(
-        model, instance, conn.PersonCategory, 
+        model, instance, conn.PersonCategory,
         accounting_instance=accounting_instance)
     sync.save(created=created)
 
 
-@receiver(pre_delete, sender=models.PersonCategoryCrm)
+@receiver(pre_delete, sender=PersonCategoryCrm)
 def person_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on PersonCategory. '''
     model = models.PersonCategory
     accounting_instance, created = get_or_create_accounting_instance(
         model, instance, created=False)
     sync = conn.CashCtrlSync(
-        model, instance, conn.PersonCategory, 
+        model, instance, conn.PersonCategory,
         accounting_instance=accounting_instance)
     sync.delete()
 
@@ -583,13 +593,13 @@ def person_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Person. '''
     model = models.Person
     accounting_instance, created = get_or_create_accounting_instance(
-        model, instance, created)    
+        model, instance, created)
     sync = conn.CashCtrlSync(
         model, instance, conn.Person, accounting_instance=accounting_instance)
     sync.save(created=created)
 
 
-@receiver(pre_delete, sender=models.PersonCrm)
+@receiver(pre_delete, sender=PersonCrm)
 def person_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Person. '''
     model = models.Person

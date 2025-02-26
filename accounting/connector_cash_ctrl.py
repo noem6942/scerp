@@ -5,7 +5,10 @@ import logging
 from django.utils import timezone
 from django.utils.encoding import force_str
 
-from core.models import PersonAddress, PersonContact
+from core.models import (
+    PersonAddress, PersonContact, 
+    Title as CoreTitle, PersonCategory as CorePersonCategory
+)
 from scerp.exceptions import APIRequestError
 from scerp.mixins import get_translations, make_timeaware
 
@@ -699,8 +702,38 @@ class Title(cashCtrl):
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES + IGNORE.CODE)
 
-    def post_get(self, **kwarte):
-        raise ValueError("Load not defined for Person")
+    def load(self, model, params={}, delete_not_existing=False, **kwargs):
+        ''' overwrite existing '''        
+        print("****", kwargs)
+        data_list = self.get_data()
+        
+        for data in data_list:
+            # Init
+            c_id = data.pop('id')
+            code = f"custom {c_id}"
+            tenant = self.setup.tenant
+            created_by = kwargs['created_by'].id            
+            
+            # Update core
+            title, created = CoreTitle.objects.get_or_create(
+                tenant=tenant, code=code, 
+                defaults={
+                    'name': data['name'],
+                    'gender': data['gender'],
+                    'sentence': data['sentence'],
+                    'created_by_id': created_by,
+                    'sync_to_accounting': False
+                })            
+            title.refresh_from_db()
+                         
+            # Update accounting
+            _obj, created = model.objects.get_or_create(
+                tenant=tenant, setup=self.setup, c_id=c_id,
+                defaults=dict(
+                    created_by_id=created_by, 
+                    core=title,
+                    sync_to_accounting = False
+                ))
 
 
 class PersonCategory(cashCtrl):
@@ -708,8 +741,20 @@ class PersonCategory(cashCtrl):
     ignore_keys = (
         IGNORE.BASE + IGNORE.IS_INACTIVE + IGNORE.NOTES)
 
-    def post_get(self, **kwarte):
-        raise ValueError("Load not defined for Person")
+    def get(self, request, tenant, setup):
+        ''' special get, only used for init 
+        store instance in core.Title and accounting.Title
+        '''
+        categories = self.handler.list()
+        for category in categories:
+            c_id = title.pop('id')
+            code = f"custom {c_id}"
+            category, _ = CorePersonCategory.objects.get_or_create(
+                tenant=tenant, code=code, defaults=category)
+            if setup:
+                self.model.objects.get_or_create(
+                    tenant=tenant, setup=setup, c_id=c_id,
+                    defaults={'core': category})
 
 
 class Person(cashCtrl):

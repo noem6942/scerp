@@ -363,7 +363,6 @@ class CashCtrl():
         Get from CashCtrl with timeout handling.
         '''
         # Ensure language parameter is always set
-        params.setdefault('lang', self.language)  
         try:
             response = requests.get(
                 url, params=params, auth=self.auth, timeout=timeout)
@@ -513,10 +512,8 @@ class CashCtrl():
             raise Exception(f'Failed to download file: {response}')
 
     # REST API mine: list, read, create, update, delete, data
-    def list(self, params=None, **filter_kwargs):
+    def list(self, params={}, **filter_kwargs):
         ''' cash_ctrl list '''
-        if params is None:
-            params = {}  # Initialize the dictionary only when needed
         if filter_kwargs:
             # e.g. categoryId=110,  camelCase!
             filters = []

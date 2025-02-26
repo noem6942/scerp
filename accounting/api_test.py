@@ -7,6 +7,11 @@ if __name__ == "__main__":
     org = 'test167'
     api = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
 
+    if True:
+        conn = PersonTitle(org, api, convert_dt=False)
+        data_list = conn.list()
+        print("*", data_list)
+
     if False:
         conn = Person(org, api, convert_dt=False)
         data_list = conn.list()
@@ -30,7 +35,7 @@ if __name__ == "__main__":
         conn = File(org, api)    
         conn.download(24, 'C:/Users/Administrator/Downloads/')
     
-    if True:
+    if False:
         conn = File(org, api)    
         conn = Person(org, api, convert_dt=False)
         conn.attach_files(26, [18])

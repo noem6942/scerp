@@ -40,21 +40,3 @@ def set_protected(modeladmin, request, queryset):
     queryset.update(is_protected=True)
     msg = _("Set {count} records as protected.").format(count=queryset.count())
     messages.success(request, msg)
-
-
-# Default row actions, accounting
-@admin.action(description=_("S. Sync with Accounting"))
-def sync_accounting(modeladmin, request, queryset):
-    ''' set is_enabled_sync to True and save to trigger post_save '''
-    if action_check_nr_selected(request, queryset, min_count=1):
-        for instance in queryset.all():
-            if not instance.is_enabled_sync:
-                instance.is_enabled_sync = True
-                instance.save()
-
-
-@admin.action(description=_("D. De-sync from Accounting"))
-def de_sync_accounting(modeladmin, request, queryset):
-    ''' update is_enabled_sync to False '''
-    if action_check_nr_selected(request, queryset, min_count=1):
-        queryset = queryset.update(is_enabled_sync=False)

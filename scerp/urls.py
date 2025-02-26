@@ -36,4 +36,3 @@ urlpatterns = media_patterns + [
     # Documentation app routes, we do not have a HomeView
     path('', include('docs.urls')),
 ]
-
