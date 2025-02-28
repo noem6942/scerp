@@ -2,9 +2,14 @@
 accounting/connector_cash_ctrl_2.py
 '''
 from django.forms.models import model_to_dict
+from django.utils import timezone
+from django.utils.encoding import force_str
 
-from . import api_cash_ctrl
-from .models import APISetup, Title
+from core.models import PersonContact, PersonAddress
+from scerp.mixins import get_translations
+from . import api_cash_ctrl, models
+from .api_cash_ctrl import convert_to_xml
+
 
 EXCLUDE_FIELDS = [
     'id', 'tenant', 'sync_to_accounting',
@@ -16,27 +21,61 @@ EXCLUDE_FIELDS = [
 
 
 class CashCtrl:
+    api_class = None  # gets assigned with get, save or delete
 
-    def __init__(self, language=None):
+    def __init__(self, model=None, language=None):
         self.language = language
+        self.model = model  # needed for get and fields with custom
 
     def _get_api(self, setup):
         return self.api_class(
             setup.org_name, setup.api_key, language=self.language)
 
-    def get(self, model, setup, created_by, params={}, update=True):
+    def _init_custom_fields(self, instance):
+        '''
+        returns a mapping dict for the model given, e.g.
+        {
+            'function': 'customField30',
+            'hrm': 'customField31'
+        }
+        '''
+        # Init
+        custom_fields = getattr(self.model, 'CUSTOM', [])
+        custom = {}
+
+        # Parse fields
+        for field_name, custom_field__code in custom_fields:
+            # Get field instance
+            custom_field = models.CustomField.objects.filter(
+                setup=instance.setup, code=custom_field__code).first()
+
+            # Assign
+            if custom_field:
+                custom[field_name] = custom_field.custom_field_key
+            else:
+                msg = f"custom field {custom_field__code} not existing."
+                raise ValueError(msg)
+
+        return custom
+
+    def get(self, setup, created_by, params={}, overwrite_data=True, 
+            delete_not_existing=True):
         api = self._get_api(setup)
         data_list = api.list(params)
-
-        for data in data_list:
+        c_ids = []
+        
+        for data in data_list:            
+            id = data['id']
+            c_ids.append(id)
+            
             # Get or create instances
-            instance = model.objects.filter(
-                setup=setup, c_id=data['id']).first()
-            if instance and not update:
-                continue  # no further update
+            instance = self.model.objects.filter(setup=setup, c_id=id).first()
+            if instance:
+                if not overwrite_data:
+                    continue  # no further update
             else:
                 # create instance
-                instance = model(
+                instance = self.model(
                     c_id=data.get('id'),
                     tenant=setup.tenant,
                     setup=setup,
@@ -51,32 +90,50 @@ class CashCtrl:
                 instance.is_inactive = False
 
             # save instance
-            self.save_instance(instance, data)
+            if getattr(self, 'save_instance', None):
+                # Individual saving
+                self.save_instance(instance, data)
+            else:
+                # Default saving
+                instance.save()
+                
+        if delete_not_existing:
+            self.model.objects.exclude(setup=setup, c_id__in=c_ids).delete()
 
     def save(self, instance, created=None):
         # Get api
         api = self._get_api(instance.setup)
 
         # Prepare data
-        data = self.instance_to_dict(instance)
+        data = model_to_dict(instance, exclude=self.exclude)
+
+        # Add custom data
+        custom = self._init_custom_fields(instance)
+        if custom:
+            data['custom'] = {
+                key_cash_ctrl: data.pop(field_name, None)
+                for field_name, key_cash_ctrl in custom.items()
+            }
+
+        # Individualize data
+        if getattr(self, 'adjust_for_upload', None):
+            self.adjust_for_upload(instance, data)
 
         # Save
         if created:
             # Save object
             response = api.create(data)
-            print("*data", data)
             instance.c_id = response.get('insert_id')
-            print("*data", instance.c_id)
             instance.sync_to_accounting = False
             instance.save(update_fields=['c_id', 'sync_to_accounting'])
         else:
             data['id'] = instance.c_id
-            print("*data", data)
             _response = api.update(data)
 
     def delete(self, instance):
         api = self._get_api(instance.setup)
         response = api.delete(instance.c_id)
+        return response
 
 
 class CashCtrlDual(CashCtrl):
@@ -84,7 +141,7 @@ class CashCtrlDual(CashCtrl):
     def save(self, instance, created=None):
         # Get setup
         if created:
-            setup = APISetup.get_setup(tenant=instance.tenant)
+            setup = models.APISetup.get_setup(tenant=instance.tenant)
         else:
             instance_acct = self.model_accounting.objects.get(
                 tenant=instance.tenant, core=instance)
@@ -94,7 +151,7 @@ class CashCtrlDual(CashCtrl):
         api = self._get_api(setup)
 
         # Prepare data
-        data = self.instance_to_dict(instance)
+        data = self.adjust_for_upload(instance)
 
         # Save
         if created:
@@ -116,7 +173,7 @@ class CashCtrlDual(CashCtrl):
         instance.sync_to_accounting = False
         instance.save(update_fields=['sync_to_accounting'])
 
-    def get(self, model, model_accounting, setup, created_by, update=True):
+    def get(self, model_accounting, setup, created_by, update=True):
         api = self._get_api(setup)
         data_list = api.list()
 
@@ -131,7 +188,7 @@ class CashCtrlDual(CashCtrl):
                     continue  # no further update
             else:
                 # create instance
-                instance = model(
+                instance = self.model(
                     tenant=setup.tenant,
                     created_by=created_by
                 )
@@ -160,12 +217,461 @@ class CustomFieldGroup(CashCtrl):
     api_class = api_cash_ctrl.CustomFieldGroup
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
 
-    def get(self, model, setup, created_by, params={}, update=True):
+    def get(self, setup, created_by, params={}, update=True):
         for field in api_cash_ctrl.FIELD_TYPE:
             params = {'type': field.value}
-            super().get(model, setup, created_by, params, update)
-    
-    def instance_to_dict(self, instance):
+            super().get(setup, created_by, params, update)
+
+    def save_instance(self, instance, data):
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
+        instance.save()
+
+
+class CustomField(CashCtrl):
+    api_class = api_cash_ctrl.CustomField
+    exclude = EXCLUDE_FIELDS + ['code', 'group_ref', 'notes', 'is_inactive']
+
+    def get(self, setup, created_by, params={}, update=True):
+        for field in api_cash_ctrl.FIELD_TYPE:
+            params = {'type': field.value}
+            super().get(setup, created_by, params, update)
+
+    def adjust_for_upload(self, instance, data):
+        # Get foreign c_ids
+        data['type'] = instance.group.type
+        data['group_id'] = instance.group.c_id
+        print("*d", data)
+
+    def save_instance(self, instance, data):
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
+        instance.group = models.CustomFieldGroup.objects.get(c_id=data['id'])
+        instance.save()
+
+
+class Location(CashCtrl):
+    api_class = api_cash_ctrl.Location
+    exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
+        
+
+class FiscalPeriod(CashCtrl):
+    api_class = api_cash_ctrl.FiscalPeriod
+    exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
+
+
+class Currency(CashCtrl):
+    api_class = api_cash_ctrl.Currency
+    exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
+
+
+class SequenceNumber(CashCtrl):
+    api_class = api_cash_ctrl.SequenceNumber
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
+        
+        
+class Unit(CashCtrl):
+    api_class = api_cash_ctrl.Unit
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
+
+    def save_instance(self, instance, data):        
+        if instance.is_default is None:
+            del instance.is_default
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
+        instance.save()
+
+
+class CostCenterCategory(CashCtrl):
+    api_class = api_cash_ctrl.AccountCostCenterCategory
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
+
+    def adjust_for_upload(self, instance, data):
+        data['parent_id'] = instance.parent.c_id if instance.parent else None
+
+    def save_instance(self, instance, data):
+        instance.parent = models.CostCenterCategory.objects.filter(
+            c_id=data['parent_id']).first()
+        instance.save()
+
+
+class CostCenter(CashCtrl):
+    api_class = api_cash_ctrl.AccountCostCenter
+    exclude = EXCLUDE_FIELDS
+
+    def adjust_for_upload(self, instance, data):
+        if instance.category:
+            data['category_id'] = instance.category.c_id
+
+    def save_instance(self, instance, data):
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
+        instance.category = models.CostCenterCategory.objects.filter(
+            c_id=data['category_id']).first()
+        instance.save()
+
+
+class AccountCategory(CashCtrl):
+    api_class = api_cash_ctrl.AccountCategory
+    exclude = EXCLUDE_FIELDS + ['is_inactive', 'notes']
+
+    @staticmethod
+    def add_numbers(name, number):
+        if number:
+            return f"{int(number)} {name}"
+        return name
+
+    @staticmethod
+    def skip_numbers(name):
+        if name and ' ' in name:
+            number, text = name.split(' ', 1)
+            if number.isnumeric():
+                return text
+        return name
+
+    def adjust_for_upload(self, instance, data):
+        # parent_id
+        data['parent_id'] = (
+            instance.parent.c_id if instance.parent else None)
+
+        # name, encode numbers in headings
+        if instance.setup.encode_numbers and not instance.is_top_level_account:
+            # Add numbers
+            data['name'] = {
+                language: self.add_numbers(value, data['number'])
+                for language, value in data['name'].items()
+            }
+
+    def save_instance(self, instance, data):
+        # parent
+        instance.parent = models.AccountCategory.objects.filter(
+            c_id=data['category_id']).first()
+
+        # decode name
+        if instance.setup.encode_numbers:
+            # Skip numbers
+            if type(instance.name) == dict:
+                name_dict = {
+                    language: self.skip_numbers(value)
+                    for language, value in instance.name.items()
+                }
+                instance.name = name_dict
+
+        instance.save()
+
+
+class Account(CashCtrl):
+    api_class = api_cash_ctrl.Account
+    exclude = EXCLUDE_FIELDS
+
+    def adjust_for_upload(self, instance, data):
+        # category_id
+        data['category_id'] = (
+            instance.category.c_id if instance.category else None)
+
+        # currency_id
+        data['currency_id'] = (
+            instance.currency.c_id if instance.currency else None)
+
+        # allocations
+        allocations = models.Allocation.objects.filter(account__id=instance.id)
+        data['allocations'] = [{
+            'share': float(allocation.share),
+            'toCostCenterId': allocation.to_cost_center.c_id,
+        } for allocation in allocations.all()]
+
+        # tax_id
+        data.pop('tax_c_id', None)
+
+    def save_instance(self, instance, data):
+        # category
+        instance.category = models.AccountCategory.objects.filter(
+            c_id=data['category_id']).first()
+
+        instance.save()
+
+
+class Tax(CashCtrl):
+    api_class = api_cash_ctrl.Tax
+    exclude = EXCLUDE_FIELDS + ['code' + 'is_inactive', 'notes']
+
+    def adjust_for_upload(self, instance, data):
+        # account_id
+        data['account_id'] = (
+            instance.account.c_id if instance.account else None)
+
+    def save_instance(self, instance, data):
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
+
+        # account
+        instance.account = models.Account.objects.filter(
+            c_id=data['account_id']).first()
+
+        instance.save()
+
+
+class Rounding(CashCtrl):
+    api_class = api_cash_ctrl.Rounding
+    exclude = EXCLUDE_FIELDS + ['code' + 'is_inactive', 'notes']
+
+    def adjust_for_upload(self, instance, data):
+        # account_id
+        data['account_id'] = (
+            instance.account.c_id if instance.account else None)
+
+    def save_instance(self, instance, data):
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
+
+        # account
+        instance.account = models.Account.objects.filter(
+            c_id=data['account_id']).first()
+
+        instance.save()
+
+
+class Setting(CashCtrl):
+    api_class = api_cash_ctrl.Setting
+    exclude = EXCLUDE_FIELDS + ['code' + 'is_inactive', 'notes']
+
+    def adjust_for_upload(self, instance, data):
+        return  # currently only get
+
+    def save_instance(self, instance, data):
+        instance.c_id = 1  # always
+        instance.modified_at = timezone.now()
+
+        # Add Accounts
+        for key, value in data.items():
+            if key.endswith('_account_id'):
+                foreign_key = models.Account.objects.filter(
+                    setup=self.setup, c_id=value).first()
+                setattr(instance, key, foreign_key)
+
+        instance.save()
+
+    def get(self, setup, created_by, params={}, update=True):
+        api = self._get_api(setup)
+        data = api.read()
+        data['id'] = 1  # enforce settings to have an id
+        data = {k.lower(): v for k, v in data.items()}  # convert cases
+
+        if update:
+            action = self.model.objects.update_or_create
+        else:
+            action = self.model.objects.get_or_create
+
+        obj, created = action(
+            setup=setup, c_id=data.pop('id'), defaults=dict(
+                tenant=setup.tenant,
+                created_by=created_by,
+                **data
+            )
+        )
+
+
+class OrderCategory(CashCtrl):
+    api_class = api_cash_ctrl.OrderCategory
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
+    abstract = True
+
+    @staticmethod
+    def make_base(self, instance):
+        sequence_number = instance.sequence_number
+
+        data.update({
+            'type': instance.type,
+            'book_type': instance.book_type,
+            'is_display_item_gross': instance.is_display_item_gross,
+            'sequence_nr_id': (
+                sequence_number.c_id if sequence_number else None)
+        })
+
+    def save_instance(self, instance, data):
+        # get the whole record
+        item_data = self.api.read(data['id'])
+
+        # update status and save
+        instance.status_data = data['data']['status']
+        instance.save()
+
+
+class OrderCategoryContract(OrderCategory):
+
+    def adjust_for_upload(self, instance, data):
+        data = self.make_base(instance)
+        data['account_id'] = (
+            instance.account.c_id if instance.account else None)
+
+        # status, we only use minimal values as we do the booking ourselves
+        STATUS = instance.STATUS
+        data['status'] = [{
+            'icon': instance.COLOR_MAPPING[status],
+            'name': convert_to_xml(
+                get_translations(force_str(status.label))),
+        } for status in STATUS]
+
+
+class OrderCategoryIncoming(OrderCategory):
+
+    def adjust_for_upload(self, instance, data):
+        data = self.make_base(instance)
+
+        # accounts
+        data['account_id'] = instance.credit_account.c_id
+        bank_account = instance.bank_account.c_id
+
+        # status, we only use minimal values as we do the booking ourselves
+        STATUS = instance.STATUS
+        data['status'] = [{
+            'icon': instance.COLOR_MAPPING[status],
+            'name': convert_to_xml(
+                get_translations(force_str(status.label))),
+            'is_book': instance.BOOKING_MAPPING[status],
+        } for status in STATUS]
+
+        # BookTemplates
+        data['book_templates'] = [{
+            'accountId': data['account_id'],
+            'name': convert_to_xml(get_translations('Booking')),
+            'taxId': instance.tax.c_id if instance.tax else None
+        }, {
+            'accountId': bank_account,
+            'name': convert_to_xml(get_translations('Payment'))
+        }]
+
+        # Rounding
+        if getattr(instance, 'rounding', None):
+            data['rounding_id'] = instance.rounding.c_id
+
+
+class Order(CashCtrl):
+    api_class = api_cash_ctrl.Order
+    exclude = EXCLUDE_FIELDS
+    abstract = True
+
+    def make_base(self, instance):
+
+        # Category, person
+        data['category_id'] = instance.category.c_id
+        if instance.responsible_person:
+            person = models.Person.objects.filter(
+                core=instance.responsible_person).first()
+            data['responsible_person_id'] = person.c_id if person else None
+
+        # Status
+        status_data = instance.category.status_data.get(instance.status, None)
+        if status_data:
+            data['status_id'] = status_data['id']
+
+
+class OrderContract(Order):
+
+    def adjust_for_upload(self, instance, data):
+        data = self.make_base(instance)
+
+        # associate
+        if instance.associate:
+            person = models.Person.objects.filter(
+                core=instance.associate).first()
+            data['associate_id'] = person.c_id if person else None
+
+        # Create one item with total price
+        data['items'] = [{
+            'accountId': instance.category.account.c_id,
+            'name': instance.description,
+            'unitPrice': float(instance.price_excl_vat)
+        }]
+
+
+class IncomingOrder(Order):
+
+    def adjust_for_upload(self, instance, data):
+        data = self.make_base(instance)
+
+        # Create one item with total price
+        data['items'] = [{
+            'accountId': instance.category.expense_account.c_id,
+            'name': instance.description,
+            'unitPrice': float(instance.price_incl_vat)
+        }]
+
+        # Rounding
+        if getattr(instance.category, 'rounding', None):
+            data['rounding_id'] = instance.category.rounding.c_id
+
+        # Due days
+        if getattr(instance, 'due_days', None):
+            data['due_days'] = instance.category.due_days
+
+
+class ArticleCategory(CashCtrl):
+    api_class = api_cash_ctrl.ArticleCategory
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
+
+    def adjust_for_upload(self, instance, data):
+        # Prepare parent_id
+        if getattr(instance, 'parent', None):
+            data['parent_id'] = instance.parent.c_id
+
+        # Prepare purchase_account
+        if getattr(instance, 'purchase_account', None):
+            data['purchase_account_id'] = instance.purchase_account.c_id
+
+        # Prepare sales_account
+        if getattr(instance, 'sales_account', None):
+            data['sales_account'] = instance.sales_account.c_id
+
+        # Prepare sequence_nr
+        if getattr(instance, 'sequence_nr', None):
+            data['sequence_nr_id'] = instance.sequence_nr.c_id
+
+    def save_instance(self, instance, data):
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
+        instance.save()
+
+
+class Article(CashCtrl):
+    api_class = api_cash_ctrl.Article
+    exclude = EXCLUDE_FIELDS
+
+    def adjust_for_upload(self, instance, data):
+        # Prepare category_id
+        if getattr(instance, 'category', None):
+            data['category_id'] = instance.category.c_id
+
+        # Prepare currency
+        if getattr(instance, 'currency', None):
+            data['currency_id'] = instance.currency.c_id
+
+        # Prepare location
+        if getattr(instance, 'location', None):
+            data['location_id'] = instance.location.c_id
+
+        # Prepare sequence_nr
+        if getattr(instance, 'sequence_nr', None):
+            data['sequence_nr_id'] = instance.sequence_nr.c_id
+
+        # Prepare unit
+        if getattr(instance, 'unit', None):
+            data['unit_id'] = instance.unit.c_id
+
+    def save_instance(self, instance, data):
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
+        instance.save()
+
+
+
+# CashCtrlDual
+class Title(CashCtrlDual):
+    api_class = api_cash_ctrl.PersonTitle
+    exclude = EXCLUDE_FIELDS + ['code']
+    model_accounting = models.Title
+
+    def adjust_for_upload(self, instance, data):
         return model_to_dict(instance, exclude=self.exclude)
 
     def save_instance(self, instance, data):
@@ -174,15 +680,55 @@ class CustomFieldGroup(CashCtrl):
         instance.save()
 
 
-class Title(CashCtrlDual):
-    api_class = api_cash_ctrl.PersonTitle
+class PersonCategory(CashCtrlDual):
+    api_class = api_cash_ctrl.PersonCategory
     exclude = EXCLUDE_FIELDS + ['code']
-    model_accounting = Title
+    model_accounting = models.PersonCategory
 
-    def instance_to_dict(self, instance):
+    def adjust_for_upload(self, instance, data):
         return model_to_dict(instance, exclude=self.exclude)
 
     def save_instance(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
+        instance.save()
+
+
+class Person(CashCtrlDual):
+    api_class = api_cash_ctrl.Person
+    exclude = EXCLUDE_FIELDS + ['photo']  # for now
+    model_accounting = models.Person
+
+    def adjust_for_upload(self, instance, data):
+        # Make data
+
+        # Get foreign c_ids
+        superior = models.Person.objects.filter(
+            core=instance.superior).first()
+        data.update({
+            'category_id': models.PersonCategory.objects.get(
+                core=instance.category).c_id,
+            'title_id': models.Title.objects.get(
+                core=instance.title).c_id,
+            'superior_id': superior.c_id if superior else None
+        })
+
+        # Make contacts
+        contacts = PersonContact.objects.filter(person=instance)
+        data['contacts'] = [{
+            'type': contact.type,
+            'address': contact.address
+        } for contact in contacts.order_by('id')]
+
+        # Make addresses
+        addresses = PersonAddress.objects.filter(person=instance)
+        data['addresses'] = [{
+            'type': addr.type,
+            'address': self.make_address(addr),
+            'city': addr.address.city,
+            'country': addr.address.country.alpha3,
+            'zip': addr.address.zip
+        } for addr in addresses.order_by('id')]
+
+    def save_instance(self, instance, data):
         instance.save()

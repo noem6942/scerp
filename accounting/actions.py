@@ -22,98 +22,13 @@ from .import_export import (
     LedgerBalanceImportExport, LedgerPLImportExport, LedgerICImportExport
 )
 from .models import (
-    APPLICATION, APISetup, ChartOfAccountsTemplate,
-    ChartOfAccounts, AccountPosition, FiscalPeriod,
+    APISetup, FiscalPeriod,
     LedgerAccount, LedgerBalance, LedgerPL, LedgerIC
 )
 
 from . import forms, models
-from . import connector_cash_ctrl as conn
 from . import connector_cash_ctrl_2 as conn2
-from .import_accounts_canton import Import
-from .mixins import AccountPositionCheck
 from .signals_cash_ctrl import api_setup_post_save
-
-
-ACTION_LOAD = _('Load actual data from Accounting System')
-
-DONOT_COPY_FIELDS = [
-    # General
-    'pk', 'id', 'created_at', 'created_by_id', 'modified_at', 'modified_by_id',
-    'version_id', 'protected', 'inactive',
-
-    # Accounting
-    'chart', 'chart_id', 'account_type', 'function',
-
-    # CashCtrl
-    'c_id', 'c_created', 'c_created_by', 'c_last_updated', 'c_last_updated_by'
-]
-
-# Set up a logger to capture the error details
-logger = logging.getLogger(__name__)
-
-
-# Load actual data ----------------------------------------------------------
-class Handler:
-
-    def __init__(
-            self, modeladmin, request, queryset, api_class, language=None):
-        # Check if at least one item is selected
-        # error handling not working
-        if action_check_nr_selected(request, queryset, min_count=1):
-            # Get setup
-            setup = queryset.first().setup
-
-            # Proceed if application is CASH_CTRL
-            if setup.application == APPLICATION.CASH_CTRL:
-                # Get handler
-                self.handler = api_class(
-                    setup, request.user, language=language)
-
-                # Init
-                self.model = modeladmin.model
-                self.setup = setup
-                self.user = request.user
-            else:
-                self.handler = None
-                messages.error(request, _("No accounting system defined."))
-
-    def load(
-            self, request, params={}, delete_not_existing=False,
-            **filter_kwargs):
-        if self.handler:
-            print("*loading action")
-            self.handler.load(
-                self.model, params, delete_not_existing, **filter_kwargs)
-            '''
-            try:
-                self.handler.load(
-                    self.model, params, delete_not_existing, **filter_kwargs)
-            except:
-                messages.error(request, _("API Error: cannot retrieve data"))
-            '''
-
-@admin.action(description=f"1. {_('Get data from account system')}")
-def accounting_get_data(modeladmin, request, queryset):
-    ''' load data '''
-    api_class = getattr(conn, modeladmin.model.__name__, None)
-    language = None  # i.e. English
-    if api_class:
-        handler = Handler(modeladmin, request, queryset, api_class, language)
-        handler.load(request)
-    else:
-        messages.warning(request, _("Cannot retrieve data for this list"))
-
-
-# mixins
-def get_api_setup(queryset):
-    '''Get api.setup from queryset
-    '''
-    api_setup = queryset.first().setup
-    if api_setup:
-        _api_setup, module = get_connector_module(api_setup=api_setup)
-        return api_setup, module
-    messages.error(request, _("No account setup found"))
 
 
 @admin.action(description=('Admin: Init setup'))
@@ -123,6 +38,10 @@ def init_setup(modeladmin, request, queryset):
         instance = queryset.first()
 
         # Only perform actions if there are no errors
+        with transaction.atomic():
+            api_setup_post_save(
+                modeladmin.model, instance, init=True, request=request)        
+        return 
         try:
             # Wrap the database operation in an atomic block
             with transaction.atomic():
@@ -139,135 +58,6 @@ def init_setup(modeladmin, request, queryset):
             messages.error(request, f"APIRequestError: {str(e)}")
 
         messages.success(request, _("Accounting API initialized"))
-
-
-@admin.action(description=ACTION_LOAD)
-def api_setup_get(modeladmin, request, queryset):
-    __ = modeladmin  # disable pylint warning
-    if action_check_nr_selected(request, queryset, 1):
-        instance = queryset.first()
-        api_setup, module = get_connector_module(api_setup=instance)
-        module.get_all(api_setup)
-
-
-@action_with_form(
-    forms.ConfirmForm, description="Admin: delete HRM accounting positions")
-def api_setup_delete_hrm_accounts(modeladmin, request, queryset, data):
-    __ = modeladmin  # disable pylint warning
-    if action_check_nr_selected(request, queryset, 1):
-        instance = queryset.first()
-        api_setup, module = get_connector_module(api_setup=instance)
-        acc = module.Account(api_setup)
-
-        try:
-            count = acc.delete_hrm()
-            msg = _("Deleted {count} accounts").format(count=count)
-            messages.success(request, msg)
-        except Exception as e:
-            error_msg = _("An error occurred while deleting accounts: {error}").format(error=str(e))
-            messages.error(request, error_msg)
-
-
-@action_with_form(
-    forms.ConfirmForm, description="Admin: delete system accounting positions")
-def api_setup_delete_system_accounts(modeladmin, request, queryset, data):
-    __ = modeladmin  # disable pylint warning
-    if action_check_nr_selected(request, queryset, 1):
-        instance = queryset.first()
-        api_setup, module = get_connector_module(api_setup=instance)
-        acc = module.Account(api_setup)
-
-        try:
-            count = acc.delete_system_accounts()
-            msg = _("Deleted {count} accounts").format(count=count)
-            messages.success(request, msg)
-        except Exception as e:
-            error_msg = _("An error occurred while deleting accounts: {error}").format(error=str(e))
-            messages.error(request, error_msg)
-
-
-def api_setup_delete_categories(request, queryset, method):
-    if action_check_nr_selected(request, queryset, 1):
-        instance = queryset.first()
-        api_setup, module = get_connector_module(api_setup=instance)
-        acc = module.AccountCategory(api_setup)
-
-        try:
-            count = getattr(acc, method)()
-            msg = _("Deleted {count} categories").format(count=count)
-            messages.success(request, msg)
-        except Exception as e:
-            error_msg = _("An error occurred while deleting accounts: {error}").format(error=str(e))
-            messages.error(request, error_msg)
-
-
-@action_with_form(
-    forms.ConfirmForm, description="Admin: delete HRM accounting categories")
-def api_setup_delete_hrm_categories(modeladmin, request, queryset, data):
-    __ = modeladmin  # disable pylint warning
-    method = 'delete_hrm'
-    api_setup_delete_categories(request, queryset, method)
-
-
-@action_with_form(
-    forms.ConfirmForm, description="Admin: delete system categories")
-def api_setup_delete_system_categories(modeladmin, request, queryset, data):
-    __ = modeladmin  # disable pylint warning
-    method = 'delete_system'
-    api_setup_delete_categories(request, queryset, method)
-
-
-# Mixins ----------------------------------------------------------
-@admin.action(description=_('12 Check accounting positions'))
-def check_accounts(modeladmin, request, queryset):
-    __ = modeladmin  # disable pylint warning
-    # Check
-    if action_check_nr_selected(request, queryset, min_count=1):
-        # Perform
-        try:
-            apc = AccountPositionCheck(queryset)
-            apc.check()
-            messages.success(
-                request, _("Accounting positons checked. No errors found."))
-        except Exception as e:
-            msg = _('Check result: {e}').format(e=e)
-            messages.warning(request, msg)
-
-
-@admin.action(description=_('13 Convert names from upper to title case'))
-def account_names_convert_upper_case(modeladmin, request, queryset):
-    __ = modeladmin  # disable pylint warning
-    # Check
-    if action_check_nr_selected(request, queryset, min_count=1):
-        apc = AccountPositionCheck(queryset)
-        change_list = apc.convert_upper_case()
-        if not change_list:
-            messages.success(request, _("No changes. All good."))
-        else:
-            for position in change_list:
-                msg = _("Converted '{number} {name}'.").format(
-                    number=position.account_number, name=position.name)
-                messages.info(request, msg)
-
-
-@admin.action(description=_('14 Upload accounting positions'))
-def upload_accounts(modeladmin, request, queryset):
-    __ = modeladmin  # disable pylint warning
-    # Check
-    if action_check_nr_selected(request, queryset, min_count=1):
-        # Check account_type
-        account_types = set([x.account_type for x in queryset])
-        if len(account_types) > 1:
-            messages.error(request, _("Mixed account types found"))
-        else:
-            # Prepare
-            api_setup, module = get_api_setup(queryset)
-            ctrl = module.Account(api_setup)
-
-            # Perform
-            headings_w_numbers = queryset.first().chart.headings_w_numbers
-            ctrl.upload_accounts(queryset, headings_w_numbers)
-            messages.success(request, _("Accounting positons uploaded"))
 
 
 @admin.action(description=_('15 Get balances from accounting system'))
@@ -335,326 +125,6 @@ def upload_balances(modeladmin, request, queryset, data):
 
         # Download balances to doublecheck
         download_balances(modeladmin, request, queryset)
-
-
-@admin.action(description=_('> Insert copy of record below'))
-def position_insert(modeladmin, request, queryset):
-    """
-    Insert row of a model that has a field position
-    """
-    __ = modeladmin  # disable pylint warning
-    # Check
-    if action_check_nr_selected(request, queryset, 1):
-        obj = queryset.first()
-    else:
-        return
-
-    # Create a copy of the instance with a new position
-    obj.pk = None  # Clear the primary key for duplication
-    obj.name += ' <copy>'
-    try:
-        if obj.is_category:
-            obj.account_number = str(int(obj.account_number) + 1)
-        else:
-            obj.account_number = str(float(obj.account_number) + 0.01)
-        obj.save()
-        messages.success(request, _('Copied record.'))
-    except Exception as e:
-        msg = _('Not allowed to copy this record. {e}').format(e=e)
-        messages.warning(request, msg)
-        return
-
-
-# ChartOfAccountsTemplate (coac)
-def coac_positions(request, queryset, overwrite):
-    """
-    Check Excel File of ChartOfAccountsTemplate
-    """
-    for chart in queryset:
-        # Load excel
-        try:
-            a = Import(chart.excel.path, chart.account_type, None)
-            accounts = a.get_accounts()
-        except ValueError as e:
-            # Catching the specific ValueError
-            messages.error(request, f'{_("Error Message:")} {str(e)}')
-            return
-
-        # Set tenant
-        add_tenant = False
-
-        # Delete existing
-        check_only = not overwrite
-        if overwrite:
-            AccountPositionTemplate.objects.filter(chart=chart).delete()
-            chart.exported_at = None
-            chart.save()
-
-        # Create Positions
-        try:
-            with transaction.atomic():
-                for account in accounts:
-                    # Save base
-                    account_instance = AccountPositionTemplate(chart=chart)
-                    for key, value in account.items():
-                        setattr(account_instance, key, value)
-
-                    # Add Logging
-                    save_logging(account_instance, request, add_tenant)
-
-                    # Try to save (here the validity checks get performed
-                    account_instance.save(check_only=check_only)
-
-                # Message
-                msg = _("successfully checked {count} accounts.").format(
-                    count=len(accounts))
-                messages.success(request, msg)
-
-                # Log
-                if overwrite:
-                    chart.exported_at = timezone.now()
-                    chart.save()
-
-        except Exception as e:
-            # If any error occurs, the transaction is rolled back
-            # Display an error message in the admin
-            messages.error(request, f'{_("Error Message:")} {str(e)}')
-            return
-
-
-@admin.action(description=_('> Check Excel file for validity'))
-def coac_positions_check(modeladmin, request, queryset):
-    '''
-    perform position check
-    '''
-    __ = modeladmin  # disable pylint warning
-    coac_positions(request, queryset, overwrite=False)
-
-
-@action_with_form(
-    forms.ChartOfAccountsTemplateForm,
-    description=_('> Create canton account positions'))
-def coac_positions_create(modeladmin, request, queryset, data):
-    """
-    Check Excel File of ChartOfAccountsTemplate
-    """
-    __ = modeladmin  # disable pylint warning
-    __ = data  # disable pylint warning
-
-    # Check number selected
-    if action_check_nr_selected(request, queryset, 1):
-         # Load excel
-        coac_positions(request, queryset, overwrite=True)
-
-
-# AccountPositionCanton (apc)
-def apc_export(request, queryset, type_from, account_type, chart_id):
-    '''two cases:
-    1. Copy balance to balance:
-        add chart
-        function = None
-        copy account_number
-        copy account_type
-    2. Copy function to income:
-        add chart
-        function gets account_number (if existing), otherwise account
-        account_type gets income
-    '''
-
-    # Init
-    chart = ChartOfAccounts.objects.get(id=chart_id)
-    setup = chart.period.setup
-    count_created = 0
-    count_updated = 0
-    template = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE
-
-    # Copy
-    for obj in queryset.all():
-        # Adjust function and accounting numbers
-        if type_from == template.FUNCTIONAL:
-            function = obj.account_number
-        else:
-            function = None
-
-        # Check existing
-        account_instance = AccountPosition.objects.filter(
-            chart=chart,
-            function=function,
-            account_number=obj.account_number,
-            is_category=obj.is_category,
-            account_type=account_type
-        ).first()
-
-        # Create new
-        if account_instance:
-            count_updated += 1
-        else:
-            count_created += 1
-            account_instance = AccountPosition()
-            account_instance.chart = chart
-            account_instance.setup=setup
-            account_instance.function = function
-            account_instance.is_category=obj.is_category
-            account_instance.account_type = account_type
-
-        # Copy values
-        for key, value in obj.__dict__.items():
-            if key not in DONOT_COPY_FIELDS and key[0] != '_':
-                setattr(account_instance, key, value)
-
-        # As we create an AbstractTenant instance from a non tenant obj we
-        # do the update of tenant and logging ourselves instead of using
-        # save_logging
-        save_logging(account_instance, request, add_tenant=True)
-        account_instance.save()
-
-    # Message
-    if count_created:
-        msg = _("successfully created {count} accounts. ").format(
-            count=count_created)
-        messages.success(request, msg)
-    if count_updated:
-        msg = _("successfully updated {count} accounts. ").format(
-            count=count_updated)
-        messages.success(request, msg)
-    if count_created or count_updated:
-        msg = _("Go to '{verbose}' to see the results.").format(
-            verbose=AccountPosition._meta.verbose_name)
-        messages.success(request, msg)
-
-
-@action_with_form(
-    forms.ChartOfAccountsBalanceForm,
-    description=_('> Export selected balance positions to own balance'))
-def apc_export_balance(modeladmin, request, queryset, data):
-    '''
-    type checks are done in the form
-    '''
-    __ = modeladmin  # disable pylint warning
-    chart_id = data.get('chart')
-    template = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE
-
-    if chart_id:
-        apc_export(
-            request, queryset, template.BALANCE, template.BALANCE, chart_id)
-
-@action_with_form(
-    forms.ChartOfAccountsFunctionForm,
-    description=_('> Export selected function positions to own income'))
-def apc_export_function_to_income(modeladmin, request, queryset, data):
-    '''
-    type checks are done in the form
-    '''
-    __ = modeladmin  # disable pylint warning
-    chart_id = data.get('chart')
-    template = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE
-
-    if chart_id:
-        apc_export(
-            request, queryset, template.FUNCTIONAL, template.INCOME, chart_id)
-
-@action_with_form(
-    forms.ChartOfAccountsFunctionForm,
-    description=_('> Export selected function positions to own invest'))
-def apc_export_function_to_invest(modeladmin, request, queryset, data):
-    '''
-    type checks are done in the form
-    '''
-    __ = modeladmin  # disable pylint warning
-    chart_id = data.get('chart')
-    template = ChartOfAccountsTemplate.ACCOUNT_TYPE_TEMPLATE
-
-    if chart_id:
-        apc_export(
-            request, queryset, template.FUNCTIONAL, template.INVEST, chart_id)
-
-
-# AccountPosition (apm)
-def apm_add(request, queryset, data, account_type):
-    '''
-    add income or invest
-    '''
-    # Check number selected
-    if queryset.count() > 1:
-        messages.warning(request, _('Select only one function.'))
-
-    # Init
-    chart = queryset.first().chart
-    count_created = 0
-    count_updated = 0
-
-    # Get positions
-    positions = data.get('positions')
-    if not positions:
-        return
-
-    # Assign
-    for function_obj in queryset.all():
-        # Copy objects
-        for obj in positions:
-            # Check if existing
-            function = function_obj.function
-            account_instance = AccountPosition.objects.filter(
-                chart=chart,
-                account_number=obj.account_number,
-                is_category=obj.is_category,
-                function=function,
-                account_type=account_type
-            ).first()
-
-            # Create new
-            if account_instance:
-                count_updated += 1
-            else:
-                # We create a new instance
-                count_created += 1
-                account_instance = AccountPosition()
-                account_instance.chart = chart
-                account_instance.account_type = account_type
-                account_instance.function = function
-
-            # Copy values
-            for key, value in obj.__dict__.items():
-                if key not in DONOT_COPY_FIELDS and key[0] != '_':
-                    setattr(account_instance, key, value)
-
-            # Save
-            save_logging(account_instance, request, add_tenant=True)
-            account_instance.save()
-
-    # Message
-    if count_created:
-        msg = _("successfully created {count} accounts. ").format(
-            count=count_created)
-        messages.success(request, msg)
-    if count_updated:
-        msg = _("successfully updated {count} accounts. ").format(
-            count=count_updated)
-        messages.success(request, msg)
-
-
-@action_with_form(
-    forms.AccountPositionAddIncomeForm,
-    description=_('10. Add income positions to function')
-)
-def apm_add_income(modeladmin, request, queryset, data):
-    '''
-    add income to Account Positions
-    '''
-    __ = modeladmin  # disable pylint warning
-    apm_add(request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INCOME)
-
-
-@action_with_form(
-    forms.AccountPositionAddInvestForm,
-    description=_('11 Add invest positions to function')
-)
-def apm_add_invest(modeladmin, request, queryset, data):
-    '''
-    add invest to Account Positions
-    '''
-    __ = modeladmin  # disable pylint warning
-    apm_add(request, queryset, data, ACCOUNT_TYPE_TEMPLATE.INVEST)
 
 
 @action_with_form(
@@ -735,50 +205,59 @@ def add_ic(modeladmin, request, queryset, data):
     add_excel_to_ledger(LedgerIC, request, queryset, data)
 
 
-# helper for sync_ledger
-def sync_queryset(request, queryset):
-    ''' sync ledger positions to account positions '''
-    count = 0
-    for index, instance in enumerate(queryset.all()):
-        if instance.is_enabled_sync:
-            msg = _("{hrm} is already synched.").format(
-                hrm=instance.hrm)
-            messages.error(request, msg)
-        else:
-            try:
-                with transaction.atomic():
-                    # Here we save the instance but disable signals temporarily
-                    instance.is_enabled_sync = True
-                    instance.sync_to_accounting = True
-                    instance.save(update_fields=['is_enabled_sync', 'sync_to_accounting'])
-
-                    # Manually trigger signals if necessary (after save)
-                    instance.refresh_from_db()
-
-                    count += 1
-            except Exception as e:
-                msg = _("Could not sync {hrm}: {error}").format(hrm=instance.hrm, error=str(e))
-                messages.error(request, msg)
-    return count
-
-
 # Account
-@admin.action(description=f"1. {_('Get data from account system 2')}")
-def accounting_get_data_2(modeladmin, request, queryset):
-    ''' load data '''
+def get_data(modeladmin, request, queryset, update, delete_not_existing):
     api = getattr(conn2, modeladmin.model.__name__, None)
     language = None  # i.e. English
     if api:
-        handler = api()        
+        handler = api(modeladmin.model)        
         setup = queryset.first().setup
         tenant = setup.tenant
-        handler.get(modeladmin.model, setup, request.user, update=False)
+        handler.get(setup, request.user, update, delete_not_existing)
+    else:
+        messages.warning(request, _("Cannot retrieve data for this list"))    
+
+@action_with_form(
+    forms.AccountingUpdateForm, description=_('Get data from account system')
+)
+def accounting_get_data(modeladmin, request, queryset, data):
+    ''' load data '''
+    model = modeladmin.model.__name__
+    api = getattr(conn2, model, None)
+    language = None  # i.e. English
+    if api:
+        handler = api(modeladmin.model, language=language)
+        setup = queryset.first().setup
+        tenant = setup.tenant
+        handler.get(
+            setup, request.user, 
+            overwrite_data=data['overwrite_data'], 
+            delete_not_existing=data['delete_not_existing']
+        )        
     else:
         messages.warning(request, _("Cannot retrieve data for this list"))
 
 
+@admin.action(description=f"{_('Get data from account system')}")
+def accounting_get_data_update_delete_not_existing(
+        modeladmin, request, queryset):
+    ''' load data '''
+    get_data(
+        modeladmin, request, queryset, update=True, delete_not_existing=True)
+
+
+@admin.action(description=f"{_('Get data from account system')}")
+def accounting_get_data_update(modeladmin, request, queryset, data):
+    ''' load data '''
+    get_data(
+        modeladmin, request, queryset, update=True, delete_not_existing=True)
+
+
+
+
+
 # Default row actions, accounting
-@admin.action(description=_("S. Sync with Accounting"))
+@admin.action(description=_("Sync with Accounting"))
 def sync_accounting(modeladmin, request, queryset):
     ''' set is_enabled_sync to True and save to trigger post_save '''
     if action_check_nr_selected(request, queryset, min_count=1):
@@ -788,9 +267,8 @@ def sync_accounting(modeladmin, request, queryset):
                 instance.save()
 
 
-@admin.action(description=_("D. De-sync from Accounting"))
+@admin.action(description=_("De-sync from Accounting"))
 def de_sync_accounting(modeladmin, request, queryset):
     ''' update is_enabled_sync to False '''
     if action_check_nr_selected(request, queryset, min_count=1):
         queryset = queryset.update(is_enabled_sync=False)
-

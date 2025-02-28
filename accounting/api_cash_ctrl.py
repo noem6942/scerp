@@ -120,6 +120,11 @@ class BOOK_TYPE:
     DEBIT = 'DEBIT'
 
 
+class CALCULATION_BASE:
+    NET = 'NET'
+    GROSS = 'GROSS'
+
+
 class DATA_TYPE(Enum):
     '''see public api desc'''
     TEXT = 'TEXT'
@@ -366,9 +371,9 @@ class CashCtrl():
         try:
             response = requests.get(
                 url, params=params, auth=self.auth, timeout=timeout)
-                
-            # Raise an HTTPError for bad responses (4xx, 5xx)                
-            response.raise_for_status()  
+
+            # Raise an HTTPError for bad responses (4xx, 5xx)
+            response.raise_for_status()
             return response
         except requests.exceptions.RequestException as e:
             raise Exception(f"Request failed: {e}")
@@ -477,7 +482,7 @@ class CashCtrl():
         if put_response.status_code != 200:
             raise Exception('Failed to upload file')
 
-        
+
         # Step 3: Persist
         persist_url = (
             f'https://{self.org}.cashctrl.com/api/v1/file/persist.json')
@@ -491,15 +496,15 @@ class CashCtrl():
 
     def download_file(self, file_id, output_path):
         # Read data to get name
-        data = self.read(file_id)        
+        data = self.read(file_id)
 
         # Download
         params = {'id': file_id}
         url = self.BASE_DIR.format(
-            org=self.org, url=self.url, action='get')        
+            org=self.org, url=self.url, action='get')
         response = requests.get(
             url, auth=self.auth,  params=params, allow_redirects=True)
-        
+
         if response.status_code == 200:
             # If output_path is a directory, use file_id as the filename
             if os.path.isdir(output_path):
@@ -514,6 +519,7 @@ class CashCtrl():
     # REST API mine: list, read, create, update, delete, data
     def list(self, params={}, **filter_kwargs):
         ''' cash_ctrl list '''
+
         if filter_kwargs:
             # e.g. categoryId=110,  camelCase!
             filters = []
@@ -542,11 +548,17 @@ class CashCtrl():
         url = self.BASE.format(
             org=self.org, url=self.url, params=params, action="read")
         response = self.get(url, params)
-        
-        if response.status_code == 200:     
+
+        if response.status_code == 200:
             data = response.json()
-            if data.get('success', False):
-                return data.get('data')  # Directly return parsed JSON
+            if id:
+                # default
+                if data.get('success', False):
+                    return data.get('data')  # Directly return parsed JSON
+            else:
+                # settings
+                return data
+
         return response
 
     def create(self, data=None, params={}):
@@ -564,8 +576,8 @@ class CashCtrl():
         return response  # e.g. {'success': True, 'message': 'Account saved', 'insert_id': 183}
 
     def delete(self, *ids, force=None):
-        ''' cash_ctrl delete 
-            force is only used for File; 
+        ''' cash_ctrl delete
+            force is only used for File;
                 if True file gets permanently deleted else it gets moved to the
                 archive
         '''
@@ -577,7 +589,7 @@ class CashCtrl():
 
     def attach_files(self, id, file_ids):
         '''
-        Attach files with id file_ids to object id, 
+        Attach files with id file_ids to object id,
         see https://app.cashctrl.com/static/help/en/api/index.html#examples
         '''
         data = {
@@ -586,7 +598,7 @@ class CashCtrl():
         }
         url = self.BASE.format(
             org=self.org, url=self.url, data=data, action='update_attachments')
-        response = self.post(url, data=data)        
+        response = self.post(url, data=data)
         return response
 
 
@@ -682,7 +694,7 @@ class File(CashCtrl):
 
     def upload(self, file_path, data={}):
         '''
-            data: if not empty categorize file with category, name, 
+            data: if not empty categorize file with category, name,
                 description, notes, custom
         '''
         file_id, file_name = self.upload_file(file_path)
@@ -693,7 +705,7 @@ class File(CashCtrl):
                 'name': data.pop('name', file_name)
             })
             self.create(data)
-        
+
         return file_id, file_name
 
 class FileCategory(CashCtrl):

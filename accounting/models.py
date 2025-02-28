@@ -26,7 +26,7 @@ from scerp.locales import CANTON_CHOICES
 from scerp.mixins import get_code_w_name, primary_language
 from .api_cash_ctrl import (
     URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE,
-    ORDER_TYPE, PERSON_TYPE)
+    CALCULATION_BASE, ORDER_TYPE, PERSON_TYPE)
 
 
 # Definitions
@@ -405,14 +405,6 @@ class Currency(AcctApp):
     def __str__(self):
         return self.code
 
-    @classmethod
-    def get_default_id(cls):
-        """
-        Returns the default currency if one is set; otherwise, returns None.
-        """
-        queryset = cls.objects.filter(is_default=True)
-        return queryset.first().id if queryset else None
-
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -424,12 +416,12 @@ class Currency(AcctApp):
         verbose_name = _("Currency")
         verbose_name_plural = f"{_('Currencies')}"
 
+    def clean(self):
+        print("*s", self.__dict__)
+
 
 class SequenceNumber(AcctApp):
     ''' SequenceNumber '''
-    code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,
-        help_text='Internal code for scerp')
     name = models.JSONField(
         _('name'),  help_text=_("The name of the sequence number."),
         blank=True, null=True)
@@ -446,23 +438,17 @@ class SequenceNumber(AcctApp):
             never resets. Example pattern: RE-$y$m$d$nd which may
             generate 'RE-2007151' (on July 15, 2020)."""))
 
-    def save(self, *args, **kwargs):
-        # Check mandatory code
-        if not getattr(self, 'code', None):
-            self.code = self.code = f"{self.c_id}, {self.pattern}"
-        super().save(*args, **kwargs)
-
     def __str__(self):
-        return get_code_w_name(self)
+        return primary_language(self.name)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code', 'c_id'],
+                fields=['setup', 'pattern', 'c_id'],
                 name='unique_setup_sequence_number'
             )
         ]
-        ordering = ['code']
+        ordering = ['pattern']
         verbose_name = _("Sequence Number")
         verbose_name_plural = f"{_('Sequence Numbers')}"
 
@@ -663,8 +649,8 @@ class Account(AcctApp):
         help_text=_(
             'The account number. Must be numeric but can contain a decimal point.'))
     currency = models.ForeignKey(
-        Currency, verbose_name=_('Currency'), default=Currency.get_default_id,
-        on_delete=models.PROTECT, related_name='%(class)s_currency',
+        Currency, on_delete=models.PROTECT,  blank=True, null=True,
+        related_name='%(class)s_currency', verbose_name=_('Currency'),
         help_text=_(
             "Link to currency. Defaults to the system currency if not specified."))
     target_max = models.DecimalField(
@@ -862,6 +848,11 @@ class Setting(AcctApp):
 class Tax(AcctApp):
     ''' Master
     '''
+    class CALC_TYPE(models.TextChoices):
+        # CashCtrl
+        NET = CALCULATION_BASE.NET, _('Net')
+        GROSS = CALCULATION_BASE.GROSS, _('Gross')
+    
     code = models.CharField(
         _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
@@ -885,7 +876,7 @@ class Tax(AcctApp):
             "'CHE-112.793.129 MWST, Abwasser, 8.1%'"))
     calc_type = models.CharField(
         _('Calculation basis'),
-        max_length=10, default='NET',
+        max_length=10, choices=CALC_TYPE, default=CALC_TYPE.NET,
         help_text=(
             """The calculation basis of the tax rate. NET means the tax rate is
             based on the net revenue and GROSS means the tax rate is based on
@@ -1027,7 +1018,7 @@ class Article(AcctApp):
         related_name='%(class)s_category',
         verbose_name=_('Category'))
     currency = models.ForeignKey(
-        ArticleCategory, on_delete=models.CASCADE, null=True, blank=True,
+        ArticleCategory, on_delete=models.PROTECT, null=True, blank=True,
         related_name='%(class)s_currency',
         verbose_name=_('Currency'))
     description = models.JSONField(
@@ -1131,12 +1122,15 @@ class Title(Core):
         TitleCrm, on_delete=models.CASCADE, 
         related_name='%(class)s_core', help_text='origin')
 
+    def __str__(self):
+        return 'acct_' + self.core.__str__()
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=['setup', 'core'],
                 name='accounting_unique_title')
-        ] 
+        ]         
 
 
 class PersonCategory(Core):
@@ -1494,7 +1488,7 @@ class OrderContract(AcctApp):
         _('Price (Excl. VAT)'), max_digits=11, decimal_places=2)
     currency = models.ForeignKey(
         Currency, on_delete=models.PROTECT, null=True, blank=True,
-        verbose_name=_('Currency'), default=Currency.get_default_id)
+        verbose_name=_('Currency'))
     responsible_person = models.ForeignKey(
         PersonCrm, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Responsible'), related_name='%(class)s_person',        

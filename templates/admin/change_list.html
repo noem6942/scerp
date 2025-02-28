@@ -1,0 +1,15 @@
+<!--  templates/admin/change_list.html 
+
+  Show some additional info at list view
+  
+-->
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+    {% if help_text %}
+        <div class="help-text" style="background: #f9f9f9; padding: 10px; border-left: 4px solid #007bff; margin-bottom: 10px;">
+            <strong>ℹ Info:</strong> {{ help_text }}
+        </div>
+    {% endif %}   
+    {{ block.super }}
+{% endblock %}

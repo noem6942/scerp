@@ -224,7 +224,7 @@ class BaseAdminNew:
         except:
             return ''
 
-    @admin.display(description=_('last update'))
+    @admin.display(description=_('Number'))
     def display_number(self, obj):
         return Display.big_number(obj.number)
 
@@ -252,6 +252,50 @@ class BaseAdminNew:
                 'title="{}">📝</span>', obj.notes
             )  # ✅ Cursor + underline effect
         return ""
+
+    @admin.display(description=_('last update'))
+    def display_last_update(self, obj):
+        return obj.modified_at
+
+
+    @admin.display(description=_('Name Plural'))
+    def display_name_plural(self, obj):
+        try:
+            return primary_language(obj.name_plural)
+        except:
+            return ''
+
+    @admin.display(description=_('Parent'))
+    def display_parent(self, obj):
+        return self.display_name(obj.parent)
+
+    @admin.display(description=_('Wording in document'))
+    def display_document_name(self, obj):
+        return primary_language(obj.document_name)
+
+    @admin.display(description=_("Percentage"))
+    def display_percentage(self, obj):
+        return Display.percentage(obj.percentage, 1)
+
+    @admin.display(description=_("Percentage Flat"))
+    def display_percentage_flat(self, obj):
+        return Display.percentage(obj.percentage_flat, 1)
+
+    @admin.display(description=_('Balance'))
+    def display_link_to_company(self, person):
+        if not person.company:
+            return "-"  # Fallback if company is missing
+        url = f"../person/{person.id}/"
+        return format_html('<a href="{}">{}</a>', url, person.company)
+  
+    @admin.display(description=_('Parent'))
+    def display_category_type(self, obj):
+        return obj.category.get_type_display()
+
+    @admin.display(description=_('description'))
+    def display_description(self, obj):
+        return primary_language(obj.description)
+
 
 
 class BaseAdmin(TenantFilteringAdmin):
@@ -291,3 +335,19 @@ class BaseAdmin(TenantFilteringAdmin):
 
 class BaseTabularInline(RelatedModelInline):
     pass
+
+
+class ReadOnlyAdmin(admin.ModelAdmin):
+    """A mixin to make an admin model read-only."""
+    def has_add_permission(self, request):
+        return False  # Disable adding
+
+    def has_change_permission(self, request, obj=None):
+        return False  # Disable editing
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # Disable deleting
+
+    def get_readonly_fields(self, request, obj=None):
+        """Make all fields read-only."""
+        return [field.name for field in self.model._meta.fields]

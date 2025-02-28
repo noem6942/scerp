@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
 from scerp.admin import BaseAdminNew
-from scerp.admin_base import TenantFilteringAdmin
+from scerp.admin_base import TenantFilteringAdmin, FIELDS as FIELDS_BASE
 
 
 class FIELDS:
@@ -24,7 +24,7 @@ class FIELDS:
         'display_last_update', 'c_id', 'message', 'is_enabled_sync')
     C_DISPLAY_SHORT = ('c_id', 'is_enabled_sync')
     C_ALL = C_FIELDS + C_DISPLAY
-    C_READ_ONLY = C_FIELDS + ('setup',)
+    C_READ_ONLY = FIELDS_BASE.LOGGING_SETUP + C_FIELDS + ('setup',)
 
 
 class FIELDSET:

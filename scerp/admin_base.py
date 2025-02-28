@@ -21,7 +21,7 @@ class FIELDS:
     LOGGING_TENANT = LOGGING + ('tenant',)
     LOGGING_SETUP = LOGGING_TENANT + ('setup',)
     LOGGING_SAVE = ('tenant', 'setup', 'created_by')
-    NOTES = ('notes', 'is_protected', 'is_inactive')      
+    NOTES = ('notes', 'is_protected', 'is_inactive')
     ICON_DISPLAY = (
         'display_is_inactive', 'display_notes_hint', 'display_attachment_icon')
     LINK_ATTACHMENT = ('display_attachment_icon',)
@@ -37,17 +37,17 @@ class FIELDSET:
         _('Logging'), {
             'fields': FIELDS.LOGGING,
             'classes': ('collapse',),
-        })       
+        })
     LOGGING_TENANT = (
         _('Logging'), {
             'fields': FIELDS.LOGGING_TENANT,
             'classes': ('collapse',),
-        }) 
+        })
     LOGGING_SETUP = (
         _('Logging'), {
             'fields': FIELDS.LOGGING_SETUP,
             'classes': ('collapse',),
-        })         
+        })
 
 
 class TenantFilteringAdmin(admin.ModelAdmin):
@@ -63,26 +63,26 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         Retrieve tenant_id and setup once per request, but only fetch `setup`
         if the model has a `setup` field.
         '''
-        if not hasattr(request, '_cached_tenant_setup'):            
+        if not hasattr(request, '_cached_tenant_setup'):
             tenant_data = get_tenant_data(request)  # Fetch tenant info
             tenant_id = tenant_data.get('id')
 
             # Check if the model has a 'setup' field before calling APISetup.get_setup
             fields = {
-                field.name 
+                field.name
                 for field in self.model._meta.get_fields()
             } if self.model else set()
-            
+
             if 'setup' in fields and tenant_id:
-                setup = APISetup.get_setup(tenant_id=tenant_id) 
+                setup = APISetup.get_setup(tenant_id=tenant_id)
             else:
                 setup = None
 
             request._cached_tenant_setup = {
-                'tenant_id': tenant_id, 
+                'tenant_id': tenant_id,
                 'setup': setup
             }
-        
+
         return request._cached_tenant_setup
 
     def get_queryset(self, request):
@@ -95,7 +95,7 @@ class TenantFilteringAdmin(admin.ModelAdmin):
             return queryset  # No model associated
 
         fields = {
-            field.name 
+            field.name
             for field in self.model._meta.get_fields()
         }  # Fast lookup
         tenant_setup_data = self.get_tenant_and_setup(request)
@@ -132,7 +132,7 @@ class TenantFilteringAdmin(admin.ModelAdmin):
             if db_field.name == 'setup' and 'setup' in fields and setup:
                 kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=setup.id)
-            elif (db_field.name == 'tenant' and 
+            elif (db_field.name == 'tenant' and
                     'tenant' in fields and tenant_id):
                 kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=tenant_id)
@@ -145,12 +145,12 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         '''
         if db_field.name in self.protected_many_to_many:
             # Fetch cached tenant & setup
-            tenant_setup_data = self.get_tenant_and_setup(request)  
+            tenant_setup_data = self.get_tenant_and_setup(request)
             tenant_id = tenant_setup_data['tenant_id']
             setup = tenant_setup_data['setup']
 
             fields = {
-                field.name 
+                field.name
                 for field in self.model._meta.get_fields()
             }  # Use a set for fast lookup
 
@@ -158,34 +158,44 @@ class TenantFilteringAdmin(admin.ModelAdmin):
             if db_field.name == 'setup' and 'setup' in fields and setup:
                 kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=setup.id)
-            elif (db_field.name == 'tenant' and 'tenant' in fields 
+            elif (db_field.name == 'tenant' and 'tenant' in fields
                     and tenant_id):
                 kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=tenant_id)
 
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
-    def get_form(self, request, obj=None, **kwargs):
-        ''' 
-        set sync_to_accounting to True if existing so the data gets 
-        synchronized
-        '''        
-        form = super().get_form(request, obj, **kwargs)
-        
-        if obj:
-            if hasattr(obj, 'sync_to_accounting'):
-                obj.sync_to_accounting = True
-        else:
-            # This is for new objects, so set sync_to_accounting to True initially
-            form.base_fields['sync_to_accounting'].initial = True
-        
-        return form
+    # messaging    
+    def changelist_view(self, request, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        extra_context['help_text'] = getattr(self, 'help_text', None)
 
+        return super().changelist_view(request, extra_context=extra_context)    
+    
+    def response_change(self, request, obj):
+        if obj.is_protected or self.has_errors:
+            return HttpResponseRedirect(request.path)  # No success message
+
+        return super().response_change(request, obj)
+
+    def response_delete(self, request, obj_display, obj_id):
+        """
+        Custom delete response: prevent deletion if the object is protected.
+        does not get called
+        """
+        if self.has_errors:
+            return HttpResponseRedirect(request.path)  # Stay on the page if there are errors
+
+        return super().response_delete(request, obj_display, obj_id)
+
+    # Delete, save, save_related
     def delete_model(self, request, obj):
+        self.has_errors = True
         try:
             with transaction.atomic():  # Ensure atomic deletion
                 obj.delete()
-
+                self.has_errors =False
         except APIRequestError as e:
             raise ValidationError(f'Cannot delete: {e}')  # Prevents Django from proceeding
 
@@ -194,28 +204,24 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
     def delete_queryset(self, request, queryset):
         count = 0
-        for obj in queryset:
-            try:
-                with transaction.atomic():  # Ensures each delete is independent
+        self.has_errors = True
+        with transaction.atomic():  # Ensures each delete is independent
+            for obj in queryset:
+                try:                
                     obj.delete()
-                count += 1
-            except Exception as e:
-                messages.warning(request, f'{obj}: {str(e)}')
+                    count += 1
+                    self.has_errors = False
+                except Exception as e:
+                    messages.warning(request, f'{obj}: {str(e)}')
 
         msg = '{count} records successfully deleted.'.format(count=count)
-        messages.info(request, msg)
-
-    def response_change(self, request, obj):
-        if obj.is_protected or self.has_errors:
-            return HttpResponseRedirect(request.path)  # No success message
-
-        return super().response_change(request, obj)
-
+        messages.info(request, msg)    
+    
     def save_model(self, request, instance, form, change):
         '''
-        Override save to enforce tenant/setup assignment, log actions, 
+        Override save to enforce tenant/setup assignment, log actions,
         and handle errors.
-        '''  
+        '''
         # Check if protected and has been protected
         if instance.is_protected:
             if change:
@@ -223,34 +229,40 @@ class TenantFilteringAdmin(admin.ModelAdmin):
                 if getattr(old_instance, 'is_protected', None):
                     messages.warning(request, _('Record is protected.'))
                     return
-        
-        # Fetch cached tenant & setup data  
+
+        # Fetch cached tenant & setup data
         tenant_setup_data = self.get_tenant_and_setup(request)
         tenant_id = tenant_setup_data['tenant_id']
         setup = tenant_setup_data['setup']
 
-        # Ensure tenant/setup is set if they exist in protected_foreigns  
+        # Ensure tenant/setup is set if they exist in protected_foreigns
         protected_foreigns = getattr(self, 'protected_foreigns', [])
-        if ('tenant' in protected_foreigns and tenant_id 
+        if ('tenant' in protected_foreigns and tenant_id
                 and not getattr(instance, 'tenant', None)):
             # Assign the ID directly to avoid unnecessary lookups
-            instance.tenant_id = tenant_id  
-            
-        if ('setup' in protected_foreigns and setup 
+            instance.tenant_id = tenant_id
+
+        if ('setup' in protected_foreigns and setup
                 and not getattr(instance, 'setup', None)):
             instance.setup = setup
 
-        # Proceed with logging  
-        save_logging(instance, request)  
+        # Ensure sync_to_accounting is set
+        if hasattr(instance, 'sync_to_accounting'):
+            if not change or form.has_changed():
+                # New instance or changed fields
+                instance.sync_to_accounting = True
 
-        # Atomic save with error handling   
-        self.has_errors = True   
-        with transaction.atomic():                
+        # Proceed with logging
+        save_logging(instance, request)
+
+        # Atomic save with error handling
+        self.has_errors = True
+        with transaction.atomic():
             super().save_model(request, instance, form, change)
-            self.has_errors = False        
+            self.has_errors = False
         return
         try:
-            with transaction.atomic():                
+            with transaction.atomic():
                 super().save_model(request, instance, form, change)
                 self.has_errors = False
         except IntegrityError as e:

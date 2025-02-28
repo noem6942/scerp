@@ -27,6 +27,7 @@ from .models import (
 
 LABEL_BACK = _("Back")
 
+
 # Name forms
 class NameAdminForm(MultilanguageForm):
     multi_lang_fields = ['name']
@@ -173,6 +174,23 @@ class ConfirmForm(AdminActionForm):
         help_text = _(
             "Are you sure you want proceed with this action?")
 
+
+# Update data
+class AccountingUpdateForm(AdminActionForm):
+    overwrite_data = forms.BooleanField(
+        label='Overwrite Data',
+        initial=True,
+        required=False,
+        help_text=_(
+            'Overwrite existing data with values from accounting system.')
+    )
+    delete_not_existing = forms.BooleanField(
+        label='Delete Not Existing',
+        initial=True,
+        required=False,
+        help_text=_('Delete items that do not exist in accounting system.')
+    )
+    
 
 # ChartOfAccountsCanton
 class ChartOfAccountsTemplateForm(AdminActionForm):
