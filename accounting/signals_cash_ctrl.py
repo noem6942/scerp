@@ -19,7 +19,7 @@ from core.models import (
 )
 from scerp.mixins import read_yaml_file
 from . import connector_cash_ctrl_2 as conn2
-from . import models, connector_cash_ctrl as conn
+from . import models
 from .ledger import LedgerBalanceUpdate, LedgerPLUpdate, LedgerICUpdate
 
 
@@ -490,7 +490,7 @@ def order_category_incoming_post_pre_delete(sender, instance, **kwargs):
 def order_contract_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on OrderContract. '''
     if instance.sync_to_accounting:
-        api = conn2.ContractOrder(sender)
+        api = conn2.OrderContract(sender)
         api.save(instance, created)
 
 
@@ -498,7 +498,7 @@ def order_contract_post_save(sender, instance, created, **kwargs):
 def order_contract_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderContract. '''
     if instance.c_id:
-        api = conn2.ContractOrder(sender)
+        api = conn2.OrderContract(sender)
         api.delete(instance)
 
 
@@ -516,6 +516,22 @@ def incoming_order_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on IncomingOrder. '''
     if instance.c_id:
         api = conn2.IncomingOrder(sender)
+        api.delete(instance)
+
+
+@receiver(post_save, sender=models.IncomingBookEntry)
+def incoming_book_entry_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on IncomingBookEntry. '''
+    if instance.sync_to_accounting:
+        api = conn2.IncomingBookEntry(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=models.IncomingBookEntry)
+def incoming_book_entry_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on IncomingBookEntry. '''
+    if instance.c_id:
+        api = conn2.IncomingBookEntry(sender)
         api.delete(instance)
 
 

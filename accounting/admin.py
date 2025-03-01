@@ -10,8 +10,9 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from import_export.admin import ExportActionMixin
 
-from core.safeguards import get_tenant, save_logging
+from core.admin import AttachmentInline, FIELDS as CORE_FIELDS
 from core.models import Country, Address, Contact
+from core.safeguards import get_tenant, save_logging
 from scerp.actions import set_inactive, set_protected
 from scerp.admin import (
      BaseAdmin, BaseAdminNew, BaseTabularInline, ReadOnlyAdmin, Display,
@@ -701,8 +702,8 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Display these fields in the list view
     list_display = (
         'type', 'code', 'display_name_plural') + FIELDS.C_DISPLAY_SHORT
+    list_display_links = ('type', 'code', 'display_name_plural')        
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
-    list_display_links = ('type', 'code', 'display_name_plural')
 
     # Search, filter
     search_fields = ('code', 'name_singular', 'name_plural')
@@ -711,9 +712,10 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdminNew):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'type',
+                'code', 'type', 
                 *make_language_fields('name_singular'),
-                *make_language_fields('name_plural'), 'status_data'
+                *make_language_fields('name_plural'), 
+                'status_data', 'book_template_data'
             ),
             'classes': ('expand',),
         }),
@@ -738,6 +740,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdminNew):
     list_display = (
         'code', 'display_name_plural', 'expense_account', 'currency'
     ) + FIELDS.C_DISPLAY_SHORT
+    list_display_links = ('code', 'display_name_plural')
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
 
     # Search, filter
@@ -756,7 +759,8 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdminNew):
         (_('Booking'), {
             'fields': (
                 'address_type', 'credit_account', 'expense_account',
-                'bank_account', 'tax', 'rounding', 'currency', 'due_days'
+                'bank_account', 'tax', 'rounding', 'currency', 'due_days',
+                'status_data', 'book_template_data'
             ),
             'classes': ('expand',),
         }),
@@ -805,6 +809,8 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdminNew):
         FIELDSET.CASH_CTRL
     )
 
+    inlines = [AttachmentInline]
+
     @admin.display(description=_('Partner'))
     def display_supplier(self, obj):
         return self.display_link_to_company(obj.associate)
@@ -820,9 +826,11 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdminNew):
     list_display = (
         'date', 'display_category_type', 'description', 'display_supplier',
         'price_incl_vat', 'category__currency', 'status'
-    ) + FIELDS.C_DISPLAY_SHORT
+    )  + CORE_FIELDS.ICON_DISPLAY + FIELDS.C_DISPLAY_SHORT
+    list_display_links = (
+        'date', 'display_category_type', 'description'
+    ) + CORE_FIELDS.LINK_ATTACHMENT
     readonly_fields = ('display_category_type',) + FIELDS.C_READ_ONLY
-    list_display_links = ('date', 'display_category_type', 'description')
 
     # Search, filter
     search_fields = ('contract__associate_company', 'description')
@@ -840,6 +848,8 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdminNew):
         BASE_FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
+    
+    inlines = [AttachmentInline]
 
     @admin.display(description=_('Partner'))
     def display_supplier(self, obj):

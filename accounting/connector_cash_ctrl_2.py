@@ -26,10 +26,12 @@ class CashCtrl:
     def __init__(self, model=None, language=None):
         self.language = language
         self.model = model  # needed for get and fields with custom
+        self.api = None  # store later for further usage
 
     def _get_api(self, setup):
-        return self.api_class(
+        self.api = self.api_class(
             setup.org_name, setup.api_key, language=self.language)
+        return self.api
 
     def _init_custom_fields(self, instance):
         '''
@@ -76,7 +78,7 @@ class CashCtrl:
             else:
                 # create instance
                 instance = self.model(
-                    c_id=data.get('id'),
+                    c_id=id,
                     tenant=setup.tenant,
                     setup=setup,
                     created_by=created_by
@@ -90,9 +92,9 @@ class CashCtrl:
                 instance.is_inactive = False
 
             # save instance
-            if getattr(self, 'save_instance', None):
+            if getattr(self, 'save_download', None):
                 # Individual saving
-                self.save_instance(instance, data)
+                self.save_download(instance, data)
             else:
                 # Default saving
                 instance.save()
@@ -117,7 +119,7 @@ class CashCtrl:
 
         # Individualize data
         if getattr(self, 'adjust_for_upload', None):
-            self.adjust_for_upload(instance, data)
+            self.adjust_for_upload(instance, data, created)
 
         # Save
         if created:
@@ -151,7 +153,8 @@ class CashCtrlDual(CashCtrl):
         api = self._get_api(setup)
 
         # Prepare data
-        data = self.adjust_for_upload(instance)
+        if getattr(self, 'adjust_for_upload', None):
+            data = self.adjust_for_upload(instance, data, created)
 
         # Save
         if created:
@@ -201,7 +204,7 @@ class CashCtrlDual(CashCtrl):
                 instance.is_inactive = False
 
             # save instance
-            self.save_instance(instance, data)
+            self.save_download(instance, data)
             if not instance_acct:
                 # create accounting_instance
                 instance_acct = model_accounting(
@@ -222,7 +225,7 @@ class CustomFieldGroup(CashCtrl):
             params = {'type': field.value}
             super().get(setup, created_by, params, update)
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
         instance.save()
@@ -237,13 +240,13 @@ class CustomField(CashCtrl):
             params = {'type': field.value}
             super().get(setup, created_by, params, update)
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         # Get foreign c_ids
         data['type'] = instance.group.type
         data['group_id'] = instance.group.c_id
         print("*d", data)
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
         instance.group = models.CustomFieldGroup.objects.get(c_id=data['id'])
@@ -274,7 +277,7 @@ class Unit(CashCtrl):
     api_class = api_cash_ctrl.Unit
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
 
-    def save_instance(self, instance, data):        
+    def save_download(self, instance, data):        
         if instance.is_default is None:
             del instance.is_default
         if not instance.code:
@@ -286,10 +289,10 @@ class CostCenterCategory(CashCtrl):
     api_class = api_cash_ctrl.AccountCostCenterCategory
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         data['parent_id'] = instance.parent.c_id if instance.parent else None
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         instance.parent = models.CostCenterCategory.objects.filter(
             c_id=data['parent_id']).first()
         instance.save()
@@ -299,11 +302,11 @@ class CostCenter(CashCtrl):
     api_class = api_cash_ctrl.AccountCostCenter
     exclude = EXCLUDE_FIELDS
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         if instance.category:
             data['category_id'] = instance.category.c_id
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
         instance.category = models.CostCenterCategory.objects.filter(
@@ -329,7 +332,7 @@ class AccountCategory(CashCtrl):
                 return text
         return name
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         # parent_id
         data['parent_id'] = (
             instance.parent.c_id if instance.parent else None)
@@ -342,7 +345,7 @@ class AccountCategory(CashCtrl):
                 for language, value in data['name'].items()
             }
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         # parent
         instance.parent = models.AccountCategory.objects.filter(
             c_id=data['category_id']).first()
@@ -364,7 +367,7 @@ class Account(CashCtrl):
     api_class = api_cash_ctrl.Account
     exclude = EXCLUDE_FIELDS
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         # category_id
         data['category_id'] = (
             instance.category.c_id if instance.category else None)
@@ -383,7 +386,7 @@ class Account(CashCtrl):
         # tax_id
         data.pop('tax_c_id', None)
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         # category
         instance.category = models.AccountCategory.objects.filter(
             c_id=data['category_id']).first()
@@ -395,12 +398,12 @@ class Tax(CashCtrl):
     api_class = api_cash_ctrl.Tax
     exclude = EXCLUDE_FIELDS + ['code' + 'is_inactive', 'notes']
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         # account_id
         data['account_id'] = (
             instance.account.c_id if instance.account else None)
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
 
@@ -415,12 +418,12 @@ class Rounding(CashCtrl):
     api_class = api_cash_ctrl.Rounding
     exclude = EXCLUDE_FIELDS + ['code' + 'is_inactive', 'notes']
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         # account_id
         data['account_id'] = (
             instance.account.c_id if instance.account else None)
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
 
@@ -435,10 +438,10 @@ class Setting(CashCtrl):
     api_class = api_cash_ctrl.Setting
     exclude = EXCLUDE_FIELDS + ['code' + 'is_inactive', 'notes']
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         return  # currently only get
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         instance.c_id = 1  # always
         instance.modified_at = timezone.now()
 
@@ -473,50 +476,56 @@ class Setting(CashCtrl):
 
 class OrderCategory(CashCtrl):
     api_class = api_cash_ctrl.OrderCategory
-    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive', 'status_data']
     abstract = True
 
-    @staticmethod
-    def make_base(self, instance):
-        sequence_number = instance.sequence_number
-
+    def make_base(self, instance, data, created):
+        ''' make data base for Order Categories '''
         data.update({
             'type': instance.type,
             'book_type': instance.book_type,
-            'is_display_item_gross': instance.is_display_item_gross,
-            'sequence_nr_id': (
-                sequence_number.c_id if sequence_number else None)
+            'is_display_item_gross': instance.is_display_item_gross
         })
+        
+        if instance.sequence_number:
+            data['sequence_nr_id'] = instance.sequence_number.c_id
 
-    def save_instance(self, instance, data):
-        # get the whole record
-        item_data = self.api.read(data['id'])
+    def save(self, instance, created=None):
+        ''' 
+        Order Category needs reload status after save. This is why we define
+        here a save()
+        '''                
+        super().save(instance, created)
 
-        # update status and save
-        instance.status_data = data['data']['status']
-        instance.save()
+        # get the full record to update status
+        instance.refresh_from_db()
+        data = self.api.read(instance.c_id)
+        instance.status_data = data['status']
+        instance.book_template_data = data['bookTemplates']
+        
+        # save
+        instance.sync_to_accounting = False
+        instance.save()  
 
 
 class OrderCategoryContract(OrderCategory):
 
-    def adjust_for_upload(self, instance, data):
-        data = self.make_base(instance)
-        data['account_id'] = (
-            instance.account.c_id if instance.account else None)
+    def adjust_for_upload(self, instance, data, created=None):
+        self.make_base(instance, data, created)
+        data['account_id'] = instance.account.c_id
 
         # status, we only use minimal values as we do the booking ourselves
-        STATUS = instance.STATUS
         data['status'] = [{
             'icon': instance.COLOR_MAPPING[status],
             'name': convert_to_xml(
                 get_translations(force_str(status.label))),
-        } for status in STATUS]
+        } for status in self.model.STATUS]        
 
 
 class OrderCategoryIncoming(OrderCategory):
 
-    def adjust_for_upload(self, instance, data):
-        data = self.make_base(instance)
+    def adjust_for_upload(self, instance, data, created=None):
+        self.make_base(instance, data, created)
 
         # accounts
         data['account_id'] = instance.credit_account.c_id
@@ -543,7 +552,7 @@ class OrderCategoryIncoming(OrderCategory):
 
         # Rounding
         if getattr(instance, 'rounding', None):
-            data['rounding_id'] = instance.rounding.c_id
+            data['rounding_id'] = instance.rounding.c_id        
 
 
 class Order(CashCtrl):
@@ -551,8 +560,7 @@ class Order(CashCtrl):
     exclude = EXCLUDE_FIELDS
     abstract = True
 
-    def make_base(self, instance):
-
+    def make_base(self, instance, data):
         # Category, person
         data['category_id'] = instance.category.c_id
         if instance.responsible_person:
@@ -560,16 +568,36 @@ class Order(CashCtrl):
                 core=instance.responsible_person).first()
             data['responsible_person_id'] = person.c_id if person else None
 
-        # Status
-        status_data = instance.category.status_data.get(instance.status, None)
-        if status_data:
-            data['status_id'] = status_data['id']
+        # status_id - temp!!! Later with dynamic form
+        for index, status in enumerate(models.OrderCategoryIncoming.STATUS):
+            if instance.status == status:
+                break
+        data['status_id'] = instance.category.status_data[index]['id']
 
 
 class OrderContract(Order):
 
-    def adjust_for_upload(self, instance, data):
-        data = self.make_base(instance)
+    def adjust_for_upload(self, instance, data, created=None):
+        self.make_base(instance, data)
+
+        # associate
+        if instance.associate:
+            person = models.Person.objects.filter(
+                core=instance.associate).first()
+            data['associate_id'] = person.c_id if person else None
+
+        # Create one item with total price
+        data['items'] = [{
+            'accountId': instance.category.account.c_id,
+            'name': instance.description,
+            'unitPrice': float(instance.price_excl_vat)
+        }]
+
+
+class BookEntry(CashCtrl):
+
+    def adjust_for_upload(self, instance, data, created=None):
+        self.make_base(instance, data)
 
         # associate
         if instance.associate:
@@ -587,8 +615,14 @@ class OrderContract(Order):
 
 class IncomingOrder(Order):
 
-    def adjust_for_upload(self, instance, data):
-        data = self.make_base(instance)
+    def adjust_for_upload(self, instance, data, created=None):
+        self.make_base(instance, data)
+
+        # associate
+        if instance.contract.associate:
+            person = models.Person.objects.filter(
+                core=instance.contract.associate).first()
+            data['associate_id'] = person.c_id if person else None
 
         # Create one item with total price
         data['items'] = [{
@@ -606,11 +640,27 @@ class IncomingOrder(Order):
             data['due_days'] = instance.category.due_days
 
 
+class BookEntry(CashCtrl):
+    api_class = api_cash_ctrl.BookEntry
+    exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
+
+    def adjust_for_upload(self, instance, data, created=None):        
+        data.update({
+            'order_ids': [instance.order.c_id],
+            'account_id': instance.order.category.bank_account.c_id,
+            'amount': instance.order.ammount, # ??            
+            'tax_id': instance.order.category.tax.c_id
+        })
+        
+        if instance.contract.currency:
+            data['currency_id'] = instance.contract.currency.c_id
+
+
 class ArticleCategory(CashCtrl):
     api_class = api_cash_ctrl.ArticleCategory
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         # Prepare parent_id
         if getattr(instance, 'parent', None):
             data['parent_id'] = instance.parent.c_id
@@ -627,7 +677,7 @@ class ArticleCategory(CashCtrl):
         if getattr(instance, 'sequence_nr', None):
             data['sequence_nr_id'] = instance.sequence_nr.c_id
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
         instance.save()
@@ -637,7 +687,7 @@ class Article(CashCtrl):
     api_class = api_cash_ctrl.Article
     exclude = EXCLUDE_FIELDS
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         # Prepare category_id
         if getattr(instance, 'category', None):
             data['category_id'] = instance.category.c_id
@@ -658,7 +708,7 @@ class Article(CashCtrl):
         if getattr(instance, 'unit', None):
             data['unit_id'] = instance.unit.c_id
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
         instance.save()
@@ -671,10 +721,10 @@ class Title(CashCtrlDual):
     exclude = EXCLUDE_FIELDS + ['code']
     model_accounting = models.Title
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         return model_to_dict(instance, exclude=self.exclude)
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
         instance.save()
@@ -685,10 +735,10 @@ class PersonCategory(CashCtrlDual):
     exclude = EXCLUDE_FIELDS + ['code']
     model_accounting = models.PersonCategory
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         return model_to_dict(instance, exclude=self.exclude)
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
         instance.save()
@@ -699,7 +749,7 @@ class Person(CashCtrlDual):
     exclude = EXCLUDE_FIELDS + ['photo']  # for now
     model_accounting = models.Person
 
-    def adjust_for_upload(self, instance, data):
+    def adjust_for_upload(self, instance, data, created=None):
         # Make data
 
         # Get foreign c_ids
@@ -730,5 +780,5 @@ class Person(CashCtrlDual):
             'zip': addr.address.zip
         } for addr in addresses.order_by('id')]
 
-    def save_instance(self, instance, data):
+    def save_download(self, instance, data):
         instance.save()

@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth.models import Group
+from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.contrib.auth.models import User
@@ -14,8 +15,9 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from core.models import (
-    LogAbstract, NotesAbstract, Tenant, TenantAbstract, TenantSetup,
-    TenantLogo, Country, Address, Contact, PersonAddress
+    LogAbstract, NotesAbstract, Attachment , 
+    Tenant, TenantAbstract, TenantSetup, TenantLogo, 
+    Country, Address, Contact, PersonAddress    
 )
 from core.models import (
     Title as TitleCrm,
@@ -93,14 +95,14 @@ class APISetup(TenantAbstract):
 
     @classmethod
     def get_setup(cls, tenant=None, tenant_id=None,**kwargs):
-        ''' 
+        '''
         get api_setup from different parameters
         currently only one accounting system --> derive only from tenant
         '''
         if tenant:
             return cls.objects.get(tenant=tenant, is_default=True)
         elif tenant_id:
-            return cls.objects.get(tenant__id=tenant_id, is_default=True)        
+            return cls.objects.get(tenant__id=tenant_id, is_default=True)
         raise ValidationError('No tenant given')
 
     @property
@@ -852,7 +854,7 @@ class Tax(AcctApp):
         # CashCtrl
         NET = CALCULATION_BASE.NET, _('Net')
         GROSS = CALCULATION_BASE.GROSS, _('Gross')
-    
+
     code = models.CharField(
         _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
@@ -1100,7 +1102,7 @@ class Core(AcctApp):
     # redefine the related classes
     tenant = models.ForeignKey(
         Tenant, on_delete=models.CASCADE,
-        related_name='%(class)s_core_tenant', 
+        related_name='%(class)s_core_tenant',
         help_text='every instance must have a tenant')
     created_by = models.ForeignKey(
         User, verbose_name=_('created by'),
@@ -1108,7 +1110,7 @@ class Core(AcctApp):
     modified_by = models.ForeignKey(
         User, verbose_name=_('modified by'), null=True, blank=True,
         on_delete=models.CASCADE, related_name='%(class)s_core_modified')
-        
+
     class Meta:
         abstract = True
 
@@ -1119,7 +1121,7 @@ class Title(Core):
     Map core title to accounting system, not shown in any GUI
     '''
     core = models.ForeignKey(
-        TitleCrm, on_delete=models.CASCADE, 
+        TitleCrm, on_delete=models.CASCADE,
         related_name='%(class)s_core', help_text='origin')
 
     def __str__(self):
@@ -1130,7 +1132,7 @@ class Title(Core):
             models.UniqueConstraint(
                 fields=['setup', 'core'],
                 name='accounting_unique_title')
-        ]         
+        ]
 
 
 class PersonCategory(Core):
@@ -1162,7 +1164,7 @@ class Person(Core):
     core = models.ForeignKey(
         PersonCrm, on_delete=models.CASCADE,
         related_name='%(class)s_core', help_text='origin')
- 
+
     @classmethod
     def get_accounting_object(cls, person_id):
         accounting_object = cls.objects.filter(
@@ -1170,14 +1172,14 @@ class Person(Core):
         if accounting_object:
             return accounting_object
         raise ValidationError("No accounting_object found for person")
- 
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=['setup', 'core'],
                 name='accounting_unique_person')
         ]
- 
+
 
 # Orders --------------------------------------------------------------------
 class BookTemplate(AcctApp):
@@ -1349,13 +1351,27 @@ class OrderCategoryContract(OrderCategory):
         ''' needed for cashCtrl so we take the first credit account '''
         credit_account = Account.objects.filter(
             setup=self.setup, hrm__startswith='2').first()
-        if not credit_account:
-            raise ValidationError(_("No credit account found."))
-        return credit_account
+        if credit_account:
+            return credit_account
+
+        # try again, shouldn't happen
+        queryset = Account.objects.filter(setup=self.setup)
+        for credit_account in queryset.all():
+            if int(str(credit_account.number)[0]) == 2:
+                return credit_account
+
+        raise ValidationError(_("No credit account found."))
 
     @property
     def sequence_number(self):
         return self.get_sequence_number('BE')
+
+    def clean(self):
+        # Check if not changeable
+        if self.pk and OrderContract.objects.filter(category=self).exists():
+            raise ValidationError(
+                _("Categories with existing contracts cannot be changed"))
+        super().clean()
 
     class Meta:
         constraints = [
@@ -1396,15 +1412,15 @@ class OrderCategoryIncoming(OrderCategory):
     }
 
     BOOKING_MAPPING = {
-        STATUS.OPEN: True,
-        STATUS.APPROVED_1: True,
-        STATUS.APPROVED_2: True,
+        STATUS.OPEN: False,
+        STATUS.APPROVED_1: False,
+        STATUS.APPROVED_2: False,
         STATUS.SUBMITTED: True,
-        STATUS.REMINDER_1: True,
-        STATUS.REMINDER_2:True,
+        STATUS.REMINDER_1: False,
+        STATUS.REMINDER_2:False,
         STATUS.PAID: True,
-        STATUS.ARCHIVED: True,
-        STATUS.CANCELLED: True,
+        STATUS.ARCHIVED: False,
+        STATUS.CANCELLED: False,
     }
     is_display_item_gross = True
 
@@ -1448,6 +1464,13 @@ class OrderCategoryIncoming(OrderCategory):
     def sequence_number(self):
         return self.get_sequence_number('ER')
 
+    def clean(self):
+        # Check if not changeable
+        if self.pk and IncomingOrder.objects.filter(category=self).exists():
+            raise ValidationError(
+                _("Categories with existing contracts cannot be changed"))
+        super().clean()
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -1459,7 +1482,21 @@ class OrderCategoryIncoming(OrderCategory):
         verbose_name_plural = _("Category Invoices & Bookings")
 
 
-class OrderContract(AcctApp):
+class Order(AcctApp):
+    ''' Base class for orders
+    '''
+    category = models.ForeignKey(
+        OrderCategoryContract, on_delete=models.CASCADE,
+        related_name='%(class)s_category',
+        verbose_name=_('Category'),
+        help_text=_('category'))
+    date = models.DateField(_('Date'))
+
+    class Meta:
+        abstract = True
+
+
+class OrderContract(Order):
     '''
     '''
     CUSTOM = [
@@ -1470,13 +1507,7 @@ class OrderContract(AcctApp):
     associate = models.ForeignKey(
         PersonCrm, on_delete=models.PROTECT, related_name='associate_2',
         verbose_name=_('Contract party'),
-        help_text=_('Supplier or Client'))  # to be mapped to multiple in cashCtrl        
-    category = models.ForeignKey(
-        OrderCategoryContract, on_delete=models.CASCADE,
-        related_name='%(class)s_category',
-        verbose_name=_('Category'),
-        help_text=_('category'))
-    date = models.DateField(_('Date'))
+        help_text=_('Supplier or Client'))  # to be mapped to multiple in cashCtrl
     status = models.CharField(
         _('Status'), max_length=50,
         choices=OrderCategoryContract.STATUS.choices,
@@ -1491,7 +1522,7 @@ class OrderContract(AcctApp):
         verbose_name=_('Currency'))
     responsible_person = models.ForeignKey(
         PersonCrm, on_delete=models.PROTECT, blank=True, null=True,
-        verbose_name=_('Responsible'), related_name='%(class)s_person',        
+        verbose_name=_('Responsible'), related_name='%(class)s_person',
         help_text=_('Principal'))
     valid_from = models.DateField(
         _('Valid From'), null=True, blank=True)
@@ -1499,8 +1530,9 @@ class OrderContract(AcctApp):
         _('Valid Until'), null=True, blank=True)
     notice_period_month = models.PositiveSmallIntegerField(
         _('Notice Period (Months)'), null=True, blank=True)
-
-    def __str__(self): 
+    attachments = GenericRelation('core.Attachment')
+    
+    def __str__(self):
         return f"{self.associate.company}, {self.date}, {self.description}"
 
     class Meta:
@@ -1508,7 +1540,7 @@ class OrderContract(AcctApp):
         verbose_name_plural = _("Contracts")
 
 
-class IncomingOrder(AcctApp):
+class IncomingOrder(Order):
     ''' IncomingOrder, i.e INVOICE
     Note:
     When incomding order is created first booking is done:
@@ -1534,7 +1566,6 @@ class IncomingOrder(AcctApp):
         help_text=_(
             "Contract with booking instructions. "
             "Upload actual invoice as attachment."))
-    date = models.DateField(_('Date'))
     description = models.TextField(
         _('Description'), blank=True, null=True,
         help_text=_("e.g. Services May"))
@@ -1543,14 +1574,15 @@ class IncomingOrder(AcctApp):
     status = models.CharField(
         _('Status'), max_length=50,
         choices=OrderCategoryIncoming.STATUS.choices)
-    due_days = models.PositiveIntegerField(
+    due_days = models.PositiveSmallIntegerField(
         _('Due Days'), null=True, blank=True,
         help_text=_('''Leave blank to calculate from contract'''))
     responsible_person = models.ForeignKey(
         PersonCrm, on_delete=models.PROTECT, blank=True, null=True,
-        verbose_name=_('Clerk'), related_name='%(class)s_person',        
-        help_text=_('Clerk'))    
-
+        verbose_name=_('Clerk'), related_name='%(class)s_person',
+        help_text=_('Clerk'))
+    attachments = GenericRelation('core.Attachment')
+    
     def __str__(self):
         return (f"{self.contract.associate.company}, {self.date}, "
                 f"{self.description}")
@@ -1558,6 +1590,31 @@ class IncomingOrder(AcctApp):
     class Meta:
         verbose_name = _("Incoming Invoice")
         verbose_name_plural = _("Incoming Invoices")
+
+
+class IncomingBookEntry(AcctApp):
+    ''' Book Entry for incoming orders
+    '''
+    order = models.ForeignKey(
+        IncomingOrder, on_delete=models.CASCADE,
+        related_name='%(class)s_order',
+        verbose_name=_('Book Entry'),
+        help_text=_('automatically generated'))
+    date = models.DateField(_('Date'))
+    template_id = models.PositiveIntegerField(
+        _('Book Template Id'), null=True, blank=True,
+        help_text=_('''CashCtrl id, automatically filled out'''))
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'order', 'template_id'],
+                name='unique_incoming_book_entry'
+            )
+        ]        
+        ordering = ['-date']
+        verbose_name = _("Book Entry")
+        verbose_name_plural = _("Book Entries")        
 
 
 class OrderTemplate(AcctApp):
@@ -1687,10 +1744,10 @@ class LedgerBalance(LedgerAccount):
     class SIDE(models.IntegerChoices):
         ASSET = 1, _('Asset')
         LIABILITY = 2, _('Liabilities')
-        
+
     side = models.PositiveSmallIntegerField(
         _('Side'), choices=SIDE, blank=True, null=True,
-        help_text=_("Assets or liabilities"))  
+        help_text=_("Assets or liabilities"))
     category = models.ForeignKey(
         AccountCategory, verbose_name=_('Account Category'),
         on_delete=models.PROTECT, blank=True, null=True,
@@ -1751,7 +1808,7 @@ class FunctionalLedger(LedgerAccount):
         abstract = True
 
 
-class LedgerPL(FunctionalLedger):    
+class LedgerPL(FunctionalLedger):
     expense = models.DecimalField(
         _('Expense'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The expense amount.')
@@ -1792,7 +1849,7 @@ class LedgerPL(FunctionalLedger):
         verbose_name_plural = _('Profit/Loss')
 
 
-class LedgerIC(FunctionalLedger):        
+class LedgerIC(FunctionalLedger):
     expense = models.DecimalField(
         _('Expense'), max_digits=11, decimal_places=2, blank=True, null=True,
         help_text=_('The expense amount.')
