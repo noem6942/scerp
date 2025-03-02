@@ -657,6 +657,42 @@ class AccountAdmin(TenantFilteringAdmin, BaseAdminNew):
 
 
 # Order Management ---------------------------------------------------------
+@admin.register(models.OrderTemplate, site=admin_site)
+class OrderTemplateAdmin(TenantFilteringAdmin, BaseAdminNew):
+    # Safeguards
+    protected_foreigns = ['tenant', 'setup']
+    
+    # Display these fields in the list view
+    list_display = ('name', 'is_default') + FIELDS.C_DISPLAY_SHORT
+    readonly_fields = FIELDS.C_READ_ONLY
+
+    # Search, filter
+    search_fields = ('name',)
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'name', 'css', 'footer', 'html', 'is_default', 
+                'is_display_document_name', 'is_display_item_article_nr', 
+                'is_display_item_price_rounded', 'is_display_item_tax', 
+                'is_display_item_unit', 'is_display_logo', 
+                'is_display_org_address_in_window', 'is_display_page_nr', 
+                'is_display_payments', 'is_display_pos_nr', 
+                'is_display_recipient_nr', 'is_display_responsible_person',
+                'is_display_zero_tax', 'is_overwrite_css', 'is_overwrite_html', 
+                'is_qr_empty_amount', 'is_qr_no_lines', 
+                'is_qr_no_reference_nr', 'letter_paper_file_id', 'logo_height',
+                'page_size'
+            ),
+            'classes': ('expand',),
+        }),
+        BASE_FIELDSET.NOTES_AND_STATUS,
+        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.CASH_CTRL
+    )
+    
+
 @admin.register(models.BookTemplate, site=admin_site)
 class BookTemplateAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
@@ -694,7 +730,7 @@ class BookTemplateAdmin(TenantFilteringAdmin, BaseAdminNew):
 @admin.register(models.OrderCategoryContract, site=admin_site)
 class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
-    protected_foreigns = ['tenant', 'setup']
+    protected_foreigns = ['tenant', 'setup', 'template']
 
     # Helpers
     form = forms.OrderCategoryContractAdminForm
@@ -715,7 +751,7 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdminNew):
                 'code', 'type', 
                 *make_language_fields('name_singular'),
                 *make_language_fields('name_plural'), 
-                'status_data', 'book_template_data'
+                'template', 'status_data', 'book_template_data'
             ),
             'classes': ('expand',),
         }),
@@ -730,7 +766,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
     protected_foreigns = [
         'tenant', 'setup', 'credit_account', 'expense_account', 'bank_account',
-        'tax', 'currency'
+        'tax', 'currency', 'template'
     ]
 
     # Helpers
@@ -750,9 +786,9 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdminNew):
     fieldsets = (
         (None, {
             'fields': (
-                'code',
+                'code', 
                 *make_language_fields('name_singular'),
-                *make_language_fields('name_plural'),
+                *make_language_fields('name_plural'), 'template'
             ),
             'classes': ('expand',),
         }),
@@ -854,6 +890,38 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdminNew):
     @admin.display(description=_('Partner'))
     def display_supplier(self, obj):
         return self.display_link_to_company(obj.contract.associate)
+
+
+@admin.register(models.IncomingBookEntry, site=admin_site)
+class IncomingBookEntry(TenantFilteringAdmin, BaseAdminNew):
+    # Safeguards
+    protected_foreigns = [
+        'tenant', 'setup', 'order'
+    ]
+
+    # Display these fields in the list view
+    list_display = (
+        'date', 'order'
+    )  + CORE_FIELDS.ICON_DISPLAY + FIELDS.C_DISPLAY_SHORT
+    list_display_links = (
+        'date', 'order'
+    ) + CORE_FIELDS.LINK_ATTACHMENT
+    readonly_fields =  FIELDS.C_READ_ONLY
+
+    # Search, filter
+    search_fields = ('date',)
+    list_filter = ('date',)
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': ('date', 'order', 'template_id'),
+            'classes': ('expand',),
+        }),
+        BASE_FIELDSET.NOTES_AND_STATUS,
+        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.CASH_CTRL
+    )
 
 
 @admin.register(models.ArticleCategory, site=admin_site)

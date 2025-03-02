@@ -8,7 +8,7 @@ from django.utils.encoding import force_str
 from core.models import PersonContact, PersonAddress
 from scerp.mixins import get_translations
 from . import api_cash_ctrl, models
-from .api_cash_ctrl import convert_to_xml
+from .api_cash_ctrl import clean_dict, convert_to_xml
 
 
 EXCLUDE_FIELDS = [
@@ -153,8 +153,9 @@ class CashCtrlDual(CashCtrl):
         api = self._get_api(setup)
 
         # Prepare data
+        data = model_to_dict(instance, exclude=self.exclude)
         if getattr(self, 'adjust_for_upload', None):
-            data = self.adjust_for_upload(instance, data, created)
+            self.adjust_for_upload(instance, data, created)
 
         # Save
         if created:
@@ -474,6 +475,11 @@ class Setting(CashCtrl):
         )
 
 
+class OrderTemplate(CashCtrl):
+    api_class = api_cash_ctrl.OrderTemplate
+    exclude = EXCLUDE_FIELDS + ['' + 'is_inactive', 'notes']
+
+
 class OrderCategory(CashCtrl):
     api_class = api_cash_ctrl.OrderCategory
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive', 'status_data']
@@ -481,12 +487,21 @@ class OrderCategory(CashCtrl):
 
     def make_base(self, instance, data, created):
         ''' make data base for Order Categories '''
+        # type
+        order_type = instance.type 
+        if not isinstance(order_type, str):
+            order_type = order_type.value
+        
         data.update({
-            'type': instance.type,
+            'type': order_type,
             'book_type': instance.book_type,
             'is_display_item_gross': instance.is_display_item_gross
         })
         
+        # Order template
+        if instance.template:
+            data['template_id'] = instance.template.c_id
+            
         if instance.sequence_number:
             data['sequence_nr_id'] = instance.sequence_number.c_id
 
@@ -537,7 +552,7 @@ class OrderCategoryIncoming(OrderCategory):
             'icon': instance.COLOR_MAPPING[status],
             'name': convert_to_xml(
                 get_translations(force_str(status.label))),
-            'is_book': instance.BOOKING_MAPPING[status],
+            'isBook': instance.BOOKING_MAPPING[status]
         } for status in STATUS]
 
         # BookTemplates
@@ -560,7 +575,7 @@ class Order(CashCtrl):
     exclude = EXCLUDE_FIELDS
     abstract = True
 
-    def make_base(self, instance, data):
+    def make_base(self, instance, data):        
         # Category, person
         data['category_id'] = instance.category.c_id
         if instance.responsible_person:
@@ -625,10 +640,12 @@ class IncomingOrder(Order):
             data['associate_id'] = person.c_id if person else None
 
         # Create one item with total price
+        category = instance.category
         data['items'] = [{
             'accountId': instance.category.expense_account.c_id,
             'name': instance.description,
-            'unitPrice': float(instance.price_incl_vat)
+            'unitPrice': float(instance.price_incl_vat),
+            'taxId': category.tax.c_id if category.tax else None
         }]
 
         # Rounding
@@ -637,23 +654,24 @@ class IncomingOrder(Order):
 
         # Due days
         if getattr(instance, 'due_days', None):
-            data['due_days'] = instance.category.due_days
+            data['due_days'] = instance.due_days        
 
-
-class BookEntry(CashCtrl):
-    api_class = api_cash_ctrl.BookEntry
+class IncomingBookEntry(CashCtrl):
+    api_class = api_cash_ctrl.OrderBookEntry
     exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
 
-    def adjust_for_upload(self, instance, data, created=None):        
+    def adjust_for_upload(self, instance, data, created=None): 
+        order = instance.order
+        category = order.category
         data.update({
-            'order_ids': [instance.order.c_id],
-            'account_id': instance.order.category.bank_account.c_id,
-            'amount': instance.order.ammount, # ??            
-            'tax_id': instance.order.category.tax.c_id
+            'order_ids': [order.c_id],
+            'amount': order.price_incl_vat,
+            'account_id': category.bank_account.c_id,
+            'tax_id': category.tax.c_id
         })
         
-        if instance.contract.currency:
-            data['currency_id'] = instance.contract.currency.c_id
+        if category.currency:
+            data['currency_id'] = category.currency.c_id
 
 
 class ArticleCategory(CashCtrl):
@@ -754,14 +772,17 @@ class Person(CashCtrlDual):
 
         # Get foreign c_ids
         superior = models.Person.objects.filter(
-            core=instance.superior).first()
+            core=instance.superior).first()        
         data.update({
             'category_id': models.PersonCategory.objects.get(
-                core=instance.category).c_id,
-            'title_id': models.Title.objects.get(
-                core=instance.title).c_id,
+                core=instance.category).c_id,            
             'superior_id': superior.c_id if superior else None
         })
+        
+        # Add Title
+        title = models.Title.objects.filter(core=instance.title).first()
+        if title:
+            data['title_id'] = title.c_id
 
         # Make contacts
         contacts = PersonContact.objects.filter(person=instance)
@@ -774,7 +795,7 @@ class Person(CashCtrlDual):
         addresses = PersonAddress.objects.filter(person=instance)
         data['addresses'] = [{
             'type': addr.type,
-            'address': self.make_address(addr),
+            'address': addr.address_full,
             'city': addr.address.city,
             'country': addr.address.country.alpha3,
             'zip': addr.address.zip

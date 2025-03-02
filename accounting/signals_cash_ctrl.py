@@ -13,9 +13,9 @@ from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
 from core.models import (
-    Title as TitleCrm,
-    PersonCategory as PersonCategoryCrm,
-    Person as PersonCrm
+    Title as CoreTitle,
+    PersonCategory as CorePersonCategory,
+    Person as CorePerson
 )
 from scerp.mixins import read_yaml_file
 from . import connector_cash_ctrl_2 as conn2
@@ -59,6 +59,11 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         # Make data -----------------------------------------------
         setup = instance
 
+        # Order Template
+        api = conn2.OrderTemplate(models.OrderTemplate)
+        api.get(instance, request.user, overwrite_data=True)
+        return
+
         # Get settings
         api = conn2.Setting(models.Setting)
         api.get(instance, request.user, update=True)
@@ -69,13 +74,13 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
 
         # Get titles
         sync = conn2.Title()
-        sync.get(TitleCrm, models.Title, instance, request.user, update=False)
+        sync.get(CoreTitle, models.Title, instance, request.user, update=False)
         return
 
         # Get Person Categories
         sync = conn2.PersonCategory()
         sync.get(
-            PersonCategoryCrm, models.PersonCategory, instance, request.user,
+            CorePersonCategory, models.PersonCategory, instance, request.user,
             update=False)
 
         return
@@ -451,6 +456,23 @@ def article_pre_delete(sender, instance, **kwargs):
         api.delete(instance)
 
 
+# OrderTemplate
+@receiver(post_save, sender=models.OrderTemplate)
+def order_template_contract_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on OrderTemplate. '''
+    if instance.sync_to_accounting:
+        api = conn2.OrderTemplate(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=models.OrderTemplate)
+def order_template_contract_post_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on OrderTemplate. '''
+    if instance.c_id:
+        api = conn2.OrderTemplate(sender)
+        api.delete(instance)
+        
+
 # OrderCategoryContract
 @receiver(post_save, sender=models.OrderCategoryContract)
 def order_category_contract_post_save(sender, instance, created, **kwargs):
@@ -593,11 +615,11 @@ def get_or_create_accounting_instance(model, instance, created):
 
 
 # Title
-@receiver(post_save, sender=TitleCrm)
+@receiver(post_save, sender=CoreTitle)
 def title_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Title. '''
     if instance.sync_to_accounting:
-        api = conn2.Title()
+        api = conn2.Title(sender)
         api.save(instance, created)
 
 
@@ -610,9 +632,9 @@ def title_post_delete(sender, instance, **kwargs):
 
 
 # PersonCategory
-@receiver(post_save, sender=PersonCategoryCrm)
+@receiver(post_save, sender=CorePersonCategory)
 def person_category_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on PersonCategoryCrm. '''
+    '''Signal handler for post_save signals on CorePersonCategory. '''
     if instance.sync_to_accounting:
         api = conn2.PersonCategory(sender)
         api.save(instance, created)
@@ -627,11 +649,11 @@ def person_category_pre_delete(sender, instance, **kwargs):
 
 
 # Person
-@receiver(post_save, sender=PersonCrm)
+@receiver(post_save, sender=CorePerson)
 def person_category_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on PersonCrm. '''
+    '''Signal handler for post_save signals on CorePerson. '''
     if instance.sync_to_accounting:
-        api = conn2.Person()
+        api = conn2.Person(sender)
         api.save(instance, created)
 
 

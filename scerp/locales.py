@@ -73,21 +73,21 @@ APP_MODEL_ORDER = {
         'needs_tenant': True,
         'models': {
             # Admin
-            'APISetup': ('* 01', ''),
-            'CustomFieldGroup': ('* 02', ''),
-            'CustomField': ('* 03', ''),
-            'Setting': ('* 04', ' ⬇️'),
+            'APISetup': ('Setup 01', ''),
+            'CustomFieldGroup': ('Setup 02', ''),
+            'CustomField': ('Setup 03', ''),
+            'Setting': ('Setup 04', ' ⬇️'),
 
             # Accounting Admin
-            'Location': ('* 10', ' ⬇️'),
-            'CostCenterCategory': ('* 11', ''),
-            'CostCenter': ('* 12', ''),
+            'Location': ('Settings 01', ' ⬇️'),
+            'CostCenterCategory': ('Settings 02', ''),
+            'CostCenter': ('Settings 03', ''),
 
-            'Currency': ('* 13', ''),
-            'Tax': ('* 14', ''),
-            'Rounding': ('* 15', ' ⬇️'),
-            'SequenceNumber': ('* 16', ' ⬇️'),
-            'Unit': ('* 17', ''),
+            'Currency': ('Settings 04', ''),
+            'Tax': ('Settings 05', ''),
+            'Rounding': ('Settings 06', ' ⬇️'),
+            'SequenceNumber': ('Settings 07', ' ⬇️'),
+            'Unit': ('Settings 08', ''),
 
             # CRM Admin
             'Title': ('22', ''),
@@ -95,14 +95,16 @@ APP_MODEL_ORDER = {
             'Person': ('24', ''),
 
             # Order Management
+            'OrderTemplate': ('O. 14', ''),
             'BookTemplate': ('O. 15', ''),
             'OrderCategoryContract': ('O. 16', ''),
             'OrderCategoryIncoming': ('O. 17', ''),
             'OrderContract': ('O. 18', ''),
             'IncomingOrder': ('O. 19', ''),
-            'OrderTemplate': ('O. 20', ''),
-            'ArticleCategory': ('O. 21', ''),
-            'Article': ('O. 22', ''),
+            'IncomingBookEntry': ('O. 20', ''),
+            'OrderTemplate': ('O. 21', ''),
+            'ArticleCategory': ('O. 22', ''),
+            'Article': ('O. 23', ''),
 
             # Accounting
             'FiscalPeriod': ('* 18', ' ⬇️'),

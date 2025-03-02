@@ -1231,6 +1231,90 @@ class BookTemplate(AcctApp):
         verbose_name_plural = f"{_('Booking Templates')}"
 
 
+class OrderTemplate(AcctApp):
+    PAGE_SIZES = [
+        ("A0", "A0"), ("A1", "A1"), ("A2", "A2"), ("A3", "A3"), ("A4", "A4"), 
+        ("A5", "A5"), ("A6", "A6"), ("A7", "A7"), ("A8", "A8"), ("A9", "A9"), 
+        ("LEGAL", "LEGAL"), ("LETTER", "LETTER"), ("A4R", "A4R")
+    ]    
+    
+    # Required field
+    name = models.CharField(
+        _("Name"), max_length=200,
+        help_text="A name to describe and identify the template.")
+
+    # Optional fields
+    css = models.TextField(
+        blank=True, null=True, verbose_name="CSS", 
+        help_text="The CSS stylesheet for the template.")
+    footer = models.TextField(
+        blank=True, null=True, verbose_name="Footer", 
+        help_text="Footer text with limited HTML.")
+    html = models.TextField(
+        blank=True, null=True, verbose_name="HTML", 
+        help_text="The HTML and Apache Velocity template.")
+
+    # Boolean fields with default values
+    is_default = models.BooleanField(
+        blank=True, null=True, verbose_name="Default Template")
+    is_display_document_name = models.BooleanField(        
+        blank=True, null=True, verbose_name="Display Document Name")
+    is_display_item_article_nr = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Item Article No.")
+    is_display_item_price_rounded = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Rounded Item Prices")
+    is_display_item_tax = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Item Tax")
+    is_display_item_unit = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Item Unit")
+    is_display_logo = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Logo")
+    is_display_org_address_in_window = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Org Address in Window")
+    is_display_page_nr = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Page Numbers")
+    is_display_payments = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Payments")
+    is_display_pos_nr = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Item Numbering")
+    is_display_recipient_nr = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Recipient Number")
+    is_display_responsible_person = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Responsible Person")
+    is_display_zero_tax = models.BooleanField(
+        blank=True, null=True, verbose_name="Display Zero Tax (0.00)")
+    is_overwrite_css = models.BooleanField(
+        blank=True, null=True, verbose_name="Overwrite Default CSS")
+    is_overwrite_html = models.BooleanField(
+        blank=True, null=True, verbose_name="Overwrite Default HTML")
+    is_qr_empty_amount = models.BooleanField(
+        blank=True, null=True, verbose_name="Leave Amount Empty in QR Code")
+    is_qr_no_lines = models.BooleanField(
+        blank=True, null=True, verbose_name="QR Invoice Without Lines")
+    is_qr_no_reference_nr = models.BooleanField(
+        blank=True, null=True, verbose_name="QR Invoice Without Reference Number")
+
+    # Numeric fields
+    letter_paper_file_id = models.PositiveIntegerField(
+        blank=True, null=True, verbose_name="Letter Paper File ID", help_text="ID of the letter paper file (PDF). Max size: 500KB.")
+    logo_height = models.DecimalField(
+        max_digits=3, decimal_places=1, blank=True, null=True,
+        verbose_name="Logo Height", help_text="Height of the logo in cm. Min: 0.1, Max: 9.0.",
+    )
+    page_size = models.CharField(
+        max_length=10, choices=PAGE_SIZES, default="A4", blank=True,
+        verbose_name="Page Size", help_text="Page size of the document. Defaults to A4."
+    )
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = _("Order Template")
+        verbose_name_plural = f"{_('Order Templates')}"
+
+
 class OrderCategory(AcctApp):
     ''' OrderCategory
     central category for booking:
@@ -1269,6 +1353,14 @@ class OrderCategory(AcctApp):
     book_template_data = models.JSONField(
         blank=True, null=True,
         help_text="Internal use for storing book_template_ids")
+    template = models.ForeignKey(
+        OrderTemplate, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_order_template',
+        verbose_name=_('Order Template'))
+    is_display_prices = models.BooleanField(
+        _('Display prices'), default=True,
+        help_text=_(
+            'Whether prices and totals are displayed on the document.'))
 
     @property
     def book_type(self):
@@ -1365,13 +1457,16 @@ class OrderCategoryContract(OrderCategory):
     @property
     def sequence_number(self):
         return self.get_sequence_number('BE')
-
-    def clean(self):
+    
+    # overwriting of order categories seems to work
+    '''
+    def clean(self):        
         # Check if not changeable
         if self.pk and OrderContract.objects.filter(category=self).exists():
             raise ValidationError(
                 _("Categories with existing contracts cannot be changed"))
         super().clean()
+    '''
 
     class Meta:
         constraints = [
@@ -1463,14 +1558,17 @@ class OrderCategoryIncoming(OrderCategory):
     @property
     def sequence_number(self):
         return self.get_sequence_number('ER')
-
-    def clean(self):
+    
+    # overwriting of order categories seems to work
+    '''
+    def clean(self):       
         # Check if not changeable
         if self.pk and IncomingOrder.objects.filter(category=self).exists():
             raise ValidationError(
                 _("Categories with existing contracts cannot be changed"))
         super().clean()
-
+    '''
+        
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -1598,7 +1696,7 @@ class IncomingBookEntry(AcctApp):
     order = models.ForeignKey(
         IncomingOrder, on_delete=models.CASCADE,
         related_name='%(class)s_order',
-        verbose_name=_('Book Entry'),
+        verbose_name=_('Order'),
         help_text=_('automatically generated'))
     date = models.DateField(_('Date'))
     template_id = models.PositiveIntegerField(
@@ -1615,27 +1713,6 @@ class IncomingBookEntry(AcctApp):
         ordering = ['-date']
         verbose_name = _("Book Entry")
         verbose_name_plural = _("Book Entries")        
-
-
-class OrderTemplate(AcctApp):
-    '''Read - only
-    '''
-    name = models.CharField(
-        _('name'), max_length=200,
-        help_text=_("The name to describe and identify the template."))
-    is_default = models.BooleanField(
-        _('is default'),
-        help_text=_(
-            "Mark the template as the default template to use. Defaults to "
-            "false.  "))
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        ordering = ['name']
-        verbose_name = _("Order Template")
-        verbose_name_plural = f"{_('Order Templates')}"
 
 
 # scerp entities with foreign key to Ledger ---------------------------------

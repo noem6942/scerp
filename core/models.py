@@ -671,6 +671,17 @@ class PersonAddress(TenantAbstract):
         max_length=50, blank=True, null=True,
         help_text=_("e.g. c/o"))
 
+    @property
+    def address_full(self):
+        value = self.address.address
+
+        if self.post_office_box:
+            value += '\n' + self.post_office_box
+        if self.additional_information:
+            value += '\n' + self.additional_information
+
+        return value
+
     def __str__(self):
         return f"{self.address}"
 
