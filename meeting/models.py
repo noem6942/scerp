@@ -3,7 +3,7 @@ from django.db import models
 from django.utils.translation import get_language, gettext_lazy as _
 
 # from core.models import TenantAbstract, to be done later
-from crm.models import Building
+from core.models import Building
 from vault.models import Status
 
 

@@ -1279,8 +1279,7 @@ class Core(TenantFilteringAdmin, BaseAdminNew):
     protected_foreigns = ['setup', 'core']
 
     # Display these fields in the list view
-    list_display = ('core', ) + FIELDS.C_DISPLAY_SHORT
-    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
+    list_display = ('core', ) + FIELDS.C_DISPLAY_SHORT    
     readonly_fields = FIELDS.C_READ_ONLY
 
     # Actions

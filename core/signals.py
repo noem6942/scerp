@@ -3,6 +3,7 @@ import copy
 import json
 import logging
 import os
+from datetime import date
 from PIL import Image
 
 from django.apps import apps
@@ -15,6 +16,9 @@ from django.dispatch import receiver
 from django.utils.crypto import get_random_string
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
+
+from asset.models import AssetCategory
+from billing.models import Period
 
 from .models import App, Tenant, TenantSetup, TenantLogo, UserProfile, Country
 from scerp.mixins import is_url_friendly
@@ -66,13 +70,15 @@ def tenant_post_save(sender, instance, created, **kwargs):
         ''' run first init scripts '''
         request = kwargs.get('request')
         country_default = kwargs.get('country_default', 'che').upper()
-        
-        # Country ------------------------------------------------------
+
         """
+        # Country ------------------------------------------------------
+        '''
         Initializes alpha3_dict by reading country data from JSON files
         for each language defined in settings.LANGUAGES.
-        """
+        '''
         # Initialize the dictionary
+        country_default = kwargs.get('country_default', 'che').upper()
         alpha3_dict = {}        
         languages = [lang for lang, _language in settings.LANGUAGES]
         lang_dict = {
@@ -110,8 +116,8 @@ def tenant_post_save(sender, instance, created, **kwargs):
             except FileNotFoundError:
                 print(f"File not found for language '{lang}': {path_to_file}")
             except json.JSONDecodeError:
-                print(f"""Error decoding JSON for language '{lang}'.
-                    Please check the file format.""")
+                print(f'''Error decoding JSON for language '{lang}'.
+                    Please check the file format.''')
             except Exception as e:
                 print(f"An unexpected error occurred for language '{lang}': {e}")
 
@@ -129,10 +135,29 @@ def tenant_post_save(sender, instance, created, **kwargs):
         logger.info(
             f"Countries: '{ len(alpha3_dict) }' records created successfully."
         )
-
-        # Return the final dictionary (optional, if needed elsewhere)
-        return alpha3_dict        
-
+        
+        """
+        
+        # asset
+        obj, _created = AssetCategory.objects.get_or_create(
+            tenant=instance, 
+            code='WA',               
+            defaults=dict(
+                name={'de': 'Wasserzähler', 'en': 'Water Counter'},
+                created_by=request.user
+            )
+        )
+        
+        # billing
+        obj, _created = Period.objects.get_or_create(
+            tenant=instance, 
+            code='WA',
+            defaults=dict(
+                start=date(2024, 1, 1), 
+                end=date(2024, 12, 31),
+                created_by=request.user)
+        )
+         
 
 @receiver(pre_save, sender=TenantSetup)
 def tenant_setup_pre_save(sender, instance, **kwargs):

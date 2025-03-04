@@ -17,6 +17,11 @@ if __name__ == "__main__":
         data_list = conn.list()
         print("*", data_list)
 
+    if True:
+        conn = PersonCategory(org, api, convert_dt=False)
+        data_list = conn.list()
+        print("*", data_list)
+
     if False:
         conn = OrderCategory(org, api, convert_dt=False)
         data_list = conn.list(params={'type': 'PURCHASE'})
@@ -26,7 +31,7 @@ if __name__ == "__main__":
         ]
         print("*", filter_list)
 
-    if True:
+    if False:
         conn = OrderTemplate(org, api, convert_dt=False)
         data_list = conn.list()
         filter_list = [

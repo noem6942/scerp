@@ -59,10 +59,32 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         # Make data -----------------------------------------------
         setup = instance
 
+        # PersonCategory
+        obj, created = CorePersonCategory.objects.get_or_create(
+            tenant=setup.tenant,
+            code='subscriber',
+            defaults=dict(
+                name={'de': 'Abonnenten', 'en': 'Subscribers'},
+                created_by=request.user,
+                sync_to_accounting=True
+            )
+        )
+        
+        # ArticleCategory
+        obj, created = models.ArticleCategory.objects.get_or_create(
+            tenant=setup.tenant,
+            setup=setup,
+            code='water',
+            defaults=dict(
+                name={'de': 'Wassergebühren', 'en': 'Water Billing'},
+                created_by=request.user
+            )
+        )
+        
+        return
         # Order Template
         api = conn2.OrderTemplate(models.OrderTemplate)
-        api.get(instance, request.user, overwrite_data=True)
-        return
+        api.get(instance, request.user, overwrite_data=True)        
 
         # Get settings
         api = conn2.Setting(models.Setting)

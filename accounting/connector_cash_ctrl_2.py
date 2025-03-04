@@ -11,12 +11,14 @@ from . import api_cash_ctrl, models
 from .api_cash_ctrl import clean_dict, convert_to_xml
 
 
-EXCLUDE_FIELDS = [
+CASH_CTRL_FIELDS = [
+    'c_id', 'c_created', 'c_created_by', 'c_last_updated', 'c_last_updated_by'
+]
+EXCLUDE_FIELDS = CASH_CTRL_FIELDS + [
     'id', 'tenant', 'sync_to_accounting',
     'modified_at', 'modified_by', 'created_at', 'created_by',
     'is_protected', 'attachment', 'version',
-    'setup', 'c_id', 'c_created', 'c_created_by', 'c_last_updated',
-    'c_last_updated_by', 'last_received', 'message', 'is_enabled_sync'
+    'setup', 'last_received', 'message', 'is_enabled_sync'
 ]
 
 
@@ -102,6 +104,14 @@ class CashCtrl:
         if delete_not_existing:
             self.model.objects.exclude(setup=setup, c_id__in=c_ids).delete()
 
+    def reload(self, instance):
+        data = self.api.read(instance.c_id)
+        for key, value in data.items():
+            if key == 'id':
+                continue
+            elif key in CASH_CTRL_FIELDS + self.reload_keys:
+                setattr(instance, key, value)
+
     def save(self, instance, created=None):
         # Get api
         api = self._get_api(instance.setup)
@@ -127,7 +137,14 @@ class CashCtrl:
             response = api.create(data)
             instance.c_id = response.get('insert_id')
             instance.sync_to_accounting = False
-            instance.save(update_fields=['c_id', 'sync_to_accounting'])
+            
+            # Read new instance if necessary
+            reload_keys = getattr(self, 'reload_keys', [])
+            if reload_keys:
+                self.reload(instance)
+            update_fields= CASH_CTRL_FIELDS + self.reload_keys                
+            instance.save(
+                update_fields=['c_id', 'sync_to_accounting'] + reload_keys)
         else:
             data['id'] = instance.c_id
             _response = api.update(data)
@@ -139,15 +156,27 @@ class CashCtrl:
 
 
 class CashCtrlDual(CashCtrl):
+    
+    def __init__(self, model=None, language=None):
+        super().__init__(model, language)
+        self.instance_acct = None  # gets assigned in save
+
+    def reload(self, instance):
+        data = self.api.read(instance.c_id)
+        for key, value in data.items():
+            if key == 'id':
+                continue
+            elif key in CASH_CTRL_FIELDS + self.reload_keys:
+                setattr(instance, key, value)
 
     def save(self, instance, created=None):
         # Get setup
         if created:
             setup = models.APISetup.get_setup(tenant=instance.tenant)
         else:
-            instance_acct = self.model_accounting.objects.get(
+            self.instance_acct = self.model_accounting.objects.get(
                 tenant=instance.tenant, core=instance)
-            setup = instance_acct.setup
+            setup = self.instance_acct.setup
 
         # Get api
         api = self._get_api(setup)
@@ -162,15 +191,17 @@ class CashCtrlDual(CashCtrl):
             # Save object
             response = api.create(data)
             c_id = response.get('insert_id')
-            instance_acct = self.model_accounting.objects.create(
+            self.instance_acct = self.model_accounting.objects.create(
                 core=instance,
                 c_id=c_id,
                 tenant=instance.tenant,
                 setup=setup,
                 created_by=instance.tenant.created_by
             )
+            if getattr(self, 'reload_keys', []):
+                self.reload(self.instance_acct)
         else:
-            data['id'] = instance_acct.c_id
+            data['id'] = self.instance_acct.c_id
             _response = api.update(data)
 
         # Only updates this field, avoids triggering full post_save
@@ -573,6 +604,7 @@ class OrderCategoryIncoming(OrderCategory):
 class Order(CashCtrl):
     api_class = api_cash_ctrl.Order
     exclude = EXCLUDE_FIELDS
+    reload_keys = ['nr']
     abstract = True
 
     def make_base(self, instance, data):        
@@ -704,6 +736,7 @@ class ArticleCategory(CashCtrl):
 class Article(CashCtrl):
     api_class = api_cash_ctrl.Article
     exclude = EXCLUDE_FIELDS
+    reload_keys = ['nr']
 
     def adjust_for_upload(self, instance, data, created=None):
         # Prepare category_id
@@ -764,20 +797,22 @@ class PersonCategory(CashCtrlDual):
 
 class Person(CashCtrlDual):
     api_class = api_cash_ctrl.Person
-    exclude = EXCLUDE_FIELDS + ['photo']  # for now
+    exclude = EXCLUDE_FIELDS + ['photo']  # for now    
+    reload_keys = ['nr']
     model_accounting = models.Person
 
     def adjust_for_upload(self, instance, data, created=None):
         # Make data
 
-        # Get foreign c_ids
+        # Category
+        data['category_id'] = models.PersonCategory.objects.get(
+            core=instance.category).c_id
+        
+        # superior    
         superior = models.Person.objects.filter(
-            core=instance.superior).first()        
-        data.update({
-            'category_id': models.PersonCategory.objects.get(
-                core=instance.category).c_id,            
-            'superior_id': superior.c_id if superior else None
-        })
+            core=instance.superior).first()            
+        if superior:
+            data['superior_id'] = superior.c_id
         
         # Add Title
         title = models.Title.objects.filter(core=instance.title).first()
@@ -803,3 +838,18 @@ class Person(CashCtrlDual):
 
     def save_download(self, instance, data):
         instance.save()
+
+    def save(self, instance, created=None):
+        ''' 
+        Write back nr to Person if created
+        '''                
+        super().save(instance, created)
+
+        # get the full record to update status
+        self.instance_acct.refresh_from_db()
+        data = self.api.read(self.instance_acct.c_id)
+        instance.nr = data['nr']        
+        
+        # save
+        instance.sync_to_accounting = False
+        instance.save()  

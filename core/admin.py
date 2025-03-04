@@ -13,16 +13,12 @@ from scerp.admin import (
 )
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
-from . import actions as a, forms
-from .models import (
-    Message, Tenant, TenantSetup, Attachment, TenantLogo, UserProfile, Country,
-    AddressCategory, Address, PersonAddress, Contact, PersonContact, Title,
-    PersonCategory, Person)
+from . import actions as a, forms, models
 
 
 # Generic Attachments
 class AttachmentInline(GenericTabularInline):
-    model = Attachment
+    model = models.Attachment
     extra = 1  # Number of empty forms to display by default
     fields = ('file', 'uploaded_at')  
     readonly_fields = ('uploaded_at',)  # Make uploaded_at read-only
@@ -34,7 +30,7 @@ class AttachmentInline(GenericTabularInline):
         super().save_model(request, instance, form, change) 
 
 
-@admin.register(Message, site=admin_site)
+@admin.register(models.Message, site=admin_site)
 class MessageAdmin(TenantFilteringAdmin, BaseAdminNew):
     ''' currently only a superuser function '''
     list_display = (
@@ -53,7 +49,7 @@ class MessageAdmin(TenantFilteringAdmin, BaseAdminNew):
         return ", ".join([tenant.name for tenant in obj.recipients.all()])
 
 
-@admin.register(UserProfile, site=admin_site)
+@admin.register(models.UserProfile, site=admin_site)
 class UserProfileAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Display these fields in the list view
     list_display = ('user__username', 'person_photo', 'group_names')
@@ -81,7 +77,7 @@ class UserProfileAdmin(TenantFilteringAdmin, BaseAdminNew):
         return Display.photo(obj.person.photo)
 
 
-@admin.register(Tenant, site=admin_site)
+@admin.register(models.Tenant, site=admin_site)
 class TenantAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Display these fields in the list view
     list_display = ('name', 'code', 'created_at')
@@ -118,7 +114,7 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdminNew):
             messages.success(request, _("Session updated."))
 
 
-@admin.register(TenantSetup, site=admin_site)
+@admin.register(models.TenantSetup, site=admin_site)
 class TenantSetupAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
     protected_foreigns = ['tenant']
@@ -163,7 +159,7 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdminNew):
         return Display.list(sorted([x.name for x in obj.groups]))
 
 
-@admin.register(TenantLogo, site=admin_site)
+@admin.register(models.TenantLogo, site=admin_site)
 class TenantLogoAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
     protected_foreigns = ['tenant']
@@ -191,7 +187,7 @@ class TenantLogoAdmin(TenantFilteringAdmin, BaseAdminNew):
         
         
 # Address, Persons ---------------------------------------------------------
-@admin.register(AddressCategory, site=admin_site)
+@admin.register(models.AddressCategory, site=admin_site)
 class AddressCategoryAdmin(BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant']
@@ -212,7 +208,7 @@ class AddressCategoryAdmin(BaseAdmin):
         return Display.photo_h(obj.logo)
 
 
-@admin.register(Title, site=admin_site)
+@admin.register(models.Title, site=admin_site)
 class TitleAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
     protected_foreigns = ['tenant']
@@ -245,7 +241,7 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdminNew):
     )
 
 
-@admin.register(PersonCategory, site=admin_site)
+@admin.register(models.PersonCategory, site=admin_site)
 class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
     protected_foreigns = ['tenant']
@@ -273,7 +269,7 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdminNew):
     )
 
 
-@admin.register(Address, site=admin_site)
+@admin.register(models.Address, site=admin_site)
 class AddressAdmin(BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant']
@@ -301,10 +297,10 @@ class AddressAdmin(BaseAdmin):
 
 class AddressInline(BaseTabularInline):
     # Safeguards
-    protected_foreigns = ['tenant', 'person']
+    protected_foreigns = ['tenant', 'address', 'person']
     
     # Inline
-    model = PersonAddress
+    model = models.PersonAddress
     form = forms.PersonAddressForm
     fields = ['type', 'address', 'post_office_box', 'additional_information']
     extra = 1  # Number of empty forms displayed
@@ -318,7 +314,7 @@ class ContactInline(BaseTabularInline):  # or admin.StackedInline
     protected_foreigns = ['tenant', 'person']
 
     # Inline
-    model = PersonContact
+    model = models.PersonContact
     form = forms.PersonContactForm
     fields = ['type', 'address']
     extra = 1  # Number of empty forms displayed
@@ -326,7 +322,7 @@ class ContactInline(BaseTabularInline):  # or admin.StackedInline
     verbose_name_plural = _("Contacts")
 
 
-@admin.register(Person, site=admin_site)
+@admin.register(models.Person, site=admin_site)
 class PersonAdmin(TenantFilteringAdmin, BaseAdminNew):
     protected_foreigns = ['tenant', 'version', 'title', 'superior', 'category']
 
@@ -344,10 +340,16 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdminNew):
 
     #Fieldsets
     fieldsets = (
+        (_('Categorization'), {
+            'fields': (
+                ('category', ),
+                ('is_vendor', 'is_customer', 'is_insurance', ), 
+                ('is_employee', 'is_family', 'color'), 
+                ) 
+        }),    
         (_('Basic Information'), {
             'fields': (
-                'category', 'title', 'company', 'first_name', 'last_name',
-                'alt_name', 'color'
+                'nr', 'title', 'company', 'first_name', 'last_name', 'alt_name', 
                 ),
             'description': _(
                 "Either 'Company' or 'First Name' & 'Last Name' must be filled."),
@@ -361,7 +363,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdminNew):
             'classes': ('collapse',),
         }),
         (_('Personal Details'), {
-            'fields': ('date_birth', 'photo', 'nr'),
+            'fields': ('date_birth', 'photo'),
             'classes': ('collapse',),
         }),        
         FIELDSET.NOTES_AND_STATUS,
@@ -369,3 +371,42 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdminNew):
     )
     
     inlines = [AddressInline, ContactInline, AttachmentInline]
+
+
+class BuildingAddressInline(BaseTabularInline):
+    # Safeguards
+    protected_foreigns = ['tenant', 'address', 'building']
+    
+    # Inline
+    model = models.BuildingAddress
+    fields = ['address']
+    extra = 0  # Number of empty forms displayed
+    autocomplete_fields = ['address']  # Improves FK selection performance
+    show_change_link = True  # Shows a link to edit the related model
+    verbose_name_plural = _("Address")
+
+
+@admin.register(models.Building, site=admin_site)
+class BuildingAdmin(TenantFilteringAdmin, BaseAdminNew):
+    protected_foreigns = ['tenant']
+
+    # Display these fields in the list view
+    list_display = ('name', 'description', 'type') 
+    list_display_links = ('name',)
+
+    # Search, filter
+    list_filter = ('type',)
+    search_fields = ('name', 'description')
+
+    #Fieldsets
+    fieldsets = (
+        (_('Categorization'), {
+            'fields': (
+                'name', 'description', 'type'
+                ) 
+        }),            
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+    )
+    
+    inlines = [BuildingAddressInline]

@@ -1,28 +1,37 @@
 '''
 billing/gesoft_counter_data_import.py
 '''
+import json
 from openpyxl import load_workbook
 from pathlib import Path
 
 from django.conf import settings
 
 
+# Helpers
+def write(data, filename):
+    file_path = Path(settings.BASE_DIR) / "billing" / "fixtures" / filename
+    with open(file_path, "w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
+    print("*writing", file_path)
+
+
 # Address Data
 class Address:
-    '''get Addresses from Abonnenten Gebühren einzeilig.xlsx
-    '''
+    '''get Addresses
     file_name = 'Abonnenten Gebühren einzeilig.xlsx'
-
-    def load(self):
+    writes address_data with abo_nr as key
+    '''
+    def load(self, file_name):
         # Load the workbook and select a sheet
         file_path = Path(
-            settings.BASE_DIR) / 'billing' / 'fixtures' / self.file_name)
+            settings.BASE_DIR) / 'billing' / 'fixtures' / file_name
         wb = load_workbook(file_path)
         ws = wb.active  # Or wb['SheetName']
         rows = [row for row in ws.iter_rows(values_only=True)]
 
         # Init
-        addresses = {}
+        address_data = {}
 
         # Read
         for row_nr, row in enumerate(rows):
@@ -35,23 +44,33 @@ class Address:
                     steuercodegebühren, berechnungscodegebühren, gebührentext,
                      gebührenzusatztext
                 ) = row
+                if strasse:                   
+                    strasse = strasse.replace('strase', 'strasse')
+                    category = 'Allend' if 'Allend' in strasse else 'Gunzgen'
+                else:
+                    category = 'Gunzgen'
                 address_data[abo_nr] = {
                     'plz': plz_ort.split(' ')[0],
                     'city': plz_ort.split(' ')[1],
-                    'address': strasse
+                    'address': strasse,
+                    'category': category
                 }
+
+        write(address_data, 'addresses.json')
+        return address_data
 
 
 # Product Data
 class Product:
-
+    '''
+    many old products --> don't use
     file_name = 'Gebührentarife.xlsx'
-
-    def load(self):
+    '''
+    def load(self, file_name):
         # Load the workbook and select a sheet
-        #file_path = Path(
-        #    settings.BASE_DIR) / 'billing' / 'fixtures' / self.file_name)
-        file_path = 'C:/Users/micha/Documents/01_high_prio_bus/00 dev/python/django/env_3.10_projects/scerp/billing/fixtures/' + self.file_name
+        file_path = Path(
+            settings.BASE_DIR) / 'billing' / 'fixtures' / file_name
+
         wb = load_workbook(file_path)
         ws = wb.active  # Or wb['SheetName']
         rows = [row for row in ws.iter_rows(values_only=True)]
@@ -79,7 +98,7 @@ class Product:
             {'category': 'WA', 'name': 'Wasser Unterzähler', 'price': 1.1},
             {'category': 'WA', 'name': 'ARA Unterzähler', 'price': 2},
             {'category': 'WA', 'name': 'Mahngebühren', 'price': 20},
-            {'category': 'WA', 'name': 'Verzugszinsen', 'price': None},            
+            {'category': 'WA', 'name': 'Verzugszinsen', 'price': None},
             {'category': 'WA', 'name': 'Mahngebühren WA', 'price': 20},
         '''
         distincts = []
@@ -99,7 +118,7 @@ class Counter:
     file_name = 'Abonnenten mit Zähler und Gebühren.xlsx'
     city = 'Gunzgen'
     zip_code = 4617
-    
+
     def __init__(self, category='WA'):
         self.category = category
 
@@ -126,32 +145,33 @@ class Counter:
     def get_last_name(name):
         return name.split(' ', 1)[0]
 
-    @staticmethod
-    def get_city(address):
-        return self.city
+    @classmethod
+    def get_city(cls, address):
+        return cls.city
 
-    @staticmethod
-    def get_zip(address):
-        return self.zip_code
+    @classmethod
+    def get_zip(cls, address):
+        return cls.zip_code
 
-    @staticmethod
-    def get_address(address):
+    @classmethod
+    def get_address(cls, address):
         if address:
             return address.replace(', Gunzgen', '')
         return None
 
-    def load(self):
+    def load(self, address_data, file_name):
         # Load the workbook and select a sheet
         file_path = Path(
-            settings.BASE_DIR) / 'billing' / 'fixtures' / self.file_name)
+            settings.BASE_DIR) / 'billing' / 'fixtures' / file_name
         wb = load_workbook(file_path)
         ws = wb.active  # Or wb['SheetName']
         rows = [row for row in ws.iter_rows(values_only=True)]
 
         # Init
-        addresses = []
-        building = {}
-        subscriber = {}
+        address_categories = []   # -> AddressCategory
+        addresses = []  # -> Address
+        building = {}  # key: subscriber_number
+        subscriber = {}  # key: subscriber_number
         subscription = {}
         counter = {}
         montage = {}
@@ -179,9 +199,9 @@ class Counter:
                 ) = rows[row_nr + 3]
 
                 address = {
-                    'address': get_address(building_address),
-                    'zip': get_zip(building_address),
-                    'city': get_city(building_address),
+                    'address': self.get_address(building_address),
+                    'zip': self.get_zip(building_address),
+                    'city': self.get_city(building_address),
                     'country': 'CHE'
                 }
 
@@ -196,7 +216,7 @@ class Counter:
                     'building_category': building_category,
                 }
 
-                company = get_company(subscriber_name)
+                company = self.get_company(subscriber_name)
 
                 invoice_address = address_data.get(subscriber_number, None)
                 if not invoice_address:
@@ -204,9 +224,15 @@ class Counter:
 
                 subscriber[subscriber_number] = {
                     'company': company,
-                    'last_name': None if company else get_last_name(subscriber_name),
+                    'last_name': (
+                        None if company 
+                        else self.get_last_name(subscriber_name)),
                     'alt_name': subscriber_name,
-                    'address': address_key,
+                    'address': {
+                        'address': address_key,
+                        'zip_code': self.zip_code,
+                        'city': self.city,
+                    },
                     'invoice_receiver': invoice_receiver,
                     'invoice_address': invoice_address,
                 }
@@ -242,7 +268,7 @@ class Counter:
                     ) = row
 
                     # Product
-                    product_key = f"{tarif}_{anr}"
+                    product_key = f"{tarif}_{anr or '0'}"
 
                     description = '' if text or zusatztext else None
                     if text:
@@ -283,6 +309,21 @@ class Counter:
                             'products': [],
                             'start': start,
                             'exit': exit,
-                        }
+                        }                       
                     subscription[subscriber_number]['products'].append(
                         product_key)
+
+        # Data
+        data = dict(
+            address_categories=address_categories,
+            addresses=addresses,
+            building=building,
+            subscriber=subscriber,
+            subscription=subscription,
+            counter=counter,
+            montage=montage,
+            product=product,
+            measurements=measurements
+        )
+
+        write(data, 'counter.json')

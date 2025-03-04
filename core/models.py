@@ -305,8 +305,7 @@ class AddressCategory(TenantAbstract):
     class TYPE(models.TextChoices):
         # CashCtrl
         AREA = 'Area', _('Area')
-        REGION = 'Region', _('Region')
-        ROUTE = 'Route', _('Route')
+        REGION = 'Region', _('Region')        
         OTHER = 'OTHER', _('Other')
 
     type = models.CharField(max_length=20, choices=TYPE.choices)
@@ -540,6 +539,22 @@ class Person(Sync):
         help_text=_(
             "The name of the organization/company. Either firstName, lastName "
             "or company must be set."))
+    is_customer = models.BooleanField(
+        _('Is Customer'), default=False,
+        help_text=_('Is the person a customer?'))
+    is_employee = models.BooleanField(
+        _('Is Employee'), default=False,
+        help_text=_('Is the person an employee?'))
+    is_family = models.BooleanField(
+        _('Is Family'), default=False,
+        help_text=_('Is the person a family?'))
+    is_insurance = models.BooleanField(
+        _('Is Insurance'), default=False,
+        help_text=_('Is the person an insurance company?'))
+    is_vendor = models.BooleanField(
+        _('Is Supplier'), default=False,
+        help_text=_('Is the person a supplier / vendor?'))
+            
     title = models.ForeignKey(
         Title,
         on_delete=models.SET_NULL, null=True, blank=True,
@@ -628,13 +643,18 @@ class Person(Sync):
                 _('Either First Name, Last Name or Company must be set.'))
 
     def __str__(self):
-        if self.company:
-            if self.last_name:
-                return f"{self.company}, {self.last_name} {self.first_name}"
-            return self.company
+        company = self.company or ''
+        name = self.last_name or ''
+        if self.first_name:
+            name += ', ' + self.first_name
+        if self.alt_name:
+            name += ', ' + self.alt_name
         if self.date_birth:
-            return f"{self.last_name} {self.first_name}, {self.date_birth}"
-        return f"{self.last_name} {self.first_name}"
+            name += ', ' + self.date_birth
+            
+        if company and name:
+            return company + ', ' + name
+        return name
 
     class Meta:
         verbose_name = _('Person')
@@ -726,15 +746,24 @@ class UserProfile(LogAbstract, NotesAbstract):
 
 
 # Buildings, Rooms
-class BuildingX(TenantAbstract):
-    ''' Used to identify own buildings '''
-    name = models.CharField(max_length=200, blank=True, null=True)
+class Building(TenantAbstract):
+    ''' Used to identify own buildings '''    
+    name = models.CharField(
+        _('Name'), max_length=100, blank=True, null=True)    
+    description = models.CharField(
+        _('Description'), max_length=200, blank=True, null=True)            
+    egid = models.PositiveIntegerField(
+        'EGID', blank=True, null=True)
+    type = models.CharField(
+        _('Type'), max_length=32, blank=True, null=True)    
 
     def __str__(self):
-        return f"{self.name}, {self.address}"
+        if self.name:
+            return self.name
+        return str(self.id)
 
     class Meta:
-        ordering = ['name']
+        ordering = ['name', 'egid']
         verbose_name = _('Building')
         verbose_name_plural = _('Buildings')
 
@@ -744,15 +773,17 @@ class BuildingAddress(TenantAbstract):
         Address, verbose_name=_('Address'),
         on_delete=models.CASCADE, related_name='%(class)s_address_building')
     building = models.ForeignKey(
-        BuildingX, verbose_name=_('Accounting Setup'),
+        Building, verbose_name=_('Building'),
         on_delete=models.CASCADE, related_name='%(class)s_building')
 
 
-class BuildingRoom(TenantAbstract):
+class Dwelling(TenantAbstract):
     ''' Used to identify own rooms '''
     name = models.CharField(_('Name'), max_length=200)
+    ewid = models.PositiveIntegerField(
+        'EWID', blank=True, null=True)    
     building = models.ForeignKey(
-        BuildingX, verbose_name=_('Building'),
+        Building, verbose_name=_('Building'),
         on_delete=models.CASCADE, related_name='%(class)s_building')
 
     def __str__(self):
@@ -760,11 +791,37 @@ class BuildingRoom(TenantAbstract):
 
     class Meta:
         ordering = ['name']
-        verbose_name = _('Building')
-        verbose_name_plural = _('Buildings')
+        verbose_name = _('Dwelling or Room')
+        verbose_name_plural = _('Dwelling or Room')
+
+
+class Room(TenantAbstract):
+    name = models.CharField(_('Name'), max_length=200)
+    building = models.ForeignKey(
+        Building, verbose_name=_('Building'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_building')
+    dwelling = models.ForeignKey(
+        Dwelling, verbose_name=_('Dwelling'),
+        on_delete=models.CASCADE, related_name='%(class)s_building')
+
+    def __str__(self):
+        return f"{self.name}, {self.building}, {self.dwelling}"
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = _('Dwelling or Room')
+        verbose_name_plural = _('Dwelling or Room')
 
 
 class RoomContact(Contact):
     room = models.ForeignKey(
-        BuildingRoom, verbose_name=_('Person'),
+        Room, verbose_name=_('Person'), blank=True, null=True,
         on_delete=models.CASCADE, related_name='%(class)s_room')
+
+    def __str__(self):
+        return f"{self.room}, {self.type}, {self.address}"
+
+    class Meta:
+        ordering = ['type', 'address']
+        verbose_name = _('Room Contact')
+        verbose_name_plural = _('Room Contact')

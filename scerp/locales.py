@@ -39,7 +39,8 @@ APP_MODEL_ORDER = {
             'AddressCategory': ('21', ''),
             'Title': ('22', ''),
             'PersonCategory': ('23', ''),
-            'Person': ('24', ''),                
+            'Person': ('24', ''),         
+            'Building': ('25', ''),               
         }
     },
     'crm': {
@@ -119,20 +120,28 @@ APP_MODEL_ORDER = {
             'ChartOfAccountsTemplate': ('C 31', ''),
             'AccountPositionTemplate': ('C 11', ''),
             'ChartOfAccounts': ('C 42', ''),
-            #'AccountPosition': ('C 43', ''),
-            
-            # Core / Crm
-            'Title': ('C 51', ''),
-            'PersonCategory': ('C 52', ''),
-            'Person': ('C 53', ''),
+            #'AccountPosition': ('C 43', ''),            
         }
     },
-
+    'asset': {
+        'symbol': 'AT',
+        'is_mandatory': False,
+        'needs_tenant': True,
+        'models': {
+            'AssetCategory': ('1', ''),
+            'Device': ('2', ''),
+            'EventLog': ('3', ''),
+        }
+    },
     'billing': {
         'symbol': 'B',
         'is_mandatory': False,
         'needs_tenant': True,
         'models': {
+            'Period': ('1', ''),
+            'Route': ('2', ''),
+            'Measurement': ('3', ''),
+            'Subscriptions': ('4', ''),
         }
     },
     'time_app': {

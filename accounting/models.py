@@ -1001,7 +1001,7 @@ class Article(AcctApp):
     Article Model for inventory and sales management.
     """
     nr = models.CharField(
-        _('Article Number'), max_length=50,
+        _('Article Number'), max_length=50, blank=True, null=True,
         help_text=_("The article number."))
     name = models.JSONField(
         _('Name'),
@@ -1589,7 +1589,10 @@ class Order(AcctApp):
         verbose_name=_('Category'),
         help_text=_('category'))
     date = models.DateField(_('Date'))
-
+    nr = models.CharField(
+        _('Order Number'), max_length=50, blank=True, null=True,
+        help_text=_("The order number."))
+        
     class Meta:
         abstract = True
 
