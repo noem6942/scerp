@@ -305,7 +305,7 @@ class AddressCategory(TenantAbstract):
     class TYPE(models.TextChoices):
         # CashCtrl
         AREA = 'Area', _('Area')
-        REGION = 'Region', _('Region')        
+        REGION = 'Region', _('Region')
         OTHER = 'OTHER', _('Other')
 
     type = models.CharField(max_length=20, choices=TYPE.choices)
@@ -438,7 +438,7 @@ class Sync(TenantAbstract):
         _("Sync to Accounting"), default=True,
         help_text=(
             "This records needs to be synched to cashctr, if the cycle is "
-            "over it gets reset to False"))    
+            "over it gets reset to False"))
 
     class Meta:
         abstract = True
@@ -554,7 +554,7 @@ class Person(Sync):
     is_vendor = models.BooleanField(
         _('Is Supplier'), default=False,
         help_text=_('Is the person a supplier / vendor?'))
-            
+
     title = models.ForeignKey(
         Title,
         on_delete=models.SET_NULL, null=True, blank=True,
@@ -651,7 +651,7 @@ class Person(Sync):
             name += ', ' + self.alt_name
         if self.date_birth:
             name += ', ' + self.date_birth
-            
+
         if company and name:
             return company + ', ' + name
         return name
@@ -706,9 +706,9 @@ class PersonAddress(TenantAbstract):
         return f"{self.address}"
 
     class Meta:
-        ordering = ['type']
-        verbose_name = _('Address')
-        verbose_name_plural = _('Addresses')
+        ordering = ['address__zip', 'address__address', 'type']
+        verbose_name = _('Person by Address')
+        verbose_name_plural = _('Persons by Address')
 
 
 class PersonContact(Contact):
@@ -747,20 +747,24 @@ class UserProfile(LogAbstract, NotesAbstract):
 
 # Buildings, Rooms
 class Building(TenantAbstract):
-    ''' Used to identify own buildings '''    
+    ''' Used to identify own buildings '''
     name = models.CharField(
-        _('Name'), max_length=100, blank=True, null=True)    
+        _('Name'), max_length=100, blank=True, null=True)
     description = models.CharField(
-        _('Description'), max_length=200, blank=True, null=True)            
+        _('Description'), max_length=200, blank=True, null=True)
+    address = models.ForeignKey(
+        Address, verbose_name=_('Address'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_address_building')
     egid = models.PositiveIntegerField(
         'EGID', blank=True, null=True)
     type = models.CharField(
-        _('Type'), max_length=32, blank=True, null=True)    
+        _('Type'), max_length=32, blank=True, null=True)
 
     def __str__(self):
-        if self.name:
-            return self.name
-        return str(self.id)
+        names = [self.name or '']
+        if self.address:
+            names.append(self.address.address or '')
+        return ', '.join(names)
 
     class Meta:
         ordering = ['name', 'egid']
@@ -768,20 +772,11 @@ class Building(TenantAbstract):
         verbose_name_plural = _('Buildings')
 
 
-class BuildingAddress(TenantAbstract):
-    address = models.ForeignKey(
-        Address, verbose_name=_('Address'),
-        on_delete=models.CASCADE, related_name='%(class)s_address_building')
-    building = models.ForeignKey(
-        Building, verbose_name=_('Building'),
-        on_delete=models.CASCADE, related_name='%(class)s_building')
-
-
 class Dwelling(TenantAbstract):
     ''' Used to identify own rooms '''
     name = models.CharField(_('Name'), max_length=200)
     ewid = models.PositiveIntegerField(
-        'EWID', blank=True, null=True)    
+        'EWID', blank=True, null=True)
     building = models.ForeignKey(
         Building, verbose_name=_('Building'),
         on_delete=models.CASCADE, related_name='%(class)s_building')

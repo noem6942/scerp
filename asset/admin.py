@@ -37,7 +37,6 @@ class AssetCategory(TenantFilteringAdmin, BaseAdminNew):
     )
 
 
-
 @admin.register(Device, site=admin_site)
 class DeviceAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
@@ -45,12 +44,12 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdminNew):
 
     # Display these fields in the list view
     list_display = (
-        'category', 'code', 'name', 'number')
-    readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
+        'code', 'name', 'number', 'category', )
+    readonly_fields = ('display_name', 'status') + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ('number', 'name', 'category')
-    list_filter = ('status', 'obiscode',)
+    list_filter = ('status', 'obiscode', 'category')
 
     #Fieldsets
     fieldsets = (

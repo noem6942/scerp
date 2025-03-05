@@ -15,46 +15,69 @@ from asset.models import DEVICE_STATUS, AssetCategory, Device, EventLog
 from billing.models import Period, Route, Measurement, Subscription
 from core.models import (
      AddressCategory, Address, PersonCategory, Person, PersonAddress,
-     Building, BuildingAddress
+     Building
 )
 
 logger = logging.getLogger(__name__)
 
 CITY = 'Gunzgen'
-ZIP = 4617
+ZIP = '4617'
 
+ALLMEND = [
+    'Aerni Anton',
+    'Plüss-Holliger Dominik und Marlies',
+    'Schickling-Gasser Bernhard + Monika',
+    'Heeb Edda',
+    'Uhlmann Rudolf',
+    'Grütter-Flühmann Liliane',
+    'Romano Adriano',
+    'Schönenberger Urs',
+    'Meier-Holzherr Leonore',
+    'Düblin Sascha',
+    'Widmer-Lanz Peter + Ursula',
+    'Rainer Walter',
+    'NSNW AG',
+    'Marché Restaurants Schweiz AG',
+    'Kieswerk Gunzgen AG',
+    'Wagner-Stulz Thomas + Sandra',
+    'Baggenstos Franziska Ursula',
+    'Lanz Kevin',
+    'Krähenbühl Sascha',
+    'Valora Schweiz SA',
+    'Caderas Jacqueline'
+]
 
 class Import:
 
     def __init__(self, setup_id, route_id, datetime_default):
         '''
             datetime_default,e g. '2024-03-31'
-        '''        
+        '''
         # From setup
         self.setup = APISetup.objects.get(id=setup_id)
         self.tenant = self.setup.tenant
-        self.created_by = self.setup.created_by        
+        self.created_by = self.setup.created_by
         self.person_category = PersonCategory.objects.get(
             tenant=self.tenant, code='subscriber')
-            
-        # From route    
+
+        # From route
         self.route = Route.objects.get(
             tenant=self.tenant, id=route_id)
-        self.asset_category = self.route.asset_category  # Counter
-        
+        self.asset_category = self.route.period.asset_category  # Counter
+
         # Time
         self.datetime = timezone.make_aware(
             datetime.strptime(datetime_default, "%Y-%m-%d"))
-        self.date = self.datetime.date()        
-        
+        self.date = self.datetime.date()
+
         # Const
-        self.article_category = ArticleCategory.objects.get(
-            setup=self.setup, code='water')  
+        self.article_category = ArticleCategory.objects.filter(
+            setup=self.setup, code='water').first()
 
     @staticmethod
     def convert_to_date(date_string):
         ''' e.g. date_string = "22.04.2009"
-        '''        
+        '''
         return datetime.strptime(date_string, '%d.%m.%Y').date()
 
     @staticmethod
@@ -95,6 +118,20 @@ class Import:
     # Models
 
     # Core
+    def add_address_category(self, building_address, alt_name):
+        if (alt_name in ALLMEND
+                or building_address.address.startswith('Allmend')):
+            category = AddressCategory.objects.get(
+                tenant=self.tenant, code='allmend')
+        elif building_address.zip == ZIP:
+            category = AddressCategory.objects.get(
+                tenant=self.tenant, code='gunzgen')
+        else:
+            return
+
+        building_address.categories.add(category)
+
+
     def add_address(self, data):
         data['created_by'] = self.created_by
         obj, created = Address.objects.get_or_create(
@@ -104,22 +141,6 @@ class Import:
             address=data.pop('address'),
             defaults=data
         )
-
-        if not obj.categories.exists():
-            if obj.address:
-                code = 'Allend' if 'Allend' in obj.address else 'Gunzgen'
-            else:
-                code = 'Gunzgen'
-            category, _ = AddressCategory.objects.get_or_create(
-                    tenant=self.tenant,
-                    code=code,
-                    type=AddressCategory.TYPE.AREA,
-                    created_by=self.created_by
-            )
-            obj.categories.add(category)
-            obj.save()
-            obj.refresh_from_db()
-
         return obj, created
 
     def add_building(self, name, description, address):
@@ -127,18 +148,11 @@ class Import:
             tenant=self.tenant,
             name=name,
             defaults={
+                'address': address,
                 'description': description,
                 'created_by': self.created_by
             }
         )
-        if created:
-            obj_address, created = BuildingAddress.objects.get_or_create(
-                tenant=self.tenant,
-                address=address,
-                building=obj,
-                created_by=self.created_by
-            )
-
         return obj
 
     def add_person(self, data):
@@ -199,12 +213,14 @@ class Import:
             defaults={
                 'name': name,
                 'sales_price': sales_price,
-                'created_by': self.created_by
+                'created_by': self.created_by,
+                'is_enabled_sync': True,
+                'sync_to_accounting': True
             }
         )
         return obj
 
-    # Bill
+    # Billing
     def add_measurement(self, counter, route, datetime, data):
         data['created_by'] = self.created_by
         obj, created = Measurement.objects.get_or_create(
@@ -231,7 +247,7 @@ class Import:
         )
         for article in articles:
             obj.articles.add(article)
-        
+
         return obj
 
     def add_subscription_article(self, subscription, article):
@@ -293,22 +309,12 @@ class Import:
         ws = wb.active  # Or wb['SheetName']
         rows = [row for row in ws.iter_rows(values_only=True)]
 
-        # Init
-        addresses = []  # -> Address
-        building = {}  # key: subscriber_number
-        subscriber = {}  # key: subscriber_number
-        subscription = {}
-        counter = {}
-        montage = {}
-        product = {}
-        measurements = []
-
         # Load
         for row_nr, row in enumerate(rows):
             cells = row
             if (cells[0] and isinstance(cells[0], str)
                     and cells[0].startswith('WA-')):
-                # Subscription data ------------------------------------------                
+                # Subscription data ------------------------------------------
                 (
                     period, subscriber_name, _, _, _, subscriber_number, *_
                 ) = rows[row_nr]
@@ -329,7 +335,8 @@ class Import:
                 if not building_address:
                     # Make address, e.g. Autobahnraststätte Gunzgen Nord AG
                     building_address = subscriber_name.strip()
-                    
+
+                # Make address
                 address = self.clean_address(building_address)
                 data = dict(
                     zip=ZIP,
@@ -362,6 +369,9 @@ class Import:
                 # Add address
                 self.add_person_address(
                     subscriber, building_address, PersonAddress.TYPE.MAIN)
+
+                # AddressCategory
+                self.add_address_category(building_address, subscriber_name)
 
                 # Invoice address
                 invoice_address = address_data[subscriber_number]
@@ -425,7 +435,8 @@ class Import:
                     ) = row
 
                     # Article
-                    product_key = f"{tarif}_{anr or '0'}"
+                    tarif_str = str(tarif).zfill(2)  # leading 0
+                    product_key = f"{tarif_str}_{anr or '0'}"
                     nr = product_key
                     name = {'de': p_text}
 
@@ -434,10 +445,19 @@ class Import:
 
                     # Measurements
                     if tarif in [14, 20]:
+                        # Calc values
+                        consumption = basis or 0
+                        value_previous = zw_alt_1 or 0
+                        value = value_previous + consumption
+                        value_min = consumption * self.route.confidence_min
+                        value_max = consumption * self.route.confidence_max
+
                         data = {
-                            'value': (zw_alt_1 if zw_alt_1 else 0) +
-                                (basis if basis else 0),
-                            'value_previous': zw_alt_1 if zw_alt_1 else None,
+                            'value': value,
+                            'value_previous': value_previous,
+                            'consumption': consumption,
+                            'value_min': value_min,
+                            'value_max': value_max
                         }
                         measurement = self.add_measurement(
                             device, self.route, self.datetime, data)
@@ -447,8 +467,8 @@ class Import:
                     if exit:
                         end_date = self.convert_to_date(exit)
                     else:
-                        end_date = None                    
-    
+                        end_date = None
+
                     subscription = self.add_subscription(
                         subscriber, recipient, building, start_date, end_date)
 

@@ -1,7 +1,7 @@
 # process_billing.py
 '''usage:
     python manage.py process_billing cmd
-    e.g python manage.py process_billing gesoft --setup_id=12 --route_id=1 --date=2024-03-31
+    e.g python manage.py process_billing gesoft --setup_id=12 --route_id=1 --date=2024-09-30
 '''
 import json
 from django.core.management.base import BaseCommand

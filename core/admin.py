@@ -13,7 +13,8 @@ from scerp.admin import (
 )
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
-from . import actions as a, forms, models
+from . import actions as a
+from . import filters, forms, models
 
 
 # Generic Attachments
@@ -273,16 +274,17 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdminNew):
 class AddressAdmin(BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant']
+    protected_many_to_many = ['categories']
 
     # Display these fields in the list view
-    list_display = ('country', 'zip', 'city', 'address')
+    list_display = ('country', 'zip', 'city', 'address', 'display_categories')
     list_display_links = ('zip', 'city',)
 
     # Search, filter
-    list_filter = ('zip', 'country', )
+    list_filter = (filters.AddressCategoryFilter,)
     search_fields = ('zip', 'city', 'address')
 
-    #Fieldsets
+    # Fieldsets
     fieldsets = (
         (None, {
             'fields': (('zip', 'city'), 'address', 'country', 'categories'),
@@ -291,21 +293,32 @@ class AddressAdmin(BaseAdmin):
     )
 
     def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
         """Set default country to 'CHE' (Switzerland) by fetching the instance."""
-        return {'country': get_object_or_404(Country, alpha3='CHE')}
+        return {'country': get_object_or_404(models.Country, alpha3='CHE')}
+
+    @admin.display(description=_("Categories"))
+    def display_categories(self, obj):
+        names = [
+            f'{cat.get_type_display()[0]}-{cat.name[0]}'
+            for cat in obj.categories.all()
+        ]            
+        return ', '.join(names)
 
 
 class AddressInline(BaseTabularInline):
+    ''' slow, inlines need improvment --> read-only
+    '''
     # Safeguards
     protected_foreigns = ['tenant', 'address', 'person']
     
     # Inline
     model = models.PersonAddress
     form = forms.PersonAddressForm
-    fields = ['type', 'address', 'post_office_box', 'additional_information']
-    extra = 1  # Number of empty forms displayed
-    autocomplete_fields = ['address']  # Improves FK selection performance
-    show_change_link = True  # Shows a link to edit the related model
+    fields = ['type', 'post_office_box', 'additional_information']
+    extra = 0  # Number of empty forms displayed
+    autocomplete_fields = ['address']  # Enables a searchable dropdown
+    show_change_link = True  # Allows editing the address
     verbose_name_plural = _("Addresses")
 
 
@@ -317,7 +330,7 @@ class ContactInline(BaseTabularInline):  # or admin.StackedInline
     model = models.PersonContact
     form = forms.PersonContactForm
     fields = ['type', 'address']
-    extra = 1  # Number of empty forms displayed
+    extra = 0  # Number of empty forms displayed
     show_change_link = True  # Shows a link to edit the related model
     verbose_name_plural = _("Contacts")
 
@@ -373,25 +386,51 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdminNew):
     inlines = [AddressInline, ContactInline, AttachmentInline]
 
 
-class BuildingAddressInline(BaseTabularInline):
+@admin.register(models.PersonAddress, site=admin_site)
+class PersonAddressAdmin(BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'address', 'building']
-    
-    # Inline
-    model = models.BuildingAddress
-    fields = ['address']
-    extra = 0  # Number of empty forms displayed
-    autocomplete_fields = ['address']  # Improves FK selection performance
-    show_change_link = True  # Shows a link to edit the related model
-    verbose_name_plural = _("Address")
+    protected_foreigns = ['tenant', 'address']
+
+    # Display these fields in the list view
+    list_display = (
+        'type', 'address__zip', 'address__city', 'address__address',
+        'person__last_name', 'person__first_name', 'person__company', 
+        'display_categories')
+    list_display_links = (
+        'person__last_name', 'person__first_name', 'person__company')
+
+    # Search, filter
+    list_filter = (filters.PersonAddressCategoryFilter, 'type')
+    search_fields = (
+        'person__last_name', 'person__first_name', 'person__company', 'type',
+        'address__zip', 'address__city', 'address__address'
+    )
+
+    # Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'type', 'person', 'address', 'post_office_box', 
+                'additional_information'),
+            'classes': ('expand',),
+        }),
+    )
+
+    @admin.display(description=_("Categories"))
+    def display_categories(self, obj):
+        names = [
+            f'{cat.get_type_display()[0]}-{cat.name[0]}'
+            for cat in obj.address.categories.all()
+        ]            
+        return ', '.join(names)
 
 
 @admin.register(models.Building, site=admin_site)
 class BuildingAdmin(TenantFilteringAdmin, BaseAdminNew):
-    protected_foreigns = ['tenant']
+    protected_foreigns = ['tenant',  'address']
 
     # Display these fields in the list view
-    list_display = ('name', 'description', 'type') 
+    list_display = ('name', 'description', 'address', 'type') 
     list_display_links = ('name',)
 
     # Search, filter
@@ -402,11 +441,9 @@ class BuildingAdmin(TenantFilteringAdmin, BaseAdminNew):
     fieldsets = (
         (_('Categorization'), {
             'fields': (
-                'name', 'description', 'type'
+                'name', 'description', 'type', 'address'
                 ) 
         }),            
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
-    
-    inlines = [BuildingAddressInline]

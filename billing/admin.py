@@ -27,8 +27,8 @@ class PeriodAdmin(TenantFilteringAdmin, BaseAdminNew):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'name', 'start', 'end', 'confidence_min', 
-                'confidence_max'),
+                'code', 'energy_type', 'asset_category', 'name', 'start', 
+                'end'),
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
@@ -39,18 +39,19 @@ class PeriodAdmin(TenantFilteringAdmin, BaseAdminNew):
 @admin.register(Route, site=admin_site)
 class RouteAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
-    protected_foreigns = ['tenant', 'period', 'asset_category']
-    protected_many_to_many = ['subscribers', 'address_categories']
+    protected_foreigns = ['tenant', 'period']
+    protected_many_to_many = ['buildings', 'address_categories']
     
     # Display these fields in the list view
     list_display = (
-        'name', 'period', 'asset_category', 'is_default', 'status'
+        'name', 'period', 'start', 'end', 'duration', 'display_filters',
+        'is_default', 'status'
     ) + FIELDS.LINK_ATTACHMENT
-    readonly_fields = FIELDS.LOGGING_TENANT
+    readonly_fields = ('duration', 'status') + FIELDS.LOGGING_TENANT
     
     # Search, filter
     search_fields = ('name', 'period')
-    list_filter = ('asset_category', 'is_default', 'status')
+    list_filter = ('is_default', 'status')
 
     # Actions
     actions = [a.export_counter_data]
@@ -59,13 +60,21 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdminNew):
     fieldsets = (
         (None, {
             'fields': (
-                'name', 'period', 'asset_category', 'address_categories',
-                'subscribers', 'status'
+                'name', 'period', 'address_categories', 'buildings',
+                'start', 'end', 'confidence_min', 'confidence_max',
+                'duration', 'status'
             ),
         }),
     )
 
     inlines = [AttachmentInline]
+
+    @admin.display(description='filters')
+    def display_filters(self, obj):
+        value = ''
+        if obj.buildings.exists():
+            value += 'B'
+        return value
 
 
 @admin.register(Measurement, site=admin_site)
@@ -86,7 +95,8 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdminNew):
         (None, {
             'fields': ( 
                 'counter', 'route', 'datetime', 'datetime_previous',
-                'value', 'value_previous', 'value_max', 'value_min'
+                'value', 'value_previous', 
+                'consumption', 'value_max', 'value_min'
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,

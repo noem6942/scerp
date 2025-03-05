@@ -17,9 +17,9 @@ class DEVICE_STATUS(models.TextChoices):
     RECEIVED = 'REC', _('Received')  # Device added to inventory
     IN_STOCK = 'STK', _('In Stock')  # Device available in inventory
     DEPLOYED = 'DPL', _('Deployed')  # Device issued for use
-    MOUNTED = 'MNT', _('Mounted')  # Device mounted on a wall, house etc.
     CALIBRATED = 'CAL', _('Calibrated')  # Device verified and adjusted for accuracy
-    TRANSFERRED = 'TRF', _('Transferred')  # Device moved to a new user/project
+    MOUNTED = 'MNT', _('Mounted')  # Device mounted on a wall, house etc.    
+    DEMOUNTED = 'DMT', _('De-Mountied')  # Device currently not in function
     MAINTENANCE = 'MTN', _('Under Maintenance')  # Device undergoing service
     DECOMMISSIONED = 'DCM', _('Decommissioned')  # Device no longer in use
     DISPOSED = 'DSP', _('Disposed')  # Device removed permanently, "Entsorgt"
@@ -43,7 +43,8 @@ class AssetCategory(TenantAbstract):
         verbose_name_plural = _('Asset Categories')
 
     def __str__(self):
-        return f"{self.code} {primary_language(self.name)}"
+        name = primary_language(self.name)
+        return name if name else self.code
 
 
 class Device(TenantAbstract):
@@ -64,7 +65,7 @@ class Device(TenantAbstract):
         _("Date added"),
         help_text=_("The date when the fixed asset has been added."))
     status = models.CharField(
-        max_length=3, choices=DEVICE_STATUS.choices,
+        max_length=3, choices=DEVICE_STATUS.choices, null=True, blank=True,
         help_text='Gets updated automatically')            
     description = models.JSONField(
         _('Description'), null=True, blank=True,
@@ -95,8 +96,18 @@ class Device(TenantAbstract):
         _('OBIS Code'), max_length=20, blank=True, null=True,
         help_text='for counters')    
 
+    def get_status(self, date=None):
+        ''' returns last event <= date '''
+        queryset = EventLog.objects.filter(device=self)
+        if date:
+            queryset = queryset.filter(date__lte=date)
+        return queryset.order_by('date').last()            
+
     def __str__(self):
-        return f"{self.code}: {self.category}, {primary_language(self.name)}"
+        name = f"{self.category}: {self.code}"
+        if self.name:
+            name += ' ' + self.name
+        return name
 
     class Meta:
         constraints = [
@@ -128,12 +139,16 @@ class EventLog(TenantAbstract):
         Person, on_delete=models.SET_NULL, blank=True, null=True,
         verbose_name=_("Person"),
         related_name='%(class)s_customer',
-        help_text=_("leave empty if irrelevant (e.g. counters)"))
+        help_text=_(
+            "Leave empty if irrelevant (e.g. counters)."
+            "Do not use for counters."))
     building = models.ForeignKey(
         Building, on_delete=models.SET_NULL, blank=True, null=True,
         verbose_name=_("Building"),
         related_name='%(class)s_customer',
-        help_text=_("leave empty if irrelevant (e.g. room specified)"))
+        help_text=_(
+            "Mandatory for counters, "
+            "leave empty if irrelevant (e.g. room specified)"))
     dwelling = models.ForeignKey(
         Dwelling, on_delete=models.SET_NULL, blank=True, null=True,
         verbose_name=_("Dwelling"),
@@ -144,6 +159,15 @@ class EventLog(TenantAbstract):
         verbose_name=_("Room"),
         related_name='%(class)s_room',
         help_text=_("leave empty if irrelevant (e.g. building specified)"))
+        
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)   
+        
+        # Update status in counter        
+        event = EventLog.objects.filter(
+            device=self.device).order_by('date').last()
+        self.device.status = event.status
+        self.device.save()
         
     def __str__(self):
         return f"{self.modified_at.strftime('%B %d, %Y, %H:%M')}, {self.device}"

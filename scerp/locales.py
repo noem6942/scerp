@@ -35,12 +35,14 @@ APP_MODEL_ORDER = {
             'TenantLocation': ('3', ''),
             'TenantSetup': ('4', ''),
             'TenantLogo': ('5', ''),
-            'UserProfile': ('6', ''),        
-            'AddressCategory': ('21', ''),
+            'UserProfile': ('6', ''),
+            'AddressCategory': ('20', ''),
+            'Address': ('21', ''),
             'Title': ('22', ''),
             'PersonCategory': ('23', ''),
-            'Person': ('24', ''),         
-            'Building': ('25', ''),               
+            'Person': ('24', ''),
+            'PersonAddress': ('25', ''),        
+            'Building': ('26', ''),
         }
     },
     'crm': {
@@ -120,7 +122,7 @@ APP_MODEL_ORDER = {
             'ChartOfAccountsTemplate': ('C 31', ''),
             'AccountPositionTemplate': ('C 11', ''),
             'ChartOfAccounts': ('C 42', ''),
-            #'AccountPosition': ('C 43', ''),            
+            #'AccountPosition': ('C 43', ''),
         }
     },
     'asset': {

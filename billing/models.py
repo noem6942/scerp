@@ -11,25 +11,28 @@ from asset.models import AssetCategory, Device
 
 # Timing
 class Period(TenantAbstract):
+    class ENERGY_TYPE(models.TextChoices):
+        WATER = 'W', _('Water')
+        GAS = 'G', _('Gas')
+        ENERGY = 'E', _('Energy')
+
     code = models.CharField(
         _('Code'), max_length=50,
         help_text=_("e.g. water, semi annual"))
+    energy_type = models.CharField(
+         _('Type'), max_length=1, choices=ENERGY_TYPE.choices,
+        default=ENERGY_TYPE.WATER,
+        help_text=_('Needed for counter route.'))
+    asset_category = models.ForeignKey(
+        AssetCategory, verbose_name=_('Category'),
+        on_delete=models.PROTECT,
+        help_text=_("Category"))
     name = models.CharField(
-        _('name'), max_length=50, help_text=_("name"))        
+        _('name'), max_length=50, help_text=_("name"))
     start = models.DateField(
         _("Start"), help_text=_("Start date of the  period"))
     end = models.DateField(
         _("End"), help_text=_("End date of the period"))
-    confidence_min = models.DecimalField(
-        _('Confidence Min.'), max_digits=3, decimal_places=2, default=0,
-        help_text=_(
-            "Min confidence factor based on previous period, "
-            "e.g. 0.5: value must be ≥ 5 if previous value was 10"))
-    confidence_max = models.DecimalField(
-        _('Confidence Max.'), max_digits=3, decimal_places=2, default=2,
-        help_text=_(
-            "Max confidence factor based on previous period, "
-            "e.g. 2: value must be ≤ 20 if previous value was 10"))
 
     def __str__(self):
         return f'{self.name}, {self.start} - {self.end}'
@@ -55,38 +58,59 @@ class Route(TenantAbstract):
         TEST_INVOICES = 'TIN', _('Test Invoices Generated')
         INVOICES_GENERATED = 'INV', _('Invoices Generated')
 
-    class ENERGY_TYPE(models.TextChoices):
-        WATER = 'WA', _('Water')
-        GAS = 'G', _('Gas')
-        ELECTRICITY = 'E', _('Electricity')
-
     name = models.CharField(
         _('name'), max_length=50, help_text=_("name"))
     period = models.ForeignKey(
         Period, verbose_name=_('Period'),
         on_delete=models.PROTECT, related_name='%(class)s_counter')
-    type = models.CharField(
-        max_length=2, choices=ENERGY_TYPE.choices,
-        help_text=_("Energy type"))
-    asset_category = models.ForeignKey(
-        AssetCategory, verbose_name=_('Category'),
-        on_delete=models.PROTECT,
-        help_text=_("Category"))
     address_categories = models.ManyToManyField(
-        AddressCategory, verbose_name=_('Address Categories'), blank=True, 
+        AddressCategory, verbose_name=_('Address Categories'),
         help_text=_(
             "Area Categories to include, leave empty if to include all"))
-    subscribers = models.ManyToManyField(
-        Person, verbose_name=_('Subscribers'), blank=True,
+    buildings = models.ManyToManyField(
+        Building, verbose_name=_('Buildings'), blank=True,
         help_text=_(
-            "Subscribers, leave empty to include all in scope"))
+            "Buildings that should be included, "
+            "leave empty to include all in scope"))
+    start = models.DateField(
+        _("Start"), blank=True, null=True,
+        help_text=_("Leave empty if period start"))
+    end = models.DateField(
+        _("End"), blank=True, null=True,
+        help_text=_("Leave empty if period end"))
+    duration = models.PositiveSmallIntegerField(
+        f'{_("Duration")} [{_("days")}]', blank=True, null=True,
+        help_text=_("Period duration in days"))
     status = models.CharField(
         max_length=4, choices=STATUS.choices, default=STATUS.INITIALIZED,
         help_text=_("Current status of the routing."))
     is_default = models.BooleanField(
         _('Default route'), default=True,
         help_text=_("Inside default schedule"))
+    confidence_min = models.DecimalField(
+        _('Confidence Min.'), max_digits=3, decimal_places=2, default=0.1,
+        help_text=_(
+            "Min confidence factor based on previous period, "
+            "e.g. 0.5: value must be ≥ 5 if previous value was 10"))
+    confidence_max = models.DecimalField(
+        _('Confidence Max.'), max_digits=3, decimal_places=2, default=2,
+        help_text=_(
+            "Max confidence factor based on previous period, "
+            "e.g. 2: value must be ≤ 20 if previous value was 10"))        
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
+
+    def save(self, *args, **kwargs):
+        ''' Make calcuatiolations '''
+        # Assign start, end
+        if not self.start:
+            self.start = self.period.start
+        if not self.end:
+            self.end = self.period.end
+        
+        # Calculate duration before saving the object.
+        self.duration = (self.end - self.start).days + 1
+        
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.period}, {self.name}'
@@ -120,6 +144,9 @@ class Measurement(TenantAbstract):
     value_previous = models.FloatField(
         _('Previous Value'), blank=True, null=True,
         help_text=('Previous counter value'))
+    consumption = models.FloatField(
+        _('Consumption'), blank=True, null=True,
+        help_text=('Consumption = value - value_previous'))
     value_max = models.FloatField(
         _('Min. Value'), blank=True, null=True,
         help_text=('Max counter value'))
@@ -194,7 +221,8 @@ class Subscription(TenantAbstract):
             )
         ]
         ordering = [
-            'subscriber__alt_name', 'subscriber__company', 
-            'subscriber__last_name', 'subscriber__first_name']
+            'subscriber__alt_name', 'subscriber__company',
+            'subscriber__last_name', 'subscriber__first_name',
+            'articles__nr']
         verbose_name = _('Subscription')
         verbose_name_plural = _('Subscriptions')
