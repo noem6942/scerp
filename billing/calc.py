@@ -3,11 +3,11 @@ billing/calc.py
 '''
 import json
 
-from django.db.models import Q
+from django.db.models import Q, Sum, Min, Max
 from django.utils import timezone
 
 from asset.models import DEVICE_STATUS, Device, EventLog
-from core.models import Building
+from core.models import AddressCategory, Building
 from .models import Period, Route, Measurement, Subscription
 
 
@@ -242,3 +242,62 @@ class RouteCalc:
         # Open the file and write the JSON data
         with open(filename, 'w', encoding='utf-8') as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
+
+
+class Analyze:
+    
+    def __init__(self, model, queryset):
+        self.model = model
+        self.queryset = queryset
+        
+
+class AnalyseMeasurement(Analyze):
+    
+    def analyse(self):
+        # Distinct values of periods (assuming 'route' relates to periods)
+        distinct_periods = set([x.route.period for x in self.queryset.all()])
+
+        # Distinct values of routes
+        distinct_routes = set([x.route for x in self.queryset.all()])        
+
+        # Distinct values of areas (assuming 'address__categories' link to areas)
+        distinct_areas = AddressCategory.objects.filter(
+            id__in=self.queryset.values('building__address__categories')
+        ).distinct()
+
+        # Start and end of periods
+        start = min([x.period.start for x in self.queryset.all()])
+        end = max([x.period.end for x in self.queryset.all()])
+
+        # Min and Max datetime
+        min_date = self.queryset.aggregate(
+            Min('datetime'))['datetime__min'].date()
+        max_date = self.queryset.aggregate(
+            Max('datetime'))['datetime__max'].date()
+
+        # Sum of consumption
+        total_consumption = self.queryset.aggregate(
+            Sum('consumption'))['consumption__sum'] or 0
+
+        # Sum of consumption
+        total_consumption_previous = self.queryset.aggregate(
+            Sum('consumption_previous'))['consumption_previous__sum'] or 0
+
+        # Growth        
+        consumption_change = (
+            1- (total_consumption - total_consumption_previous) 
+            / total_consumption_previous
+        ) if total_consumption_previous else None
+
+        return {
+            'periods': distinct_periods,
+            'routes': distinct_routes,
+            'areas': distinct_areas,
+            'start': start,
+            'end': end,
+            'min_date': min_date,
+            'max_date': max_date,
+            'consumption': total_consumption,
+            'consumption_previous': total_consumption_previous,
+            'consumption_change': consumption_change
+        }     

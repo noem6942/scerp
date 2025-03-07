@@ -1,3 +1,8 @@
+"""
+'''
+crm/admin.py
+
+'''
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
@@ -8,7 +13,7 @@ from .models import AddressEch
 
 
 @admin.register(AddressEch, site=admin_site)
-class AddressEchAdmin(BaseAdmin):
+class AddressEchAdmin(TenantFilteringAdmin, BaseAdminNew):
     ''' currently not used '''
     # Safeguards
 
@@ -52,4 +57,4 @@ class AddressEchAdmin(BaseAdmin):
     @admin.display(description=_('ZIP'))
     def display_zip(self, obj):
         return obj.zip   
-        
+"""

@@ -15,7 +15,7 @@ from core.models import Country, Address, Contact
 from core.safeguards import get_tenant, save_logging
 from scerp.actions import set_inactive, set_protected
 from scerp.admin import (
-     BaseAdmin, BaseAdminNew, BaseTabularInline, ReadOnlyAdmin, Display,
+     BaseAdminNew, BaseTabularInline, ReadOnlyAdmin, Display,
      verbose_name_field, make_language_fields)
 from scerp.admin_base import (
     TenantFilteringAdmin, FIELDS as BASE_FIELDS, FIELDSET as BASE_FIELDSET)

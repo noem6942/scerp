@@ -44,15 +44,16 @@ class Command(BaseCommand):
         
         if action == 'gesoft':
             # Import library
-            from billing.gesoft_import import Import
-            handler = Import(setup_id, route_id, date)
-            
+            from billing.gesoft_import import ImportAddress, ImportData
+                        
             # Load addresses
             file_name = 'Abonnenten Gebühren einzeilig.xlsx'
-            address_data = handler.load_addresses(file_name)
+            handler = ImportAddress(setup_id)
+            address_data = handler.load(file_name)
 
             # Load subscribers + counters
             file_name = 'Abonnenten mit Zähler und Gebühren.xlsx'
-            handler.load_counter(file_name, address_data)
+            handler = ImportData(setup_id, route_id, date)                        
+            handler.load(file_name, address_data)
         else:
             raise ValueError("No valid action")

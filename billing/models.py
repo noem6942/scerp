@@ -9,6 +9,28 @@ from core.models import TenantAbstract, AddressCategory, Person, Building
 from asset.models import AssetCategory, Device
 
 
+# Articles
+class ARTICLE:
+    '''
+    only for definition, see accounting.Article for full article
+    '''
+    class TYPE(models.TextChoices):
+        '''
+        different VAT's!
+        '''
+        PREFIX = 'W'
+        SEWAGE  = 'WA', _('Sewage')  # Abwasser
+        WATER = 'WW', _('Water')
+
+    class WATER:
+        '''
+        needed for gesoft
+        '''
+        anr = 1
+        name = {'de': 'Verbrauch Wasser'}
+        price = 1.1
+
+
 # Timing
 class Period(TenantAbstract):
     class ENERGY_TYPE(models.TextChoices):
@@ -59,7 +81,8 @@ class Route(TenantAbstract):
         INVOICES_GENERATED = 'INV', _('Invoices Generated')
 
     name = models.CharField(
-        _('name'), max_length=50, help_text=_("name"))
+        _('name'), max_length=50,
+        help_text=_("name and period for route, e.g. Water, 24/1"))
     period = models.ForeignKey(
         Period, verbose_name=_('Period'),
         on_delete=models.PROTECT, related_name='%(class)s_counter')
@@ -96,7 +119,7 @@ class Route(TenantAbstract):
         _('Confidence Max.'), max_digits=3, decimal_places=2, default=2,
         help_text=_(
             "Max confidence factor based on previous period, "
-            "e.g. 2: value must be ≤ 20 if previous value was 10"))        
+            "e.g. 2: value must be ≤ 20 if previous value was 10"))
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
     def save(self, *args, **kwargs):
@@ -106,10 +129,10 @@ class Route(TenantAbstract):
             self.start = self.period.start
         if not self.end:
             self.end = self.period.end
-        
+
         # Calculate duration before saving the object.
         self.duration = (self.end - self.start).days + 1
-        
+
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -127,6 +150,69 @@ class Route(TenantAbstract):
         verbose_name_plural = _('Routes')
 
 
+# Subscriptions
+class Subscription(TenantAbstract):
+    nr = models.CharField(
+        _('Subscription Number'), max_length=50, blank=True, null=True,
+        help_text=('New subscription number, retrieved automatically'))
+    subscriber_number = models.CharField(
+        _('Subscription Number'), max_length=50, blank=True, null=True,
+        help_text=('Old subscription number, leave empty'))
+    subscriber = models.ForeignKey(
+        Person, verbose_name=_('Subscriber'),
+        on_delete=models.PROTECT, related_name='%(class)s_subscriber',
+        help_text=_(
+            "subscriber / inhabitant / owner"
+            "invoice address may be different to subscriber, defined under "
+            "address"))
+    recipient = models.ForeignKey(
+        Person, verbose_name=_('Recipient'), blank=True, null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_recipient',
+        help_text=_(
+            "invoice person / company if different from subscriber"))
+    building = models.ForeignKey(
+        Building, verbose_name=_('Building'),
+        on_delete=models.PROTECT, related_name='%(class)s_building')
+    start = models.DateField(
+        _('Start Date'))
+    end = models.DateField(
+        _('Exit Date'), blank=True, null=True)
+    counters = models.ManyToManyField(
+        Device, verbose_name=_('Counter'), blank=True,
+        related_name='%(class)s_counter')
+    articles = models.ManyToManyField(
+        Article, verbose_name=_('Article'),
+        related_name='%(class)s_articles')
+
+    @property
+    def number(self):
+        return f'S {self.id}'
+
+    def save(self, *args, **kwargs):
+        ''' Make number '''
+        if not self.pk:
+            # Nr
+            self.nr = f'SC {self.tenant.id}-{self.id}'
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.subscriber}, {self.start} - {self.end}'
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'subscriber', 'start', 'end', 'building'],
+                name='unique_billing_subscription'
+            )
+        ]
+        ordering = [
+            'subscriber__alt_name', 'subscriber__company',
+            'subscriber__last_name', 'subscriber__first_name']
+        verbose_name = _('Subscription')
+        verbose_name_plural = _('Subscriptions')
+
+
 # Counters
 class Measurement(TenantAbstract):
     counter = models.ForeignKey(
@@ -138,9 +224,10 @@ class Measurement(TenantAbstract):
     datetime = models.DateTimeField(
         _('Date and time'))
     datetime_previous = models.DateTimeField(
-        _('Previous Date and time'), blank=True, null=True)
+        _('Previous Date and Time'), blank=True, null=True)
     value = models.FloatField(
-        _('Value'), help_text=('Actual counter value'))
+        _('Value'), blank=True, null=True,
+        help_text=('Actual counter value'))
     value_previous = models.FloatField(
         _('Previous Value'), blank=True, null=True,
         help_text=('Previous counter value'))
@@ -153,6 +240,7 @@ class Measurement(TenantAbstract):
     value_min = models.FloatField(
         _('Max. Value'), blank=True, null=True,
         help_text=('Min counter value'))
+
     # import
     status = models.CharField(
         max_length=50, blank=True, null=True)
@@ -171,6 +259,19 @@ class Measurement(TenantAbstract):
     current_battery_level = models.FloatField(
         blank=True, null=True)
 
+    # for efficiency analysis
+    building = models.ForeignKey(
+        Building, verbose_name=_('Building'), blank=True, null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_building')
+    period = models.ForeignKey(
+        Period, verbose_name=_('Period'), blank=True, null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_period')
+    subscription = models.ForeignKey(
+        Subscription, verbose_name=_('Subscription'), blank=True, null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_subscriber')
+    consumption_previous = models.FloatField(
+        _('Consumption'), blank=True, null=True)
+
     def __str__(self):
         return f'{self.route}, {self.counter}, {self.datetime}'
 
@@ -185,44 +286,3 @@ class Measurement(TenantAbstract):
             '-route__period__end', 'counter__number']
         verbose_name = _('Measurement')
         verbose_name_plural = _('Measurements')
-
-
-# Subscriptions
-class Subscription(TenantAbstract):
-    subscriber = models.ForeignKey(
-        Person, verbose_name=_('Subscriber'),
-        on_delete=models.PROTECT, related_name='%(class)s_subscriber',
-        help_text=_(
-            "subscriber / inhabitant / owner"
-            "invoice address may be different to subscriber, defined under "
-            "address"))
-    recipient = models.ForeignKey(
-        Person, verbose_name=_('Recipient'), blank=True, null=True,
-        on_delete=models.PROTECT, related_name='%(class)s_recipient',
-        help_text=_(
-            "invoice person / company if different from subscriber"))
-    building = models.ForeignKey(
-        Building, verbose_name=_('Building'),
-        on_delete=models.PROTECT, related_name='%(class)s_building')
-    start = models.DateField(_('Start Date'))
-    end = models.DateField(_('Exit Date'), blank=True, null=True)
-    articles = models.ManyToManyField(
-        Article, verbose_name=_('Article'),
-        related_name='%(class)s_articles')
-
-    def __str__(self):
-        return f'{self.subscriber}, {self.start} - {self.end}'
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['tenant', 'subscriber', 'start', 'end', 'building'],
-                name='unique_billing_subscription'
-            )
-        ]
-        ordering = [
-            'subscriber__alt_name', 'subscriber__company',
-            'subscriber__last_name', 'subscriber__first_name',
-            'articles__nr']
-        verbose_name = _('Subscription')
-        verbose_name_plural = _('Subscriptions')

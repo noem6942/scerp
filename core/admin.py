@@ -8,7 +8,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from scerp.admin import (
-    BaseAdmin, BaseTabularInline, Display, make_language_fields,
+    BaseTabularInline, Display, make_language_fields,
     BaseAdminNew
 )
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
@@ -189,24 +189,23 @@ class TenantLogoAdmin(TenantFilteringAdmin, BaseAdminNew):
         
 # Address, Persons ---------------------------------------------------------
 @admin.register(models.AddressCategory, site=admin_site)
-class AddressCategoryAdmin(BaseAdmin):
+class AddressCategoryAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
     protected_foreigns = ['tenant']
     
     # Display these fields in the list view
     list_display = ('type', 'code', 'name')
     
+    # Search, filter
     search_fields = ('type', 'code', 'name')
+    
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': ('type', 'code', 'name', 'description'),
             'classes': ('expand',),
         }),
     )
-
-    @admin.display(description=_('logo'))
-    def display_logo(self, obj):
-        return Display.photo_h(obj.logo)
 
 
 @admin.register(models.Title, site=admin_site)
@@ -271,7 +270,7 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdminNew):
 
 
 @admin.register(models.Address, site=admin_site)
-class AddressAdmin(BaseAdmin):
+class AddressAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
     protected_foreigns = ['tenant']
     protected_many_to_many = ['categories']
@@ -298,12 +297,8 @@ class AddressAdmin(BaseAdmin):
         return {'country': get_object_or_404(models.Country, alpha3='CHE')}
 
     @admin.display(description=_("Categories"))
-    def display_categories(self, obj):
-        names = [
-            f'{cat.get_type_display()[0]}-{cat.name[0]}'
-            for cat in obj.categories.all()
-        ]            
-        return ', '.join(names)
+    def display_categories(self, obj):        
+        return obj.category_str()
 
 
 class AddressInline(BaseTabularInline):
@@ -387,17 +382,16 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdminNew):
 
 
 @admin.register(models.PersonAddress, site=admin_site)
-class PersonAddressAdmin(BaseAdmin):
+class PersonAddressAdmin(TenantFilteringAdmin, BaseAdminNew):
     # Safeguards
     protected_foreigns = ['tenant', 'address']
 
     # Display these fields in the list view
     list_display = (
-        'type', 'address__zip', 'address__city', 'address__address',
+        'address__zip', 'address__city', 'address__address', 'type', 
         'person__last_name', 'person__first_name', 'person__company', 
         'display_categories')
-    list_display_links = (
-        'person__last_name', 'person__first_name', 'person__company')
+    list_display_links = ('address__address',)
 
     # Search, filter
     list_filter = (filters.PersonAddressCategoryFilter, 'type')
@@ -417,13 +411,9 @@ class PersonAddressAdmin(BaseAdmin):
     )
 
     @admin.display(description=_("Categories"))
-    def display_categories(self, obj):
-        names = [
-            f'{cat.get_type_display()[0]}-{cat.name[0]}'
-            for cat in obj.address.categories.all()
-        ]            
-        return ', '.join(names)
-
+    def display_categories(self, obj):        
+        return obj.address.category_str()
+        
 
 @admin.register(models.Building, site=admin_site)
 class BuildingAdmin(TenantFilteringAdmin, BaseAdminNew):

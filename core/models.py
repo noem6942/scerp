@@ -315,14 +315,14 @@ class AddressCategory(TenantAbstract):
         _('Name'), max_length=100, help_text=_("Name"))
     description = models.TextField(
         _('Description'), blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.type} {self.name}"
 
     class Meta:
         ordering = ['code', 'name']
         verbose_name = _('Address Category')
         verbose_name_plural = _('Address Categories')
-
-    def __str__(self):
-        return f"{self.type} {self.name}"
 
 
 class Country(LogAbstract):
@@ -384,6 +384,22 @@ class Address(TenantAbstract):
         help_text=_('Categorize address for planning or statistical analysis.')
     )
 
+    def category_str(self, filter_type=None):
+        # Prepare categories
+        if filter_type:
+            categories = self.categories.filter(type=filter_type)
+        else:
+            categories = self.categories
+        
+        # get and append category names
+        names = []
+        for cat in categories.all():            
+            type_str = '' if filter_type else cat.get_type_display()[0] + '-' 
+            name = cat.name[0]
+            names.append(f'{type_str}{name}')
+            
+        return ', '.join(names)    
+    
     def __str__(self):
         if self.country.alpha3 == 'CHE':
             return f"{self.zip} {self.city}, {self.address}"

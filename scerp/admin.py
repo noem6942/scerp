@@ -7,11 +7,14 @@ Helpers for admin.py
 
 '''
 import json
+import openpyxl
+from openpyxl.utils import get_column_letter
 
 from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.forms import Textarea
+from django.http import HttpResponse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.formats import date_format
@@ -119,7 +122,7 @@ class Display:
                 thousand_separator=thousand_separator)
         except:
             number_str = value
-        html = "<span style='text-align: right; display: block;'>{}</span>"
+        html = '<span style="text-align: right; display: block;">{}</span>'
         return format_html(html, number_str)
 
     def percentage(value, precision=1):
@@ -131,7 +134,7 @@ class Display:
 
         # Format number
         number_str = format_percent(value, precision)
-        html = "<span style='text-align: right; display: block;'>{}</span>"
+        html = '<span style="text-align: right; display: block;">{}</span>'
         return format_html(html, number_str)
 
     def hierarchy(level, name):
@@ -155,7 +158,7 @@ class Display:
             # Format JSON data with indentation and render it as preformatted text
             formatted_json = json.dumps(value, indent=4, ensure_ascii=False)
             return format_html(
-                "<pre style='font-family: monospace;'>{}</pre>", 
+                '<pre style="font-family: monospace;">{}</pre>', 
                 formatted_json)
         except ValueError as e:
             return f'Value Error displaying data: {e}'
@@ -176,7 +179,7 @@ class Display:
         Returns:
             str: HTML string with a clickable link.
         '''
-        return format_html("<a href='{}' target='_blank'>{}</a>", url, name)
+        return format_html('<a href="{}" target="_blank">{}</a>', url, name)
 
     def list(items):
         output_list = [f'<li>{item}</li>' for item in items]
@@ -188,8 +191,8 @@ class Display:
         '''
         if url_field:
             return mark_safe(
-                f"<img src='{url_field.url}' width='60' height='60' "
-                f"style='object-fit: cover;' />")
+                f'<img src="{url_field.url}" width="60" height="60" '
+                f'style="object-fit: cover;" />')
         return ''
 
     def verbose_name(def_cls, field):
@@ -208,6 +211,108 @@ class Display:
             if level < 3:
                 return format_hierarchy(obj.level, name)
         return name
+
+
+class Excel:
+    '''
+    Generates an Excel file from provided data with customizable headers, 
+    footers, and column widths.
+    '''
+    def __init__(
+            self, filename='output.xlsx', title='Exported Data',
+            header={}, footer={}):
+        '''
+        Args:       
+            filename (str): Name of the exported file.
+            title (str): worksheet title
+            header (dict)
+            footer (dict)
+        '''        
+        self.filename = filename
+        self.title = title
+        self.header = header
+        self.footer = footer
+
+    def set_layout(self, ws):
+        # A4 Page Setup
+        # Set to A4 paper size
+        ws.page_setup.paperSize = ws.PAPERSIZE_A4  
+        
+        # Landscape mode for better readability
+        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE  
+        
+        # Center the print horizontally        
+        ws.print_options.horizontalCentered = True
+        
+        # Center the print vertically
+        ws.print_options.verticalCentered = True  
+        ws.page_margins.left = 0.5
+        ws.page_margins.right = 0.5
+        ws.page_margins.top = 0.75
+        ws.page_margins.bottom = 0.75
+        ws.page_margins.header = 0.3
+        ws.page_margins.footer = 0.3    
+
+        # Set Header/Footer
+        ws.oddHeader.left.text = self.header.get('left', '')
+        ws.oddHeader.center.text = self.header.get('center', '')
+        ws.oddHeader.right.text = self.header.get('right', '')
+
+        ws.oddFooter.left.text = self.footer.get('left', '')
+        ws.oddFooter.center.text = self.footer.get('center', '')
+        ws.oddFooter.right.text = self.footer.get('right', '')
+
+    def generate_response(self, data, headers=[], col_widths=None):
+        '''
+        Generates an Excel file from provided data with customizable headers, footers, and column widths.
+
+        Args:
+            data (list of lists): 
+                Rows of data, where each row is a list of values.
+            headers (list): 
+                List of column headers.
+            col_widths (list, optional): 
+            List of column widths; defaults to auto-adjust.        
+
+        Returns:
+            HttpResponse: Excel file as an HTTP response.
+        '''
+        # Create a new workbook & worksheet
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = self.title
+        self.set_layout(ws)
+
+        # Write Column Headers
+        if not headers and data:
+            headers = [f'col{i}' for i, _ in enumerate(data[0], start=1)]
+        ws.append(headers)
+
+        # Write Data Rows
+        for row in data:
+            ws.append(row)
+
+        # Adjust Column Widths
+        for col_num, header in enumerate(headers, 1):
+            col_letter = get_column_letter(col_num)
+            if col_widths and len(col_widths) >= col_num:
+                ws.column_dimensions[col_letter].width = (
+                    col_widths[col_num - 1])
+            else:
+                ws.column_dimensions[col_letter].width = (
+                    max(len(str(header)) + 2, 12))
+
+        # Prepare HTTP Response
+        response = HttpResponse(
+            content_type=(
+                'application/vnd.openxmlformats-officedocument'
+                '.spreadsheetml.sheet')
+        )
+        response['Content-Disposition'] = (
+            f"attachment; filename={self.filename}")
+        wb.save(response)
+
+        return response
 
 
 # Decorators
@@ -238,20 +343,21 @@ class BaseAdminNew:
 
     @admin.display(description='')
     def display_attachment_icon(self, obj):
-        """Displays a paperclip 📎 or folder 📂 icon if attachments exist."""
+        '''Displays a paperclip 📎 or folder 📂 icon if attachments exist.'''
         if obj.attachments.exists():  # ✅ Efficient query
-            return "📂"  # You can also use "📎" or "🗂️"
-        return ""  # No icon if no attachments'
+            return '📂'  # You can also use '📎' or '🗂️'
+        return ''  # No icon if no attachments'
 
     @admin.display(description='')
     def display_notes_hint(self, obj):
-        """Displays a hint (tooltip) with the note text if available."""
+        '''Displays a hint (tooltip) with the note text if available.'''
         if obj.notes:
             return format_html(
                 '<span style="cursor: pointer; border-bottom: 1px dotted #555;" '
                 'title="{}">📝</span>', obj.notes
             )  # ✅ Cursor + underline effect
-        return ""
+        return ''
+
 
     @admin.display(description=_('last update'))
     def display_last_update(self, obj):
@@ -273,19 +379,19 @@ class BaseAdminNew:
     def display_document_name(self, obj):
         return primary_language(obj.document_name)
 
-    @admin.display(description=_("Percentage"))
+    @admin.display(description=_('Percentage'))
     def display_percentage(self, obj):
         return Display.percentage(obj.percentage, 1)
 
-    @admin.display(description=_("Percentage Flat"))
+    @admin.display(description=_('Percentage Flat'))
     def display_percentage_flat(self, obj):
         return Display.percentage(obj.percentage_flat, 1)
 
     @admin.display(description=_('Balance'))
     def display_link_to_company(self, person):
         if not person.company:
-            return "-"  # Fallback if company is missing
-        url = f"../person/{person.id}/"
+            return '-'  # Fallback if company is missing
+        url = f'../person/{person.id}/'
         return format_html('<a href="{}">{}</a>', url, person.company)
   
     @admin.display(description=_('Parent'))
@@ -297,48 +403,12 @@ class BaseAdminNew:
         return primary_language(obj.description)
 
 
-
-class BaseAdmin(TenantFilteringAdmin):
-    '''
-    basic class 
-    all security filtering is done in TenantFilteringAdmin
-    '''
-
-    @admin.display(description=_('Name'))
-    def display_name(self, obj):
-        try:
-            return primary_language(obj.name)
-        except:
-            return ''
-
-    @admin.display(description=_('Photo'))
-    def display_photo(self, obj):
-        return Display.photo(obj.photo)
-
-    @admin.display(description='')
-    def attachment_icon(self, obj):
-        """Displays a paperclip 📎 or folder 📂 icon if attachments exist."""
-        if obj.attachments.exists():  # ✅ Efficient query
-            return "📂"  # You can also use "📎" or "🗂️"
-        return ""  # No icon if no attachments'
-
-    @admin.display(description='')
-    def notes_hint(self, obj):
-        """Displays a hint (tooltip) with the note text if available."""
-        if obj.notes:
-            return format_html(
-                '<span style="cursor: pointer; border-bottom: 1px dotted #555;" '
-                'title="{}">📝</span>', obj.notes
-            )  # ✅ Cursor + underline effect
-        return ""
-
-
 class BaseTabularInline(RelatedModelInline):
     pass
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
-    """A mixin to make an admin model read-only."""
+    '''A mixin to make an admin model read-only.'''
     def has_add_permission(self, request):
         return False  # Disable adding
 
@@ -349,5 +419,5 @@ class ReadOnlyAdmin(admin.ModelAdmin):
         return False  # Disable deleting
 
     def get_readonly_fields(self, request, obj=None):
-        """Make all fields read-only."""
+        '''Make all fields read-only.'''
         return [field.name for field in self.model._meta.fields]
