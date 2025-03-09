@@ -1,8 +1,11 @@
 # scerp/forms.py
 from django import forms
 from django.conf import settings
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django_admin_action_forms import AdminActionForm
 
+from scerp.admin import PAGE_ORIENTATION, verbose_name_plural
 from .admin import verbose_name_field, get_help_text, is_required_field
 
 
@@ -27,7 +30,7 @@ def make_multilanguage_form(local, model, fields):
 
             # required
             required = (
-                is_required_field(model, field_name) and 
+                is_required_field(model, field_name) and
                     lang_code == settings.LANGUAGE_CODE_PRIMARY)
 
             # label
@@ -35,18 +38,18 @@ def make_multilanguage_form(local, model, fields):
 
             # Use Textarea if it's a description field
             widget = (
-                forms.Textarea(attrs={'rows': 1, 'cols': 80}) 
+                forms.Textarea(attrs={'rows': 1, 'cols': 80})
                 if (field_name.startswith('description')
-                    or field_name.startswith('sentence')) 
+                    or field_name.startswith('sentence'))
                 else forms.TextInput()
             )
             widget = (
                 forms.Textarea(attrs={'rows': 1, 'cols': 80})
-                if (field_name.startswith('description') 
+                if (field_name.startswith('description')
                     or field_name.startswith('sentence'))
                 else forms.TextInput(attrs={'size': 80})
             )
-            
+
             # assign to local form
             local[key] = forms.CharField(
                 required=required, label=label, help_text=help_text,
@@ -56,7 +59,7 @@ def make_multilanguage_form(local, model, fields):
 class MultilanguageForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
-        # Initialize the form        
+        # Initialize the form
         super().__init__(*args, **kwargs)
 
         for field in self.multi_lang_fields:
@@ -87,3 +90,81 @@ class MultilanguageForm(forms.ModelForm):
             cleaned_data[field] = name_data
 
         return cleaned_data
+
+
+# Export
+class ExportExcelActionForm(AdminActionForm):
+    # Names
+    file_name = forms.CharField(
+        label=_('Filename'), max_length=100)
+    worksheet_name = forms.CharField(
+        label=_('Worksheet Name'), max_length=100)
+    orientation = forms.ChoiceField(
+        choices=PAGE_ORIENTATION, label=_("Page Orientation"))
+
+    # ColWidths
+    col_widths = forms.CharField(
+        label=_('Column Widths in mm'), max_length=100, required=False,
+        help_text=_("Leave empty for 'auto'"))
+
+    # Header
+    header_left = forms.CharField(
+        label=_('Header left'), max_length=100, required=False)
+    header_center = forms.CharField(
+        label=_('Header center'), max_length=100, required=False)
+    header_right = forms.CharField(
+        label=_('Header right'), max_length=100, required=False)
+
+    # Footer
+    footer_left = forms.CharField(
+        label=_('Footer left'), max_length=100, required=False)
+    footer_center = forms.CharField(
+        label=_('Footer center'), max_length=100, required=False)
+    footer_right = forms.CharField(
+        label=_('Footer right'), max_length=100, required=False)
+
+
+    class Meta:
+        help_text = _("{count} records selected.")
+
+    def __post_init__(self, modeladmin, request, queryset):
+        date = timezone.now().date()
+        name_plural = verbose_name_plural(modeladmin.model)
+        tenant = queryset.first().tenant
+
+        self.Meta.help_text = self.Meta.help_text.format(
+            count=queryset.count())
+
+        self.fields['file_name'].initial = f'{name_plural}_{date}.xlsx'
+        self.fields['worksheet_name'].initial = name_plural
+        self.fields['col_widths'].initial = getattr(
+            modeladmin, 'col_widths', '')
+            
+        if getattr(modeladmin, 'orientation', None):
+            self.fields['orientation'].initial = modeladmin.orientation
+
+        self.fields['header_left'].initial = tenant.name
+        self.fields['header_center'].initial = verbose_name_plural(queryset.model)
+        self.fields['header_right'].initial =  request.user.username
+
+        self.fields['footer_left'].initial = date
+        self.fields['footer_center'].initial = ''
+        self.fields['footer_right'].initial = '&P / &N'
+
+
+class ExportJSONActionForm(AdminActionForm):
+    # Names
+    file_name = forms.CharField(
+        label=_('Filename'), max_length=100)
+
+    class Meta:
+        help_text = _("{count} records selected.")
+
+    def __post_init__(self, modeladmin, request, queryset):
+        date = timezone.now().date()
+        name_plural = verbose_name_plural(modeladmin.model)        
+
+        self.Meta.help_text = self.Meta.help_text.format(
+            count=queryset.count())
+
+        self.fields['file_name'].initial = f'{name_plural}_{date}.json'

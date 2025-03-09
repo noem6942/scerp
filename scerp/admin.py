@@ -9,19 +9,27 @@ Helpers for admin.py
 import json
 import openpyxl
 from openpyxl.utils import get_column_letter
+from datetime import datetime, date
 
 from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.forms import Textarea
 from django.http import HttpResponse
+from django.db.models import TextChoices
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.encoding import force_str
 from django.utils.formats import date_format
 from django.utils.translation import get_language, gettext_lazy as _
 
 from .admin_base import FIELDSET, TenantFilteringAdmin, RelatedModelInline
 from .mixins import primary_language
+
+
+class PAGE_ORIENTATION(TextChoices):
+    LANDSCAPE = 'landscape', _('Landscape')
+    PORTRAIT = 'portrait', _('Portrait')
 
 
 # format
@@ -86,9 +94,25 @@ def is_required_field(model, field_name):
     return not field.blank and not field.null
 
 
-def verbose_name_field(model, field_name):
+def verbose_name(model):
     '''
     Get verbose_name from model
+    '''
+    # pylint: disable=W0212
+    return model._meta.verbose_name
+
+
+def verbose_name_plural(model):
+    '''
+    Get verbose_name from model
+    '''
+    # pylint: disable=W0212
+    return model._meta.verbose_name_plural
+
+
+def verbose_name_field(model, field_name):
+    '''
+    Get verbose_name from model field
     '''
     # pylint: disable=W0212
     return model._meta.get_field(field_name).verbose_name
@@ -158,7 +182,7 @@ class Display:
             # Format JSON data with indentation and render it as preformatted text
             formatted_json = json.dumps(value, indent=4, ensure_ascii=False)
             return format_html(
-                '<pre style="font-family: monospace;">{}</pre>', 
+                '<pre style="font-family: monospace;">{}</pre>',
                 formatted_json)
         except ValueError as e:
             return f'Value Error displaying data: {e}'
@@ -213,45 +237,82 @@ class Display:
         return name
 
 
-class Excel:
+class Export:
+
+    def __init__(self, filename):
+        self.filename = filename
+
+    def make_headers(self, headers, data=[]):
+        # Convert headers if necessary
+        headers = [
+            x if isinstance(x, str) else force_str(x)
+            for x in headers
+        ]
+
+        # Write Column Headers
+        if not headers and data:
+            headers = [f'col{i}' for i, _ in enumerate(data[0], start=1)]
+
+        return headers
+
+    def convert_value(self, value):
+        if isinstance(value, (datetime, date)):
+            return value.isoformat() 
+        return value
+
+    def clean_data(self, data):
+        return [
+            [self.convert_value(value) for value in values]
+            for values in data
+        ]
+
+
+class ExportExcel(Export):
     '''
-    Generates an Excel file from provided data with customizable headers, 
+    Generates an Excel file from provided data with customizable headers,
     footers, and column widths.
     '''
     def __init__(
-            self, filename='output.xlsx', title='Exported Data',
-            header={}, footer={}):
+            self, filename='output.xlsx', ws_title='Exported Data',
+            header={}, footer={}, orientation=None):
         '''
-        Args:       
+        Args:
             filename (str): Name of the exported file.
             title (str): worksheet title
             header (dict)
             footer (dict)
-        '''        
-        self.filename = filename
-        self.title = title
+        '''
+        super().__init__(filename)        
+        self.ws_title = ws_title
         self.header = header
         self.footer = footer
+        self.orientation = (
+            orientation if orientation else PAGE_ORIENTATION.LANDSCAPE)
 
     def set_layout(self, ws):
         # A4 Page Setup
         # Set to A4 paper size
-        ws.page_setup.paperSize = ws.PAPERSIZE_A4  
-        
+        ws.page_setup.paperSize = ws.PAPERSIZE_A4
+
         # Landscape mode for better readability
-        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE  
-        
-        # Center the print horizontally        
+        if self.orientation == PAGE_ORIENTATION.LANDSCAPE:
+            ws.page_setup.orientation = PAGE_ORIENTATION.LANDSCAPE
+        elif self.orientation == PAGE_ORIENTATION.PORTRAIT:
+            ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+        else:
+            raise ValueError(_("No valid page orientation"))
+
+        # Center the print horizontally
         ws.print_options.horizontalCentered = True
-        
+
         # Center the print vertically
-        ws.print_options.verticalCentered = True  
+        ws.print_options.verticalCentered = True
         ws.page_margins.left = 0.5
         ws.page_margins.right = 0.5
         ws.page_margins.top = 0.75
         ws.page_margins.bottom = 0.75
         ws.page_margins.header = 0.3
-        ws.page_margins.footer = 0.3    
+        ws.page_margins.footer = 0.3
 
         # Set Header/Footer
         ws.oddHeader.left.text = self.header.get('left', '')
@@ -267,12 +328,12 @@ class Excel:
         Generates an Excel file from provided data with customizable headers, footers, and column widths.
 
         Args:
-            data (list of lists): 
+            data (list of lists):
                 Rows of data, where each row is a list of values.
-            headers (list): 
+            headers (list):
                 List of column headers.
-            col_widths (list, optional): 
-            List of column widths; defaults to auto-adjust.        
+            col_widths (list, optional):
+            List of column widths; defaults to auto-adjust.
 
         Returns:
             HttpResponse: Excel file as an HTTP response.
@@ -280,12 +341,14 @@ class Excel:
         # Create a new workbook & worksheet
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = self.title
+        ws.title = self.ws_title
         self.set_layout(ws)
 
-        # Write Column Headers
-        if not headers and data:
-            headers = [f'col{i}' for i, _ in enumerate(data[0], start=1)]
+        # Clean data
+        data = self.clean_data(data)
+        
+        # Convert headers if necessary
+        headers = self.make_headers(headers, data)
         ws.append(headers)
 
         # Write Data Rows
@@ -315,10 +378,54 @@ class Excel:
         return response
 
 
+class ExportJSON(Export):
+    '''
+    Generates an JSON file from provided data
+    '''
+    def __init__(self, filename='output.json'):
+        '''
+        Args:
+            filename (str): Name of the exported file. Will
+        '''
+        super().__init__(filename)
+
+    def generate_response(self, data, headers=[]):
+        '''
+        Generates an JSON file from provided data
+        Args:
+            data (list of lists):
+                Rows of data, where each row is a list of values.
+
+        Returns:
+            HttpResponse: JSON file as an HTTP response.
+        '''
+        # Convert headers if necessary
+        headers = self.make_headers(headers, data)
+        
+        # Clean data
+        data = self.clean_data(data)     
+        print("*d", data)
+        data = [dict(zip(headers, x)) for x in data]
+        
+        # Create json
+        json_data = json.dumps(data, ensure_ascii=False)
+
+        # Create the HTTP response and set the appropriate content type with
+        # UTF-8 charset
+        response = HttpResponse(
+            json_data, content_type='application/json; charset=utf-8')
+
+        # Define the file name for the download (you can customize it as needed)
+        response['Content-Disposition'] = (
+            f'attachment; filename="{self.filename}"')
+
+        return response
+
+
 # Decorators
 class BaseAdminNew:
     '''
-    basic class 
+    basic class
     all security filtering is done in TenantFilteringAdmin
     '''
 
@@ -393,7 +500,7 @@ class BaseAdminNew:
             return '-'  # Fallback if company is missing
         url = f'../person/{person.id}/'
         return format_html('<a href="{}">{}</a>', url, person.company)
-  
+
     @admin.display(description=_('Parent'))
     def display_category_type(self, obj):
         return obj.category.get_type_display()

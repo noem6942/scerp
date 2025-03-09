@@ -4,7 +4,8 @@ from django.db.models import Count, Sum
 from django.utils.translation import gettext_lazy as _
 
 from core.admin import AttachmentInline
-from scerp.admin import BaseAdminNew, Display
+from scerp.actions import export_excel, export_json
+from scerp.admin import BaseAdminNew, Display, verbose_name_field
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 
@@ -102,7 +103,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdminNew):
     ordering = ('-consumption', 'subscription__subscriber__alt_name')
 
     # Actions
-    actions = [a.analyse_measurment, a.export_measurement_data]
+    actions = [a.analyse_measurment, export_excel, export_json]
 
     #Fieldsets
     fieldsets = (
@@ -121,6 +122,20 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdminNew):
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
+
+    def export_data(self, request, queryset):        
+        __ = request        
+        return [
+            (x.id, x.consumption)
+            for x in queryset.all()
+        ]
+        
+    def export_headers(self, request, queryset):
+        __ = request, queryset        
+        return [
+            verbose_name_field(self.model, 'id'),
+            verbose_name_field(self.model, 'consumption')
+        ]
 
     @admin.display(description=_('Consumption'))
     def display_subscriber(self, obj):       

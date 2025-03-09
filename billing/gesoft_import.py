@@ -110,8 +110,7 @@ class ImportAddress(Import):
         # Read
         for row in rows:
             cells = row
-            if (cells[0] and (
-                    isinstance(cells[0], int) or isinstance(cells[0], float))):
+            if cells[0] and isinstance(cells[0], (int, float)):
                 # Get data
                 (abo_nr, _, _, namevorname, _, strasse, plz_ort, *_) = row
 
@@ -553,7 +552,7 @@ class ImportData(ImportAddress):
                 subscriber_number, building, subscription = result
                 measurements = []
                 tarif_water = None
-            elif isinstance(first_cell, int) or isinstance(first_cell, float):
+            elif isinstance(first_cell, (int, float)):
                 if first_cell > 100:
                     # Load counters
                     result = self.load_block_counter(

@@ -6,7 +6,6 @@ from django.utils.safestring import mark_safe
 from django_admin_action_forms import action_with_form
 
 from scerp.actions import action_check_nr_selected
-from scerp.admin import Excel
 from . import forms
 
 from asset.models import Device
@@ -114,15 +113,3 @@ def analyse_measurment(modeladmin, request, queryset):
 
         except:
             messages.error(request, _('No valid data available'))
-
-
-@admin.action(description=_('Export data'))
-def export_measurement_data(modeladmin, request, queryset):
-    if action_check_nr_selected(request, queryset, min_count=1):
-        e = Excel()
-        data = [
-            (x.id, x.consumption)
-            for x in queryset.all()
-        ]
-        response = e.generate_response(data)
-        return response
