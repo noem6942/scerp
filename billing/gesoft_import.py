@@ -1,5 +1,5 @@
 '''
-billing/gesoft_counter_data_import.py
+billing/gesoft_import.py
 '''
 import json
 import logging
@@ -17,6 +17,7 @@ from core.models import (
      AddressCategory, Address, PersonCategory, Person, PersonAddress,
      Building
 )
+from scerp.mixins import parse_gesoft_to_datetime
 from .models import ARTICLE
 
 logger = logging.getLogger(__name__)
@@ -145,7 +146,7 @@ class ImportData(ImportAddress):
         self.route = Route.objects.get(
             tenant=self.tenant, id=route_id)
         self.period = self.route.period
-        self.asset_category = self.period.asset_category  # Counter
+        self.asset_categories = self.period.asset_categories.all()  # WA + HWA
 
         # Time
         self.datetime = timezone.make_aware(
@@ -217,12 +218,13 @@ class ImportData(ImportAddress):
     # Core
     def add_address_category(self, building_address, alt_name):
         if (alt_name in ALLMEND
-                or building_address.address.startswith('Allmend')):
+                or building_address.address.startswith('Allmend ')):
+            # e.g. Allmend 4 but not Allmendstrasse 
             category = AddressCategory.objects.get(
                 tenant=self.tenant, code='allmend')
         elif building_address.zip == str(ZIP):
             category = AddressCategory.objects.get(
-                tenant=self.tenant, code='gunzgen')
+                tenant=self.tenant, code='gunzgen')            
         else:
             return
 
@@ -267,22 +269,21 @@ class ImportData(ImportAddress):
         return obj, created
 
     # Asset
-    def add_device(self, data, category):
+    def add_device(self, data):
         data['created_by'] = self.created_by
         obj, created = Device.objects.get_or_create(
             tenant=self.tenant,
             code=data.pop('code'),
-            category=category,
             defaults=data
         )
         return obj, created
 
-    def add_event(self, device, date, status, data):
+    def add_event(self, device, dt, status, data):
         data['created_by'] = self.created_by
         obj, created = EventLog.objects.get_or_create(
             tenant=self.tenant,
             device=device,
-            date=date,
+            datetime=dt,
             status=status,
             defaults=data
         )
@@ -400,7 +401,7 @@ class ImportData(ImportAddress):
             subscriber, building_address, PersonAddress.TYPE.MAIN)
 
         # AddressCategory
-        self.add_address_category(building_address, subscriber_name)
+        self.add_address_category(building_address, subscriber_name)        
 
         # Invoice address
         invoice_address = address_data[subscriber_number]
@@ -461,14 +462,24 @@ class ImportData(ImportAddress):
             montage_date, _, tarif, bez, tage, fkt, anz_zw,
             zw_alt_1, zw_alt_2, strg_z, add, zuge, zuga, folge
         ) = row
+        
+        # Category
+        if counter_nr == HOTWATER_COUNTER_IDS:
+            category = self.asset_categories.filter(code='HWA').first()
+        else:
+            category = self.asset_categories.filter(code='WA').first()  
+            
         # Add Counter
-        date = self.convert_to_date(montage_date)
+        dt = parse_gesoft_to_datetime(montage_date)        
         data = {
             'code': counter_nr,
             'number': counter_nr,
-            'date_added':date
-        }
-        device, _created = self.add_device(data, self.asset_category)
+            'date_added': dt.date(),
+            'category': category
+        }      
+
+        # Add device
+        device, _created = self.add_device(data)
 
         # Add to subscription
         subscription.counters.add(device)
@@ -479,7 +490,7 @@ class ImportData(ImportAddress):
             'notes': f'Mont-Nr. {montage_nr}'
         }
         event, _created = self.add_event(
-            device, date, DEVICE_STATUS.MOUNTED, data)
+            device, dt, DEVICE_STATUS.MOUNTED, data)
 
         # Add Measurements
         data = {
@@ -576,32 +587,18 @@ class ImportData(ImportAddress):
                 else:
                     # Load pricing
                     if measurements:
-                        # default
-                        update_measurement = measurements[0]
-
-                        # if there are more than one counter we just take the
+                        # we take the first
+                        
+                        # If there are more than one counter we just take the
                         # first one and put the total consumption in the first
                         # counter; manually update later!!!
+                        update_measurement = measurements[0]
                         consumption_only = len(measurements) > 1
 
                         # load consumption
                         self.load_block_pricing(
                             row, subscription, update_measurement,
                             consumption_only)
-
-                        if consumption_only:
-                            if not subscription.notes:
-                                # Update subscription
-                                subscription.notes = 'multiple counters'
-                                subscription.save()
                     else:
-                        logger.warning(
-                            f"Row nr {row_nr}: no measurement created for "
-                            f"{row}"
-                        )
-
-                        # Update subscription
-                        if not subscription.notes:
-                            # Update subscription
-                            subscription.notes = 'no counters'
-                            subscription.save()
+                        msg = f"Row nr {row_nr}: no measurement created for {row}" 
+                        logger.warning(msg)

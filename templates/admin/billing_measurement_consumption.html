@@ -1,0 +1,54 @@
+<!-- templates/admin/billing_measurement_consumption.html -->
+{% load i18n %}
+
+<strong>{% translate 'Consumption Analysis' %}</strong><br>
+<i>{{ record_count }} {% translate 'records processed' %}.</i><br><br>
+
+<table>
+    <thead>
+        <tr>
+            <th><b>{% trans "Label" %}</b></th>
+            <th><b>{% trans "Value" %}</b></th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>{% trans "Periods" %}:</td>
+            <td>
+                {% for period in data.periods %}{{ period }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            </td>
+        </tr>
+        <tr>
+            <td>{% trans "Routes" %}:</td>
+            <td>
+                {% for route in data.routes %}{{ route }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            </td>
+        </tr>
+        <tr>
+            <td>{% trans "Areas" %}:</td>
+            <td>
+                {% for area in data.areas %}{{ area }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            </td>
+        </tr>
+        <tr>
+            <td>{% trans "Period Start, End" %}:</td>
+            <td>{{ data.start }} - {{ data.end }}</td>
+        </tr>
+        <tr>
+            <td>{% trans "Value dates from - to" %}:</td>
+            <td>{{ data.min_date }} - {{ data.max_date }}</td>
+        </tr>
+        <tr>
+            <td>{% trans "Total consumption" %}:</td>
+            <td>{{ data.consumption|floatformat:0 }} m³</td>
+        </tr>
+        <tr>
+            <td>{% trans "Previous" %}:</td>
+            <td>{{ data.consumption_previous|default:"-"|floatformat:0 }}</td>
+        </tr>
+        <tr>
+            <td>{% trans "Change in %" %}:</td>
+            <td>{{ data.consumption_change }}</td>
+        </tr>
+    </tbody>
+</table>

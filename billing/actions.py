@@ -1,6 +1,7 @@
 '''billing/actions.py
 '''
 from django.contrib import admin, messages
+from django.template.loader import render_to_string
 from django.utils.translation import gettext as _
 from django.utils.safestring import mark_safe
 from django_admin_action_forms import action_with_form
@@ -9,107 +10,80 @@ from scerp.actions import action_check_nr_selected
 from . import forms
 
 from asset.models import Device
-from .calc import RouteCalc, AnalyseMeasurement
+from .calc import RouteMeterExport, MeasurementAnalyse
 from .models import Subscription
 
 
 @action_with_form(
-    forms.PeriodExportActionForm,
-    description=_('Export Counter List for Routing'))
-def export_counter_data(modeladmin, request, queryset, data):
+    forms.RouteMeterExportJSONActionForm,
+    description=_('Export external JSON Counter List for Routing'))
+def export_counter_data_json(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, 1):
+        # Prepare
         route = queryset.first()
-        employee = data['employee']
         key = 3 if data['key_enabled'] else None
+        filename = data['filename']
 
-        r = RouteCalc(route, employee.user, key)
-        r.export()
+        # Make and download json
+        export = RouteMeterExport(
+            modeladmin, request, queryset, route, 
+            data['responsible_user'].user, data['route_date'], key)
+        data = export.get_data()
+        response = export.make_response_json(data, filename)
+       
+        return response
 
-        route.status = modeladmin.model.STATUS.COUNTER_EXPORTED
-        route.save()
+
+@action_with_form(
+    forms.RouteMeterExportExcelActionForm,
+    description=_('Export internal Excel Counter List for Routing'))
+def export_counter_data_excel(modeladmin, request, queryset, data):
+    if action_check_nr_selected(request, queryset, 1):
+        # Prepare
+        route = queryset.first()
+        key = 3 if data['key_enabled'] else None
+        filename = data['filename']
+
+        # Make and download json        
+        export = RouteMeterExport(
+            modeladmin, request, queryset, route, key=key)
+        data = export.get_data(excel=True)        
+        if not data:
+            messages.warning(request, _("No data for this route"))
+            return
+        response = export.make_response_excel(data, filename)
+       
+        return response
 
 
-@admin.action(description=_('Consumption Analysis'))
+@admin.action(description=_("Consumption Analysis"))
 def analyse_measurment(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, min_count=1):
+        template = 'admin/billing_measurement_consumption.html'
+
+        a = MeasurementAnalyse(modeladmin, queryset)
+        data = a.analyse()
+        
         try:
-            a = AnalyseMeasurement(modeladmin.model, queryset)
-            data = a.analyse()
+            # Pass data directly, no need to format lists here
+            context = {
+                "data": data,
+                "record_count": queryset.count(),
+                "consumption_change_percentage": (
+                    round(data["consumption_change"] * 100, 1
+                ) if data["consumption_change"] else None)
+            }
 
-            periods = ', '.join([
-                str(period)
-                for period in data['periods']
-            ])
-
-            routes = ', '.join([
-                str(route)
-                for route in data['routes']
-            ])
-
-            areas = ', '.join([
-                str(area)
-                for area in data['areas']
-            ])
-            consumption_previous = (
-                round(data['consumption_previous'])
-                if data['consumption_previous'] else None)
-            consumption_change = (
-                round(data['consumption_change'] * 100, 1)
-                if data['consumption_change'] else None)
-
-            # Prepare HTML for display
-            table_html = f"""
-                <table>
-                    <thead>
-                        <tr>
-                            <th><b>{_('Label')}</b></th>
-                            <th><b>{_('Value')}</b></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>{_('Periods')}:</td>
-                            <td>{periods}</td>
-                        </tr>
-                        <tr>
-                            <td>{_('Routes')}:</td>
-                            <td>{routes}</td>
-                        </tr>
-                        <tr>
-                            <td>{_('Period Start, End')}:</td>
-                            <td>{data['start']} - {data['end']}</td>
-                        </tr>
-                        <tr>
-                            <td>{_('Areas')}:</td>
-                            <td>{areas}</td>
-                        </tr>
-                        <tr>
-                            <td>{_('Value dates from - to')}:</td>
-                            <td>{data['min_date']} - {data['max_date']}</td>
-                        </tr>
-                        <tr>
-                            <td>{_('Total consumption')}:</td>
-                            <td>{round(data['consumption'])} m³</td>
-                        </tr>
-                        <tr>
-                            <td>{_('    previous')}:</td>
-                            <td>{consumption_previous}</td>
-                        </tr>
-                        <tr>
-                            <td>{_('    change in %')}:</td>
-                            <td>{consumption_change}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                """
-
-            # Use mark_safe to render the HTML
-            success_message = mark_safe(
-                f"<strong>Consumption Analysis</strong><br>"
-                f"<i>{queryset.count()} {_('records processed')}.</i><br><br>"
-                f"{table_html}"
-            )
-            modeladmin.message_user(request, success_message, messages.SUCCESS)
+            # Render template
+            success_message = render_to_string(template, context)
+            
+            # Display as a message
+            modeladmin.message_user(
+                request, mark_safe(success_message), messages.SUCCESS)
+        
+        except Exception as e:
+            modeladmin.message_user(
+                request, _("Error: ") + str(e), messages.ERROR)
 
         except:
             messages.error(request, _('No valid data available'))

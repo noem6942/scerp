@@ -6,6 +6,7 @@ import os
 import secrets
 import string
 import yaml
+from datetime import datetime
 from pathlib import Path
 from openpyxl import load_workbook
 
@@ -15,6 +16,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
+from django.utils.timezone import make_aware
 from django.conf import settings
 from django.utils.translation import activate, get_language, gettext
 
@@ -143,6 +145,28 @@ def make_timeaware(naive_datetime):
     '''used to save datetimes from external data
     '''
     return timezone.make_aware(naive_datetime, current_timezone)
+
+
+def parse_gesoft_to_datetime(date_input):
+    """Convert a date string to a timezone-aware Django datetime object."""
+    if not date_input:
+        return None
+    elif isinstance(date_input, datetime):
+        # Already a datetime, just make it timezone-aware
+        return make_aware(date_input)
+    elif isinstance(date_input, int):
+        date_input = str(date_input)  # only year given
+
+    formats = ["%Y-%m-%d %H:%M:%S", "%d.%m.%Y", "%Y"]  # Supported formats
+
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(date_input, fmt)  # Parse string to datetime
+            return make_aware(dt)  # Automatically applies Django's timezone
+        except ValueError:
+            continue  # Try the next format
+
+    raise ValueError(f"Unsupported date format: {date_input}")  # Handle errors
 
 
 def primary_language(value_dict):

@@ -60,18 +60,13 @@ def export_excel(modeladmin, request, queryset, data):
             except:
                 raise ValueError(_("No valid col widths"))
         else:
-            col_widths = None
-        
-        # Prepare data
-        data = modeladmin.export_data(request, queryset)      
-        headers = (
-            modeladmin.export_headers(request, queryset) 
-            if getattr(modeladmin, 'export_headers', None) else []
-        )
+            col_widths = None        
         
         # Create excel
-        excel = ExportExcel(file_name, ws_title, header, footer, orientation)
-        response = excel.generate_response(data, headers, col_widths)
+        excel = ExportExcel(
+            modeladmin, request, queryset, file_name, 
+            ws_title, header, footer, orientation)
+        response = excel.generate_response(col_widths)
         
         return response
 
@@ -80,18 +75,11 @@ def export_excel(modeladmin, request, queryset, data):
 def export_json(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, min_count=1):
         # Prepare formats          
-        file_name = data['file_name']
-        
-        # Prepare data
-        data = modeladmin.export_data(request, queryset)  
-        headers = (
-            modeladmin.export_headers(request, queryset) 
-            if getattr(modeladmin, 'export_headers', None) else []
-        )
+        file_name = data['file_name']        
         
         # Create json
-        excel = ExportJSON(file_name)
-        response = excel.generate_response(data, headers)
+        json_ = ExportJSON(modeladmin, request, queryset, file_name)
+        response = json_.generate_response()
         
         return response
 

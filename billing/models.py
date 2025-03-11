@@ -45,16 +45,15 @@ class Period(TenantAbstract):
          _('Type'), max_length=1, choices=ENERGY_TYPE.choices,
         default=ENERGY_TYPE.WATER,
         help_text=_('Needed for counter route.'))
-    asset_category = models.ForeignKey(
-        AssetCategory, verbose_name=_('Category'),
-        on_delete=models.PROTECT,
-        help_text=_("Category"))
     name = models.CharField(
         _('name'), max_length=50, help_text=_("name"))
     start = models.DateField(
         _("Start"), help_text=_("Start date of the  period"))
     end = models.DateField(
         _("End"), help_text=_("End date of the period"))
+    asset_categories = models.ManyToManyField(
+        AssetCategory, verbose_name=_('Categories'),        
+        help_text=_("Category"))
 
     def __str__(self):
         return f'{self.name}, {self.start} - {self.end}'
@@ -85,7 +84,10 @@ class Route(TenantAbstract):
         help_text=_("name and period for route, e.g. Water, 24/1"))
     period = models.ForeignKey(
         Period, verbose_name=_('Period'),
-        on_delete=models.PROTECT, related_name='%(class)s_counter')
+        on_delete=models.PROTECT, related_name='%(class)s_period')
+    last_period = models.ForeignKey(
+        Period, verbose_name=_('Period'), blank=True, null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_last_period')        
     address_categories = models.ManyToManyField(
         AddressCategory, verbose_name=_('Address Categories'),
         help_text=_(
@@ -122,16 +124,24 @@ class Route(TenantAbstract):
             "e.g. 2: value must be ≤ 20 if previous value was 10"))
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
+    # For analysis
+    number_of_buildings = models.PositiveIntegerField(
+        _('Number of Buildings'), blank=True, null=True, editable=False)
+    number_of_subscriptions = models.PositiveIntegerField(
+        _('Number of Subscriptions'), blank=True, null=True, editable=False)
+    number_of_counters = models.PositiveIntegerField(
+        _('Number of Counters'), blank=True, null=True, editable=False)
+    
+    def get_start(self):
+        return self.start if self.start else self.period.start
+
+    def get_end(self):
+        return self.end if self.end else self.period.end
+
     def save(self, *args, **kwargs):
         ''' Make calcuatiolations '''
-        # Assign start, end
-        if not self.start:
-            self.start = self.period.start
-        if not self.end:
-            self.end = self.period.end
-
         # Calculate duration before saving the object.
-        self.duration = (self.end - self.start).days + 1
+        self.duration = (self.get_end() - self.get_start()).days + 1
 
         super().save(*args, **kwargs)
 
@@ -156,7 +166,7 @@ class Subscription(TenantAbstract):
         _('Subscription Number'), max_length=50, blank=True, null=True,
         help_text=('New subscription number, retrieved automatically'))
     subscriber_number = models.CharField(
-        _('Subscription Number'), max_length=50, blank=True, null=True,
+        _('Abo Nr'), max_length=50, blank=True, null=True,
         help_text=('Old subscription number, leave empty'))
     subscriber = models.ForeignKey(
         Person, verbose_name=_('Subscriber'),
@@ -183,6 +193,9 @@ class Subscription(TenantAbstract):
     articles = models.ManyToManyField(
         Article, verbose_name=_('Article'),
         related_name='%(class)s_articles')
+    number_of_counters = models.PositiveSmallIntegerField(
+        _('Number of counters'), default=0, editable=False,
+        help_text=_('Gets updated automatically by signals'))
 
     @property
     def number(self):
@@ -259,15 +272,15 @@ class Measurement(TenantAbstract):
     current_battery_level = models.FloatField(
         blank=True, null=True)
 
-    # for efficiency analysis
+    # for efficiency analysis, automatically updated
     building = models.ForeignKey(
-        Building, verbose_name=_('Building'), blank=True, null=True,
+        Building, verbose_name=_('Building'), 
         on_delete=models.PROTECT, related_name='%(class)s_building')
     period = models.ForeignKey(
-        Period, verbose_name=_('Period'), blank=True, null=True,
+        Period, verbose_name=_('Period'), 
         on_delete=models.PROTECT, related_name='%(class)s_period')
     subscription = models.ForeignKey(
-        Subscription, verbose_name=_('Subscription'), blank=True, null=True,
+        Subscription, verbose_name=_('Subscription'), 
         on_delete=models.PROTECT, related_name='%(class)s_subscriber')
     consumption_previous = models.FloatField(
         _('Consumption'), blank=True, null=True)

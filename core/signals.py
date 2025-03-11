@@ -28,20 +28,20 @@ PASSWORD_LENGTH = 32
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
 from scerp.mixins import init_yaml_data
-     
+
 
 @receiver(pre_save, sender=Tenant)
 def tenant_pre_save(sender, instance, **kwargs):
     """Check before new Tenant is created."""
-    __ = sender  # not used    
+    __ = sender  # not used
     if not is_url_friendly(instance.code):
         msg = _("Code cannot be displayed in an url.")
         raise ValidationError(msg)
     elif instance.code != instance.code.lower():
         msg = _("Code contains upper letters")
         raise ValidationError(msg)
-        
-        
+
+
 @receiver(post_save, sender=Tenant)
 def tenant_post_save(sender, instance, created, **kwargs):
     """Perform follow-up actions when a new Tenant is created."""
@@ -51,19 +51,19 @@ def tenant_post_save(sender, instance, created, **kwargs):
         for app in App.objects.order_by('name'):
             if app.is_mandatory:
                 instance.apps.add(app)
-                        
+
         # Create TenantSetup
         tenant_setup = TenantSetup.objects.create(
             tenant=instance,
-            created_by=instance.created_by)    
-        logger.info(f"Tenant Setup '{instance.code}' created.")            
-            
-        # Init Data    
+            created_by=instance.created_by)
+        logger.info(f"Tenant Setup '{instance.code}' created.")
+
+        # Init Data
         for app_name in ['asset']:
             init_yaml_data(
-                app_name, 
-                tenant=instance, 
-                created_by=instance.created_by, 
+                app_name,
+                tenant=instance,
+                created_by=instance.created_by,
                 filename_yaml='tenant_init.yaml')
 
     if kwargs.get('init'):
@@ -79,11 +79,11 @@ def tenant_post_save(sender, instance, created, **kwargs):
         '''
         # Initialize the dictionary
         country_default = kwargs.get('country_default', 'che').upper()
-        alpha3_dict = {}        
+        alpha3_dict = {}
         languages = [lang for lang, _language in settings.LANGUAGES]
         lang_dict = {
             'name': {lang: None for lang in languages},
-            'is_default': False,            
+            'is_default': False,
             'created_by': request.user
         }
 
@@ -105,8 +105,8 @@ def tenant_post_save(sender, instance, created, **kwargs):
 
                         if alpha3 not in alpha3_dict:
                             # Create an independent copy
-                            alpha3_dict[alpha3] = copy.deepcopy(lang_dict)  
-                            
+                            alpha3_dict[alpha3] = copy.deepcopy(lang_dict)
+
                             if alpha3.upper() == country_default:
                                 alpha3_dict[alpha3]['is_default'] = True
 
@@ -135,29 +135,40 @@ def tenant_post_save(sender, instance, created, **kwargs):
         logger.info(
             f"Countries: '{ len(alpha3_dict) }' records created successfully."
         )
-        
+
         """
-        
+
         # asset
-        obj, _created = AssetCategory.objects.get_or_create(
-            tenant=instance, 
-            code='WA',               
+        wa_obj, _created = AssetCategory.objects.get_or_create(
+            tenant=instance,
+            code='WA',
             defaults=dict(
                 name={'de': 'Wasserzähler', 'en': 'Water Counter'},
                 created_by=request.user
             )
         )
-        
+
+        hwa_obj, _created = AssetCategory.objects.get_or_create(
+            tenant=instance,
+            code='HWA',
+            defaults=dict(
+                name={'de': 'Warmwasserzähler', 'en': 'Hot Water Counter'},
+                created_by=request.user
+            )
+        )
+
         # billing
         obj, _created = Period.objects.get_or_create(
-            tenant=instance, 
+            tenant=instance,
             code='WA',
             defaults=dict(
-                start=date(2024, 1, 1), 
+                start=date(2024, 1, 1),
                 end=date(2024, 12, 31),
                 created_by=request.user)
         )
-         
+        obj.asset_categories.add(wa_obj)
+        obj.asset_categories.add(hwa_obj)
+
 
 @receiver(pre_save, sender=TenantSetup)
 def tenant_setup_pre_save(sender, instance, **kwargs):

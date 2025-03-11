@@ -43,12 +43,12 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdminNew):
     protected_foreigns = ['tenant', 'category']
 
     # Display these fields in the list view
-    list_display = (
-        'code', 'name', 'number', 'category', )
+    list_display = ('category', 'code', 'name', 'number', 'status')
+    list_display_links = ('code', 'name')
     readonly_fields = ('display_name', 'status') + FIELDS.LOGGING_TENANT
 
     # Search, filter
-    search_fields = ('number', 'name', 'category')
+    search_fields = ('number', 'name', 'category__code')
     list_filter = ('status', 'obiscode', 'category')
 
     #Fieldsets
@@ -82,18 +82,21 @@ class EventLogAdmin(TenantFilteringAdmin, BaseAdminNew):
     protected_foreigns = ['tenant', 'customer', 'building', 'dwelling', 'room']
 
     # Display these fields in the list view
-    list_display = ('device', 'date', 'status')
+    list_display = (
+        'device', 'device__category', 'datetime', 'status', 'building')
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
-    search_fields = ('device', 'date', 'status')
-    list_filter = ('status', 'date')
+    search_fields = (
+        'device__code', 'device__name', 'device__number', 
+        'device__description', 'datetime')
+    list_filter = ('status', 'datetime')
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'device', 'date', 'status', 'customer', 'building',
+                'device', 'datetime', 'status', 'customer', 'building',
                 'dwelling', 'room'
             ),
         }),

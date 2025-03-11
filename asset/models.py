@@ -18,7 +18,7 @@ class DEVICE_STATUS(models.TextChoices):
     IN_STOCK = 'STK', _('In Stock')  # Device available in inventory
     DEPLOYED = 'DPL', _('Deployed')  # Device issued for use
     CALIBRATED = 'CAL', _('Calibrated')  # Device verified and adjusted for accuracy
-    MOUNTED = 'MNT', _('Mounted')  # Device mounted on a wall, house etc.    
+    MOUNTED = 'MNT', _('Mounted')  # Device mounted on a wall, house etc.
     DEMOUNTED = 'DMT', _('De-Mountied')  # Device currently not in function
     MAINTENANCE = 'MTN', _('Under Maintenance')  # Device undergoing service
     DECOMMISSIONED = 'DCM', _('Decommissioned')  # Device no longer in use
@@ -35,8 +35,8 @@ class AssetCategory(TenantAbstract):
         _('Code'), max_length=50, help_text=_("Code"))
     name = models.JSONField(
         _('Name'), blank=True,  null=True,  # null necessary to handle multi languages
-        help_text=_("The name of the title (i.e. the actual title)."))         
-    
+        help_text=_("The name of the title (i.e. the actual title)."))
+
     class Meta:
         ordering = ['code']
         verbose_name = _('Asset Category')
@@ -60,26 +60,26 @@ class Device(TenantAbstract):
     category = models.ForeignKey(
         AssetCategory, on_delete=models.PROTECT,
         related_name='%(class)s_category',
-        verbose_name=_('Category'), help_text=_("The asset's category."))        
+        verbose_name=_('Category'), help_text=_("The asset's category."))
     date_added = models.DateField(
         _("Date added"),
         help_text=_("The date when the fixed asset has been added."))
     status = models.CharField(
         max_length=3, choices=DEVICE_STATUS.choices, null=True, blank=True,
-        help_text='Gets updated automatically')            
+        help_text='Gets updated automatically')
     description = models.JSONField(
         _('Description'), null=True, blank=True,
         help_text=_(
             "A description of the article. For localized text, use XML format: "
-            "<values><de>German text</de><en>English text</en></values>."))        
+            "<values><de>German text</de><en>English text</en></values>."))
     warranty_months = models.PositiveSmallIntegerField(
         _('Warranty'), null=True, blank=True,
         help_text=_("Warranty in months"))
     date_disposed = models.DateField(
         _("Date disposed"), blank=True, null=True,
-        help_text=_("The date of the disposal."))  
+        help_text=_("The date of the disposal."))
     number = models.CharField(
-        _("Number or Id"), max_length=50, null=True, blank=True)        
+        _("Number or Id"), max_length=50, null=True, blank=True)
     serial_number = models.CharField(
         _("Serial Number"), max_length=50, null=True, blank=True)
     tag = models.CharField(
@@ -91,20 +91,20 @@ class Device(TenantAbstract):
     batch = models.CharField(
         _("Batch"), max_length=50, null=True, blank=True,
         help_text=_("Batch or order id"),
-    )        
+    )
     obiscode = models.CharField(
         _('OBIS Code'), max_length=20, blank=True, null=True,
-        help_text='for counters')    
+        help_text='for counters, default: 8-0:1.0.0')
 
     def get_status(self, date=None):
         ''' returns last event <= date '''
         queryset = EventLog.objects.filter(device=self)
         if date:
             queryset = queryset.filter(date__lte=date)
-        return queryset.order_by('date').last()            
+        return queryset.order_by('date').last()
 
     def __str__(self):
-        name = f"{self.category}: {self.code}"
+        name = self.code
         if self.name:
             name += ' ' + self.name
         return name
@@ -124,13 +124,13 @@ class Device(TenantAbstract):
 class EventLog(TenantAbstract):
     """
     Model representing the assignment or reassignment of a device to a customer.
-    """       
+    """
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE,
         verbose_name=_("Device"),
         related_name='event_log_device',
     )
-    date = models.DateField(_("Date"), default=timezone.now)
+    datetime = models.DateTimeField(_("Date and Time"), default=timezone.now)
     status = models.CharField(
         max_length=3, choices=DEVICE_STATUS.choices,
         default=DEVICE_STATUS.IN_STOCK,
@@ -159,26 +159,26 @@ class EventLog(TenantAbstract):
         verbose_name=_("Room"),
         related_name='%(class)s_room',
         help_text=_("leave empty if irrelevant (e.g. building specified)"))
-        
+
     def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)   
-        
-        # Update status in counter        
+        super().save(*args, **kwargs)
+
+        # Update status in counter
         event = EventLog.objects.filter(
-            device=self.device).order_by('date').last()
+            device=self.device).order_by('datetime').last()
         self.device.status = event.status
         self.device.save()
-        
+
     def __str__(self):
         return f"{self.modified_at.strftime('%B %d, %Y, %H:%M')}, {self.device}"
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['tenant', 'device', 'date', 'status'],
+                fields=['tenant', 'device', 'datetime', 'status'],
                 name='unique_event_log_per_tenant'
             )
         ]
-        ordering = ['-date', '-modified_at']
+        ordering = ['-datetime', '-modified_at']
         verbose_name = _("Event Log")
         verbose_name_plural = _("Event Logs")

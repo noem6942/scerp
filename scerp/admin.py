@@ -8,8 +8,12 @@ Helpers for admin.py
 '''
 import json
 import openpyxl
+import re
+from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
+from bs4 import BeautifulSoup
 from datetime import datetime, date
+from decimal import Decimal
 
 from django.conf import settings
 from django.contrib import admin, messages
@@ -116,6 +120,29 @@ def verbose_name_field(model, field_name):
     '''
     # pylint: disable=W0212
     return model._meta.get_field(field_name).verbose_name
+
+
+def is_html(string):
+    return bool(re.search(r'<[a-z][\s\S]*>', string, re.IGNORECASE))
+
+
+def html_to_number(html_string):
+    ''' convert html -> float e.g. 
+        html_string = '<span style="text-align: right; display: block;">4&#x27;238.00</span>'
+        returns: 4238.00
+    '''
+    # Extract the text content
+    soup = BeautifulSoup(html_string, 'html.parser')
+    number_str = soup.text.strip()
+
+    # Remove the thousands separator (apostrophe)
+    number_str = number_str.replace("'", "")
+
+    # Convert to float
+    try:
+        return float(number_str)
+    except:
+        raise ValueError('not a number')
 
 
 class Display:
@@ -239,7 +266,10 @@ class Display:
 
 class Export:
 
-    def __init__(self, filename):
+    def __init__(self, modeladmin, request, queryset, filename):
+        self.modeladmin = modeladmin
+        self.request = request
+        self.queryset = queryset
         self.filename = filename
 
     def make_headers(self, headers, data=[]):
@@ -255,16 +285,71 @@ class Export:
 
         return headers
 
-    def convert_value(self, value):
+    def clean_value(self, value):
         if isinstance(value, (datetime, date)):
-            return value.isoformat() 
-        return value
+            return value.isoformat()
+        elif isinstance(value, Decimal):
+            return float(value)
+        elif isinstance(value, str) and is_html(value):
+            try:
+                # Look if it's a number
+                return html_to_number(value)
+            except:
+                return value                
+        elif isinstance(value, (int, float)):
+            return value
+        return force_str(value)        
 
-    def clean_data(self, data):
-        return [
-            [self.convert_value(value) for value in values]
-            for values in data
-        ]
+    def get_data(self):
+        ''' get data from modeladmin queryset if not specified in modeladmin
+        '''
+        # Check if existing
+        func = getattr(self.modeladmin, 'get_data', None)
+        if func:
+            data_list = func(self.request, self.queryset)
+
+        # Create list
+        else:
+            data_list = []
+            for item in self.queryset.all():
+                item_list = []
+                for fieldname in self.modeladmin.list_display:
+                    field, *sub_fields = fieldname.split('__')
+                    if len(sub_fields) > 1:
+                        raise ValueError("Can only output one foreign key")
+                    elif sub_fields:
+                        value_parent = getattr(item, field)
+                        value = getattr(value_parent, sub_fields[0])
+                    elif fieldname.startswith('display'):
+                        value = getattr(self.modeladmin, fieldname)(item)
+                    else:
+                        value = getattr(item, field)
+                    item_list.append(self.clean_value(value))
+                data_list.append(item_list)
+        
+        return data_list
+
+    def get_headers(self):
+        ''' get headers from modeladmin queryset if not specified in modeladmin
+        '''
+        # Check if existing
+        func = getattr(self.modeladmin, 'get_headers', None)
+        if func:
+            return func(self.request, self.queryset)
+
+        # Create list
+        header_list = []
+        for fieldname in self.modeladmin.list_display:
+            if fieldname.startswith('display'):
+                value_parent = getattr(self.modeladmin, fieldname)
+                value = getattr(value_parent, 'short_description')                
+            elif '__' in fieldname:
+                value = fieldname
+            else:
+                value = verbose_name_field(self.modeladmin.model, fieldname)
+            header_list.append(self.clean_value(value))
+
+        return header_list
 
 
 class ExportExcel(Export):
@@ -273,8 +358,8 @@ class ExportExcel(Export):
     footers, and column widths.
     '''
     def __init__(
-            self, filename='output.xlsx', ws_title='Exported Data',
-            header={}, footer={}, orientation=None):
+            self, modeladmin, request, queryset, filename='output.xlsx',
+            ws_title='Exported Data', header={}, footer={}, orientation=None):
         '''
         Args:
             filename (str): Name of the exported file.
@@ -282,7 +367,7 @@ class ExportExcel(Export):
             header (dict)
             footer (dict)
         '''
-        super().__init__(filename)        
+        super().__init__(modeladmin, request, queryset, filename)
         self.ws_title = ws_title
         self.header = header
         self.footer = footer
@@ -323,15 +408,15 @@ class ExportExcel(Export):
         ws.oddFooter.center.text = self.footer.get('center', '')
         ws.oddFooter.right.text = self.footer.get('right', '')
 
-    def generate_response(self, data, headers=[], col_widths=None):
+    def generate_response(self, col_widths=None, headers=[], data=[]):
         '''
         Generates an Excel file from provided data with customizable headers, footers, and column widths.
 
         Args:
             data (list of lists):
                 Rows of data, where each row is a list of values.
-            headers (list):
-                List of column headers.
+            headers (list): retrieved from modeladmin (default)
+            data (list): retrieved from queryset (default)
             col_widths (list, optional):
             List of column widths; defaults to auto-adjust.
 
@@ -344,14 +429,17 @@ class ExportExcel(Export):
         ws.title = self.ws_title
         self.set_layout(ws)
 
-        # Clean data
-        data = self.clean_data(data)
-        
         # Convert headers if necessary
-        headers = self.make_headers(headers, data)
+        headers = headers if headers else self.get_headers()
         ws.append(headers)
 
-        # Write Data Rows
+        # Make headers bold
+        bold_font = Font(bold=True)
+        for col_num, _ in enumerate(headers, 1):
+            ws.cell(row=1, column=col_num).font = bold_font
+
+        # Get data and write in Rows
+        data = data if data else self.get_data()
         for row in data:
             ws.append(row)
 
@@ -382,14 +470,14 @@ class ExportJSON(Export):
     '''
     Generates an JSON file from provided data
     '''
-    def __init__(self, filename='output.json'):
+    def __init__(self, modeladmin, request, queryset, filename='output.json'):
         '''
         Args:
             filename (str): Name of the exported file. Will
         '''
-        super().__init__(filename)
+        super().__init__(modeladmin, request, queryset, filename)
 
-    def generate_response(self, data, headers=[]):
+    def generate_response(self):
         '''
         Generates an JSON file from provided data
         Args:
@@ -400,13 +488,12 @@ class ExportJSON(Export):
             HttpResponse: JSON file as an HTTP response.
         '''
         # Convert headers if necessary
-        headers = self.make_headers(headers, data)
-        
-        # Clean data
-        data = self.clean_data(data)     
-        print("*d", data)
-        data = [dict(zip(headers, x)) for x in data]
-        
+        headers = self.get_headers()
+
+        # Clean data and make list of dicts
+        data_list = self.get_data()
+        data = [dict(zip(headers, x)) for x in data_list]
+
         # Create json
         json_data = json.dumps(data, ensure_ascii=False)
 
