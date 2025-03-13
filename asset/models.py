@@ -4,6 +4,7 @@ asset/models
 see https://github.com/dalasidaho/asset_management
 '''
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericRelation
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils import timezone
@@ -95,6 +96,7 @@ class Device(TenantAbstract):
     obiscode = models.CharField(
         _('OBIS Code'), max_length=20, blank=True, null=True,
         help_text='for counters, default: 8-0:1.0.0')
+    attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
     def get_status(self, date=None):
         ''' returns last event <= date '''

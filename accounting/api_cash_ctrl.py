@@ -10,6 +10,7 @@ from time import sleep
 
 import json
 import logging
+import mimetypes
 import os
 import re
 import requests
@@ -84,6 +85,15 @@ class ADDRESS_TYPE:
     MAIN = 'MAIN'
     INVOICE = 'INVOICE'
     DELIVERY = 'DELIVERY'
+    OTHER = 'OTHER'
+
+
+class BANK_ACCOUNT_TYPE:
+    '''see public api desc'''
+    DEFAULT = 'DEFAULT'
+    ORDER = 'ORDER'
+    SALARY = 'SALARY'
+    HISTORICAL = 'HISTORICAL'
     OTHER = 'OTHER'
 
 
@@ -322,6 +332,23 @@ def clean_dict(data, convert_dt=True):
             except:
                 pass
         post_data[key] = clean_value(value)
+
+    return post_data
+
+
+def prepare_dict(data):
+    ''' convert python data to cashctrl '''
+    post_data = {}
+    for key, value in data.items():
+        camel_key = snake_to_camel(key)
+        if camel_key in ('start', 'end'):
+            value = value.strftime('%Y-%m-%d')
+        elif isinstance(value, Decimal):
+            value = float(value)
+        else:
+            value = convert_to_xml(value)
+        post_data[camel_key] = value
+
     return post_data
 
 
@@ -395,16 +422,7 @@ class CashCtrl():
             raise Exception(f"{data} is not of type dict")
 
         # Build data
-        post_data = {}
-        for key, value in data.items():
-            camel_key = snake_to_camel(key)
-            if camel_key in ('start', 'end'):
-                value = value.strftime('%Y-%m-%d')
-            elif isinstance(value, Decimal):
-                value = float(value)
-            else:
-                value = convert_to_xml(value)
-            post_data[camel_key] = value
+        post_data = prepare_dict(data)
 
         # Retry mechanism for rate-limiting
         for attempt in range(self.MAX_TRIES):
@@ -436,11 +454,11 @@ class CashCtrl():
                 return clean_dict(content, self.convert_dt)
 
             except requests.exceptions.Timeout:
-                logging.error(
+                raise Exception(
                     f"Attempt {attempt + 1}/{self.MAX_TRIES} timed out.")
             except requests.exceptions.RequestException as e:
-                logging.error(
-                    f"An error occurred during the POST request: {e}")
+                raise Exception(
+                    f"An error occurred during the POST request: {e}")                    
 
             # Sleep before retrying if it's not the last attempt
             if attempt < self.MAX_TRIES - 1:
@@ -458,16 +476,22 @@ class CashCtrl():
     # File management
     def upload_file(self, file_path):
         file_name = file_path.split('/')[-1]
-        mime_type = 'application/octet-stream'  # Default MIME type
 
-        # Step 1: Prepare
+        # Step 1: Determine the MIME type based on the file extension
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if not mime_type:  # If mime_type is None or not found, use a default
+            mime_type = 'application/octet-stream'
+
+        # Step 2: Prepare
         url = self.BASE.format(org=self.org, url=self.url, action='prepare')
+        print("*mime_type", mime_type)
+
         files = json.dumps([{'name': file_name, 'mimeType': mime_type}])
 
+        # Raise and process the response
         response = requests.post(
             url, auth=self.auth, files={'files': (None, files)})
         response_data = response.json()
-
         if not response_data.get('success'):
             raise Exception('Failed to prepare file upload')
 
@@ -503,7 +527,7 @@ class CashCtrl():
         url = self.BASE_DIR.format(
             org=self.org, url=self.url, action='get')
         response = requests.get(
-            url, auth=self.auth,  params=params, allow_redirects=True)
+            url, auth=self.auth, params=params, allow_redirects=True)
 
         if response.status_code == 200:
             # If output_path is a directory, use file_id as the filename
@@ -754,6 +778,12 @@ class Account(CashCtrl):
         }
 
 
+class AccountBankAccount(CashCtrl):
+    '''see public api desc'''
+    url = 'account/bank/'
+    actions = ['list', 'create']
+
+
 class AccountCategory(CashCtrl):
     '''see public api desc'''
     url = 'account/category/'
@@ -906,10 +936,47 @@ class OrderDocument(CashCtrl):
     url = 'order/document/'
     actions = ['read']  # The ID of the order.
 
+class OrderLayout(CashCtrl):
+    '''see public api desc'''
+    url = 'order/layout/'
+    actions = ['read']  # The ID of the order.
+
 class OrderTemplate(CashCtrl):
     '''see public api desc'''
     url = 'order/template/'
     actions = ['read']  # The ID of the entry.
+
+
+class OrderPayment(CashCtrl):
+    '''see public api desc'''
+    url = 'order/payment/'
+    actions = ['read']  # The ID of the order.
+
+    def download(self, data, filename='pain_001.xml'):
+        ''' data: data sent to create before, e.g.
+        {
+            "date": "2024-03-13",  # Mandatory: Payment execution date (YYYY-MM-DD)
+            "orderIds": "123,456,789",  # Mandatory: Comma-separated order IDs
+            "type": "PAIN"  # Explicitly request a PAIN file (XML)
+        }
+        '''
+        # Request parameters
+        params = prepare_dict(data)
+        print("*params", params)
+        url = self.BASE_DIR.format(
+            org=self.org, url=self.url, action='download')
+        print("*url", url)
+        response = requests.get(url, auth=self.auth, params=params)
+
+        # Check response status
+        if response.status_code == 200:
+            # Save the PAIN file as an XML document
+            with open(filename, "wb") as file:
+                file.write(response.content)
+
+            print(f"PAIN file downloaded successfully: {filename}")
+        else:
+            print(f"Error: {response.status_code} - {response.text}")
 
 # Person
 class Person(CashCtrl):

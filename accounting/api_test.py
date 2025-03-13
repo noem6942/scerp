@@ -17,10 +17,32 @@ if __name__ == "__main__":
         data_list = conn.list()
         print("*", data_list)
 
-    if True:
+    if False:
         conn = PersonCategory(org, api, convert_dt=False)
         data_list = conn.list()
         print("*", data_list)
+
+    if True:
+        conn = AccountBankAccount(org, api, convert_dt=False)
+
+        data = {
+            #'is_inactive': False,
+            'name': 'Postfinance XA',
+            'type': 'DEFAULT',
+            #'currency': None,
+            #'bic': 'POFICHBEXXX',
+            #'iban': 'CH1530000001460021397',
+            #'qr_first_digits': None,
+            #'qr_iban': None,
+            #'url': '',
+            #'account_id': 992,
+            #'currency_id': None
+        }
+        response = conn.create(data)
+        print("*response", response)
+        
+        #data_list = conn.list()
+        #print("*", data_list)
 
     if False:
         conn = OrderCategory(org, api, convert_dt=False)
@@ -39,6 +61,7 @@ if __name__ == "__main__":
             #if 'orto 1' in str(data['name'])
         ]
         print("*", [(x['name'], x['id']) for x in filter_list])
+        print("*", filter_list[0]['html'])
 
     if False:
         conn = Order(org, api, convert_dt=False)

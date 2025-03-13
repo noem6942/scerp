@@ -59,7 +59,7 @@ def export_counter_data_excel(modeladmin, request, queryset, data):
 @admin.action(description=_("Consumption Analysis"))
 def analyse_measurment(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, min_count=1):
-        template = 'admin/billing_measurement_consumption.html'
+        template = 'billing/measurement_consumption.html'
 
         a = MeasurementAnalyse(modeladmin, queryset)
         data = a.analyse()
@@ -87,3 +87,22 @@ def analyse_measurment(modeladmin, request, queryset):
 
         except:
             messages.error(request, _('No valid data available'))
+
+
+@action_with_form(
+    forms.AnaylseMeasurentExcelActionForm,
+    description=_('Export Analysis to Excel'))
+def anaylse_measurent_excel(modeladmin, request, queryset, data):
+    if action_check_nr_selected(request, queryset, min_count=1):
+        # Prepare
+        a = MeasurementAnalyse(modeladmin, queryset)
+        filename = data['filename']
+        ws_title = data['ws_title']
+        data = a.analyse()
+        print("*data", data)
+        data['record_count'] = queryset.count()
+        
+        # Make and download excel
+        response = a.output_excel(data, filename, ws_title)
+       
+        return response

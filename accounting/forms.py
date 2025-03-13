@@ -20,8 +20,8 @@ from scerp.forms import MultilanguageForm, make_multilanguage_form
 from .models import (
     AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, CostCenterCategory,
-    CostCenter, Rounding, AccountCategory, Account, Allocation, Unit, Tax,
-    BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
+    CostCenter, Rounding, AccountCategory, Account, BankAccount, Allocation, 
+    Unit, Tax, BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
     ArticleCategory, Article, Ledger, LedgerBalance, LedgerPL, LedgerIC
 )
 
@@ -111,6 +111,11 @@ class OrderCategoryIncomingAdminForm(MultilanguageForm):
 class ArticleCategoryAdminForm(NameAdminForm):
     class Meta(NameAdminForm.Meta):
         model = ArticleCategory
+
+
+class BankAccountAdminForm(NameAdminForm):
+    class Meta(NameAdminForm.Meta):
+        model = BankAccount
 
 
 class ArticleAdminForm(MultilanguageForm):

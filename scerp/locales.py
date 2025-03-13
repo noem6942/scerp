@@ -41,7 +41,7 @@ APP_MODEL_ORDER = {
             'Title': ('22', ''),
             'PersonCategory': ('23', ''),
             'Person': ('24', ''),
-            'PersonAddress': ('25', ''),        
+            'PersonAddress': ('25', ''),
             'Building': ('26', ''),
         }
     },
@@ -75,54 +75,58 @@ APP_MODEL_ORDER = {
         'is_mandatory': False,
         'needs_tenant': True,
         'models': {
-            # Admin
-            'APISetup': ('Setup 01', ''),
-            'CustomFieldGroup': ('Setup 02', ''),
-            'CustomField': ('Setup 03', ''),
-            'Setting': ('Setup 04', ' ⬇️'),
+            # Operational
+            # 'IncomingOrder': ('2', ''),
+            # 'OrderContract': ('1', ''),
 
-            # Accounting Admin
-            'Location': ('Settings 01', ' ⬇️'),
-            'CostCenterCategory': ('Settings 02', ''),
-            'CostCenter': ('Settings 03', ''),
+            # # Creditor Setups
+            # 'OrderCategoryContract': ('', ''),
+            # 'OrderCategoryIncoming': ('', ''),
 
-            'Currency': ('Settings 04', ''),
-            'Tax': ('Settings 05', ''),
-            'Rounding': ('Settings 06', ' ⬇️'),
-            'SequenceNumber': ('Settings 07', ' ⬇️'),
-            'Unit': ('Settings 08', ''),
+            # # Admin
+            # 'APISetup': ('', ''),
+            # 'CustomFieldGroup': ('', ''),
+            # 'CustomField':('', ''),
+            # 'Setting': ('', ''),
 
-            # CRM Admin
-            'Title': ('22', ''),
-            'PersonCategory': ('23', ''),
-            'Person': ('24', ''),
+            # # Accounting Admin
+            # 'Location': ('', ''),
+            # 'BankAccount': ('', ''),
+            # 'CostCenterCategory': ('', ''),
+            # 'CostCenter': ('', ''),
+            # 'Currency': ('', ''),
+            # 'Tax': ('', ''),
+            # 'Rounding': ('', ''),
+            # 'SequenceNumber': ('', ''),
+            # 'Unit': ('', ''),
 
-            # Order Management
-            'OrderTemplate': ('O. 14', ''),
-            'BookTemplate': ('O. 15', ''),
-            'OrderCategoryContract': ('O. 16', ''),
-            'OrderCategoryIncoming': ('O. 17', ''),
-            'OrderContract': ('O. 18', ''),
-            'IncomingOrder': ('O. 19', ''),
-            'IncomingBookEntry': ('O. 20', ''),
-            'OrderTemplate': ('O. 21', ''),
-            'ArticleCategory': ('O. 22', ''),
-            'Article': ('O. 23', ''),
+            # # CRM Admin
+            # 'Title': ('', ''),
+            # 'PersonCategory': ('', ''),
+            # 'Person': ('', ''),
 
-            # Accounting
-            'FiscalPeriod': ('* 18', ' ⬇️'),
-            'AccountCategory': ('L 19', ' ⬇️'),
-            'Account': ('L 20', ' ⬇️'),
-            'Ledger': ('L 21', ''),
-            'LedgerBalance': ('L 22', ''),
-            'LedgerPL': ('L 23', ''),
-            'LedgerIC': ('L 24', ''),
+            # # Order Management
+            # 'OrderTemplate': ('', ''),
+            # 'BookTemplate': ('', ''),
+            # 'IncomingBookEntry': ('', ''),
+            # 'OrderTemplate': ('', ''),
+            # 'ArticleCategory': ('', ''),
+            # 'Article': ('', ''),
 
-            # Inventory
-            'ChartOfAccountsTemplate': ('C 31', ''),
-            'AccountPositionTemplate': ('C 11', ''),
-            'ChartOfAccounts': ('C 42', ''),
-            #'AccountPosition': ('C 43', ''),
+            # # Accounting
+            # 'FiscalPeriod': ('', ''),
+            # 'AccountCategory': ('', ''),
+            # 'Account': ('', ''),
+            # 'Ledger': ('', ''),
+            # 'LedgerBalance': ('', ''),
+            # 'LedgerPL': ('', ''),
+            # 'LedgerIC': ('', ''),
+
+            # # Inventory
+            # 'ChartOfAccountsTemplate': ('', ''),
+            # 'AccountPositionTemplate': ('', ''),
+            # 'ChartOfAccounts': ('', ''),
+            # #'AccountPosition': ('', ''),
         }
     },
     'asset': {

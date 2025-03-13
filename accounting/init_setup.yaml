@@ -193,6 +193,22 @@ CustomField:
     values: []
 
 
+FileCategory:
+  - code: invoice_incoming
+    name:
+      de: Kreditoren
+      en: Invoice incoming
+      fr: Invoice incoming
+      it: Invoice incoming
+
+  - code: invoice_outgoing
+    name:
+      de: Debitoren
+      en: Invoice outgoing
+      fr: Invoice outgoing
+      it: Invoice outgoing
+
+
 # Config Data --------------------------------------------------------
 Location:
   - name: Hauptsitz

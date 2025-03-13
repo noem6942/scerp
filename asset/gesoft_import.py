@@ -18,7 +18,7 @@ from .models import DEVICE_STATUS, AssetCategory, Device, EventLog
 
 logger = logging.getLogger(__name__)
 
-AssetCategory = 'counter_water'
+
 DATE_NULL = '01.01.1900'
 
 HOTWATER_COUNTER_IDS = [
@@ -29,6 +29,12 @@ HOTWATER_COUNTER_IDS = [
     19871933,
     19871930
 ]
+
+
+class AssetCategoryWater:
+    WATER = 'WA'
+    HOT_WATER = 'HWA'
+
 
 class ImportDevice:
 
@@ -85,10 +91,14 @@ class ImportDevice:
                 logger.info(f"parsing #{row_nr} {werk_nr}")
 
                 # get asset_category
-                if float((werk_nr) in HOTWATER_COUNTER_IDS:
-                    asset_category = self.asset_category_query.get(code='WWA')
+                if float(werk_nr) in HOTWATER_COUNTER_IDS:
+                    asset_category = self.asset_category_query.filter(
+                        code=AssetCategoryWater.HOT_WATER).first()
                 else:                    
-                    asset_category = self.asset_category_query.get(code='WA')
+                    asset_category = self.asset_category_query.filter(
+                        code=AssetCategoryWater.WATER).first()
+                if not asset_category:
+                    raise ValueError(f"no asset category found for {werk_nr}")
 
                 # edit or update counter
                 counter, created = Device.objects.update_or_create(

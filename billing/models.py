@@ -54,6 +54,7 @@ class Period(TenantAbstract):
     asset_categories = models.ManyToManyField(
         AssetCategory, verbose_name=_('Categories'),        
         help_text=_("Category"))
+    attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
     def __str__(self):
         return f'{self.name}, {self.start} - {self.end}'
@@ -86,7 +87,7 @@ class Route(TenantAbstract):
         Period, verbose_name=_('Period'),
         on_delete=models.PROTECT, related_name='%(class)s_period')
     last_period = models.ForeignKey(
-        Period, verbose_name=_('Period'), blank=True, null=True,
+        Period, verbose_name=_('Last Period'), blank=True, null=True,
         on_delete=models.PROTECT, related_name='%(class)s_last_period')        
     address_categories = models.ManyToManyField(
         AddressCategory, verbose_name=_('Address Categories'),
@@ -196,6 +197,7 @@ class Subscription(TenantAbstract):
     number_of_counters = models.PositiveSmallIntegerField(
         _('Number of counters'), default=0, editable=False,
         help_text=_('Gets updated automatically by signals'))
+    attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
     @property
     def number(self):

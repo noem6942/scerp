@@ -23,7 +23,7 @@ class FIELDS:
     LOGGING_SAVE = ('tenant', 'setup', 'created_by')
     NOTES = ('notes', 'is_protected', 'is_inactive')
     ICON_DISPLAY = (
-        'display_is_inactive', 'display_notes_hint', 'display_attachment_icon')
+        'display_is_protected', 'display_is_inactive', 'display_notes')
     LINK_ATTACHMENT = ('display_attachment_icon',)
 
 
@@ -116,6 +116,11 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
         return queryset
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj and getattr(obj, 'is_protected', False):
+            return [field.name for field in obj._meta.fields]
+        return super().get_readonly_fields(request, obj)
+
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         '''
         Filter ForeignKey choices by setup (if available) or tenant.
@@ -166,6 +171,12 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
     # messaging    
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        obj = self.get_object(request, object_id)
+        if obj and getattr(obj, 'is_protected', False):
+            messages.warning(request, _('Record is protected.'))
+        return super().change_view(request, object_id, form_url, extra_context)
+        
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
             extra_context = {}

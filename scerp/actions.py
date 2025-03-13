@@ -5,7 +5,7 @@ General actions used by all apps
 '''
 import json
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
 
@@ -35,7 +35,7 @@ def action_check_nr_selected(request, queryset, count=None, min_count=None):
 
 
 # Export
-@action_with_form(ExportExcelActionForm, description=_('Export data to Excel'))
+@action_with_form(ExportExcelActionForm, description=_('Export Data to Excel'))
 def export_excel(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, min_count=1):
         # Prepare formats        
@@ -71,7 +71,7 @@ def export_excel(modeladmin, request, queryset, data):
         return response
 
 
-@action_with_form(ExportJSONActionForm, description=_('Export data to JSON'))
+@action_with_form(ExportJSONActionForm, description=_('Export Data to JSON'))
 def export_json(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, min_count=1):
         # Prepare formats          
@@ -83,8 +83,13 @@ def export_json(modeladmin, request, queryset, data):
         
         return response
 
-
+    
 # Default row actions, general
+@admin.action(description='---')
+def _seperator(modeladmin, request, queryset):
+    pass
+    
+
 @admin.action(description=_('Set inactive'))
 def set_inactive(modeladmin, request, queryset):
     queryset.update(is_inactive=True)
@@ -97,3 +102,13 @@ def set_protected(modeladmin, request, queryset):
     queryset.update(is_protected=True)
     msg = _("Set {count} records as protected.").format(count=queryset.count())
     messages.success(request, msg)
+
+
+@admin.action(description=_('Unprotect'))
+def set_unprotected(modeladmin, request, queryset):
+    queryset.update(is_protected=False)
+    msg = _("Set {count} records as not protected.").format(
+        count=queryset.count())
+    messages.success(request, msg)
+        
+default_actions = [_seperator, set_inactive, set_protected, set_unprotected]    

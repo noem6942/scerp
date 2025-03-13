@@ -1,0 +1,143 @@
+<header height="4.5cm">
+    $logo
+</header>
+<footer height="3cm">
+    <div class="regular-footer">
+        <div class="text">$footer</div>
+        <div class="paging $pagingCls">$i18n.page $pageNumber $i18n.of $pageCount</div>
+    </div>
+</footer>
+
+<footer height="11cm" scope="lastpage">
+    <div class="deposit-slip">$swissQrSlip</div>
+</footer>
+
+<div class="page">
+
+<div class="window">
+    <div class="org $orgFullAddressCsvCls">$orgFullAddressCsv</div>
+    <div class="recipient">$recipientAddress</div>
+</div>
+<div class="docinfo">
+    <table>
+        <tr class="$recipientNrCls">
+            <td>$recipientNrLabel</td>
+            <td>$recipientNr</td>
+        </tr>
+        <tr>
+            <td>$i18n.date</td>
+            <td>$date</td>
+        </tr>
+        <tr class="$dueDateCls">
+            <td>$i18n.due</td>
+            <td>$dueDate</td>
+        </tr>
+        <tr class="$previousCls">
+            <td>$previousDocumentName</td>
+            <td>$previousDateAndNr</td>
+        </tr>
+        <tr class="$uidCls">
+            <td>$i18n.tax_code</td>
+            <td>$uid</td>
+        </tr>
+        <tr class="$rpCls">
+            <td>$i18n.contact</td>
+            <td>$rpFullName</td>
+        </tr>
+    </table>
+</div>
+<h1><span class="$documentNameCls">$documentName <span class="nr">$nr</span></span></h1>
+<div class="text-above">$!textAbove</div>
+
+<table class="items $itemsCls">
+    #thead()
+    #foreach($item in $items)
+        #if ($item.type == "ARTICLE")
+            <tr class="article">
+                #if ($displayPosNr) <td>$item.pos</td> #end
+                #if ($displayNr) <td>$item.nr</td> #end
+                <td>
+                    $item.name
+                    #if ($!item.description)
+                        <div class="description">$item.description</div>
+                    #end
+                </td>
+                <td class="quantity right">$item.quantity #if ($displayItemUnit) $item.unit #end</td>
+                #if ($displayPrices)
+                    #if ($displayItemTax) <td>$item.taxRate</td> #end
+                    <td class="right">#if($displayItemGross)$item.unitPrice#{else}$item.netUnitPrice#end</td>
+                    #if ($displayDiscount) <td class="right">$item.discount</td> #end
+                    <td class="right">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>
+                #end
+            </tr>
+        #end
+
+        #if ($item.type == "TEXT")
+            <tr class="text">
+                #if ($displayPosNr) <td>&nbsp;</td> #end
+                #if ($displayNr) <td>&nbsp;</td> #end
+                <td colspan="2">$item.description</td>
+                #if ($displayPrices)
+                    #if ($displayItemTax) <td>&nbsp;</td> #end
+                    <td>&nbsp;</td>
+                    #if ($displayDiscount) <td>&nbsp;</td> #end
+                    <td>&nbsp;</td>
+                #end
+            </tr>
+        #end
+
+        #if ($item.type == "TITLE")
+            <tr class="title"><td colspan="$itemFullColspan">$item.title</td></tr>
+        #end
+
+        #if (($item.type == "SUBTOTAL" or $item.type == "OPTIONTOTAL") and $displayPrices)
+            <tr class="subtotal">
+                #if ($displayPosNr) <td>&nbsp;</td> #end
+                #if ($displayNr) <td>&nbsp;</td> #end
+                #if ($displayItemTax) <td>&nbsp;</td> #end
+                <td colspan="3" class="right">$item.name</td>
+                #if ($displayDiscount) <td class="right">&nbsp;</td> #end
+                <td class="right">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>
+            </tr>
+        #end
+
+        #if ($item.type == "PAGEBREAK")
+            </table>
+            <page-break/>
+            <table class="items">
+                #thead()
+        #end
+    #end
+
+    #if ($displayPrices)
+        #foreach($row in $taxesAndTotals)
+            <tr class="$row.cls">
+                <td colspan="$row.colspan" class="right">$row.name</td>
+                <td class="right">$row.currency</td>
+                <td class="right">$row.amount</td>
+            </tr>
+        #end
+    #end
+</table>
+
+#macro(thead)
+    <tr>
+        #if ($displayPosNr) <th>#&nbsp;&nbsp;</th> #end
+        #if ($displayNr) <th>$i18n.article_nr</th> #end
+        <th>$i18n.description</th>
+        <th class="right">$i18n.quantity</th>
+        #if ($displayPrices)
+            #if ($displayItemTax) <th>$i18n.tax</th> #end
+            <th class="right">$i18n.price</th>
+            #if ($displayDiscount) <th class="right">$i18n.discount</th> #end
+            <th class="right">$i18n.total</th>
+        #end
+    </tr>
+#end
+
+#if ($!textBelow)
+    <div class="text-below">$!textBelow</div>
+#end
+
+</div><!-- page -->
+

@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from scerp.admin import BaseAdminNew, make_language_fields
+from core.admin import AttachmentInline
+from scerp.actions import export_excel, default_actions
+from scerp.admin import BaseAdmin, make_language_fields
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 
@@ -10,7 +12,7 @@ from .models import AssetCategory, Device, EventLog
 
 
 @admin.register(AssetCategory, site=admin_site)
-class AssetCategory(TenantFilteringAdmin, BaseAdminNew):
+class AssetCategory(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant']
     
@@ -18,12 +20,15 @@ class AssetCategory(TenantFilteringAdmin, BaseAdminNew):
     form = forms.AssetCategoryAdminForm
 
     # Display these fields in the list view
-    list_display = ('code', 'display_name')
+    list_display = ('code', 'display_name') + FIELDS.ICON_DISPLAY
     readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ('code', 'name')
     list_filter = ('code',)
+    
+    # Actions
+    actions = [export_excel] + default_actions
 
     #Fieldsets
     fieldsets = (
@@ -38,18 +43,23 @@ class AssetCategory(TenantFilteringAdmin, BaseAdminNew):
 
 
 @admin.register(Device, site=admin_site)
-class DeviceAdmin(TenantFilteringAdmin, BaseAdminNew):
+class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'category']
+    protected_foreigns = ['tenant', 'version', 'category']
 
     # Display these fields in the list view
-    list_display = ('category', 'code', 'name', 'number', 'status')
-    list_display_links = ('code', 'name')
+    list_display = (
+        'code', 'category', 'name', 'number', 'status'
+    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
+    list_display_links = ('code', 'name') + FIELDS.LINK_ATTACHMENT
     readonly_fields = ('display_name', 'status') + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ('number', 'name', 'category__code')
     list_filter = ('status', 'obiscode', 'category')
+    
+    # Actions
+    actions = [export_excel] + default_actions
 
     #Fieldsets
     fieldsets = (
@@ -74,16 +84,20 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdminNew):
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
+    
+    inlines = [AttachmentInline]
 
 
 @admin.register(EventLog, site=admin_site)
-class EventLogAdmin(TenantFilteringAdmin, BaseAdminNew):
+class EventLogAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'customer', 'building', 'dwelling', 'room']
+    protected_foreigns = [
+        'tenant', 'version', 'customer', 'building', 'dwelling', 'room']
 
     # Display these fields in the list view
     list_display = (
-        'device', 'device__category', 'datetime', 'status', 'building')
+        'device', 'device__category', 'datetime', 'status', 'building'
+    ) + FIELDS.ICON_DISPLAY
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -91,6 +105,9 @@ class EventLogAdmin(TenantFilteringAdmin, BaseAdminNew):
         'device__code', 'device__name', 'device__number', 
         'device__description', 'datetime')
     list_filter = ('status', 'datetime')
+    
+    # Actions
+    actions = [export_excel] + default_actions
 
     #Fieldsets
     fieldsets = (

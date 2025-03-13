@@ -27,7 +27,7 @@ from .models import (
 )
 
 from . import forms, models
-from . import connector_cash_ctrl_2 as conn2
+from . import connector_cash_ctrl as conn
 from .signals_cash_ctrl import api_setup_post_save
 
 
@@ -207,7 +207,7 @@ def add_ic(modeladmin, request, queryset, data):
 
 # Account
 def get_data(modeladmin, request, queryset, update, delete_not_existing):
-    api = getattr(conn2, modeladmin.model.__name__, None)
+    api = getattr(conn, modeladmin.model.__name__, None)
     language = None  # i.e. English
     if api:
         handler = api(modeladmin.model)        
@@ -223,7 +223,7 @@ def get_data(modeladmin, request, queryset, update, delete_not_existing):
 def accounting_get_data(modeladmin, request, queryset, data):
     ''' load data '''
     model = modeladmin.model.__name__
-    api = getattr(conn2, model, None)
+    api = getattr(conn, model, None)
     language = None  # i.e. English
     if api:
         handler = api(modeladmin.model, language=language)

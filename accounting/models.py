@@ -15,9 +15,9 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from core.models import (
-    LogAbstract, NotesAbstract, Attachment , 
-    Tenant, TenantAbstract, TenantSetup, TenantLogo, 
-    Country, Address, Contact, PersonAddress    
+    LogAbstract, NotesAbstract, Attachment ,
+    Tenant, TenantAbstract, TenantSetup, TenantLogo,
+    Country, Address, Contact, PersonAddress
 )
 from core.models import (
     Title as TitleCrm,
@@ -28,7 +28,7 @@ from scerp.locales import CANTON_CHOICES
 from scerp.mixins import get_code_w_name, primary_language
 from .api_cash_ctrl import (
     URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE,
-    CALCULATION_BASE, ORDER_TYPE, PERSON_TYPE)
+    CALCULATION_BASE, ORDER_TYPE, PERSON_TYPE, BANK_ACCOUNT_TYPE)
 
 
 # Definitions
@@ -53,6 +53,10 @@ class TOP_LEVEL_ACCOUNT(models.TextChoices):
 
 TOP_LEVEL_ACCOUNT_NRS = [Decimal(x.value) for x in TOP_LEVEL_ACCOUNT]
 
+
+def rank(nr):
+    diff = 4 - nr
+    return ' ' * (diff if diff > 0 else 0)
 
 
 # CashCtrl Basics ------------------------------------------------------------
@@ -125,8 +129,8 @@ class APISetup(TenantAbstract):
             )
         ]
         ordering = ['tenant__name',]
-        verbose_name = _('Accounting Setup')
-        verbose_name_plural = _('Accounting Setups')
+        verbose_name = _('Setup - Accounting')
+        verbose_name_plural = _('Setup - Accounting')
 
 
 class AcctAppBase(models.Model):
@@ -204,8 +208,8 @@ class CustomFieldGroup(AcctApp):
             )
         ]
         ordering = ['type', 'code']
-        verbose_name = _("Custom Field Group")
-        verbose_name_plural = _("Custom Field Groups")
+        verbose_name = _("Setup - Custom Field Group")
+        verbose_name_plural = _("Setup - Custom Field Groups")
 
 
 class CustomField(AcctApp):
@@ -270,8 +274,35 @@ class CustomField(AcctApp):
             )
         ]
         ordering = ['group__code', 'code']
-        verbose_name = _("Custom Field")
-        verbose_name_plural = _("Custom Field")
+        verbose_name = _("Setup - Custom Field")
+        verbose_name_plural = _("Setup - Custom Field")
+
+
+class FileCategory(AcctApp):
+    ''' FileCategory
+    '''
+    code = models.CharField(
+        _('Code'), max_length=50, help_text=_("internal code"))
+    name = models.JSONField(
+        _('Name'), help_text="The name of the file category.")
+    parent = models.ForeignKey(
+        'self', verbose_name=_('Parent'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_parent',
+        help_text=_('The parent category. Do not use'))
+
+    def __str__(self):
+        return get_code_w_name(self)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_setup_file_category'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Setup - File Category")
+        verbose_name_plural = _("Setup - File Categories")
 
 
 class Location(AcctApp):
@@ -348,8 +379,19 @@ class Location(AcctApp):
             )
         ]
         ordering = ['name']
-        verbose_name = _("Location: Logo, Address, VAT, Codes, Formats etc. ")
-        verbose_name_plural = f"{verbose_name}"
+        verbose_name = _("Settings - Location, Logo")
+        verbose_name_plural = _("Settings - Locations, Logos")
+
+
+
+class File:
+    
+    @property
+    def url(self):
+        return (
+            f'https://{self.setup.org_name}.cashctrl.com/'
+            f'file/get?id={self.c_id}')
+
 
 
 class FiscalPeriod(AcctApp):
@@ -391,8 +433,8 @@ class FiscalPeriod(AcctApp):
             )
         ]
         ordering = ['-start']
-        verbose_name = _("Fiscal Period")
-        verbose_name_plural = f"{_('Fiscal Periods')}"
+        verbose_name = _("Settings - Fiscal Period")
+        verbose_name_plural = _('Settings - Fiscal Periods')
 
 
 class Currency(AcctApp):
@@ -415,8 +457,8 @@ class Currency(AcctApp):
             )
         ]
         ordering = ['code']
-        verbose_name = _("Currency")
-        verbose_name_plural = f"{_('Currencies')}"
+        verbose_name = _("Settings - Currency")
+        verbose_name_plural = _("Settings - Currencies")
 
     def clean(self):
         print("*s", self.__dict__)
@@ -451,8 +493,8 @@ class SequenceNumber(AcctApp):
             )
         ]
         ordering = ['pattern']
-        verbose_name = _("Sequence Number")
-        verbose_name_plural = f"{_('Sequence Numbers')}"
+        verbose_name = _("Settings - Sequence Number")
+        verbose_name_plural = _("Settings - Sequence Numbers")
 
 
 class Unit(AcctApp):
@@ -476,12 +518,12 @@ class Unit(AcctApp):
             )
         ]
         ordering = ['code']
-        verbose_name = _("Unit")
-        verbose_name_plural = f"{_('Units')}"
+        verbose_name = _("Settings - Unit")
+        verbose_name_plural = _("Settings - Units")
 
 
 class Text(AcctApp):
-    ''' Text Blocks '''
+    ''' Text Blocks, not used '''
     TEXT_TYPE = [(x.value, x.value) for x in TEXT_TYPE]
 
     name = models.CharField(
@@ -512,8 +554,8 @@ class Text(AcctApp):
             )
         ]
         ordering = ['type', 'name']
-        verbose_name = _("Text Block")
-        verbose_name_plural = f"{_('Text Blocks')}"
+        verbose_name = 'Text Block, not used'
+        verbose_name_plural = 'Text Blocks, not used'
 
 
 class CostCenterCategory(AcctApp):
@@ -539,8 +581,8 @@ class CostCenterCategory(AcctApp):
             )
         ]
         ordering = ['number']
-        verbose_name = _("Cost Center Category")
-        verbose_name_plural = _("Cost Center Categories")
+        verbose_name = _("Settings - Cost Center Category")
+        verbose_name_plural = _("Settings - Cost Center Categories")
 
 
 class CostCenter(AcctApp):
@@ -585,8 +627,8 @@ class CostCenter(AcctApp):
             )
         ]
         ordering = ['number']
-        verbose_name = _("Cost Center")
-        verbose_name_plural = _("Cost Centers")
+        verbose_name = _("Settings - Cost Center")
+        verbose_name_plural = _("Settings - Cost Centers")
 
 
 class AccountCategory(AcctApp):
@@ -623,8 +665,8 @@ class AccountCategory(AcctApp):
         ]
         # Lexicographic ordering
         ordering = [Cast('number', models.CharField())]
-        verbose_name = ('Account Category')
-        verbose_name_plural = _('Account Categories')
+        verbose_name = ('Ledgers - Setup Account Category')
+        verbose_name_plural = _('Ledgers - Setup Account Categories')
 
 
 class Account(AcctApp):
@@ -709,8 +751,8 @@ class Account(AcctApp):
             )
         ]
         ordering = ['number']
-        verbose_name = ('Account')
-        verbose_name_plural = _('Accounts')
+        verbose_name = ('Ledgers - Setup Account')
+        verbose_name_plural = _('Ledgers - Setup Accounts')
 
 
 class Allocation(AcctApp):
@@ -843,8 +885,8 @@ class Setting(AcctApp):
         return f"Configuration {self.pk}"
 
     class Meta:
-        verbose_name = _("Settings")
-        verbose_name_plural = _("Settings")
+        verbose_name = _("Settings - Config")
+        verbose_name_plural = _("Settings - Configs")
 
 
 class Tax(AcctApp):
@@ -907,8 +949,73 @@ class Tax(AcctApp):
             )
         ]
         ordering = ['code']
-        verbose_name = _("Tax Rate")
-        verbose_name_plural = f"{_('Tax Rates')}"
+        verbose_name = _("Settings - Tax Rate")
+        verbose_name_plural = _("Settings - Tax Rates")
+
+
+class BankAccount(AcctApp):
+    ''' we use this only for internal banking accounts
+    '''
+    class TYPE(models.TextChoices):
+        # CashCtrl
+        DEFAULT = BANK_ACCOUNT_TYPE.DEFAULT, _('Default')
+
+    code = models.CharField(
+        _('Code'), max_length=50, null=True, blank=True,
+        help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('name'), blank=True, null=True,
+        help_text=_("The name of the tax rate."))
+    type = models.CharField(
+        _('Type'), max_length=10, choices=TYPE.choices, default=TYPE.DEFAULT,
+        help_text=('''Workflow process step'''))
+    account = models.ForeignKey(
+        Account, on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Account'),
+        related_name='%(class)s_account',
+        help_text=_('The account associated with the banking account. '
+                    'Leave empty'))
+    currency = models.ForeignKey(
+        Currency, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_currency',
+        verbose_name=_('Currency'),
+        help_text=_("Leave empty for CHF"))
+    bic = models.CharField(
+        _('BIC Code'), max_length=11, blank=True, null=True,
+        help_text=_("The BIC (Business Identifier Code) of the person's bank."))
+    iban = models.CharField(
+        _('IBAN'), max_length=32, blank=True, null=True,
+        help_text=('The IBAN (International Bank Account Number) of the person.')
+    )
+    qr_first_digits = models.PositiveIntegerField(
+        _("QR First Digits"), blank=True, null=True,
+        help_text=_("The first few digits of the Swiss QR reference. Specific "
+                    "to Switzerland."))
+    qr_iban = models.CharField(
+        _("QR-IBAN"), max_length=32, blank=True, null=True,
+        help_text=_("The QR-IBAN, used especially for QR invoices. Specific to "
+                    "Switzerland."))
+    url = models.URLField(
+        _("url"), max_length=200,
+        help_text=_("URL for the bank's e-banking portal"))
+
+    def clean(self):
+        if not self.name:
+            raise ValidationError(_("Name must not be empty"))
+
+    def __str__(self):
+        return get_code_w_name(self)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code', 'c_id'],
+                name='unique_setup_bank_account'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Settings - Bank Account")
+        verbose_name_plural = _("Settings - Bank Accounts")
 
 
 class Rounding(AcctApp):
@@ -943,8 +1050,8 @@ class Rounding(AcctApp):
             )
         ]
         ordering = ['code']
-        verbose_name = _("Rounding")
-        verbose_name_plural = f"{_('Roundings')}"
+        verbose_name = _("Settings - Rounding")
+        verbose_name_plural = _("Settings - Roundings")
 
 
 class ArticleCategory(AcctApp):
@@ -992,8 +1099,8 @@ class ArticleCategory(AcctApp):
             )
         ]
         ordering = ['code']
-        verbose_name = _("Article Category")
-        verbose_name_plural = _("Article Categories")
+        verbose_name = _("Order Settings - Article Category")
+        verbose_name_plural = _("Order Settings - Article Categories")
 
 
 class Article(AcctApp):
@@ -1093,8 +1200,8 @@ class Article(AcctApp):
                 name='unique_setup_article'
             )
         ]
-        verbose_name = _("Article")
-        verbose_name_plural = _("Articles")
+        verbose_name = _("Order Settings - Article")
+        verbose_name_plural = _("Order Settings - Articles")
 
 
 # Person ----------------------------------------------------------------
@@ -1133,6 +1240,7 @@ class Title(Core):
                 fields=['setup', 'core'],
                 name='accounting_unique_title')
         ]
+        verbose_name = '_Title'
 
 
 class PersonCategory(Core):
@@ -1145,15 +1253,16 @@ class PersonCategory(Core):
         related_name='%(class)s_core', help_text='origin')
     parent = None  # we do not use this
 
+    def __str__(self):
+        return f'{self.core}'
+
     class Meta:
-        pass
-        """
         constraints = [
             models.UniqueConstraint(
                 fields=['setup', 'core'],
                 name='accounting_unique_person_category')
         ]
-        """
+        verbose_name = '_Person Category'
 
 
 class Person(Core):
@@ -1164,6 +1273,12 @@ class Person(Core):
     core = models.ForeignKey(
         PersonCrm, on_delete=models.CASCADE,
         related_name='%(class)s_core', help_text='origin')
+
+    @property
+    def url(self):
+        return (
+            f'https://{self.setup.org_name}.cashctrl.com/'
+            f'#person/detail?id={self.c_id}')
 
     @classmethod
     def get_accounting_object(cls, person_id):
@@ -1179,6 +1294,7 @@ class Person(Core):
                 fields=['setup', 'core'],
                 name='accounting_unique_person')
         ]
+        verbose_name = '_Person'
 
 
 # Orders --------------------------------------------------------------------
@@ -1187,6 +1303,7 @@ class BookTemplate(AcctApp):
     BookTemplates
     not synchronized to cashCtrl
     we use it for booking and order management
+    do not show to users !?
     '''
     class TYPE(models.TextChoices):
         # CashCtrl
@@ -1228,16 +1345,16 @@ class BookTemplate(AcctApp):
         ]
         ordering = ['code', 'type']
         verbose_name = _("Booking Template")
-        verbose_name_plural = f"{_('Booking Templates')}"
+        verbose_name_plural = '_' + _('Booking Template')
 
 
 class OrderTemplate(AcctApp):
     PAGE_SIZES = [
-        ("A0", "A0"), ("A1", "A1"), ("A2", "A2"), ("A3", "A3"), ("A4", "A4"), 
-        ("A5", "A5"), ("A6", "A6"), ("A7", "A7"), ("A8", "A8"), ("A9", "A9"), 
+        ("A0", "A0"), ("A1", "A1"), ("A2", "A2"), ("A3", "A3"), ("A4", "A4"),
+        ("A5", "A5"), ("A6", "A6"), ("A7", "A7"), ("A8", "A8"), ("A9", "A9"),
         ("LEGAL", "LEGAL"), ("LETTER", "LETTER"), ("A4R", "A4R")
-    ]    
-    
+    ]
+
     # Required field
     name = models.CharField(
         _("Name"), max_length=200,
@@ -1245,19 +1362,19 @@ class OrderTemplate(AcctApp):
 
     # Optional fields
     css = models.TextField(
-        blank=True, null=True, verbose_name="CSS", 
+        blank=True, null=True, verbose_name="CSS",
         help_text="The CSS stylesheet for the template.")
     footer = models.TextField(
-        blank=True, null=True, verbose_name="Footer", 
+        blank=True, null=True, verbose_name="Footer",
         help_text="Footer text with limited HTML.")
     html = models.TextField(
-        blank=True, null=True, verbose_name="HTML", 
+        blank=True, null=True, verbose_name="HTML",
         help_text="The HTML and Apache Velocity template.")
 
     # Boolean fields with default values
     is_default = models.BooleanField(
         blank=True, null=True, verbose_name="Default Template")
-    is_display_document_name = models.BooleanField(        
+    is_display_document_name = models.BooleanField(
         blank=True, null=True, verbose_name="Display Document Name")
     is_display_item_article_nr = models.BooleanField(
         blank=True, null=True, verbose_name="Display Item Article No.")
@@ -1311,8 +1428,8 @@ class OrderTemplate(AcctApp):
 
     class Meta:
         ordering = ['name']
-        verbose_name = _("Order Template")
-        verbose_name_plural = f"{_('Order Templates')}"
+        verbose_name = _("Order Settings - Template")
+        verbose_name_plural = _("Order Settings - Templates")
 
 
 class OrderCategory(AcctApp):
@@ -1392,9 +1509,6 @@ class OrderCategory(AcctApp):
                 ", ".join(missing_fields)
             )
 
-    def __str__(self):
-        return primary_language(self.name_plural)
-
     class Meta:
         ordering = ['code', 'name_plural']
         abstract = True
@@ -1457,16 +1571,19 @@ class OrderCategoryContract(OrderCategory):
     @property
     def sequence_number(self):
         return self.get_sequence_number('BE')
-    
+
     # overwriting of order categories seems to work
     '''
-    def clean(self):        
+    def clean(self):
         # Check if not changeable
         if self.pk and OrderContract.objects.filter(category=self).exists():
             raise ValidationError(
                 _("Categories with existing contracts cannot be changed"))
         super().clean()
     '''
+
+    def __str__(self):
+        return _('Contracts') + ': ' + primary_language(self.name_plural)
 
     class Meta:
         constraints = [
@@ -1475,8 +1592,8 @@ class OrderCategoryContract(OrderCategory):
                 name='unique_order_category_contract'
             )
         ]
-        verbose_name = _("Category: Contract")
-        verbose_name_plural = _("Category Contracts")
+        verbose_name = _("OrderCategory Settings - Contract")
+        verbose_name_plural = _("OrderCategory Settings - Contracts")  # rank(2) +
 
 
 class OrderCategoryIncoming(OrderCategory):
@@ -1528,7 +1645,7 @@ class OrderCategoryIncoming(OrderCategory):
         related_name='%(class)s_expense_account',
         verbose_name=_('Expense Account'))
     bank_account = models.ForeignKey(
-        Account, on_delete=models.CASCADE,
+        BankAccount, on_delete=models.CASCADE,
         related_name='%(class)s_banke_account',
         verbose_name=_('Bank Account (payment)'))
     tax = models.ForeignKey(
@@ -1554,21 +1671,29 @@ class OrderCategoryIncoming(OrderCategory):
         help_text=(
             '''Which address of the recipient to use in the order document.
                Possible values: MAIN, INVOICE, DELIVERY, OTHER.'''))
+    message = models.CharField(
+        _('Message'), max_length=50, blank=True, null=True,
+        help_text=(
+            '''A message for the payment recipient (included in the pain.001
+               xml file).'''))
 
     @property
     def sequence_number(self):
         return self.get_sequence_number('ER')
-    
+
     # overwriting of order categories seems to work
     '''
-    def clean(self):       
+    def clean(self):
         # Check if not changeable
         if self.pk and IncomingOrder.objects.filter(category=self).exists():
             raise ValidationError(
                 _("Categories with existing contracts cannot be changed"))
         super().clean()
     '''
-        
+
+    def __str__(self):
+        return _('Creditors') + ': ' + primary_language(self.name_plural)
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -1576,8 +1701,8 @@ class OrderCategoryIncoming(OrderCategory):
                 name='unique_order_category_incoming'
             )
         ]
-        verbose_name = _(" Category Invoice & Booking")
-        verbose_name_plural = _("Category Invoices & Bookings")
+        verbose_name = _("OrderCategory Creditors - Category")
+        verbose_name_plural = _("OrderCategory Creditors - Category")  # rank(2) + _("Creditors - Categories")
 
 
 class Order(AcctApp):
@@ -1587,12 +1712,20 @@ class Order(AcctApp):
         OrderCategoryContract, on_delete=models.CASCADE,
         related_name='%(class)s_category',
         verbose_name=_('Category'),
-        help_text=_('category'))
+        help_text=_(
+            'Order category, here are all booking processes and status '
+            'defined '))
     date = models.DateField(_('Date'))
     nr = models.CharField(
         _('Order Number'), max_length=50, blank=True, null=True,
         help_text=_("The order number."))
-        
+
+    @property
+    def url(self):
+        return (
+            f'https://{self.setup.org_name}.cashctrl.com/'
+            f'#order/document?id={self.c_id}')
+
     class Meta:
         abstract = True
 
@@ -1606,9 +1739,10 @@ class OrderContract(Order):
         ('notice_period_month', 'order_procurement_notice')
     ]
     associate = models.ForeignKey(
+        # to be mapped to manytomany field in cashCtrl
         PersonCrm, on_delete=models.PROTECT, related_name='associate_2',
         verbose_name=_('Contract party'),
-        help_text=_('Supplier or Client'))  # to be mapped to multiple in cashCtrl
+        help_text=_('Supplier or Client, usually a company'))
     status = models.CharField(
         _('Status'), max_length=50,
         choices=OrderCategoryContract.STATUS.choices,
@@ -1632,13 +1766,13 @@ class OrderContract(Order):
     notice_period_month = models.PositiveSmallIntegerField(
         _('Notice Period (Months)'), null=True, blank=True)
     attachments = GenericRelation('core.Attachment')
-    
+
     def __str__(self):
         return f"{self.associate.company}, {self.date}, {self.description}"
 
     class Meta:
         verbose_name = _("Contract")
-        verbose_name_plural = _("Contracts")
+        verbose_name_plural = rank(1) + '*' + _("Contracts")
 
 
 class IncomingOrder(Order):
@@ -1683,14 +1817,14 @@ class IncomingOrder(Order):
         verbose_name=_('Clerk'), related_name='%(class)s_person',
         help_text=_('Clerk'))
     attachments = GenericRelation('core.Attachment')
-    
+
     def __str__(self):
         return (f"{self.contract.associate.company}, {self.date}, "
                 f"{self.description}")
 
     class Meta:
         verbose_name = _("Incoming Invoice")
-        verbose_name_plural = _("Incoming Invoices")
+        verbose_name_plural = rank(1) + '*' + _("Incoming Invoices")
 
 
 class IncomingBookEntry(AcctApp):
@@ -1712,10 +1846,10 @@ class IncomingBookEntry(AcctApp):
                 fields=['setup', 'order', 'template_id'],
                 name='unique_incoming_book_entry'
             )
-        ]        
+        ]
         ordering = ['-date']
         verbose_name = _("Book Entry")
-        verbose_name_plural = _("Book Entries")        
+        verbose_name_plural = _("Book Entries")
 
 
 # scerp entities with foreign key to Ledger ---------------------------------
@@ -1862,8 +1996,8 @@ class LedgerBalance(LedgerAccount):
                 name='unique_balance'
             )
         ]
-        verbose_name = ('Balance Account')
-        verbose_name_plural = _('Balance')
+        verbose_name = ('Ledger - Balance')
+        verbose_name_plural = _('Ledgers - Balances')
 
 
 class FunctionalLedger(LedgerAccount):
@@ -1925,8 +2059,8 @@ class LedgerPL(FunctionalLedger):
                 name='unique_ledger_pl'
             )
         ]
-        verbose_name = ('Profit/Loss')
-        verbose_name_plural = _('Profit/Loss')
+        verbose_name = ('Ledger - Profit/Loss')
+        verbose_name_plural = _('Ledgers - Profit/Loss')
 
 
 class LedgerIC(FunctionalLedger):
@@ -1966,8 +2100,8 @@ class LedgerIC(FunctionalLedger):
                 name='unique_ledger_ic'
             )
         ]
-        verbose_name = ('Investment Calculation')
-        verbose_name_plural = _('Investment Calculations')
+        verbose_name = ('Ledger - Investment Calculation')
+        verbose_name_plural = _('Ledgers - Investment Calculations')
 
 
 # Accounting Charts -----------------------------------------------------------

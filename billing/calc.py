@@ -2,9 +2,12 @@
 billing/calc.py
 '''
 import json
+import openpyxl
+from openpyxl.styles import Font
 
 from django.db.models import Q, Sum, Min, Max
 from django.http import HttpResponse
+from django.utils.translation import gettext as _
 
 from core.models import AddressCategory, Building, PersonAddress
 from scerp.admin import ExportExcel
@@ -47,7 +50,7 @@ class RouteMeterExport:
         self.route_date = route_date
 
         # encryption
-        self.key = key  
+        self.key = key
 
     # Helpers
     def get_buildings(self):
@@ -60,14 +63,14 @@ class RouteMeterExport:
         else:
             queryset = Building.objects.filter(tenant=self.route.tenant)
         buildings = queryset.filter(address__categories__in=categories)
-        
+
         return buildings
 
     def get_subscriptions(self, buildings):
         # start, end
         start = self.route.get_start()
         end = self.route.get_start()
-        
+
         # In scope
         queryset = Subscription.objects.filter(
             tenant=self.route.tenant,
@@ -87,7 +90,7 @@ class RouteMeterExport:
             ).aggregate(Sum('consumption'))
             return total['consumption__sum']
         else:
-            return 0    
+            return 0
 
     def make_meter(self, subscription, counter, excel, start, end):
         ''' make meter dict for json / excel export
@@ -139,20 +142,20 @@ class RouteMeterExport:
                 'end': end,
                 'consumption_old': consumption
             }
-        else:            
+        else:
             # current date
             if self.route_date:
                 current_date = convert_datetime_to_date(self.route_date)
             else:
                 current_date = None
-            
+
             # previous date
             if self.route.last_period:
                 previous_date = convert_datetime_to_date(
                     self.route.last_period.end)
             else:
                 previous_date = None
-            
+
             meter = {
                 'id': counter.number,
                 'energytype': self.route.period.energy_type,
@@ -199,18 +202,18 @@ class RouteMeterExport:
 
         # Get subscriptions
         buildings = self.get_buildings()
-        subscriptions = self.get_subscriptions(buildings)        
+        subscriptions = self.get_subscriptions(buildings)
         number_of_counters = 0
         # Fill in meters
-        
+
         for subscription in subscriptions:
             for counter in subscription.counters.all():
                 meter = self.make_meter(
                     subscription, counter, excel, start, end)
                 data['billing_mde']['meter'].append(meter)
                 number_of_counters += 1
-                
-        # Update route        
+
+        # Update route
         self.route.number_of_buildings = len(buildings)
         self.route.number_of_subscriptions = len(subscriptions)
         self.route.number_of_counters = number_of_counters
@@ -234,7 +237,7 @@ class RouteMeterExport:
 
         return response
 
-    def make_response_excel(self, data_list, filename):        
+    def make_response_excel(self, data_list, filename):
         # Init
         headers = tuple(data_list[0].keys())
         data = [tuple(data.values()) for data in data_list]
@@ -305,3 +308,55 @@ class MeasurementAnalyse:
             'consumption_previous': total_consumption_previous,
             'consumption_change': consumption_change
         }
+
+    def output_excel(self, data, filename=None, title=None):
+        # Create an Excel workbook and worksheet
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = title if title else _('Consumption Analysis')
+
+        if not filename:
+            filename = 'output.xlsx'
+
+        # Add header with bold font
+        header = [_('Label'), _('Value')]
+        ws.append(header)
+
+        bold_font = Font(bold=True)
+        for col_num, cell in enumerate(ws[1], 1):
+            cell.font = bold_font  # Make header bold
+
+        # Add data rows
+        rows = [
+            [_('Records Processed'), data['record_count']],
+            [_('Periods'), ', '.join(x.name for x in data['periods'])],
+            [_('Routes'), ', '.join(x.name for x in data['routes'])],
+            [_('Areas'), ', '.join(x.code for x in data['areas'])],
+            [_('Period Start, End'), f"{data['start']} - {data['end']}"],
+            [_('Value Dates From - To'), f"{data['min_date']} - {data['max_date']}"],
+            [_('Total Consumption'), f"{data['consumption']:.0f} m³"],
+            [_('Previous'),
+             f"{data['consumption_previous']:.0f}"
+             if data['consumption_previous'] else '-'],
+            [_('Change in %'), data['consumption_change']],
+        ]
+
+        for row in rows:
+            ws.append(row)
+
+        # Auto-adjust column widths
+        for col in ws.columns:
+            max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = max_length + 2  # Padding
+
+        # Prepare HTTP response
+        response = HttpResponse(
+            content_type=(
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            ),
+        )
+        response['Content-Disposition'] = f"attachment; filename={filename}"
+
+        # Save workbook to response
+        wb.save(response)
+        return response

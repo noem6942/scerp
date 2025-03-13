@@ -276,6 +276,9 @@ class ImportData(ImportAddress):
             code=data.pop('code'),
             defaults=data
         )
+        if created:
+            logger.warning(f"counter {obj.code} did not exist. Created now")
+        
         return obj, created
 
     def add_event(self, device, dt, status, data):
@@ -462,20 +465,13 @@ class ImportData(ImportAddress):
             montage_date, _, tarif, bez, tage, fkt, anz_zw,
             zw_alt_1, zw_alt_2, strg_z, add, zuge, zuga, folge
         ) = row
-        
-        # Category
-        if counter_nr == HOTWATER_COUNTER_IDS:
-            category = self.asset_categories.filter(code='HWA').first()
-        else:
-            category = self.asset_categories.filter(code='WA').first()  
-            
+                    
         # Add Counter
         dt = parse_gesoft_to_datetime(montage_date)        
         data = {
             'code': counter_nr,
             'number': counter_nr,
-            'date_added': dt.date(),
-            'category': category
+            'date_added': dt.date(),        
         }      
 
         # Add device

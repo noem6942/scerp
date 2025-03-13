@@ -12,6 +12,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
 
+from accounting.banking import get_bic
 from scerp.locales import CANTON_CHOICES
 from scerp.mixins import primary_language
 
@@ -40,9 +41,6 @@ class NotesAbstract(models.Model):
     '''
     notes = models.TextField(
         _('notes'), null=True, blank=True, help_text=_('notes to the record'))
-    attachment = models.FileField(
-        _('attachment'), upload_to='attachments/', blank=True, null=True,
-        help_text=_('attachment for evidence'))
     version = models.ForeignKey(
         'self', verbose_name=_('version'), on_delete=models.SET_NULL,
         null=True, blank=True, related_name='%(class)s_previous_versions',
@@ -315,7 +313,7 @@ class AddressCategory(TenantAbstract):
         _('Name'), max_length=100, help_text=_("Name"))
     description = models.TextField(
         _('Description'), blank=True, null=True)
-    
+
     def __str__(self):
         return f"{self.type} {self.name}"
 
@@ -390,16 +388,16 @@ class Address(TenantAbstract):
             categories = self.categories.filter(type=filter_type)
         else:
             categories = self.categories
-        
+
         # get and append category names
         names = []
-        for cat in categories.all():            
-            type_str = '' if filter_type else cat.get_type_display()[0] + '-' 
+        for cat in categories.all():
+            type_str = '' if filter_type else cat.get_type_display()[0] + '-'
             name = cat.name[0]
             names.append(f'{type_str}{name}')
-            
-        return ', '.join(names)    
-    
+
+        return ', '.join(names)
+
     def __str__(self):
         if self.country.alpha3 == 'CHE':
             return f"{self.zip} {self.city}, {self.address}"
@@ -412,7 +410,7 @@ class Address(TenantAbstract):
                 name='unique_address'
             )
         ]
-        ordering = ['country', 'zip', 'city']
+        ordering = ['country', 'zip', 'city', 'address']
         verbose_name = _('Address Entry')
         verbose_name_plural = _('Addresses')
 
@@ -449,9 +447,44 @@ class Contact(TenantAbstract):
         return f"{self.type} - {self.address}"
 
 
+class BankAccount(TenantAbstract):
+
+    class TYPE(models.TextChoices):
+        # CashCtrl
+        DEFAULT = 'DEFAULT', _('Default')
+        ORDER = 'ORDER', _('Order')
+        SALARY = 'SALARY', _('Salary')
+        HISTORICAL = 'HISTORICAL', _('Historical')
+
+    type = models.CharField(
+        max_length=20, choices=TYPE.choices, default=TYPE.DEFAULT)
+    iban = models.CharField(
+        _('IBAN'), max_length=32,
+        help_text=('The IBAN (International Bank Account Number) of the person.')
+    )
+    bic = models.CharField(
+        _('BIC Code'), max_length=11, blank=True, null=True,
+        help_text=_(
+            "The BIC (Business Identifier Code) of the person's bank. "
+            "Most common Swiss BIC codes are detected automatically."))
+
+    def clean(self):
+        if self.iban and not self.bic:
+            self.bic = get_bic(self.iban)
+            if not self.bic:
+                raise ValidationError(_("No BIC Code found."))
+
+    class Meta:
+        abstract = True
+        verbose_name = _('Bank Account')
+        verbose_name_plural = _('Bank Accounts')
+
+    def __str__(self):
+        return f"{self.type} - {self.iban}"
+
 class Sync(TenantAbstract):
     sync_to_accounting = models.BooleanField(
-        _("Sync to Accounting"), default=True,
+        _("Sync to Accounting"), default=False,
         help_text=(
             "This records needs to be synched to cashctr, if the cycle is "
             "over it gets reset to False"))
@@ -591,9 +624,6 @@ class Person(Sync):
         help_text=_(
             "An alternative name for this person (for organizational chart). "
             "Can contain localized text."))
-    bic = models.CharField(
-        _('BIC Code'), max_length=11, blank=True, null=True,
-        help_text=_("The BIC (Business Identifier Code) of the person's bank."))
     category = models.ForeignKey(
         PersonCategory, on_delete=models.PROTECT,
         related_name='%(class)s_category',
@@ -619,10 +649,6 @@ class Person(Sync):
             "Discount percentage for this person, which may be used for orders. "
             "This can also be set on the category for all people in that category."
         ),
-    )
-    iban = models.CharField(
-        _('IBAN'), max_length=32, blank=True, null=True,
-        help_text=('The IBAN (International Bank Account Number) of the person.')
     )
     industry = models.CharField(
         _('Industry'), max_length=100, blank=True, null=True,
@@ -660,19 +686,24 @@ class Person(Sync):
 
     def __str__(self):
         company = self.company or ''
-        name = self.last_name or ''
-        if self.first_name:
-            name += ', ' + self.first_name
-        if self.alt_name:
-            name += ', ' + self.alt_name
-        if self.date_birth:
-            name += ', ' + self.date_birth
-
+        
+        # Ensure all name components are strings (handle None)
+        last_name = self.last_name or ''
+        first_name = self.first_name or ''
+        alt_name = self.alt_name or ''
+        date_birth = str(self.date_birth) if self.date_birth else ''
+        
+        # Construct the full name
+        name_parts = [last_name, first_name, alt_name, date_birth]
+        name = ', '.join(filter(None, name_parts))  # Remove empty strings
+        
+        # Ensure at least one value is returned
         if company and name:
-            return company + ', ' + name
-        return name
+            return f"{company}, {name}"
+        return company or name or "Unknown"  # Fallback if everything is empty
 
     class Meta:
+        ordering = ['company', 'last_name', 'first_name', 'alt_name']
         verbose_name = _('Person')
         verbose_name_plural = _('Persons')
 
@@ -727,13 +758,23 @@ class PersonAddress(TenantAbstract):
         verbose_name_plural = _('Persons by Address')
 
 
+class PersonBankAccount(BankAccount):
+    '''
+    Map Contact to Person
+    '''
+    person = models.ForeignKey(
+        Person, on_delete=models.CASCADE,
+        related_name='%(class)s_person',
+        verbose_name=_('Address'))
+
+
 class PersonContact(Contact):
     '''
     Map Contact to Person
     '''
     person = models.ForeignKey(
         Person, on_delete=models.CASCADE,
-        related_name='%(class)s_address',
+        related_name='%(class)s_person',
         verbose_name=_('Address'))
 
 

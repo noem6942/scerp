@@ -5,7 +5,7 @@ from django.forms.models import model_to_dict
 from django.utils import timezone
 from django.utils.encoding import force_str
 
-from core.models import PersonContact, PersonAddress
+from core.models import PersonBankAccount, PersonContact, PersonAddress
 from scerp.mixins import get_translations
 from . import api_cash_ctrl, models
 from .api_cash_ctrl import clean_dict, convert_to_xml
@@ -171,12 +171,13 @@ class CashCtrlDual(CashCtrl):
 
     def save(self, instance, created=None):
         # Get setup
-        if created:
-            setup = models.APISetup.get_setup(tenant=instance.tenant)
+        self.instance_acct = self.model_accounting.objects.filter(
+                tenant=instance.tenant, core=instance).first()
+        if self.instance_acct:
+            setup = self.instance_acct.setup       
         else:
-            self.instance_acct = self.model_accounting.objects.get(
-                tenant=instance.tenant, core=instance)
-            setup = self.instance_acct.setup
+            # instance_acct not existing yet
+            setup = models.APISetup.get_setup(tenant=instance.tenant)            
 
         # Get api
         api = self._get_api(setup)
@@ -187,7 +188,7 @@ class CashCtrlDual(CashCtrl):
             self.adjust_for_upload(instance, data, created)
 
         # Save
-        if created:
+        if not self.instance_acct or not self.instance_acct.c_id:
             # Save object
             response = api.create(data)
             c_id = response.get('insert_id')
@@ -197,7 +198,8 @@ class CashCtrlDual(CashCtrl):
                 tenant=instance.tenant,
                 setup=setup,
                 created_by=instance.tenant.created_by
-            )
+            )          
+            print("*created", self.instance_acct.__dict__)
             if getattr(self, 'reload_keys', []):
                 self.reload(self.instance_acct)
         else:
@@ -282,6 +284,16 @@ class CustomField(CashCtrl):
         if not instance.code:
             instance.code = f"custom {data['id']}"
         instance.group = models.CustomFieldGroup.objects.get(c_id=data['id'])
+        instance.save()
+
+
+class FileCategory(CashCtrl):
+    api_class = api_cash_ctrl.FileCategory
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
+
+    def save_download(self, instance, data):
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
         instance.save()
 
 
@@ -423,6 +435,27 @@ class Account(CashCtrl):
         instance.category = models.AccountCategory.objects.filter(
             c_id=data['category_id']).first()
 
+        instance.save()
+
+
+class BankAccount(CashCtrl):
+    api_class = api_cash_ctrl.AccountBankAccount
+    exclude = EXCLUDE_FIELDS + ['account', 'code', 'notes']
+
+    def adjust_for_upload(self, instance, data, created=None):
+        # account_id
+        data['account_id'] = (
+            instance.account.c_id if instance.account else None)
+
+        # currency_id
+        data['currency_id'] = (
+            instance.currency.c_id if instance.currency else None)
+            
+        print("*data", data)
+
+    def save_download(self, instance, data):
+        if not instance.code:
+            instance.code = f"custom {data['id']}"
         instance.save()
 
 
@@ -819,6 +852,14 @@ class Person(CashCtrlDual):
         if title:
             data['title_id'] = title.c_id
 
+        # Make Bank accoutns
+        bank_accounts = PersonBankAccount.objects.filter(person=instance)
+        data['bank_accounts'] = [{
+            'type': account.type,
+            'iban': account.iban,
+            'bic': account.bic
+        } for account in bank_accounts.order_by('id')]
+
         # Make contacts
         contacts = PersonContact.objects.filter(person=instance)
         data['contacts'] = [{
@@ -835,6 +876,8 @@ class Person(CashCtrlDual):
             'country': addr.address.country.alpha3,
             'zip': addr.address.zip
         } for addr in addresses.order_by('id')]
+
+        print("*data", data)
 
     def save_download(self, instance, data):
         instance.save()

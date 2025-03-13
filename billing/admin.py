@@ -4,8 +4,8 @@ from django.db.models import Count, Sum
 from django.utils.translation import gettext_lazy as _
 
 from core.admin import AttachmentInline
-from scerp.actions import export_excel, export_json
-from scerp.admin import BaseAdminNew, Display, verbose_name_field
+from scerp.actions import export_excel, export_json, default_actions
+from scerp.admin import BaseAdmin, Display, verbose_name_field
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 
@@ -14,18 +14,23 @@ from .models import Period, Route, Measurement, Subscription
 
 
 @admin.register(Period, site=admin_site)
-class PeriodAdmin(TenantFilteringAdmin, BaseAdminNew):
+class PeriodAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant']
+    protected_foreigns = ['tenant', 'version', 'version']
     protected_many_to_many = ['asset_categories']
 
     # Display these fields in the list view
-    list_display = ('name', 'display_categories', 'start', 'end')
+    list_display = (
+        'name', 'display_categories', 'start', 'end'
+    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ('code', 'name', 'start', 'end')
     list_filter = ('end',)
+    
+    # Actions
+    actions = default_actions
 
     #Fieldsets
     fieldsets = (
@@ -45,17 +50,19 @@ class PeriodAdmin(TenantFilteringAdmin, BaseAdminNew):
 
 
 @admin.register(Route, site=admin_site)
-class RouteAdmin(TenantFilteringAdmin, BaseAdminNew):
+class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'period']
+    protected_foreigns = ['tenant', 'version', 'period']
     protected_many_to_many = ['buildings', 'address_categories']
 
     # Display these fields in the list view
     list_display = (
         'name', 'period', 'start', 'end', 'duration', 'display_filters',
-        'is_default', 'status', 'number_of_subscriptions', 'number_of_counters',
-        'number_of_buildings'
-    ) + FIELDS.LINK_ATTACHMENT
+        'is_default', 'status'
+    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT + (
+        'number_of_subscriptions', 'number_of_counters',
+        'number_of_buildings'    
+    )
     readonly_fields = ('duration', 'status') + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -63,16 +70,29 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdminNew):
     list_filter = ('is_default', 'status')
 
     # Actions
-    actions = [a.export_counter_data_json, a.export_counter_data_excel]
+    actions = [
+        a.export_counter_data_json, 
+        a.export_counter_data_excel
+    ] + default_actions
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'name', 'period', 'address_categories', 'buildings',
-                'start', 'end', 'confidence_min', 'confidence_max',
-                'duration', 'status'
+                'name', 'period', 'last_period', 
             ),
+        }),
+        (_('Filters'), {
+            'fields': (
+                'address_categories', 'buildings', 'start', 'end',                 
+            ),
+            'classes': ('expand',),
+        }),
+        (_('Calculations'), {
+            'fields': (
+                'confidence_min', 'confidence_max', 'duration', 'status'              
+            ),
+            'classes': ('expand',),
         }),
     )
 
@@ -91,15 +111,17 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdminNew):
 
 
 @admin.register(Measurement, site=admin_site)
-class MeasurementAdmin(TenantFilteringAdmin, BaseAdminNew):
+class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'counter', 'route', 'building', 'period', 'subscription']
+        'tenant', 'version', 'counter', 'route', 'building', 'period', 
+        'subscription']
 
     # Display these fields in the list view
     list_display = (
         'id', 'datetime', 'display_abo_nr',
-        'display_subscriber', 'display_area', 'display_consumption')
+        'display_subscriber', 'display_area', 'display_consumption'
+    ) + FIELDS.ICON_DISPLAY
     list_display_links = ('id', 'datetime')
     ordering = ('-consumption', 'subscription__subscriber__alt_name')
     readonly_fields = FIELDS.LOGGING_TENANT
@@ -114,7 +136,10 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdminNew):
         'datetime')
 
     # Actions
-    actions = [a.analyse_measurment, export_excel, export_json]
+    actions = [
+        a.analyse_measurment, 
+        a.anaylse_measurent_excel,
+    ] + [export_excel] + default_actions
 
     #Fieldsets
     fieldsets = (
@@ -180,15 +205,16 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdminNew):
 
 
 @admin.register(Subscription, site=admin_site)
-class SubscriptionAdmin(TenantFilteringAdmin, BaseAdminNew):
+class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'subscriber', 'building']
+    protected_foreigns = ['tenant', 'version', 'subscriber', 'building']
     protected_many_to_many = ['articles']
 
     # Display these fields in the list view
     list_display = (
         'subscriber__alt_name', 'recipient__alt_name', 'building',
-        'start', 'end', 'display_abo_nr', 'number_of_counters')
+        'start', 'end', 'display_abo_nr', 'number_of_counters'
+    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT 
     list_display_links = ('subscriber__alt_name', )
     readonly_fields = FIELDS.LOGGING_TENANT
 
@@ -213,7 +239,8 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdminNew):
         FIELDSET.LOGGING_TENANT,
     )
 
-    actions = [export_excel, export_json]
+    # Actions    
+    actions = [export_excel] + default_actions
 
     @admin.display(description=_('abo_nr'))
     def display_abo_nr(self, obj):

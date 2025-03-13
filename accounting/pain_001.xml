@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.09">
+    <CstmrCdtTrfInitn>
+        <GrpHdr>
+            <MsgId>M-e8dab3bb0ccb91b643a6fae9b74931</MsgId>
+            <CreDtTm>2025-03-13T18:14:20.519+01:00</CreDtTm>
+            <NbOfTxs>0</NbOfTxs>
+            <CtrlSum>0</CtrlSum>
+            <InitgPty>
+                <CtctDtls>
+                    <Othr>
+                        <ChanlTp>NAME</ChanlTp>
+                        <Id>CashCtrl</Id>
+                    </Othr>
+                    <Othr>
+                        <ChanlTp>VRSN</ChanlTp>
+                        <Id>2.0.2</Id>
+                    </Othr>
+                    <Othr>
+                        <ChanlTp>PRVD</ChanlTp>
+                        <Id>CashCtrl AG</Id>
+                    </Othr>
+                    <Othr>
+                        <ChanlTp>SPSV</ChanlTp>
+                        <Id>2.0.2</Id>
+                    </Othr>
+                </CtctDtls>
+            </InitgPty>
+        </GrpHdr>
+    </CstmrCdtTrfInitn>
+</Document>

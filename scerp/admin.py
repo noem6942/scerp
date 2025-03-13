@@ -127,7 +127,7 @@ def is_html(string):
 
 
 def html_to_number(html_string):
-    ''' convert html -> float e.g. 
+    ''' convert html -> float e.g.
         html_string = '<span style="text-align: right; display: block;">4&#x27;238.00</span>'
         returns: 4238.00
     '''
@@ -295,10 +295,10 @@ class Export:
                 # Look if it's a number
                 return html_to_number(value)
             except:
-                return value                
+                return value
         elif isinstance(value, (int, float)):
             return value
-        return force_str(value)        
+        return force_str(value)
 
     def get_data(self):
         ''' get data from modeladmin queryset if not specified in modeladmin
@@ -320,13 +320,21 @@ class Export:
                     elif sub_fields:
                         value_parent = getattr(item, field)
                         value = getattr(value_parent, sub_fields[0])
+                    elif fieldname == 'display_is_inactive':
+                        value = item.is_inactive
+                    elif fieldname == 'display_is_protected':
+                        value = item.is_protected
+                    elif fieldname.startswith('display_notes'):
+                        value = item.notes
+                    elif fieldname.startswith('display_attachment'):
+                        value = item.attachments.exists()
                     elif fieldname.startswith('display'):
                         value = getattr(self.modeladmin, fieldname)(item)
                     else:
                         value = getattr(item, field)
                     item_list.append(self.clean_value(value))
                 data_list.append(item_list)
-        
+
         return data_list
 
     def get_headers(self):
@@ -340,9 +348,13 @@ class Export:
         # Create list
         header_list = []
         for fieldname in self.modeladmin.list_display:
-            if fieldname.startswith('display'):
-                value_parent = getattr(self.modeladmin, fieldname)
-                value = getattr(value_parent, 'short_description')                
+            if fieldname == 'display_attachment_icon':
+                value = _('attachments')
+            elif fieldname.startswith('display_'):
+                value = fieldname.replace('display_', '')
+            # elif fieldname.startswith('display'):
+            #     value_parent = getattr(self.modeladmin, fieldname)
+            #     value = getattr(value_parent, 'short_description')
             elif '__' in fieldname:
                 value = fieldname
             else:
@@ -510,7 +522,7 @@ class ExportJSON(Export):
 
 
 # Decorators
-class BaseAdminNew:
+class BaseAdmin:
     '''
     basic class
     all security filtering is done in TenantFilteringAdmin
@@ -521,7 +533,7 @@ class BaseAdminNew:
         try:
             return primary_language(obj.name)
         except:
-            return ''
+            return ' '
 
     @admin.display(description=_('Number'))
     def display_number(self, obj):
@@ -529,7 +541,11 @@ class BaseAdminNew:
 
     @admin.display(description='')
     def display_is_inactive(self, obj):
-        return '🔒' if obj.is_inactive else ''
+        return '🔒' if obj.is_inactive else ' '
+
+    @admin.display(description='')
+    def display_is_protected(self, obj):
+        return '🔒' if obj.is_protected else ' '
 
     @admin.display(description=_('Photo'))
     def display_photo(self, obj):
@@ -540,23 +556,21 @@ class BaseAdminNew:
         '''Displays a paperclip 📎 or folder 📂 icon if attachments exist.'''
         if obj.attachments.exists():  # ✅ Efficient query
             return '📂'  # You can also use '📎' or '🗂️'
-        return ''  # No icon if no attachments'
+        return ' '  # No icon if no attachments'
 
     @admin.display(description='')
-    def display_notes_hint(self, obj):
+    def display_notes(self, obj):
         '''Displays a hint (tooltip) with the note text if available.'''
         if obj.notes:
             return format_html(
                 '<span style="cursor: pointer; border-bottom: 1px dotted #555;" '
                 'title="{}">📝</span>', obj.notes
             )  # ✅ Cursor + underline effect
-        return ''
-
+        return ' '
 
     @admin.display(description=_('last update'))
     def display_last_update(self, obj):
         return obj.modified_at
-
 
     @admin.display(description=_('Name Plural'))
     def display_name_plural(self, obj):
@@ -588,7 +602,7 @@ class BaseAdminNew:
         url = f'../person/{person.id}/'
         return format_html('<a href="{}">{}</a>', url, person.company)
 
-    @admin.display(description=_('Parent'))
+    @admin.display(description=_('Category'))
     def display_category_type(self, obj):
         return obj.category.get_type_display()
 

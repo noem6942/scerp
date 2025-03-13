@@ -35,7 +35,7 @@ class Site(AdminSite):
     # Order and seperators
     DEFAULT_ORDER = '\u00A0'  # Non-visible space character for late-order apps
     SEPARATOR_APP = '. '
-    SEPARATOR_MODEL = '.'    
+    SEPARATOR_MODEL = '. '    
 
     # Handle requests
     def index(self, request, extra_context=None):
@@ -168,6 +168,7 @@ class Site(AdminSite):
         app['name'] = f"{symbol}{self.SEPARATOR_APP}{verbose_name}"
 
         model_order_dict = app_info.get('models', {})
+        '''
         app['models'] = sorted(
             app['models'],
             key=lambda model: (
@@ -177,7 +178,7 @@ class Site(AdminSite):
                     model['object_name'], (self.DEFAULT_ORDER, None))[1]
             )
         )
-
+        '''
         for model in app['models']:
             order, postfix = model_order_dict.get(
                 model['object_name'], (self.DEFAULT_ORDER, None)

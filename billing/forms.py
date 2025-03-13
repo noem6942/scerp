@@ -67,23 +67,24 @@ class RouteMeterExportExcelActionForm(AdminActionForm):
         self.fields['filename'].initial = f"route_{route.name}_{today}.xlsx"
 
 
-class AnaylseMeasurentActionForm(AdminActionForm):
-
-    # Add an HTML table
-    info_text = forms.CharField(
+class AnaylseMeasurentExcelActionForm(AdminActionForm):
+    filename = forms.CharField(
+        label=_('Filename'),
         required=False,
-        widget=forms.Textarea(attrs={
-            'readonly': 'readonly',
-            'style': 'border: none; background: transparent; font-size: 14px;',
-        }),
-        initial="""
-        <table border="1" style="border-collapse: collapse; width: 100%;">
-            <tr><th>Column 1</th><th>Column 2</th></tr>
-            <tr><td>Data A</td><td>Data B</td></tr>
-        </table>
-        """,
+        max_length=255,
+        widget=forms.TextInput(attrs={'placeholder': _('Enter filename')})
     )
+    ws_title = forms.CharField(
+        label=_('Worksheet Name'),
+        required=False,
+        max_length=255,
+        widget=forms.TextInput(attrs={'placeholder': _('Enter filename')})
+    )    
 
-    class Meta:
-        #list_objects = True
-        help_text = "Are you <b>sure</b> you want proceed with this action?"
+    def __post_init__(self, modeladmin, request, queryset):
+        measurement = queryset.first()        
+        today = datetime.date.today()
+
+        self.fields['filename'].initial = (
+            f"analysis_{measurement.route.name}_{today}.xlsx")
+        self.fields['ws_title'].initial = (f"{measurement.route.name}")

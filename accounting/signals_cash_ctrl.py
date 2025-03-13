@@ -18,7 +18,7 @@ from core.models import (
     Person as CorePerson
 )
 from scerp.mixins import read_yaml_file
-from . import connector_cash_ctrl_2 as conn2
+from . import connector_cash_ctrl as conn
 from . import models
 from .ledger import LedgerBalanceUpdate, LedgerPLUpdate, LedgerICUpdate
 
@@ -83,11 +83,11 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         
         return
         # Order Template
-        api = conn2.OrderTemplate(models.OrderTemplate)
+        api = conn.OrderTemplate(models.OrderTemplate)
         api.get(instance, request.user, overwrite_data=True)        
 
         # Get settings
-        api = conn2.Setting(models.Setting)
+        api = conn.Setting(models.Setting)
         api.get(instance, request.user, update=True)
         return
 
@@ -95,12 +95,12 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         init_data = read_yaml_file('accounting', YAML_FILENAME)
 
         # Get titles
-        sync = conn2.Title()
+        sync = conn.Title()
         sync.get(CoreTitle, models.Title, instance, request.user, update=False)
         return
 
         # Get Person Categories
-        sync = conn2.PersonCategory()
+        sync = conn.PersonCategory()
         sync.get(
             CorePersonCategory, models.PersonCategory, instance, request.user,
             update=False)
@@ -236,7 +236,7 @@ Note that instances only get synced if saved in scerp (
 def custom_field_group_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CustomFieldGroup. '''
     if instance.sync_to_accounting:
-        api = conn2.CustomFieldGroup(sender)
+        api = conn.CustomFieldGroup(sender)
         api.save(instance, created)
 
 
@@ -244,7 +244,7 @@ def custom_field_group_post_save(sender, instance, created, **kwargs):
 def custom_field_group_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CustomFieldGroup. '''
     if instance.c_id:
-        api = conn2.CustomFieldGroup(sender)
+        api = conn.CustomFieldGroup(sender)
         api.delete(instance)
 
 
@@ -253,7 +253,7 @@ def custom_field_group_pre_delete(sender, instance, **kwargs):
 def custom_field_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CustomField. '''
     if instance.sync_to_accounting:
-        api = conn2.CustomField(sender)
+        api = conn.CustomField(sender)
         api.save(instance, created)
 
 
@@ -261,7 +261,7 @@ def custom_field_post_save(sender, instance, created, **kwargs):
 def custom_field_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CustomField. '''
     if instance.c_id:
-        api = conn2.CustomField(sender)
+        api = conn.CustomField(sender)
         api.delete(instance)
 
 
@@ -270,7 +270,7 @@ def custom_field_pre_delete(sender, instance, **kwargs):
 def fiscal_period_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on FiscalPeriod. '''
     if instance.sync_to_accounting:
-        api = conn2.FiscalPeriod(sender)
+        api = conn.FiscalPeriod(sender)
         api.save(instance, created)
 
 
@@ -280,7 +280,7 @@ def fiscal_period_post_save(sender, instance, created, **kwargs):
 def currency_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Currency. '''
     if instance.sync_to_accounting:
-        api = conn2.Currency(sender)
+        api = conn.Currency(sender)
         api.save(instance, created)
 
 
@@ -288,7 +288,7 @@ def currency_post_save(sender, instance, created, **kwargs):
 def currency_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Currency. '''
     if instance.c_id:
-        api = conn2.Currency(sender)
+        api = conn.Currency(sender)
         api.delete(instance)
 
 
@@ -297,7 +297,7 @@ def currency_pre_delete(sender, instance, **kwargs):
 def cost_center_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CostCenterCategory. '''
     if instance.sync_to_accounting:
-        api = conn2.CostCenterCategory(sender)
+        api = conn.CostCenterCategory(sender)
         api.save(instance, created)
 
 
@@ -311,7 +311,7 @@ def cost_center_category_pre_delete(sender, instance, **kwargs):
 
     # Send the external API request
     if instance.c_id:
-        api = conn2.CostCenterCategory(sender)
+        api = conn.CostCenterCategory(sender)
         api.delete(instance)
 
 
@@ -320,7 +320,7 @@ def cost_center_category_pre_delete(sender, instance, **kwargs):
 def cost_center_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CostCenter. '''
     if instance.sync_to_accounting:
-        api = conn2.CostCenter(sender)
+        api = conn.CostCenter(sender)
         api.save(instance, created)
 
 
@@ -328,7 +328,7 @@ def cost_center_post_save(sender, instance, created, **kwargs):
 def cost_center_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CostCenter. '''
     if instance.c_id:
-        api = conn2.CostCenter(sender)
+        api = conn.CostCenter(sender)
         api.delete(instance)
 
 
@@ -337,7 +337,7 @@ def cost_center_pre_delete(sender, instance, **kwargs):
 def account_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on AccountCategory. '''
     if instance.sync_to_accounting:
-        api = conn2.AccountCategory(sender)
+        api = conn.AccountCategory(sender)
         api.save(instance, created)
 
 
@@ -355,7 +355,7 @@ def account_category_pre_delete(sender, instance, **kwargs):
 
     # Send the external API request
     if instance.c_id:
-        api = conn2.AccountCategory(sender)
+        api = conn.AccountCategory(sender)
         api.delete(instance)
 
 
@@ -364,7 +364,7 @@ def account_category_pre_delete(sender, instance, **kwargs):
 def account_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Account. '''
     if instance.sync_to_accounting:
-        api = conn2.Account(sender)
+        api = conn.Account(sender)
         api.save(instance, created)
 
 
@@ -372,7 +372,24 @@ def account_post_save(sender, instance, created, **kwargs):
 def account_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Account. '''
     if instance.c_id:
-        api = conn2.Account(sender)
+        api = conn.Account(sender)
+        api.delete(instance)
+
+
+# BankAccount
+@receiver(post_save, sender=models.BankAccount)
+def bank_account_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Bank Account. '''
+    if instance.sync_to_accounting:
+        api = conn.BankAccount(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=models.BankAccount)
+def bank_account_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Bank Account. '''
+    if instance.c_id:
+        api = conn.BankAccount(sender)
         api.delete(instance)
 
 
@@ -381,7 +398,7 @@ def account_pre_delete(sender, instance, **kwargs):
 def rounding_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Rounding. '''
     if instance.sync_to_accounting:
-        api = conn2.Rounding(sender)
+        api = conn.Rounding(sender)
         api.save(instance, created)
 
 
@@ -389,7 +406,7 @@ def rounding_post_save(sender, instance, created, **kwargs):
 def rounding_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Rounding. '''
     if instance.c_id:
-        api = conn2.Rounding(sender)
+        api = conn.Rounding(sender)
         api.delete(instance)
 
 
@@ -398,7 +415,7 @@ def rounding_pre_delete(sender, instance, **kwargs):
 def tax_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Tax. '''
     if instance.sync_to_accounting:
-        api = conn2.Tax(sender)
+        api = conn.Tax(sender)
         api.save(instance, created)
 
 
@@ -406,7 +423,7 @@ def tax_post_save(sender, instance, created, **kwargs):
 def tax_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Tax. '''
     if instance.c_id:
-        api = conn2.Tax(sender)
+        api = conn.Tax(sender)
         api.delete(instance)
 
 
@@ -415,7 +432,7 @@ def tax_pre_delete(sender, instance, **kwargs):
 def sequence_number_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on SequenceNumber. '''
     if instance.sync_to_accounting:
-        api = conn2.SequenceNumber(sender)
+        api = conn.SequenceNumber(sender)
         api.save(instance, created)
 
 
@@ -423,7 +440,7 @@ def sequence_number_post_save(sender, instance, created, **kwargs):
 def sequence_number_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on SequenceNumber. '''
     if instance.c_id:
-        api = conn2.SequenceNumber(sender)
+        api = conn.SequenceNumber(sender)
         api.delete(instance)
 
 
@@ -432,7 +449,7 @@ def sequence_number_pre_delete(sender, instance, **kwargs):
 def unit_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Unit. '''
     if instance.sync_to_accounting:
-        api = conn2.Unit(sender)
+        api = conn.Unit(sender)
         api.save(instance, created)
 
 
@@ -440,7 +457,7 @@ def unit_post_save(sender, instance, created, **kwargs):
 def unit_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Unit. '''
     if instance.c_id:
-        api = conn2.Unit(sender)
+        api = conn.Unit(sender)
         api.delete(instance)
 
 
@@ -449,7 +466,7 @@ def unit_pre_delete(sender, instance, **kwargs):
 def article_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on ArticleCategory. '''
     if instance.sync_to_accounting:
-        api = conn2.ArticleCategory(sender)
+        api = conn.ArticleCategory(sender)
         api.save(instance, created)
 
 
@@ -457,7 +474,7 @@ def article_category_post_save(sender, instance, created, **kwargs):
 def article_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on ArticleCategory. '''
     if instance.c_id:
-        api = conn2.ArticleCategory(sender)
+        api = conn.ArticleCategory(sender)
         api.delete(instance)
 
 
@@ -466,7 +483,7 @@ def article_category_pre_delete(sender, instance, **kwargs):
 def article_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Article. '''
     if instance.sync_to_accounting:
-        api = conn2.Article(sender)
+        api = conn.Article(sender)
         api.save(instance, created)
 
 
@@ -474,7 +491,7 @@ def article_post_save(sender, instance, created, **kwargs):
 def article_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Article. '''
     if instance.c_id:
-        api = conn2.Article(sender)
+        api = conn.Article(sender)
         api.delete(instance)
 
 
@@ -483,7 +500,7 @@ def article_pre_delete(sender, instance, **kwargs):
 def order_template_contract_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on OrderTemplate. '''
     if instance.sync_to_accounting:
-        api = conn2.OrderTemplate(sender)
+        api = conn.OrderTemplate(sender)
         api.save(instance, created)
 
 
@@ -491,7 +508,7 @@ def order_template_contract_post_save(sender, instance, created, **kwargs):
 def order_template_contract_post_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderTemplate. '''
     if instance.c_id:
-        api = conn2.OrderTemplate(sender)
+        api = conn.OrderTemplate(sender)
         api.delete(instance)
         
 
@@ -500,7 +517,7 @@ def order_template_contract_post_pre_delete(sender, instance, **kwargs):
 def order_category_contract_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on OrderCategoryContract. '''
     if instance.sync_to_accounting:
-        api = conn2.OrderCategoryContract(sender)
+        api = conn.OrderCategoryContract(sender)
         api.save(instance, created)
 
 
@@ -508,7 +525,7 @@ def order_category_contract_post_save(sender, instance, created, **kwargs):
 def order_category_contract_post_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderCategoryContract. '''
     if instance.c_id:
-        api = conn2.OrderCategoryContract(sender)
+        api = conn.OrderCategoryContract(sender)
         api.delete(instance)
 
 
@@ -517,7 +534,7 @@ def order_category_contract_post_pre_delete(sender, instance, **kwargs):
 def order_category_incoming_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on OrderCategoryIncoming. '''
     if instance.sync_to_accounting:
-        api = conn2.OrderCategoryIncoming(sender)
+        api = conn.OrderCategoryIncoming(sender)
         api.save(instance, created)
 
 
@@ -525,7 +542,7 @@ def order_category_incoming_post_save(sender, instance, created, **kwargs):
 def order_category_incoming_post_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderCategoryIncoming. '''
     if instance.c_id:
-        api = conn2.OrderCategoryIncoming(sender)
+        api = conn.OrderCategoryIncoming(sender)
         api.delete(instance)
 
 
@@ -534,7 +551,7 @@ def order_category_incoming_post_pre_delete(sender, instance, **kwargs):
 def order_contract_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on OrderContract. '''
     if instance.sync_to_accounting:
-        api = conn2.OrderContract(sender)
+        api = conn.OrderContract(sender)
         api.save(instance, created)
 
 
@@ -542,7 +559,7 @@ def order_contract_post_save(sender, instance, created, **kwargs):
 def order_contract_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderContract. '''
     if instance.c_id:
-        api = conn2.OrderContract(sender)
+        api = conn.OrderContract(sender)
         api.delete(instance)
 
 
@@ -551,7 +568,7 @@ def order_contract_pre_delete(sender, instance, **kwargs):
 def incoming_order_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on IncomingOrder. '''
     if instance.sync_to_accounting:
-        api = conn2.IncomingOrder(sender)
+        api = conn.IncomingOrder(sender)
         api.save(instance, created)
 
 
@@ -559,7 +576,7 @@ def incoming_order_post_save(sender, instance, created, **kwargs):
 def incoming_order_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on IncomingOrder. '''
     if instance.c_id:
-        api = conn2.IncomingOrder(sender)
+        api = conn.IncomingOrder(sender)
         api.delete(instance)
 
 
@@ -567,7 +584,7 @@ def incoming_order_pre_delete(sender, instance, **kwargs):
 def incoming_book_entry_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on IncomingBookEntry. '''
     if instance.sync_to_accounting:
-        api = conn2.IncomingBookEntry(sender)
+        api = conn.IncomingBookEntry(sender)
         api.save(instance, created)
 
 
@@ -575,7 +592,7 @@ def incoming_book_entry_post_save(sender, instance, created, **kwargs):
 def incoming_book_entry_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on IncomingBookEntry. '''
     if instance.c_id:
-        api = conn2.IncomingBookEntry(sender)
+        api = conn.IncomingBookEntry(sender)
         api.delete(instance)
 
 
@@ -641,7 +658,7 @@ def get_or_create_accounting_instance(model, instance, created):
 def title_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Title. '''
     if instance.sync_to_accounting:
-        api = conn2.Title(sender)
+        api = conn.Title(sender)
         api.save(instance, created)
 
 
@@ -649,7 +666,7 @@ def title_post_save(sender, instance, created, **kwargs):
 def title_post_delete(sender, instance, **kwargs):
     '''Signal handler for post_delete signals on Title. '''
     if instance.c_id:
-        api = conn2.Title()
+        api = conn.Title()
         api.delete(instance)
 
 
@@ -658,7 +675,7 @@ def title_post_delete(sender, instance, **kwargs):
 def person_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CorePersonCategory. '''
     if instance.sync_to_accounting:
-        api = conn2.PersonCategory(sender)
+        api = conn.PersonCategory(sender)
         api.save(instance, created)
 
 
@@ -666,7 +683,7 @@ def person_category_post_save(sender, instance, created, **kwargs):
 def person_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on PersonCategory. '''
     if instance.c_id:
-        api = conn2.PersonCategory()
+        api = conn.PersonCategory()
         api.delete(instance)
 
 
@@ -675,7 +692,7 @@ def person_category_pre_delete(sender, instance, **kwargs):
 def person_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on CorePerson. '''
     if instance.sync_to_accounting:
-        api = conn2.Person(sender)
+        api = conn.Person(sender)
         api.save(instance, created)
 
 
@@ -683,5 +700,5 @@ def person_category_post_save(sender, instance, created, **kwargs):
 def person_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Person. '''
     if instance.c_id:
-        api = conn2.Person()
+        api = conn.Person()
         api.delete(instance)

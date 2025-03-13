@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from scerp.admin import BaseAdminNew
+from scerp.admin import BaseAdmin
 from scerp.admin_base import TenantFilteringAdmin, FIELDS as FIELDS_BASE
 
 
@@ -35,7 +35,7 @@ class FIELDSET:
         })    
     
 
-class CashCtrlAdmin(BaseAdminNew):
+class CashCtrlAdmin(BaseAdmin):
     '''
     main class: TenantFilteringAdmin + same displays
     '''
