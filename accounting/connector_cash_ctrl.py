@@ -15,10 +15,10 @@ CASH_CTRL_FIELDS = [
     'c_id', 'c_created', 'c_created_by', 'c_last_updated', 'c_last_updated_by'
 ]
 EXCLUDE_FIELDS = CASH_CTRL_FIELDS + [
-    'id', 'tenant', 'sync_to_accounting',
+    'id', 'tenant', 'sync_to_accounting', 'is_enabled_sync',
     'modified_at', 'modified_by', 'created_at', 'created_by',
     'is_protected', 'attachment', 'version',
-    'setup', 'last_received', 'message', 'is_enabled_sync'
+    'setup', 'last_received', 'message'
 ]
 
 
@@ -97,9 +97,10 @@ class CashCtrl:
             if getattr(self, 'save_download', None):
                 # Individual saving
                 self.save_download(instance, data)
-            else:
-                # Default saving
-                instance.save()
+                
+            # Default saving
+            instance.sync_to_accounting = False
+            instance.save()
 
         if delete_not_existing:
             self.model.objects.exclude(setup=setup, c_id__in=c_ids).delete()
@@ -113,6 +114,10 @@ class CashCtrl:
                 setattr(instance, key, value)
 
     def save(self, instance, created=None):
+        # Check if read only
+        if getattr(self, 'read_only', False):
+            raise ValueError('cashCtrl, read only entity.')
+        
         # Get api
         api = self._get_api(instance.setup)
 
@@ -142,7 +147,7 @@ class CashCtrl:
             reload_keys = getattr(self, 'reload_keys', [])
             if reload_keys:
                 self.reload(instance)
-            update_fields= CASH_CTRL_FIELDS + reload_keys
+            update_fields = CASH_CTRL_FIELDS + reload_keys
             instance.save(
                 update_fields=['c_id', 'sync_to_accounting'] + reload_keys)
         else:
@@ -199,7 +204,6 @@ class CashCtrlDual(CashCtrl):
                 setup=setup,
                 created_by=instance.tenant.created_by
             )          
-            print("*created", self.instance_acct.__dict__)
             if getattr(self, 'reload_keys', []):
                 self.reload(self.instance_acct)
         else:
@@ -238,7 +242,14 @@ class CashCtrlDual(CashCtrl):
                 instance.is_inactive = False
 
             # save instance
-            self.save_download(instance, data)
+            if getattr(self, 'save_download', None):
+                # Individual saving
+                self.save_download(instance, data)
+            
+            instanc.sync_to_accounting = False
+            instance.save()            
+            
+            # save instance_acct
             if not instance_acct:
                 # create accounting_instance
                 instance_acct = model_accounting(
@@ -262,7 +273,6 @@ class CustomFieldGroup(CashCtrl):
     def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
-        instance.save()
 
 
 class CustomField(CashCtrl):
@@ -278,13 +288,11 @@ class CustomField(CashCtrl):
         # Get foreign c_ids
         data['type'] = instance.group.type
         data['group_id'] = instance.group.c_id
-        print("*d", data)
 
     def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
         instance.group = models.CustomFieldGroup.objects.get(c_id=data['id'])
-        instance.save()
 
 
 class FileCategory(CashCtrl):
@@ -294,7 +302,6 @@ class FileCategory(CashCtrl):
     def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
-        instance.save()
 
 
 class Location(CashCtrl):
@@ -305,7 +312,7 @@ class Location(CashCtrl):
 class FiscalPeriod(CashCtrl):
     api_class = api_cash_ctrl.FiscalPeriod
     exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
-
+    
 
 class Currency(CashCtrl):
     api_class = api_cash_ctrl.Currency
@@ -322,11 +329,8 @@ class Unit(CashCtrl):
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
 
     def save_download(self, instance, data):
-        if instance.is_default is None:
-            del instance.is_default
         if not instance.code:
             instance.code = f"custom {data['id']}"
-        instance.save()
 
 
 class CostCenterCategory(CashCtrl):
@@ -339,7 +343,6 @@ class CostCenterCategory(CashCtrl):
     def save_download(self, instance, data):
         instance.parent = models.CostCenterCategory.objects.filter(
             c_id=data['parent_id']).first()
-        instance.save()
 
 
 class CostCenter(CashCtrl):
@@ -355,7 +358,6 @@ class CostCenter(CashCtrl):
             instance.code = f"custom {data['id']}"
         instance.category = models.CostCenterCategory.objects.filter(
             c_id=data['category_id']).first()
-        instance.save()
 
 
 class AccountCategory(CashCtrl):
@@ -392,7 +394,7 @@ class AccountCategory(CashCtrl):
     def save_download(self, instance, data):
         # parent
         instance.parent = models.AccountCategory.objects.filter(
-            c_id=data['category_id']).first()
+            c_id=data['parent_id']).first()
 
         # decode name
         if instance.setup.encode_numbers:
@@ -403,8 +405,6 @@ class AccountCategory(CashCtrl):
                     for language, value in instance.name.items()
                 }
                 instance.name = name_dict
-
-        instance.save()
 
 
 class Account(CashCtrl):
@@ -435,13 +435,12 @@ class Account(CashCtrl):
         instance.category = models.AccountCategory.objects.filter(
             c_id=data['category_id']).first()
 
-        instance.save()
-
 
 class BankAccount(CashCtrl):
     api_class = api_cash_ctrl.AccountBankAccount
     exclude = EXCLUDE_FIELDS + ['account', 'code', 'notes']
-
+    read_only = True
+    
     def adjust_for_upload(self, instance, data, created=None):
         # account_id
         data['account_id'] = (
@@ -456,7 +455,6 @@ class BankAccount(CashCtrl):
     def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
-        instance.save()
 
 
 class Tax(CashCtrl):
@@ -476,8 +474,6 @@ class Tax(CashCtrl):
         instance.account = models.Account.objects.filter(
             c_id=data['account_id']).first()
 
-        instance.save()
-
 
 class Rounding(CashCtrl):
     api_class = api_cash_ctrl.Rounding
@@ -495,8 +491,6 @@ class Rounding(CashCtrl):
         # account
         instance.account = models.Account.objects.filter(
             c_id=data['account_id']).first()
-
-        instance.save()
 
 
 class Setting(CashCtrl):
@@ -516,8 +510,6 @@ class Setting(CashCtrl):
                 foreign_key = models.Account.objects.filter(
                     setup=self.setup, c_id=value).first()
                 setattr(instance, key, foreign_key)
-
-        instance.save()
 
     def get(self, setup, created_by, params={}, update=True):
         api = self._get_api(setup)
@@ -539,9 +531,9 @@ class Setting(CashCtrl):
         )
 
 
-class OrderTemplate(CashCtrl):
-    api_class = api_cash_ctrl.OrderTemplate
-    exclude = EXCLUDE_FIELDS + ['' + 'is_inactive', 'notes']
+class OrderLayout(CashCtrl):
+    api_class = api_cash_ctrl.OrderLayout
+    exclude = EXCLUDE_FIELDS + ['' + 'notes']
 
 
 class OrderCategory(CashCtrl):
@@ -572,7 +564,7 @@ class OrderCategory(CashCtrl):
     def save(self, instance, created=None):
         '''
         Order Category needs reload status after save. This is why we define
-        here a save()
+        here our own save()
         '''
         super().save(instance, created)
 
@@ -669,7 +661,7 @@ class OrderContract(Order):
         # Create one item with total price
         data['items'] = [{
             'accountId': instance.category.account.c_id,
-            'name': instance.description,
+            'name': instance.description,            
             'unitPrice': float(instance.price_excl_vat)
         }]
 
@@ -706,9 +698,16 @@ class IncomingOrder(Order):
 
         # Create one item with total price
         category = instance.category
+        bank_account = PersonBankAccount.objects.filter(
+            tenant=instance.tenant, 
+            person=instance.contract.associate,
+            default=True
+        ).first()
         data['items'] = [{
             'accountId': instance.category.expense_account.c_id,
             'name': instance.description,
+            'description': (
+                f"{_('Account')}: {bank_account.bic}, {bank_account.iban}"),
             'unitPrice': float(instance.price_incl_vat),
             'taxId': category.tax.c_id if category.tax else None
         }]
@@ -763,12 +762,11 @@ class ArticleCategory(CashCtrl):
     def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
-        instance.save()
 
 
 class Article(CashCtrl):
     api_class = api_cash_ctrl.Article
-    exclude = EXCLUDE_FIELDS
+    exclude = EXCLUDE_FIELDS + ['tax']
     reload_keys = ['nr']
 
     def adjust_for_upload(self, instance, data, created=None):
@@ -795,8 +793,6 @@ class Article(CashCtrl):
     def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
-        instance.save()
-
 
 
 # CashCtrlDual
@@ -811,7 +807,6 @@ class Title(CashCtrlDual):
     def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
-        instance.save()
 
 
 class PersonCategory(CashCtrlDual):
@@ -825,7 +820,6 @@ class PersonCategory(CashCtrlDual):
     def save_download(self, instance, data):
         if not instance.code:
             instance.code = f"custom {data['id']}"
-        instance.save()
 
 
 class Person(CashCtrlDual):
@@ -876,11 +870,6 @@ class Person(CashCtrlDual):
             'country': addr.address.country.alpha3,
             'zip': addr.address.zip
         } for addr in addresses.order_by('id')]
-
-        print("*data", data)
-
-    def save_download(self, instance, data):
-        instance.save()
 
     def save(self, instance, created=None):
         '''

@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
+from accounting.actions import de_sync_accounting, sync_accounting
 from scerp.admin import (
     BaseTabularInline, Display, make_language_fields,
     BaseAdmin
@@ -16,19 +17,27 @@ from scerp.admin_site import admin_site
 from . import actions as a
 from . import filters, forms, models
 
+FIELDSET_SYNC = (
+    _('Sync'), {
+        'fields': (
+            'sync_to_accounting', 'is_enabled_sync'),
+        'classes': ('collapse',),
+    }
+)
+
 
 # Generic Attachments
 class AttachmentInline(GenericTabularInline):
     model = models.Attachment
     extra = 1  # Number of empty forms to display by default
-    fields = ('file', 'uploaded_at')  
+    fields = ('file', 'uploaded_at')
     readonly_fields = ('uploaded_at',)  # Make uploaded_at read-only
 
     def save_model(self, request, obj, form, change):
         # Set the tenant and created_by fields based on the current user and tenant from the request
         obj.tenant = get_tenant_instance(request)
         obj.created_by = request.user
-        super().save_model(request, instance, form, change) 
+        super().save_model(request, instance, form, change)
 
 
 @admin.register(models.Message, site=admin_site)
@@ -55,10 +64,10 @@ class UserProfileAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = ('user__username', 'person_photo', 'group_names')
     readonly_fields = ('user', 'group_names') + FIELDS.LOGGING
-    
-    # Search, filter  
+
+    # Search, filter
     search_fields = ('user__username',)
-    
+
     # Fieldsets
     fieldsets = (
         (None, {
@@ -66,7 +75,7 @@ class UserProfileAdmin(TenantFilteringAdmin, BaseAdmin):
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING,     
+        FIELDSET.LOGGING,
     )
 
     @admin.display(description=_('Groups'))
@@ -83,8 +92,8 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = ('name', 'code', 'created_at')
     readonly_fields = FIELDS.LOGGING
-    
-    # Search, filter    
+
+    # Search, filter
     search_fields = ('name', 'code')
 
     # Actions
@@ -97,7 +106,7 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING,        
+        FIELDSET.LOGGING,
     )
 
     def save_model(self, request, obj, form, change):
@@ -119,15 +128,15 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
 class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant']
-    
+
     # Display these fields in the list view
     list_display = (
         'display_users', 'group_names', 'display_apps', 'created_at')
     readonly_fields = ('display_users', ) + FIELDS.LOGGING_TENANT
-    
-    # Search, filter    
-    search_fields = ('tenant',)    
-    
+
+    # Search, filter
+    search_fields = ('tenant',)
+
     # Actions
     actions = [a.tenant_setup_create_user]
 
@@ -141,7 +150,7 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING_TENANT,        
+        FIELDSET.LOGGING_TENANT,
     )
 
     @admin.display(description=_('Apps'))
@@ -164,14 +173,14 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
 class TenantLogoAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
-    
+
     # Display these fields in the list view
     list_display = ('tenant', 'name', 'type', 'display_logo')
     readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
-    
+
     # Search, filter
     search_fields = ('tenant', 'name')
-    
+
     #Fieldsets
     fieldsets = (
         (None, {
@@ -179,26 +188,26 @@ class TenantLogoAdmin(TenantFilteringAdmin, BaseAdmin):
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING_TENANT,        
+        FIELDSET.LOGGING_TENANT,
     )
 
     @admin.display(description=_('logo'))
     def display_logo(self, obj):
         return Display.photo_h(obj.logo)
-        
-        
+
+
 # Address, Persons ---------------------------------------------------------
 @admin.register(models.AddressCategory, site=admin_site)
 class AddressCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
-    
+
     # Display these fields in the list view
     list_display = ('type', 'code', 'name')
-    
+
     # Search, filter
     search_fields = ('type', 'code', 'name')
-    
+
     #Fieldsets
     fieldsets = (
         (None, {
@@ -215,7 +224,7 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Helpers
     form = forms.TitleAdminForm
-    
+
     # Display these fields in the list view
     list_display = ('code', 'display_name')
     readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
@@ -223,6 +232,9 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = ('code', 'name')
     list_filter = ('gender',)
+
+    # Actions
+    actions = [de_sync_accounting, sync_accounting]
 
     # Fieldsets
     fieldsets = (
@@ -238,6 +250,7 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdmin):
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
+        FIELDSET_SYNC
     )
 
 
@@ -257,6 +270,9 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = ['code', 'name']
 
+    # Actions
+    actions = [de_sync_accounting, sync_accounting]
+
     #Fieldsets
     fieldsets = (
         (None, {
@@ -266,6 +282,7 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
+        FIELDSET_SYNC
     )
 
 
@@ -297,7 +314,7 @@ class AddressAdmin(TenantFilteringAdmin, BaseAdmin):
         return {'country': get_object_or_404(models.Country, alpha3='CHE')}
 
     @admin.display(description=_("Categories"))
-    def display_categories(self, obj):        
+    def display_categories(self, obj):
         return obj.category_str()
 
 
@@ -306,7 +323,7 @@ class AddressInline(BaseTabularInline):
     '''
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'address', 'person']
-    
+
     # Inline
     model = models.PersonAddress
     form = forms.PersonAddressForm
@@ -358,11 +375,14 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     list_filter = ('category',)
     search_fields = ('company', 'first_name', 'last_name', 'alt_name')
 
+    # Actions
+    actions = [de_sync_accounting, sync_accounting]
+
     #Fieldsets
     fieldsets = (
         (_('Basic Information'), {
             'fields': (
-                'category', 'title', 'company', 'first_name', 'last_name', 'alt_name', 
+                'category', 'title', 'company', 'first_name', 'last_name', 'alt_name',
             ),
         }),
         (_('Company/VAT/Work Information'), {
@@ -372,19 +392,19 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
         (_('Personal Details'), {
             'fields': ('date_birth', 'photo'),
             'classes': ('collapse',),
-        }),      
+        }),
         (_('Categorization'), {
             'fields': (
-                ('is_vendor', 'is_customer', 'is_insurance', ), 
-                ('is_employee', 'is_family', 'color'), 
-                'sync_to_accounting'
+                ('is_vendor', 'is_customer', 'is_insurance', ),
+                ('is_employee', 'is_family', 'color')
             ),
-            'classes': ('collapse',), 
-        }),            
+            'classes': ('collapse',),
+        }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
+        FIELDSET_SYNC
     )
-    
+
     inlines = [
         AddressInline, ContactInline, BankAccountInline, AttachmentInline
     ]
@@ -397,8 +417,8 @@ class PersonAddressAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'address__zip', 'address__city', 'address__address', 'type', 
-        'person__last_name', 'person__first_name', 'person__company', 
+        'address__zip', 'address__city', 'address__address', 'type',
+        'person__last_name', 'person__first_name', 'person__company',
         'display_categories')
     list_display_links = ('address__address',)
 
@@ -413,23 +433,23 @@ class PersonAddressAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'type', 'person', 'address', 'post_office_box', 
+                'type', 'person', 'address', 'post_office_box',
                 'additional_information'),
             'classes': ('expand',),
         }),
     )
 
     @admin.display(description=_("Categories"))
-    def display_categories(self, obj):        
+    def display_categories(self, obj):
         return obj.address.category_str()
-        
+
 
 @admin.register(models.Building, site=admin_site)
 class BuildingAdmin(TenantFilteringAdmin, BaseAdmin):
     protected_foreigns = ['tenant', 'version',  'address']
 
     # Display these fields in the list view
-    list_display = ('name', 'description', 'address', 'type') 
+    list_display = ('name', 'description', 'address', 'type')
     list_display_links = ('name',)
 
     # Search, filter
@@ -441,8 +461,8 @@ class BuildingAdmin(TenantFilteringAdmin, BaseAdmin):
         (_('Categorization'), {
             'fields': (
                 'name', 'description', 'type', 'address'
-                ) 
-        }),            
+                )
+        }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )

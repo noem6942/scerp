@@ -1,19 +1,16 @@
 '''
 accounting/banking.py
 
-# Example usage
-pdf_path = "fixtures/transfer ge_soft/invoice_example.pdf"
-pdf_file = Path(pdf_path)  # Change this to your actual file path
-qr_data = extract_qr_from_pdf(pdf_file)
-print("qr_data", qr_data)
-
 '''
 from pdf2image import convert_from_path
 import cv2
 import numpy as np
 from pyzbar.pyzbar import decode
-from pathlib import Path
-from .banking_swiss_dir import SWISS_BANKS
+
+try:
+    from .banking_swiss_dir import SWISS_BANKS
+except:
+    from banking_swiss_dir import SWISS_BANKS
 
 # Set Poppler path for Windows (change this if needed)
 POPPLER_PATH = r"C:\Program Files\poppler-24.08.0\Library\bin"

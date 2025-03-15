@@ -262,7 +262,10 @@ class FiscalPeriodAdmin(TenantFilteringAdmin, BaseAdmin):
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': ('name', 'start', 'end', 'is_closed', 'is_current'),
+            'fields': (
+                'name', 'start', 'end', 'salary_start', 'salary_end',
+                'is_current'
+            ),
             'classes': ('expand',),
         }),
         BASE_FIELDSET.NOTES_AND_STATUS,
@@ -286,7 +289,6 @@ class UnitAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     search_fields = ('code', 'name')
-    # list_filter = ('code',)
 
     # Actions
     actions = accounting_actions + default_actions
@@ -644,9 +646,105 @@ class AccountAdmin(TenantFilteringAdmin, BaseAdmin):
     )
 
 
+# Inventory
+@admin.register(models.ArticleCategory, site=admin_site)
+class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = [
+        'tenant', 'setup', 'purchase_account',  'sales_account', 
+        'sequence_nr'
+    ]
+
+    # Helpers
+    form = forms.ArticleCategoryAdminForm
+
+    # Display these fields in the list view
+    list_display = (
+        'code', 'display_name', 'display_parent') + FIELDS.C_DISPLAY_SHORT
+    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
+    list_display_links = ('code', 'display_name',)
+
+    # Search, filter
+    search_fields = ('code', 'name')
+    list_filter = ('setup',)
+
+    # Actions
+    actions = accounting_actions + default_actions
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', *make_language_fields('name'), 'sales_account'
+            ),
+            'classes': ('expand',),
+        }),
+        (_("Extra"), {
+            'fields': (
+                'parent', 'purchase_account', 'sequence_nr'
+            ),
+            'classes': ('collapse',),
+        }),
+        BASE_FIELDSET.NOTES_AND_STATUS,
+        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.CASH_CTRL
+    )
+
+
+@admin.register(models.Article, site=admin_site)
+class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = [
+        'tenant', 'version', 'setup', 'category', 'currency', 'location', 
+        'sequence_nr', 'unit', 'tax'
+    ]
+
+    # Helpers
+    form = forms.ArticleAdminForm
+
+    # Display these fields in the list view
+    list_display = (
+        'nr', 'display_name', 'sales_price', 'unit', 'tax'
+    ) + FIELDS.C_DISPLAY_SHORT
+    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
+    list_display_links = ('nr', 'display_name')
+
+    # Search, filter
+    search_fields = ('code', 'name')
+    list_filter = ('category',)
+
+    # Actions
+    actions = accounting_actions + default_actions
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'nr', 'category', *make_language_fields('name'),
+                'sales_price', 'unit', 'tax',
+                *make_language_fields('description')),
+            'classes': ('expand',),
+        }),
+        (_("Stock Management"), {
+            'fields': (
+                'location', 'bin_location', 'is_stock_article', 'stock',
+                'min_stock', 'max_stock', 'sequence_nr'),
+            'classes': ('collapse',),
+        }),
+        (_("Pricing"), {
+            'fields': ('currency', 'last_purchase_price',
+                       'is_sales_price_gross', 'is_purchase_price_gross'),
+            'classes': ('collapse',),
+        }),
+        BASE_FIELDSET.NOTES_AND_STATUS,
+        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.CASH_CTRL
+    )
+
+
 # Order Management ---------------------------------------------------------
-@admin.register(models.OrderTemplate, site=admin_site)
-class OrderTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
+@admin.register(models.OrderLayout, site=admin_site)
+class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'setup']
     
@@ -657,11 +755,20 @@ class OrderTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = ('name',)
 
+    # Actions
+    actions = accounting_actions
+
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'name', 'css', 'footer', 'html', 'is_default', 
+                'name', 'is_default', 
+            ),
+            'classes': ('expand',),
+        }),
+        (_('Layout'), {
+            'fields': (
+                'elements', 'footer', 
                 'is_display_document_name', 'is_display_item_article_nr', 
                 'is_display_item_price_rounded', 'is_display_item_tax', 
                 'is_display_item_unit', 'is_display_logo', 
@@ -673,7 +780,7 @@ class OrderTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
                 'is_qr_no_reference_nr', 'letter_paper_file_id', 'logo_height',
                 'page_size'
             ),
-            'classes': ('expand',),
+            'classes': ('collapse',),
         }),
         BASE_FIELDSET.NOTES_AND_STATUS,
         BASE_FIELDSET.LOGGING_TENANT,
@@ -718,7 +825,7 @@ class BookTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.OrderCategoryContract, site=admin_site)
 class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup', 'template']
+    protected_foreigns = ['tenant', 'version', 'setup', 'layout']
 
     # Helpers
     form = forms.OrderCategoryContractAdminForm
@@ -742,7 +849,8 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
                 'code', 'type', 
                 *make_language_fields('name_singular'),
                 *make_language_fields('name_plural'), 
-                'template', 
+                'layout', 'is_display_prices', 'org_location',
+                'header', 'footer'
             ),
             'classes': ('expand',),
         }),
@@ -929,97 +1037,59 @@ class IncomingBookEntry(TenantFilteringAdmin, BaseAdmin):
     )
 
 
-@admin.register(models.ArticleCategory, site=admin_site)
-class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
+class OutgoingItemsInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
     protected_foreigns = [
-        'tenant', 'setup', 'purchase_account',  'sales_account', 
-        'sequence_nr'
-    ]
+        'tenant', 'version', 'setup', 'article', 'order']
 
-    # Helpers
-    form = forms.ArticleCategoryAdminForm
+    # Inline
+    model = models.OutgoingItem
+    fields = ['article', 'quantity']  # Only show these fields
+    extra = 1  # Number of empty forms displayed
+    autocomplete_fields = ['article']  # Improves FK selection performance
+    show_change_link = True  # Shows a link to edit the related model
+
+
+@admin.register(models.OutgoingOrder, site=admin_site)
+class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = [
+        'tenant', 'version', 'setup', 'contract', 'category', 
+        'responsible_person'
+    ]
 
     # Display these fields in the list view
     list_display = (
-        'code', 'display_name', 'display_parent') + FIELDS.C_DISPLAY_SHORT
-    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
-    list_display_links = ('code', 'display_name',)
+        'date', 'display_category_type', 'description', 'display_customer',
+        'category__currency', 'status'
+    )  + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
+    list_display_links = (
+        'date', 'display_category_type', 'description'
+    ) + CORE_FIELDS.LINK_ATTACHMENT
+    readonly_fields = ('display_category_type',) + FIELDS.C_READ_ONLY
 
     # Search, filter
-    search_fields = ('code', 'name')
-    list_filter = ('setup',)
-
-    # Actions
-    actions = accounting_actions + default_actions
+    search_fields = ('contract__associate_company', 'description')
+    list_filter = ('category', 'status', 'date')
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'code', *make_language_fields('name'), 'sales_account'
-            ),
+                'category', 'contract', 'status', 'description', 'date',
+                'price_incl_vat', 'due_days', 'responsible_person'),
             'classes': ('expand',),
-        }),
-        (_("Extra"), {
-            'fields': (
-                'parent', 'purchase_account', 'sequence_nr'
-            ),
-            'classes': ('collapse',),
         }),
         BASE_FIELDSET.NOTES_AND_STATUS,
         BASE_FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
+    
+    inlines = [OutgoingItemsInline, AttachmentInline]
 
-
-@admin.register(models.Article, site=admin_site)
-class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
-    # Safeguards
-    protected_foreigns = [
-        'tenant', 'version', 'setup', 'category', 'currency', 'location', 
-        'sequence_nr', 'unit'
-    ]
-
-    # Helpers
-    form = forms.ArticleAdminForm
-
-    # Display these fields in the list view
-    list_display = (
-        'nr', 'display_name', 'sales_price', 'unit') + FIELDS.C_DISPLAY_SHORT
-    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
-    list_display_links = ('nr', 'display_name')
-
-    # Search, filter
-    search_fields = ('code', 'name')
-    list_filter = ('category',)
-
-    # Actions
-    actions = accounting_actions + default_actions
-
-    #Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': (
-                'nr', 'category', *make_language_fields('name'),
-                'sales_price', 'unit', *make_language_fields('description')),
-            'classes': ('expand',),
-        }),
-        (_("Stock Management"), {
-            'fields': (
-                'location', 'bin_location', 'is_stock_article', 'stock',
-                'min_stock', 'max_stock', 'sequence_nr'),
-            'classes': ('collapse',),
-        }),
-        (_("Pricing"), {
-            'fields': ('currency', 'last_purchase_price',
-                       'is_sales_price_gross', 'is_purchase_price_gross'),
-            'classes': ('collapse',),
-        }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
-        FIELDSET.CASH_CTRL
-    )
+    @admin.display(description=_('Supplier'))
+    def display_customer(self, obj):
+        return self.display_link_to_company(obj.contract.associate)
 
 
 # Ledger -------------------------------------------------------------------

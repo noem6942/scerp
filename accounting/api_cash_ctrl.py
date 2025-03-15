@@ -80,6 +80,15 @@ COUNTRY_CODES = [
 cashCtrl definitions:
     - we only use Enum if used for selection in django model choices
 '''
+class ACCOUNT_CATEGORY_ID:
+    ''' id is integer, account number str '''
+    ASSETS = 1
+    LIABILITIES = 2
+    EXPENSE = 3
+    REVENUE = 4
+    BALANCE = 5
+
+
 class ADDRESS_TYPE:
     '''see public api desc'''
     MAIN = 'MAIN'
@@ -145,6 +154,12 @@ class DATA_TYPE(Enum):
     NUMBER = 'NUMBER'
     ACCOUNT = 'ACCOUNT'
     PERSON = 'PERSON'
+
+
+class FISCAL_PERIOD_TYPE(Enum):
+    '''see public api desc'''
+    EARLIEST = 'EARLIEST'
+    LATEST = 'LATEST'
 
 
 class ROUNDING(Enum):
@@ -321,7 +336,7 @@ def convert_to_xml(value):
 
 
 def clean_dict(data, convert_dt=True):
-    ''' convert cashctrl data '''
+    ''' convert cashctrl data to python '''
     post_data = {}
     for key, value in data.items():
         key = camel_to_snake(key)
@@ -458,7 +473,7 @@ class CashCtrl():
                     f"Attempt {attempt + 1}/{self.MAX_TRIES} timed out.")
             except requests.exceptions.RequestException as e:
                 raise Exception(
-                    f"An error occurred during the POST request: {e}")                    
+                    f"An error occurred during the POST request: {e}")
 
             # Sleep before retrying if it's not the last attempt
             if attempt < self.MAX_TRIES - 1:
@@ -576,12 +591,13 @@ class CashCtrl():
         if response.status_code == 200:
             data = response.json()
             if id:
-                # default
+                # default, only settings has no data
                 if data.get('success', False):
-                    return data.get('data')  # Directly return parsed JSON
-            else:
-                # settings
-                return data
+                    data = data.get('data')
+                else:
+                    data = None
+
+            return clean_dict(data, self.convert_dt)
 
         return response
 

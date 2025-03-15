@@ -1,0 +1,329 @@
+# Translate helpers
+
+# Outgoing Orders ------------------------------------------------------------
+OrderCategories:
+  - code: order_outgoing
+    account_ref: 1100   # Debitoren
+    name_singular:
+      de: "Rechnung, ausgehend"
+      en: "Outgoing Invoice"
+      fr: "Facture sortante"
+      it: "Fattura in uscita"
+    name_plural:
+      de: "Rechnungwn, ausgehend"
+      en: "Outgoing Invoices"
+      fr: "Factures sortantes"
+      it: "Fatture in uscita"
+    status:
+      # Status: Entwurforder_procurement_valid_from  (Draft)
+      # Represents a document or invoice in the draft phase. Color is GRAY.
+      - icon: GRAY
+        name:
+          de: Entwurf
+          en: Draft
+          fr: Projet
+          it: Progetto
+
+      # Status: Offen (Open)
+      # Represents an open invoice or document. Color is ORANGE.
+      - icon: ORANGE
+        name:
+          de: Offen
+          en: Open
+          fr: Ouvert
+          it: Aperto
+
+      # Status: Versandt (Sent)
+      # Represents a document that has been sent. Color is BLUE.
+      - icon: BLUE
+        name:
+          de: Versandt
+          en: Sent
+          fr: Envoyé
+          it: Inviato
+
+      # Status: Erinnert 1 (Reminder 1)
+      # The first reminder for an unpaid invoice. Color is YELLOW.
+      - icon: YELLOW
+        name:
+          de: Erinnert 1
+          en: Reminder 1
+          fr: Rappel 1
+          it: Promemoria 1
+
+      # Status: Erinnert 2 (Reminder 2)
+      # The second reminder for an unpaid invoice. Color is YELLOW.
+      - icon: YELLOW
+        name:
+          de: Erinnert 2
+          en: Reminder 2
+          fr: Rappel 2
+          it: Promemoria 2
+
+      # Status: Betreibung (Collection)
+      # Represents a collection or legal action phase. Color is RED.
+      - icon: RED
+        name:
+          de: Betreibung
+          en: Collection
+          fr: Recouvrement
+          it: Recupero
+
+      # Status: Bezahlt (Paid)
+      # Represents an invoice that has been paid. Color is GREEN.
+      - icon: GREEN
+        name:
+          de: Bezahlt
+          en: Paid
+          fr: Payé
+          it: Pagato
+
+      # Status: Storniert (Cancelled)
+      # Represents a cancelled invoice or document. Color is BLACK.
+      - icon: BLACK
+        name:
+          de: Storniert
+          en: Cancelled
+          fr: Annulé
+          it: Annullato
+
+    address_type: INVOICE
+    book_type: DEBIT
+    due_days: 30
+    footer: <i>{{ order_legal }}</i>
+    header: |
+      Kontakt:<br>
+      Tel. 062 387 95 29<br>
+      E-Mail: bz-gunzgen@bdo.ch<br>
+      <br>
+      Abrechnungsperiode: {{ order_period }}<br>
+      Objekt: {{ order_object }}<br>
+      Zählernummer: {{ order_counter_id }}<br>
+      Zählerstand neu: {{ order_counter_actual}} m³ (alt order_counter_previous m³)
+    is_display_prices: true
+    is_display_item_gross: false
+    responsible_person_ref: 3 # check
+    rounding_id: 1 # check
+    sequence_nr_id: 1 # check
+    template_id: 1000  # check
+    type: SALES
+
+# Incoming Orders ------------------------------------------------------------
+  - code: order_incoming
+    account_ref: 2000  # Kreditoren
+    name_singular:
+      de: "Rechnung, eingehend"
+      en: "Incoming Invoice"
+      fr: "Facture entrante"
+      it: "Fattura in entrata"
+    name_plural:
+      de: "Rechnungen, eingehend"
+      en: "Incoming Invoices"
+      fr: "Factures entrantes"
+      it: "Fatture in entrata"
+      status:
+      # Statuses for Incoming Invoice (Rechnung, eingehend)
+      # Each status includes the name (in multiple languages) and the appropriate color
+      - icon: GRAY
+        name:
+          de: "Offen"
+          en: "Open"
+          fr: "Ouvert"
+          it: "Aperto"
+      - icon: GREEN
+        name:
+          de: "Genehmigt 1"
+          en: "Approved 1"
+          fr: "Approuvé 1"
+          it: "Approvato 1"
+      - icon: GREEN
+        name:
+          de: "Genehmigt 2"
+          en: "Approved 2"
+          fr: "Approuvé 2"
+          it: "Approvato 2"
+      - icon: BLUE
+        name:
+          de: "Verbucht"
+          en: "Posted"
+          fr: "Comptabilisé"
+          it: "Registrato"
+      - icon: BLUE
+        name:
+          de: "Übermittelt"
+          en: "Submitted"
+          fr: "Soumis"
+          it: "Inviato"
+      - icon: ORANGE
+        name:
+          de: "Erinnert 1"
+          en: "Reminder 1"
+          fr: "Rappel 1"
+          it: "Promemoria 1"
+      - icon: ORANGE
+        name:
+          de: "Erinnert 2"
+          en: "Reminder 2"
+          fr: "Rappel 2"
+          it: "Promemoria 2"
+      - icon: GREEN
+        name:
+          de: "Bezahlt"
+          en: "Paid"
+          fr: "Payé"
+          it: "Pagato"
+      - icon: BLACK
+        name:
+          de: "Archiviert"
+          en: "Archived"
+          fr: "Archivé"
+          it: "Archiviato"
+      - icon: RED
+        name:
+          de: "Storniert"
+          en: "Cancelled"
+          fr: "Annulé"
+          it: "Annullato"
+
+      address_type: INVOICE
+      book_type: CREDIT
+      type: PURCHASE
+
+  - code: order_procurement
+    account_ref: 2000  # Kreditoren
+    name_singular:
+      de: Beschaffung und Vertrag
+      en: Procurement and Contract
+      fr: Achat et Contrat
+      it: Acquisto e Contratto
+    name_plural:
+      de: Beschaffungen und Verträge
+      en: Procurements and Contracts
+      fr: Achats et Contrats
+      it: Acquisti e Contratti
+    status:
+    # Procurement and Contracts Statuses
+    # Status: Entwurf (Draft)
+    # Represents a document or contract in the draft phase. Color is GRAY.
+    - icon: GRAY
+      name:
+        de: Entwurf
+        en: Draft
+        fr: Projet
+        it: Progetto
+    # Status: Anfrage (Request)
+    # Represents a procurement request. Color is ORANGE.
+    - icon: ORANGE
+      name:
+        de: Anfrage
+        en: Request
+        fr: Demande
+        it: Richiesta
+
+    # Status: Offerte erhalten (Offer Received)
+    # Represents a received offer. Color is BLUE.
+    - icon: BLUE
+      name:
+        de: Offerte erhalten
+        en: Offer Received
+        fr: Offre reçue
+        it: Offerta ricevuta
+
+    # Status: Shortlisted (Shortlisted)
+    # Represents a procurement item that has been shortlisted. Color is YELLOW.
+    - icon: YELLOW
+      name:
+        de: Shortlisted
+        en: Shortlisted
+        fr: Sélectionné
+        it: Selezionato
+
+    # Status: Zuschlag (Awarded)
+    # Represents a procurement item that has been awarded. Color is VIOLET.
+    - icon: VIOLET
+      name:
+        de: Zuschlag
+        en: Awarded
+        fr: Attribué
+        it: Aggiudicato
+
+    # Status: Verfügung (Ruling)
+    # Represents an official ruling or decree. Color is ORANGE.
+    - icon: ORANGE
+      name:
+        de: Verfügung
+        en: Ruling
+        fr: Décision
+        it: Disposizione
+
+    # Status: Einsprache (Appeal)
+    # Represents a situation where an appeal has been made. Color is RED.
+    - icon: RED
+      name:
+        de: Einsprache
+        en: Appeal
+        fr: Appel
+        it: Ricorso
+
+    # Status: Vertrag erhalten (Contract Received)
+    # Represents a contract that has been received. Color is BLUE.
+    - icon: BLUE
+      name:
+        de: Vertrag erhalten
+        en: Contract Received
+        fr: Contrat reçu
+        it: Contratto ricevuto
+
+    # Status: Vertrag unterzeichnet (Contract Signed)
+    # Represents a contract that has been signed. Color is GREEN.
+    - icon: GREEN
+      name:
+        de: Vertrag unterzeichnet
+        en: Contract Signed
+        fr: Contrat signé
+        it: Contratto firmato
+
+    # Status: Abgesagt (Cancelled)
+    # Represents a cancelled procurement process or contract. Color is BLACK.
+    - icon: BLACK
+      name:
+        de: Abgesagt
+        en: Cancelled
+        fr: Annulé
+        it: Annullato
+      address_type: INVOICE
+      book_type: CREDIT
+      type: PURCHASE
+
+    # Status: Gekündigt (Terminated)
+    # Represents a contract or agreement that has been terminated. Color is RED.
+    - icon: RED
+      name:
+        de: Gekündigt
+        en: Terminated
+        fr: Résilié
+        it: Rescisso
+      address_type: INVOICE
+      book_type: CREDIT
+      type: PURCHASE
+
+    # Status: Kündigung bestätigt (Termination Confirmed)
+    # Represents a confirmation of termination for a contract or agreement. Color is BROWN.
+    - icon: BROWN
+      name:
+        de: Kündigung bestätigt
+        en: Termination Confirmed
+        fr: Résiliation confirmée
+        it: Risoluzione confermata
+      address_type: INVOICE
+      book_type: CREDIT
+      type: PURCHASE
+
+    # Status: Archiviert (Archived)
+    # Represents an archived procurement item or contract. Color is GRAY.
+    - icon: GRAY
+      name:
+        de: Archiviert
+        en: Archived
+        fr: Archivé
+        it: Archiviato

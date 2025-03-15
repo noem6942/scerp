@@ -1,4 +1,5 @@
 # use for invoice testing
+import yaml
 from api_cash_ctrl import *
 
 
@@ -8,7 +9,7 @@ if __name__ == "__main__":
     org = 'test167'
     api = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
 
-    if True:
+    if False:
         # Get person category
         conn = PersonCategory(org, api, convert_dt=False)
         data_list = conn.list()
@@ -159,6 +160,31 @@ if __name__ == "__main__":
         for data in data_list:
             print("*", data['id'], data['name'], data)
 
+    if True:
+        '''order, get document take 42
+        '''
+        # Read Invoicing document
+        conn = Order(org, api, convert_dt=False)
+        data_list = conn.list(params={'type': 'PURCHASE'})
+        for data in data_list:
+            print("*data", data['id'], data['date'])
+            if data['id'] == 45:
+                order = data
+
+        # OrderDocument
+        print("*order", order)
+        conn = OrderDocument(org, api, convert_dt=False)
+        document = conn.read(order['id'])
+        print("*document", document)
+
+        # OrderLayout
+        conn = OrderLayout(org, api, convert_dt=False)
+        layout = conn.read(document['layout_id'])
+        # Write dictionary to a YAML file
+        with open('layout.yaml', 'w') as file:            
+            yaml.dump(
+                layout, file, default_flow_style=False, allow_unicode=True, 
+                width=float('inf'))
     if False:
         '''order, get document take 42
         '''

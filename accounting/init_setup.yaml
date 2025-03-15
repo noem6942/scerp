@@ -18,7 +18,7 @@ CustomFieldGroup:
 
   - code: order_incoming
     name:
-      de: Eingehend
+      de: Kreditoren
       en: Incoming
       fr: Entrant
       it: In entrata
@@ -26,7 +26,7 @@ CustomFieldGroup:
 
   - code: order_outgoing
     name:
-      de: Ausgehend
+      de: Debitoren
       en: Outgoing
       fr: Sortant
       it: In uscita
@@ -68,17 +68,6 @@ CustomField:
       fr: Fonction
       it: Funzione
     data_type: TEXT
-    is_multi: false
-    values: []
-
-  - code: account_budget
-    group_ref: account
-    name:
-      de: Budget
-      en: Budget
-      fr: Budget
-      it: Budget
-    data_type: NUMBER
     is_multi: false
     values: []
 
@@ -193,6 +182,72 @@ CustomField:
     values: []
 
 
+# Config Data --------------------------------------------------------
+# Location:  # not working
+  # - name: Hauptsitz
+    # type: MAIN
+  # - name: MWST 1
+    # type: OTHER
+  # - name: MWST 2
+    # type: OTHER
+
+
+Unit:
+  - code: m3
+    name:
+      de: 'm³'
+      en: 'm³'
+      fr: 'm³'
+      it: 'm³'
+  - code: contract
+    name:
+      de: Auftrag
+      en: Contract
+      fr: Contrat
+      it: Contratto
+  - code: invoice
+    name:
+      de: Rechnung
+      en: Invoice
+      fr: Commande
+      it: Ordine
+
+
+FiscalPeriod: []
+
+Currency: []
+
+Rounding: []
+
+SequenceNumber: []
+
+AssetCategory:
+  - code: water
+    name:
+      de: Wasser
+      en: Water
+      fr: Water
+      it: Water  
+
+Asset:
+  - code: water
+    name:
+      de: Wassergebühren
+      en: Water Billing
+      fr: Water Billing
+      it: Water Billing  
+
+AssetCategory:
+  - code: water
+    name:
+      de: Wassergebühren
+      en: Water Billing
+      fr: Water Billing
+      it: Water Billing  
+
+
+
+
 FileCategory:
   - code: invoice_incoming
     name:
@@ -208,461 +263,95 @@ FileCategory:
       fr: Invoice outgoing
       it: Invoice outgoing
 
+OrderLayout:
+  - name: Kreditoren (Standard)
+    elements:
+    - css: "/**********************************************************************\r\n * PAGE\r\n **********************************************************************/\r\n\r\nbody, table td, table th {\r\n    font: 9pt OpenSansRegular;\r\n}\r\n\r\n.page {\r\n    padding: 0 1cm 0 2cm;\r\n    position: relative;\r\n}\r\n\r\n/**********************************************************************\r\n * HEADER / FOOTER\r\n **********************************************************************/\r\n\r\nheader img.logo {\r\n    position: absolute;\r\n    top: 1.5cm;\r\n    left: 2cm;\r\n}\r\n\r\nfooter {\r\n    position: relative;\r\n    height: 3cm;\r\n    width: 100%;\r\n}\r\n\r\nfooter .text {\r\n    position: absolute;\r\n    bottom: 1cm;\r\n    left: 0;\r\n    padding: 0 2cm;\r\n    width: 100%;\r\n}\r\n\r\nfooter .paging {\r\n    position: absolute;\r\n    bottom: 1cm;\r\n    right: 1cm;\r\n    background: white;\r\n}\r\n\r\n/**********************************************************************\r\n * ADDRESS WINDOW\r\n **********************************************************************/\r\n\r\ndiv.window {\r\n    position: absolute;\r\n    top: 0;\r\n    left: 12cm;\r\n    width: 8cm;\r\n}\r\n\r\ndiv.org {\r\n    font-size: 7pt;\r\n    padding-bottom: 3pt;\r\n    border-bottom: 1pt solid #999;\r\n    margin-bottom: 5pt;\r\n}\r\n\r\ndiv.org.hidden {\r\n    display: block;\r\n    color: transparent;\r\n    border-color: transparent;\r\n}\r\n\r\n/**********************************************************************\r\n * DOCUMENT INFO TABLE\r\n **********************************************************************/\r\n\r\ndiv.docinfo {\r\n    position: absolute;\r\n    top: 0;\r\n    left: 2cm;\r\n}\r\n\r\ndiv.docinfo table td {\r\n    white-space: nowrap;\r\n}\r\n\r\ndiv.docinfo table td:first-child {\r\n    font-size: 7pt;\r\n    text-align: right;\r\n    padding-right: 5pt;\r\n}\r\n\r\n/**********************************************************************\r\n * DOCUMENT TITLE\r\n **********************************************************************/\r\n\r\nh1 {\r\n    font: 13pt OpenSansBold;\r\n    margin-top: 3.5cm;\r\n    margin-bottom: 0.5cm;\r\n}\r\n\r\nh1 .nr {\r\n    font-family: OpenSansLight;\r\n}\r\n\r\n/**********************************************************************\r\n * ITEMS TABLE\r\n **********************************************************************/\r\n\r\ntable.items {\r\n    width: 100%;\r\n    page-break-before: avoid;\r\n    page-break-inside: auto;\r\n}\r\n\r\ntable.items th, table.items td {\r\n    padding: 3pt 4pt;\r\n    border-bottom: 1pt solid #999;\r\n}\r\n\r\ntable.items th.right, table.items td.right {\r\n    text-align: right;\r\n}\r\n\r\ntable.items th {\r\n    font-family: ArialBold;\r\n    color: #000;\r\n    vertical-align: bottom;\r\n    text-align: left;\r\n    white-space: nowrap;\r\n    background: #EFEFEF;\r\n}\r\n\r\ntable.items td {\r\n    vertical-align: top;\r\n}\r\n\r\ntable.items td .description {\r\n    font-size: 7pt;\r\n    padding-top: 3pt;\r\n}\r\n\r\ntable.items td.quantity {\r\n    white-space: nowrap;\r\n}\r\n\r\ntable.items tr.totals td,\r\ntable.items tr.tax td {\r\n    border-bottom: 0;\r\n}\r\n\r\ntable.items tr.totals td {\r\n    font-family: ArialBold;\r\n    padding: 4pt;\r\n}\r\n\r\ntable.items tr.subtotal td {\r\n    font-family: ArialBold;\r\n    font-size: 7.5pt;\r\n    padding-bottom: 0.4cm;\r\n    border-bottom: none;\r\n}\r\n\r\ntable.items tr.title td {\r\n    font-family: ArialBold;\r\n}\r\n\r\ntable.items tr.text td {\r\n    padding: 4pt 4pt 6pt 4pt;\r\n}\r\n\r\ntable.items tr.small td {\r\n    font-size: 7pt;\r\n}\r\n\r\ntable.items tr.tax td {\r\n    padding: 1pt 4pt;\r\n}\r\n\r\ntable.items tr.tax.first td {\r\n    padding: 3pt 4pt 1pt 4pt;\r\n}\r\n\r\n/**********************************************************************\r\n * TEXT ABOVE / BELOW\r\n **********************************************************************/\r\n\r\ndiv.text-above {\r\n    margin-bottom: 12pt;\r\n}\r\n\r\ndiv.text-below {\r\n    margin-top: 12pt;\r\n}\r\n\r\ni, em {\r\n    font-family: ArialItalic;\r\n}\r\n\r\nstrong, b {\r\n    font-family: ArialBold;\r\n}\r\n\r\ni strong, i b, em strong, em b, strong i, strong em, b i, b em {\r\n    font-family: ArialBoldItalic;\r\n}\r\n\r\nul, ol, div ul, div ol {\r\n    padding-top: 6pt;\r\n    padding-bottom: 6pt;\r\n    padding-left: 0.7cm;\r\n}\r\n\r\nul li, ol li, div ul li, div ol li {\r\n    padding: 1pt 1pt 1pt 2pt;\r\n}\r\n"
+      elementId: LEGACY
+      html: "#########\r\n## HEADER\r\n<header height=\"4.5cm\">\r\n    $logo\r\n</header>\r\n\r\n#########\r\n## FOOTER\r\n<footer height=\"3cm\">\r\n    <div class=\"text\">$footer</div>\r\n    <div class=\"paging $pagingCls\">$i18n.page $pageNumber $i18n.of $pageCount</div>\r\n</footer>\r\n\r\n<div class=\"page\">\r\n\r\n    #################\r\n    ## ADDRESS WINDOW\r\n    <div class=\"window\">\r\n        <div class=\"org $orgFullAddressCsvCls\">$orgFullAddressCsv</div>\r\n        <div class=\"recipient\">$recipientAddress</div>\r\n    </div>\r\n\r\n    ######################\r\n    ## DOCUMENT INFO TABLE\r\n    <div class=\"docinfo\">\r\n        <table>\r\n            <tr class=\"$recipientNrCls\">\r\n                <td>$recipientNrLabel</td>\r\n                <td>$recipientNr</td>\r\n            </tr>\r\n            <tr>\r\n                <td>$i18n.date</td>\r\n                <td>$date</td>\r\n            </tr>\r\n            <tr class=\"$dueDateCls\">\r\n                <td>$i18n.due</td>\r\n                <td>$dueDate</td>\r\n            </tr>\r\n            <tr class=\"$previousCls\">\r\n                <td>$previousDocumentName</td>\r\n                <td>$previousDateAndNr</td>\r\n            </tr>\r\n            <tr class=\"$uidCls\">\r\n                <td>$i18n.tax_code</td>\r\n                <td>$uid</td>\r\n            </tr>\r\n            <tr class=\"$rpCls\">\r\n                <td>$i18n.responsible_person_abbr</td>\r\n                <td>$rpFullName</td>\r\n            </tr>\r\n        </table>\r\n    </div>\r\n\r\n    #################\r\n    ## DOCUMENT TITLE\r\n    <h1><span class=\"$documentNameCls\">$documentName <span class=\"nr\">$nr</span></span></h1>\r\n\r\n    #############\r\n    ## TEXT ABOVE\r\n    <div class=\"text-above\">$textAbove</div>\r\n\r\n    ##############\r\n    ## ITEMS TABLE\r\n    <table class=\"items $itemsCls\">\r\n        #thead()\r\n        #foreach($item in $items)\r\n\r\n            ###############\r\n            ## ARTICLE ITEM\r\n            #if ($item.type == \"ARTICLE\")\r\n                <tr class=\"article\">\r\n                    #if ($displayPosNr) <td>$item.pos</td> #end\r\n                    #if ($displayNr) <td>$item.nr</td> #end\r\n                    <td>\r\n                        $item.name\r\n                        <div class=\"description\">$item.description</div>\r\n                    </td>\r\n                    <td class=\"quantity right\">$item.quantity #if ($displayItemUnit) $item.unit #end</td>\r\n                    #if ($displayPrices)\r\n                        #if ($displayItemTax) <td>$item.taxRate</td> #end\r\n                        <td class=\"right\">#if($displayItemGross)$item.unitPrice#{else}$item.netUnitPrice#end</td>\r\n                        #if ($displayDiscount) <td class=\"right\">$item.discount</td> #end\r\n                        <td class=\"right\">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>\r\n                    #end\r\n                </tr>\r\n            #end\r\n\r\n            ############\r\n            ## TEXT ITEM\r\n            #if ($item.type == \"TEXT\")\r\n                <tr class=\"text\">\r\n                    #if ($displayPosNr) <td>&nbsp;</td> #end\r\n                    #if ($displayNr) <td>&nbsp;</td> #end\r\n                    <td colspan=\"2\">$item.description</td>\r\n                    #if ($displayPrices)\r\n                        #if ($displayItemTax) <td>&nbsp;</td> #end\r\n                        <td>&nbsp;</td>\r\n                        #if ($displayDiscount) <td>&nbsp;</td> #end\r\n                        <td>&nbsp;</td>\r\n                    #end\r\n                </tr>\r\n            #end\r\n\r\n            ############\r\n            ## TITLE ITEM\r\n            #if ($item.type == \"TITLE\")\r\n                <tr class=\"title\"><td colspan=\"$itemFullColspan\">$item.title</td></tr>\r\n            #end\r\n\r\n            ################\r\n            ## SUBTOTAL ITEM\r\n            #if (($item.type == \"SUBTOTAL\" or $item.type == \"OPTIONTOTAL\") and $displayPrices)\r\n                <tr class=\"subtotal\">\r\n                    #if ($displayPosNr) <td>&nbsp;</td> #end\r\n                    #if ($displayNr) <td>&nbsp;</td> #end\r\n                    #if ($displayItemTax) <td>&nbsp;</td> #end\r\n                    <td colspan=\"3\" class=\"right\">$item.name</td>\r\n                    #if ($displayDiscount) <td class=\"right\">&nbsp;</td> #end\r\n                    <td class=\"right\">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>\r\n                </tr>\r\n            #end\r\n\r\n            ##################\r\n            ## PAGE BREAK ITEM\r\n            #if ($item.type == \"PAGEBREAK\")\r\n                </table>\r\n                <page-break/>\r\n                <table class=\"items\">\r\n                    #thead()\r\n            #end\r\n        #end\r\n\r\n        ###################\r\n        ## TAXES AND TOTALS\r\n        #if ($displayPrices)\r\n            #foreach($row in $taxesAndTotals)\r\n                <tr class=\"$row.cls\">\r\n                    <td colspan=\"$row.colspan\" class=\"right\">$row.name</td>\r\n                    <td class=\"right\">$row.currency</td>\r\n                    <td class=\"right\">$row.amount</td>\r\n                </tr>\r\n            #end\r\n        #end\r\n    </table>\r\n\r\n    #############\r\n    ## TEXT BELOW\r\n    #if ($textBelow && !$textBelow.empty)\r\n        <div class=\"text-below\">$textBelow</div>\r\n    #end\r\n</div>\r\n\r\n#############\r\n## TABLE HEAD\r\n#macro(thead)\r\n    <tr>\r\n        #if ($displayPosNr) <th>#&nbsp;&nbsp;</th> #end\r\n        #if ($displayNr) <th>$i18n.article_nr</th> #end\r\n        <th>$i18n.description</th>\r\n        <th class=\"right\">$i18n.quantity</th>\r\n        #if ($displayPrices)\r\n            #if ($displayItemTax) <th>$i18n.tax</th> #end\r\n            <th class=\"right\">$i18n.price</th>\r\n            #if ($displayDiscount) <th class=\"right\">$i18n.discount</th> #end\r\n            <th class=\"right\">$i18n.total</th>\r\n        #end\r\n    </tr>\r\n#end\r\n"
+    is_default: false
+    is_display_document_name: true
+    is_display_item_article_nr: true
+    is_display_item_price_rounded: true
+    is_display_item_tax: true
+    is_display_item_unit: false
+    is_display_logo: false
+    is_display_org_address_in_window: true
+    is_display_page_nr: true
+    is_display_payments: true
+    is_display_pos_nr: false
+    is_display_recipient_nr: true
+    is_display_responsible_person: true
+    is_display_zero_tax: true
+    is_inactive: false
+    is_qr_empty_amount: false
+    is_qr_no_lines: true
+    is_qr_no_reference_nr: true
+    logo_height: 2
+    page_size: A4
 
-# Config Data --------------------------------------------------------
-Location:
-  - name: Hauptsitz
-    type: MAIN
-  - name: MWST 1
-    type: OTHER
-  - name: MWST 2
-    type: OTHER
+  - name: Debitoren (Standard)    
+    elements:
+    - css: "/**********************************************************************\r\n * PAGE\r\n **********************************************************************/\r\n\r\nbody, table td, table th {\r\n    font: 9pt OpenSansRegular;\r\n}\r\n\r\n.page {\r\n    padding: 0 1cm 0 2cm;\r\n    position: relative;\r\n}\r\n\r\n/**********************************************************************\r\n * HEADER / FOOTER\r\n **********************************************************************/\r\n\r\nheader img.logo {\r\n    position: absolute;\r\n    top: 1.5cm;\r\n    left: 2cm;\r\n}\r\n\r\nfooter {\r\n    position: relative;\r\n    height: 3cm;\r\n    width: 100%;\r\n}\r\n\r\nfooter .text {\r\n    position: absolute;\r\n    bottom: 1cm;\r\n    left: 0;\r\n    padding: 0 2cm;\r\n    width: 100%;\r\n}\r\n\r\nfooter .paging {\r\n    position: absolute;\r\n    bottom: 1cm;\r\n    right: 1cm;\r\n    background: white;\r\n}\r\n\r\n/**********************************************************************\r\n * ADDRESS WINDOW\r\n **********************************************************************/\r\n\r\ndiv.window {\r\n    position: absolute;\r\n    top: 0;\r\n    left: 12cm;\r\n    width: 8cm;\r\n}\r\n\r\ndiv.org {\r\n    font-size: 7pt;\r\n    padding-bottom: 3pt;\r\n    border-bottom: 1pt solid #999;\r\n    margin-bottom: 5pt;\r\n}\r\n\r\ndiv.org.hidden {\r\n    display: block;\r\n    color: transparent;\r\n    border-color: transparent;\r\n}\r\n\r\n/**********************************************************************\r\n * DOCUMENT INFO TABLE\r\n **********************************************************************/\r\n\r\ndiv.docinfo {\r\n    position: absolute;\r\n    top: 0;\r\n    left: 2cm;\r\n}\r\n\r\ndiv.docinfo table td {\r\n    white-space: nowrap;\r\n}\r\n\r\ndiv.docinfo table td:first-child {\r\n    font-size: 7pt;\r\n    text-align: right;\r\n    padding-right: 5pt;\r\n}\r\n\r\n/**********************************************************************\r\n * DOCUMENT TITLE\r\n **********************************************************************/\r\n\r\nh1 {\r\n    font: 13pt OpenSansBold;\r\n    margin-top: 3.5cm;\r\n    margin-bottom: 0.5cm;\r\n}\r\n\r\nh1 .nr {\r\n    font-family: OpenSansLight;\r\n}\r\n\r\n/**********************************************************************\r\n * ITEMS TABLE\r\n **********************************************************************/\r\n\r\ntable.items {\r\n    width: 100%;\r\n    page-break-before: avoid;\r\n    page-break-inside: auto;\r\n}\r\n\r\ntable.items th, table.items td {\r\n    padding: 3pt 4pt;\r\n    border-bottom: 1pt solid #999;\r\n}\r\n\r\ntable.items th.right, table.items td.right {\r\n    text-align: right;\r\n}\r\n\r\ntable.items th {\r\n    font-family: ArialBold;\r\n    color: #000;\r\n    vertical-align: bottom;\r\n    text-align: left;\r\n    white-space: nowrap;\r\n    background: #EFEFEF;\r\n}\r\n\r\ntable.items td {\r\n    vertical-align: top;\r\n}\r\n\r\ntable.items td .description {\r\n    font-size: 7pt;\r\n    padding-top: 3pt;\r\n}\r\n\r\ntable.items td.quantity {\r\n    white-space: nowrap;\r\n}\r\n\r\ntable.items tr.totals td,\r\ntable.items tr.tax td {\r\n    border-bottom: 0;\r\n}\r\n\r\ntable.items tr.totals td {\r\n    font-family: ArialBold;\r\n    padding: 4pt;\r\n}\r\n\r\ntable.items tr.subtotal td {\r\n    font-family: ArialBold;\r\n    font-size: 7.5pt;\r\n    padding-bottom: 0.4cm;\r\n    border-bottom: none;\r\n}\r\n\r\ntable.items tr.title td {\r\n    font-family: ArialBold;\r\n}\r\n\r\ntable.items tr.text td {\r\n    padding: 4pt 4pt 6pt 4pt;\r\n}\r\n\r\ntable.items tr.small td {\r\n    font-size: 7pt;\r\n}\r\n\r\ntable.items tr.tax td {\r\n    padding: 1pt 4pt;\r\n}\r\n\r\ntable.items tr.tax.first td {\r\n    padding: 3pt 4pt 1pt 4pt;\r\n}\r\n\r\n/**********************************************************************\r\n * TEXT ABOVE / BELOW\r\n **********************************************************************/\r\n\r\ndiv.text-above {\r\n    margin-bottom: 12pt;\r\n}\r\n\r\ndiv.text-below {\r\n    margin-top: 12pt;\r\n}\r\n\r\ni, em {\r\n    font-family: ArialItalic;\r\n}\r\n\r\nstrong, b {\r\n    font-family: ArialBold;\r\n}\r\n\r\ni strong, i b, em strong, em b, strong i, strong em, b i, b em {\r\n    font-family: ArialBoldItalic;\r\n}\r\n\r\nul, ol, div ul, div ol {\r\n    padding-top: 6pt;\r\n    padding-bottom: 6pt;\r\n    padding-left: 0.7cm;\r\n}\r\n\r\nul li, ol li, div ul li, div ol li {\r\n    padding: 1pt 1pt 1pt 2pt;\r\n}\r\n"
+      elementId: LEGACY
+      html: "#########\r\n## HEADER\r\n<header height=\"4.5cm\">\r\n    $logo\r\n</header>\r\n\r\n#########\r\n## FOOTER\r\n<footer height=\"3cm\">\r\n    <div class=\"text\">$footer</div>\r\n    <div class=\"paging $pagingCls\">$i18n.page $pageNumber $i18n.of $pageCount</div>\r\n</footer>\r\n\r\n<div class=\"page\">\r\n\r\n    #################\r\n    ## ADDRESS WINDOW\r\n    <div class=\"window\">\r\n        <div class=\"org $orgFullAddressCsvCls\">$orgFullAddressCsv</div>\r\n        <div class=\"recipient\">$recipientAddress</div>\r\n    </div>\r\n\r\n    ######################\r\n    ## DOCUMENT INFO TABLE\r\n    <div class=\"docinfo\">\r\n        <table>\r\n            <tr class=\"$recipientNrCls\">\r\n                <td>$recipientNrLabel</td>\r\n                <td>$recipientNr</td>\r\n            </tr>\r\n            <tr>\r\n                <td>$i18n.date</td>\r\n                <td>$date</td>\r\n            </tr>\r\n            <tr class=\"$dueDateCls\">\r\n                <td>$i18n.due</td>\r\n                <td>$dueDate</td>\r\n            </tr>\r\n            <tr class=\"$previousCls\">\r\n                <td>$previousDocumentName</td>\r\n                <td>$previousDateAndNr</td>\r\n            </tr>\r\n            <tr class=\"$uidCls\">\r\n                <td>$i18n.tax_code</td>\r\n                <td>$uid</td>\r\n            </tr>\r\n            <tr class=\"$rpCls\">\r\n                <td>$i18n.responsible_person_abbr</td>\r\n                <td>$rpFullName</td>\r\n            </tr>\r\n        </table>\r\n    </div>\r\n\r\n    #################\r\n    ## DOCUMENT TITLE\r\n    <h1><span class=\"$documentNameCls\">$documentName <span class=\"nr\">$nr</span></span></h1>\r\n\r\n    #############\r\n    ## TEXT ABOVE\r\n    <div class=\"text-above\">$textAbove</div>\r\n\r\n    ##############\r\n    ## ITEMS TABLE\r\n    <table class=\"items $itemsCls\">\r\n        #thead()\r\n        #foreach($item in $items)\r\n\r\n            ###############\r\n            ## ARTICLE ITEM\r\n            #if ($item.type == \"ARTICLE\")\r\n                <tr class=\"article\">\r\n                    #if ($displayPosNr) <td>$item.pos</td> #end\r\n                    #if ($displayNr) <td>$item.nr</td> #end\r\n                    <td>\r\n                        $item.name\r\n                        <div class=\"description\">$item.description</div>\r\n                    </td>\r\n                    <td class=\"quantity right\">$item.quantity #if ($displayItemUnit) $item.unit #end</td>\r\n                    #if ($displayPrices)\r\n                        #if ($displayItemTax) <td>$item.taxRate</td> #end\r\n                        <td class=\"right\">#if($displayItemGross)$item.unitPrice#{else}$item.netUnitPrice#end</td>\r\n                        #if ($displayDiscount) <td class=\"right\">$item.discount</td> #end\r\n                        <td class=\"right\">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>\r\n                    #end\r\n                </tr>\r\n            #end\r\n\r\n            ############\r\n            ## TEXT ITEM\r\n            #if ($item.type == \"TEXT\")\r\n                <tr class=\"text\">\r\n                    #if ($displayPosNr) <td>&nbsp;</td> #end\r\n                    #if ($displayNr) <td>&nbsp;</td> #end\r\n                    <td colspan=\"2\">$item.description</td>\r\n                    #if ($displayPrices)\r\n                        #if ($displayItemTax) <td>&nbsp;</td> #end\r\n                        <td>&nbsp;</td>\r\n                        #if ($displayDiscount) <td>&nbsp;</td> #end\r\n                        <td>&nbsp;</td>\r\n                    #end\r\n                </tr>\r\n            #end\r\n\r\n            ############\r\n            ## TITLE ITEM\r\n            #if ($item.type == \"TITLE\")\r\n                <tr class=\"title\"><td colspan=\"$itemFullColspan\">$item.title</td></tr>\r\n            #end\r\n\r\n            ################\r\n            ## SUBTOTAL ITEM\r\n            #if (($item.type == \"SUBTOTAL\" or $item.type == \"OPTIONTOTAL\") and $displayPrices)\r\n                <tr class=\"subtotal\">\r\n                    #if ($displayPosNr) <td>&nbsp;</td> #end\r\n                    #if ($displayNr) <td>&nbsp;</td> #end\r\n                    #if ($displayItemTax) <td>&nbsp;</td> #end\r\n                    <td colspan=\"3\" class=\"right\">$item.name</td>\r\n                    #if ($displayDiscount) <td class=\"right\">&nbsp;</td> #end\r\n                    <td class=\"right\">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>\r\n                </tr>\r\n            #end\r\n\r\n            ##################\r\n            ## PAGE BREAK ITEM\r\n            #if ($item.type == \"PAGEBREAK\")\r\n                </table>\r\n                <page-break/>\r\n                <table class=\"items\">\r\n                    #thead()\r\n            #end\r\n        #end\r\n\r\n        ###################\r\n        ## TAXES AND TOTALS\r\n        #if ($displayPrices)\r\n            #foreach($row in $taxesAndTotals)\r\n                <tr class=\"$row.cls\">\r\n                    <td colspan=\"$row.colspan\" class=\"right\">$row.name</td>\r\n                    <td class=\"right\">$row.currency</td>\r\n                    <td class=\"right\">$row.amount</td>\r\n                </tr>\r\n            #end\r\n        #end\r\n    </table>\r\n\r\n    #############\r\n    ## TEXT BELOW\r\n    #if ($textBelow && !$textBelow.empty)\r\n        <div class=\"text-below\">$textBelow</div>\r\n    #end\r\n</div>\r\n\r\n#############\r\n## TABLE HEAD\r\n#macro(thead)\r\n    <tr>\r\n        #if ($displayPosNr) <th>#&nbsp;&nbsp;</th> #end\r\n        #if ($displayNr) <th>$i18n.article_nr</th> #end\r\n        <th>$i18n.description</th>\r\n        <th class=\"right\">$i18n.quantity</th>\r\n        #if ($displayPrices)\r\n            #if ($displayItemTax) <th>$i18n.tax</th> #end\r\n            <th class=\"right\">$i18n.price</th>\r\n            #if ($displayDiscount) <th class=\"right\">$i18n.discount</th> #end\r\n            <th class=\"right\">$i18n.total</th>\r\n        #end\r\n    </tr>\r\n#end\r\n"    
+    is_default: true
+    is_display_document_name: true
+    is_display_item_article_nr: true
+    is_display_item_price_rounded: true
+    is_display_item_tax: true
+    is_display_item_unit: true
+    is_display_logo: true
+    is_display_org_address_in_window: true
+    is_display_page_nr: true
+    is_display_payments: true
+    is_display_pos_nr: true
+    is_display_recipient_nr: true
+    is_display_responsible_person: true
+    is_display_zero_tax: false
+    is_inactive: false
+    is_qr_empty_amount: false
+    is_qr_no_lines: false
+    is_qr_no_reference_nr: false
+    logo_height: 2
+    page_size: A4
 
-FiscalPeriod: []
+# Text:
+  # - name: Rechtmittel Wasser
+    # type: ORDER_FOOTER
+    # value: Wasser - schriftlich innert 10 Tagen an die Wasserkommission der Bürgergemeinde Gunzgen
+  # - name: Rechtmittel Abwasser
+    # type: ORDER_FOOTER
+    # value: Abwasser - schriftlich innert 10 Tagen an den Einwohnergemeinderat Gunzgen
 
-Currency: []
-
-Rounding: []
-
-SequenceNumber: []
-
-Unit:
-  - code: m3
-    name:
-      de: 'm³'
-      en: 'm³'
-      fr: 'm³'
-      it: 'm³'
-  - code: contract
-    name:
-      de: Auftrag
-      en: Contract
-      fr: Contrat
-      it: Contratto
-  - code: order
-    name:
-      de: Bestellung
-      en: Order
-      fr: Commande
-      it: Ordine
-
-Text:
-  - name: Rechtmittel Wasser
-    type: ORDER_FOOTER
-    value: Wasser - schriftlich innert 10 Tagen an die Wasserkommission der Bürgergemeinde Gunzgen
-  - name: Rechtmittel Abwasser
-    type: ORDER_FOOTER
-    value: Abwasser - schriftlich innert 10 Tagen an den Einwohnergemeinderat Gunzgen
-
-
-# Run 2 Data -----------------------------------------------------------
 
 # Categories 
-AccountCategories:
+AccountCategory:
   - number: 3.1
-    parent_number: EXPENSE
+    parent_number: 3  # EXPENSE
     name:
       de: "Aufwand (ER)"
       en: "Expense (P&L)"
       fr: "Dépense"
       it: "Spesa"
   - number: 4.1
-    parent_number: REVENUE
+    parent_number: 4  # REVENUE
     name:
       de: "Ertrag (ER)"
       en: "Income (P&L)"
       fr: "Revenu (CR)"
       it: "Reddito (CE)"
   - number: 3.2
-    parent_number: EXPENSE
+    parent_number: 3  # EXPENSE
     name:
       de: "Ausgaben (IV)"
       en: "Expenses (IC)"
       fr: "Dépenses (CR)"
       it: "Spese (CE)"
   - number: 4.2
-    parent_number: REVENUE
+    parent_number: 4  # REVENUE
     name:
       de: "Einnahmen (IV)"
       en: "Revenue (IC)"
       fr: "Revenus (CI)"
       it: "Entrate (CI)"
-
-
-PersonCategories:
-# already existing:
-#   - Customers
-#   - Vendors
-#   - Employees
-#
-  - code: subscriber
-    parent_ref: None
-    name:
-      de: 'Abonnenten'
-      en: 'Subscribers'
-      fr: 'Abonnés'
-      it: 'Abbonati'
-
-  - code: customer_service
-    parent_ref: None
-    name:
-      de: 'Kundenservice'
-      en: 'Customer Service'
-      fr: 'Service Client'
-      it: 'Servizio Clienti'
-
-  - code: disclaimer
-    parent_ref: None
-    name:
-      de: '__in scerp zu erfassen__'
-      en: '__enter in scerp__'
-      fr: '__entrer dans scerp__'
-      it: '__inserire in scerp__'
-
-
-# Entities --------------------------------------------------------------------
-Persons:
-  - category_ref: customer_service
-    first_name: null
-    last_name: BDO AG, 4600 Olten
-    company: BDO
-    addresses:
-      - type: MAIN
-        zip: 4600
-        city: Olten
-        country: CHE
-    contacts:
-      - address: bz-gunzgen@bdo.ch
-        type: EMAIL_WORK
-      - address: 062 387 95 29
-        type: PHONE_WORK
-    color: BLUE
-
-
-# Outgoing Orders ------------------------------------------------------------
-OrderCategories:
-  - code: order_outgoing
-    account_ref: 1100   # Debitoren
-    name_singular:
-      de: "Rechnung, ausgehend"
-      en: "Outgoing Invoice"
-      fr: "Facture sortante"
-      it: "Fattura in uscita"
-    name_plural:
-      de: "Rechnungwn, ausgehend"
-      en: "Outgoing Invoices"
-      fr: "Factures sortantes"
-      it: "Fatture in uscita"
-    status:
-      # Status: Entwurforder_procurement_valid_from  (Draft)
-      # Represents a document or invoice in the draft phase. Color is GRAY.
-      - icon: GRAY
-        name:
-          de: Entwurf
-          en: Draft
-          fr: Projet
-          it: Progetto
-
-      # Status: Offen (Open)
-      # Represents an open invoice or document. Color is ORANGE.
-      - icon: ORANGE
-        name:
-          de: Offen
-          en: Open
-          fr: Ouvert
-          it: Aperto
-
-      # Status: Versandt (Sent)
-      # Represents a document that has been sent. Color is BLUE.
-      - icon: BLUE
-        name:
-          de: Versandt
-          en: Sent
-          fr: Envoyé
-          it: Inviato
-
-      # Status: Erinnert 1 (Reminder 1)
-      # The first reminder for an unpaid invoice. Color is YELLOW.
-      - icon: YELLOW
-        name:
-          de: Erinnert 1
-          en: Reminder 1
-          fr: Rappel 1
-          it: Promemoria 1
-
-      # Status: Erinnert 2 (Reminder 2)
-      # The second reminder for an unpaid invoice. Color is YELLOW.
-      - icon: YELLOW
-        name:
-          de: Erinnert 2
-          en: Reminder 2
-          fr: Rappel 2
-          it: Promemoria 2
-
-      # Status: Betreibung (Collection)
-      # Represents a collection or legal action phase. Color is RED.
-      - icon: RED
-        name:
-          de: Betreibung
-          en: Collection
-          fr: Recouvrement
-          it: Recupero
-
-      # Status: Bezahlt (Paid)
-      # Represents an invoice that has been paid. Color is GREEN.
-      - icon: GREEN
-        name:
-          de: Bezahlt
-          en: Paid
-          fr: Payé
-          it: Pagato
-
-      # Status: Storniert (Cancelled)
-      # Represents a cancelled invoice or document. Color is BLACK.
-      - icon: BLACK
-        name:
-          de: Storniert
-          en: Cancelled
-          fr: Annulé
-          it: Annullato
-
-    address_type: INVOICE
-    book_type: DEBIT
-    due_days: 30
-    footer: <i>{{ order_legal }}</i>
-    header: |
-      Kontakt:<br>
-      Tel. 062 387 95 29<br>
-      E-Mail: bz-gunzgen@bdo.ch<br>
-      <br>
-      Abrechnungsperiode: {{ order_period }}<br>
-      Objekt: {{ order_object }}<br>
-      Zählernummer: {{ order_counter_id }}<br>
-      Zählerstand neu: {{ order_counter_actual}} m³ (alt order_counter_previous m³)
-    is_display_prices: true
-    is_display_item_gross: false
-    responsible_person_ref: 3 # check
-    rounding_id: 1 # check
-    sequence_nr_id: 1 # check
-    template_id: 1000  # check
-    type: SALES
-
-# Incoming Orders ------------------------------------------------------------
-  - code: order_incoming
-    account_ref: 2000  # Kreditoren
-    name_singular:
-      de: "Rechnung, eingehend"
-      en: "Incoming Invoice"
-      fr: "Facture entrante"
-      it: "Fattura in entrata"
-    name_plural:
-      de: "Rechnungen, eingehend"
-      en: "Incoming Invoices"
-      fr: "Factures entrantes"
-      it: "Fatture in entrata"
-      status:
-      # Statuses for Incoming Invoice (Rechnung, eingehend)
-      # Each status includes the name (in multiple languages) and the appropriate color
-      - icon: GRAY
-        name:
-          de: "Offen"
-          en: "Open"
-          fr: "Ouvert"
-          it: "Aperto"
-      - icon: GREEN
-        name:
-          de: "Genehmigt 1"
-          en: "Approved 1"
-          fr: "Approuvé 1"
-          it: "Approvato 1"
-      - icon: GREEN
-        name:
-          de: "Genehmigt 2"
-          en: "Approved 2"
-          fr: "Approuvé 2"
-          it: "Approvato 2"
-      - icon: BLUE
-        name:
-          de: "Verbucht"
-          en: "Posted"
-          fr: "Comptabilisé"
-          it: "Registrato"
-      - icon: BLUE
-        name:
-          de: "Übermittelt"
-          en: "Submitted"
-          fr: "Soumis"
-          it: "Inviato"
-      - icon: ORANGE
-        name:
-          de: "Erinnert 1"
-          en: "Reminder 1"
-          fr: "Rappel 1"
-          it: "Promemoria 1"
-      - icon: ORANGE
-        name:
-          de: "Erinnert 2"
-          en: "Reminder 2"
-          fr: "Rappel 2"
-          it: "Promemoria 2"
-      - icon: GREEN
-        name:
-          de: "Bezahlt"
-          en: "Paid"
-          fr: "Payé"
-          it: "Pagato"
-      - icon: BLACK
-        name:
-          de: "Archiviert"
-          en: "Archived"
-          fr: "Archivé"
-          it: "Archiviato"
-      - icon: RED
-        name:
-          de: "Storniert"
-          en: "Cancelled"
-          fr: "Annulé"
-          it: "Annullato"
-
-      address_type: INVOICE
-      book_type: CREDIT
-      type: PURCHASE
-
-  - code: order_procurement
-    account_ref: 2000  # Kreditoren
-    name_singular:
-      de: Beschaffung und Vertrag
-      en: Procurement and Contract
-      fr: Achat et Contrat
-      it: Acquisto e Contratto
-    name_plural:
-      de: Beschaffungen und Verträge
-      en: Procurements and Contracts
-      fr: Achats et Contrats
-      it: Acquisti e Contratti
-    status:
-    # Procurement and Contracts Statuses
-    # Status: Entwurf (Draft)
-    # Represents a document or contract in the draft phase. Color is GRAY.
-    - icon: GRAY
-      name:
-        de: Entwurf
-        en: Draft
-        fr: Projet
-        it: Progetto
-    # Status: Anfrage (Request)
-    # Represents a procurement request. Color is ORANGE.
-    - icon: ORANGE
-      name:
-        de: Anfrage
-        en: Request
-        fr: Demande
-        it: Richiesta
-
-    # Status: Offerte erhalten (Offer Received)
-    # Represents a received offer. Color is BLUE.
-    - icon: BLUE
-      name:
-        de: Offerte erhalten
-        en: Offer Received
-        fr: Offre reçue
-        it: Offerta ricevuta
-
-    # Status: Shortlisted (Shortlisted)
-    # Represents a procurement item that has been shortlisted. Color is YELLOW.
-    - icon: YELLOW
-      name:
-        de: Shortlisted
-        en: Shortlisted
-        fr: Sélectionné
-        it: Selezionato
-
-    # Status: Zuschlag (Awarded)
-    # Represents a procurement item that has been awarded. Color is VIOLET.
-    - icon: VIOLET
-      name:
-        de: Zuschlag
-        en: Awarded
-        fr: Attribué
-        it: Aggiudicato
-
-    # Status: Verfügung (Ruling)
-    # Represents an official ruling or decree. Color is ORANGE.
-    - icon: ORANGE
-      name:
-        de: Verfügung
-        en: Ruling
-        fr: Décision
-        it: Disposizione
-
-    # Status: Einsprache (Appeal)
-    # Represents a situation where an appeal has been made. Color is RED.
-    - icon: RED
-      name:
-        de: Einsprache
-        en: Appeal
-        fr: Appel
-        it: Ricorso
-
-    # Status: Vertrag erhalten (Contract Received)
-    # Represents a contract that has been received. Color is BLUE.
-    - icon: BLUE
-      name:
-        de: Vertrag erhalten
-        en: Contract Received
-        fr: Contrat reçu
-        it: Contratto ricevuto
-
-    # Status: Vertrag unterzeichnet (Contract Signed)
-    # Represents a contract that has been signed. Color is GREEN.
-    - icon: GREEN
-      name:
-        de: Vertrag unterzeichnet
-        en: Contract Signed
-        fr: Contrat signé
-        it: Contratto firmato
-
-    # Status: Abgesagt (Cancelled)
-    # Represents a cancelled procurement process or contract. Color is BLACK.
-    - icon: BLACK
-      name:
-        de: Abgesagt
-        en: Cancelled
-        fr: Annulé
-        it: Annullato
-      address_type: INVOICE
-      book_type: CREDIT
-      type: PURCHASE
-
-    # Status: Gekündigt (Terminated)
-    # Represents a contract or agreement that has been terminated. Color is RED.
-    - icon: RED
-      name:
-        de: Gekündigt
-        en: Terminated
-        fr: Résilié
-        it: Rescisso
-      address_type: INVOICE
-      book_type: CREDIT
-      type: PURCHASE
-
-    # Status: Kündigung bestätigt (Termination Confirmed)
-    # Represents a confirmation of termination for a contract or agreement. Color is BROWN.
-    - icon: BROWN
-      name:
-        de: Kündigung bestätigt
-        en: Termination Confirmed
-        fr: Résiliation confirmée
-        it: Risoluzione confermata
-      address_type: INVOICE
-      book_type: CREDIT
-      type: PURCHASE
-
-    # Status: Archiviert (Archived)
-    # Represents an archived procurement item or contract. Color is GRAY.
-    - icon: GRAY
-      name:
-        de: Archiviert
-        en: Archived
-        fr: Archivé
-        it: Archiviato

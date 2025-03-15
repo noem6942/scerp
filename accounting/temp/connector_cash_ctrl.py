@@ -15,7 +15,7 @@ from scerp.mixins import get_translations, make_timeaware
 from . import api_cash_ctrl
 from .api_cash_ctrl import convert_to_xml
 from .models import (
-    APISetup, TOP_LEVEL_ACCOUNT, Allocation,
+    APISetup, TOP_LEVEL_ACCOUNT_NRS, Allocation,
     CustomField as model_CustomField,
     Account as model_Account,
     Title as model_Title,
@@ -26,8 +26,6 @@ from .models import (
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
 # Helpers
-TOP_LEVEL_NUMBERS = [x.value for x in TOP_LEVEL_ACCOUNT]
-
 class IGNORE:
     ''' keys not be sent to cashCtrl '''
     TENANT = [
@@ -551,7 +549,8 @@ class AccountCategory(cashCtrl):
             data.pop('parent_id')
 
         # Encode numbers in headings
-        if self.setup.encode_numbers and not instance.is_top_level_account:
+        if (self.setup.encode_numbers 
+                and not instance.number in TOP_LEVEL_ACCOUNT_NRS):
             # Add numbers
             data['name'] = {
                 language: self.add_numbers(value, data['number'])

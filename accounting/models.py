@@ -28,7 +28,8 @@ from scerp.locales import CANTON_CHOICES
 from scerp.mixins import get_code_w_name, primary_language
 from .api_cash_ctrl import (
     URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE,
-    CALCULATION_BASE, ORDER_TYPE, PERSON_TYPE, BANK_ACCOUNT_TYPE)
+    CALCULATION_BASE, ORDER_TYPE, PERSON_TYPE, BANK_ACCOUNT_TYPE,
+    FISCAL_PERIOD_TYPE, ACCOUNT_CATEGORY_ID)
 
 
 # Definitions
@@ -36,22 +37,25 @@ class APPLICATION(models.TextChoices):
     CASH_CTRL = 'CC', 'Cash Control'
 
 
-class TOP_LEVEL_ACCOUNT(models.TextChoices):
-    '''Used for making unique categories, values are Decimals '''
-    # CashCtrl
-    ASSET = '1', 'ASSET'
-    LIABILITY = '2', 'LIABILITY'
-    EXPENSE = '3', 'EXPENSE'
-    REVENUE = '4', 'REVENUE'
-    BALANCE = '5', 'BALANCE'
+class TOP_LEVEL_ACCOUNT(Enum):
+    # CachCtrl + OWN
+    ASSETS = 1
+    LIABILITIES = 2
 
-    # OWN, comma to ensure unique number in cashCtrl
-    PL_EXPENSE = '3.1', 'EXPENSE (PL)'  # Aufwand
-    PL_REVENUE = '4.1', 'REVENUE (PL)'  # Ertrag
-    IS_EXPENSE = '3.2', 'EXPENSE (IS)'  # Ausgaben
-    IS_REVENUE = '4.2', 'REVENUE (IS)'  # Einnahmen
+    # Expense
+    EXPENSE = 3
+    PL_EXPENSE = 3.1  # Aufwand
+    IS_EXPENSE = 3.2  # Ausgaben
 
-TOP_LEVEL_ACCOUNT_NRS = [Decimal(x.value) for x in TOP_LEVEL_ACCOUNT]
+    # Revene
+    REVENUE = 4
+    PL_REVENUE = 4.1  # Ertrag
+    IS_REVENUE = 4.2  # Einnahmen
+
+    # Balance
+    BALANCE = 5
+
+TOP_LEVEL_ACCOUNT_NRS = [x.value for x in TOP_LEVEL_ACCOUNT]
 
 
 def rank(nr):
@@ -385,7 +389,7 @@ class Location(AcctApp):
 
 
 class File:
-    
+
     @property
     def url(self):
         return (
@@ -396,10 +400,15 @@ class File:
 
 class FiscalPeriod(AcctApp):
     ''' FiscalPeriod '''
+    TYPE = [(x.value, x.value) for x in FISCAL_PERIOD_TYPE]
+
     name = models.CharField(
         _("Name"), max_length=30, blank=True, null=True,
         help_text=_(
             "The name of the fiscal period, required if isCustom is true."))
+    is_custom = models.BooleanField(
+        _("Is Custom"), default=False, blank=True, null=True,
+        help_text="Check if fiscal period is closed.")
     start = models.DateTimeField(
         _("Start"), blank=True, null=True,
         help_text=_(
@@ -408,12 +417,25 @@ class FiscalPeriod(AcctApp):
         _("End"), blank=True, null=True,
         help_text=_(
             "End date of the fiscal period, required if isCustom is true."))
-    is_closed = models.BooleanField(
-        _("Is closed"), default=False,
-        help_text="Check if fiscal period is closed.")
+    salary_start = models.DateTimeField(
+        _("Salary Start"), blank=True, null=True,
+        help_text=_(
+            "Start date of the fiscal period, required if isCustom is true."))
+    salary_end = models.DateTimeField(
+        _("Salary End"), blank=True, null=True,
+        help_text=_(
+            "End date of the fiscal period, required if isCustom is true."))
     is_current = models.BooleanField(
         _("Is current"), default=False,
         help_text="Check for current fiscal period.")
+    type = models.CharField(
+        _('mode'), max_length=20, choices=TYPE, blank=True, null=True,
+        help_text=_(
+            '''Creation type for creating a calendar year, if isCustom is not
+                set. Either LATEST, which will create the next year after the
+                latest existing year, or EARLIEST, which will create the year
+                before the earliest existing year. Defaults to LATEST.
+            '''))
 
     def __str__(self):
         return self.name or f"Fiscal Period {self.pk}"
@@ -428,7 +450,7 @@ class FiscalPeriod(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'start', 'c_id'],
+                fields=['setup', 'name', 'c_id'],
                 name='unique_setup_period'
             )
         ]
@@ -505,7 +527,6 @@ class Unit(AcctApp):
     name = models.JSONField(
         _('name'), default=dict,
         help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
-    is_default = models.BooleanField(_("Is default"), default=False)
 
     def __str__(self):
         return get_code_w_name(self)
@@ -638,8 +659,11 @@ class AccountCategory(AcctApp):
     '''
     name = models.JSONField(
         _('Name'), default=dict, help_text="The name of the cost center.")
-    number = models.FloatField(
-        _('Number'), help_text=_("The name of the account category."))
+    number = models.DecimalField(
+        _('Number'), max_digits=20, decimal_places=2,
+        help_text=_(
+            'The account category number. Must be numeric but can contain a decimal '
+            'point. In cashCtrl it is string'))
     parent = models.ForeignKey(
         'self', verbose_name=_('Parent'), blank=True, null=True,
         on_delete=models.SET_NULL, related_name='%(class)s_parent',
@@ -996,7 +1020,7 @@ class BankAccount(AcctApp):
         help_text=_("The QR-IBAN, used especially for QR invoices. Specific to "
                     "Switzerland."))
     url = models.URLField(
-        _("url"), max_length=200,
+        _("url"), max_length=200, blank=True, null=True,
         help_text=_("URL for the bank's e-banking portal"))
 
     def clean(self):
@@ -1188,6 +1212,11 @@ class Article(AcctApp):
         Unit, on_delete=models.SET_NULL, blank=True, null=True,
         related_name='%(class)s_unit',
         verbose_name=_('Unit'))
+    tax = models.ForeignKey(
+        # additional field, not included in cashCtrl
+        Tax, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='%(class)s_tax',
+        verbose_name=_('Tax'), help_text=_("Applying tax rate"))
 
     def __str__(self):
         return f"{self.nr} {primary_language(self.name)}"
@@ -1205,7 +1234,7 @@ class Article(AcctApp):
 
 
 # Person ----------------------------------------------------------------
-class Core(AcctApp):
+class Core(AcctApp):    
     # redefine the related classes
     tenant = models.ForeignKey(
         Tenant, on_delete=models.CASCADE,
@@ -1217,6 +1246,8 @@ class Core(AcctApp):
     modified_by = models.ForeignKey(
         User, verbose_name=_('modified by'), null=True, blank=True,
         on_delete=models.CASCADE, related_name='%(class)s_core_modified')
+    is_enabled_sync = None   # use the one in the core model
+    sync_to_accounting = None   # use the one in the core model
 
     class Meta:
         abstract = True
@@ -1348,7 +1379,7 @@ class BookTemplate(AcctApp):
         verbose_name_plural = '_' + _('Booking Template')
 
 
-class OrderTemplate(AcctApp):
+class OrderLayout(AcctApp):
     PAGE_SIZES = [
         ("A0", "A0"), ("A1", "A1"), ("A2", "A2"), ("A3", "A3"), ("A4", "A4"),
         ("A5", "A5"), ("A6", "A6"), ("A7", "A7"), ("A8", "A8"), ("A9", "A9"),
@@ -1357,79 +1388,87 @@ class OrderTemplate(AcctApp):
 
     # Required field
     name = models.CharField(
-        _("Name"), max_length=200,
+        _("Name"), max_length=100,
         help_text="A name to describe and identify the template.")
 
     # Optional fields
-    css = models.TextField(
-        blank=True, null=True, verbose_name="CSS",
-        help_text="The CSS stylesheet for the template.")
+    elements =  models.JSONField(
+        _('Elements'), blank=True, null=True,
+        help_text=_(
+            "List of elements containing HTML/CSS snippets for the different "
+            "parts of the layout."))
     footer = models.TextField(
-        blank=True, null=True, verbose_name="Footer",
+        _("Footer"), blank=True, null=True,
         help_text="Footer text with limited HTML.")
-    html = models.TextField(
-        blank=True, null=True, verbose_name="HTML",
-        help_text="The HTML and Apache Velocity template.")
 
     # Boolean fields with default values
     is_default = models.BooleanField(
-        blank=True, null=True, verbose_name="Default Template")
+        _("Default Template"), blank=True, null=True)
     is_display_document_name = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Document Name")
+        _("Display Document Name"), blank=True, null=True)
     is_display_item_article_nr = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Item Article No.")
+        _("Display Item Article No."), blank=True, null=True)
     is_display_item_price_rounded = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Rounded Item Prices")
+        _("Display Rounded Item Prices"), blank=True, null=True)
     is_display_item_tax = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Item Tax")
+        _("Display Item Tax"), blank=True, null=True)
     is_display_item_unit = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Item Unit")
+        _("Display Item Unit"), blank=True, null=True)
     is_display_logo = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Logo")
+        _("Display Logo"), blank=True, null=True)
     is_display_org_address_in_window = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Org Address in Window")
+        _("Display Org Address in Window"), blank=True, null=True)
     is_display_page_nr = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Page Numbers")
+        _("Display Page Numbers"), blank=True, null=True)
     is_display_payments = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Payments")
+        _("Display Payments"), blank=True, null=True)
     is_display_pos_nr = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Item Numbering")
+        _("Display Item Numbering"), blank=True, null=True)
     is_display_recipient_nr = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Recipient Number")
+        _("Display Recipient Number"), blank=True, null=True)
     is_display_responsible_person = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Responsible Person")
+        _("Display Responsible Person"), blank=True, null=True)
     is_display_zero_tax = models.BooleanField(
-        blank=True, null=True, verbose_name="Display Zero Tax (0.00)")
+        _("Display Zero Tax (0.00)"), blank=True, null=True)
     is_overwrite_css = models.BooleanField(
-        blank=True, null=True, verbose_name="Overwrite Default CSS")
+        _("Overwrite Default CSS"), blank=True, null=True)
     is_overwrite_html = models.BooleanField(
-        blank=True, null=True, verbose_name="Overwrite Default HTML")
+        _("Overwrite Default HTML"), blank=True, null=True)
     is_qr_empty_amount = models.BooleanField(
-        blank=True, null=True, verbose_name="Leave Amount Empty in QR Code")
+        _("Leave Amount Empty in QR Code"), blank=True, null=True)
     is_qr_no_lines = models.BooleanField(
-        blank=True, null=True, verbose_name="QR Invoice Without Lines")
+        _("QR Invoice Without Lines"), blank=True, null=True)
     is_qr_no_reference_nr = models.BooleanField(
-        blank=True, null=True, verbose_name="QR Invoice Without Reference Number")
+        _("QR Invoice Without Reference Number"), blank=True, null=True)
 
     # Numeric fields
     letter_paper_file_id = models.PositiveIntegerField(
-        blank=True, null=True, verbose_name="Letter Paper File ID", help_text="ID of the letter paper file (PDF). Max size: 500KB.")
+        _("Letter Paper File ID"), blank=True, null=True,
+        help_text=_("ID of the letter paper file (PDF). Max size: 500KB."))
     logo_height = models.DecimalField(
-        max_digits=3, decimal_places=1, blank=True, null=True,
-        verbose_name="Logo Height", help_text="Height of the logo in cm. Min: 0.1, Max: 9.0.",
-    )
+        _("Logo Height"), max_digits=3, decimal_places=1, blank=True, null=True,
+        help_text=_("Height of the logo in cm. Min: 0.1, Max: 9.0."))
     page_size = models.CharField(
-        max_length=10, choices=PAGE_SIZES, default="A4", blank=True,
-        verbose_name="Page Size", help_text="Page size of the document. Defaults to A4."
-    )
+        _("Page Size"), max_length=10, choices=PAGE_SIZES, default="A4", blank=True,
+        help_text=_("Page size of the document. Defaults to A4."))
+    parent = models.ForeignKey(
+        'self', verbose_name=_('Parent'), blank=True, null=True,
+        on_delete=models.SET_NULL, related_name='%(class)s_parent',
+        help_text=_("The parent category. We don't use it"))
 
     def __str__(self):
         return self.name
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'name', 'c_id'],
+                name='unique_order_layout'
+            )
+        ]
         ordering = ['name']
-        verbose_name = _("Order Settings - Template")
-        verbose_name_plural = _("Order Settings - Templates")
+        verbose_name = _("Order Settings - Layout")
+        verbose_name_plural = _("Order Settings - Layout")
 
 
 class OrderCategory(AcctApp):
@@ -1470,14 +1509,27 @@ class OrderCategory(AcctApp):
     book_template_data = models.JSONField(
         blank=True, null=True,
         help_text="Internal use for storing book_template_ids")
-    template = models.ForeignKey(
-        OrderTemplate, on_delete=models.PROTECT, blank=True, null=True,
+
+    # Layout
+    layout = models.ForeignKey(
+        OrderLayout, on_delete=models.PROTECT, blank=True, null=True,
         related_name='%(class)s_order_template',
-        verbose_name=_('Order Template'))
+        verbose_name=_('Order Layout'))
     is_display_prices = models.BooleanField(
         _('Display prices'), default=True,
         help_text=_(
-            'Whether prices and totals are displayed on the document.'))
+            'Whether prices and totals are displayed on the document. '
+            'Set to True unless no price is shown on first page! '))
+    header = models.TextField(
+        _("Header Text"), blank=True, null=True,
+        help_text=_(
+            "The text displayed above  the items list on the document used by "
+            "default for order objects"))
+    footer = models.TextField(
+        _("Footer Text"), blank=True, null=True,
+        help_text=_(
+            "The text displayed below the items list on the document used by "
+            "default for order objects"))
 
     @property
     def book_type(self):
@@ -1549,7 +1601,10 @@ class OrderCategoryContract(OrderCategory):
         STATUS.TERMINATION_CONFIRMED: COLOR.BROWN,
         STATUS.ARCHIVED: COLOR.GRAY,
     }
-
+    org_location = models.ForeignKey(
+        Location, verbose_name=_('Parent'), blank=True, null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_location',
+        help_text=_('Responsible Organisation'))
     is_display_item_gross = False
 
     @property
@@ -1671,6 +1726,10 @@ class OrderCategoryIncoming(OrderCategory):
         help_text=(
             '''Which address of the recipient to use in the order document.
                Possible values: MAIN, INVOICE, DELIVERY, OTHER.'''))
+    org_location = models.ForeignKey(
+        Location, verbose_name=_('Parent'), blank=True, null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_location',
+        help_text=_('Paying Organisation'))
     message = models.CharField(
         _('Message'), max_length=50, blank=True, null=True,
         help_text=(
@@ -1703,6 +1762,114 @@ class OrderCategoryIncoming(OrderCategory):
         ]
         verbose_name = _("OrderCategory Creditors - Category")
         verbose_name_plural = _("OrderCategory Creditors - Category")  # rank(2) + _("Creditors - Categories")
+
+
+class OrderCategoryOutgoing(OrderCategory):
+    '''Category for outgoing invoices,
+        use this to define all booking details
+    '''
+    class STATUS(models.TextChoices):
+        DRAFT = 'Draft', _('Draft')
+        OPEN = 'Open', _('Open')
+        SUBMITTED = 'Submitted', _('Submitted')
+        SENT = 'Sent', _('Submitted')
+        REMINDER_1 = 'Reminder 1', _('Reminder 1')
+        REMINDER_2 = 'Reminder 2', _('Reminder 2')
+        PAID = 'Paid', _('Paid')
+        ARCHIVED = 'Archived', _("Archived")
+        CANCELLED = 'Cancelled', _('Cancelled')
+
+    COLOR_MAPPING = {
+        STATUS.DRAFT: COLOR.GRAY,
+        STATUS.OPEN: COLOR.BLUE,
+        STATUS.SUBMITTED: COLOR.BLUE,
+        STATUS.SENT: COLOR.YELLOW,
+        STATUS.REMINDER_1: COLOR.ORANGE,
+        STATUS.REMINDER_2: COLOR.RED,
+        STATUS.PAID: COLOR.GREEN,
+        STATUS.ARCHIVED: COLOR.BLACK,
+        STATUS.CANCELLED: COLOR.PINK,
+    }
+
+    BOOKING_MAPPING = {
+        STATUS.DRAFT: False,
+        STATUS.OPEN: False,
+        STATUS.SUBMITTED: True,
+        STATUS.SENT: False,
+        STATUS.REMINDER_1: False,
+        STATUS.REMINDER_2: False,
+        STATUS.PAID: True,
+        STATUS.ARCHIVED: False,
+        STATUS.CANCELLED: True,
+    }
+    is_display_item_gross = True
+
+    debit_account = models.ForeignKey(
+        Account, on_delete=models.CASCADE,
+        related_name='%(class)s_debit_account',
+        verbose_name=_('Credit Account'))
+    revenue_account = models.ForeignKey(
+        Account, on_delete=models.CASCADE,
+        related_name='%(class)s_revenue_account',
+        verbose_name=_('Revenue Account'))
+    bank_account = models.ForeignKey(
+        BankAccount, on_delete=models.CASCADE,
+        related_name='%(class)s_banke_account',
+        verbose_name=_('Bank Account (receiving)'))
+    tax = models.ForeignKey(
+        Tax, on_delete=models.CASCADE, blank=True, null=True,
+        related_name='%(class)s_tax',
+        verbose_name=_('Tax'),
+        help_text="Tax rate to be applied.")
+    rounding = models.ForeignKey(
+        Rounding, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_rounding',
+        verbose_name=_('Rounding'))
+    currency = models.ForeignKey(
+        Currency, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_currency',
+        verbose_name=_('Currency'),
+        help_text=_("Leave empty for CHF"))
+    due_days = models.PositiveSmallIntegerField(
+        _('Default due days'), default=30, null=True, blank=True)
+    address_type = models.CharField(
+        _('address type'), max_length=20,
+        choices=PersonAddress.TYPE.choices,
+        default=PersonAddress.TYPE.INVOICE,
+        help_text=(
+            '''Which address of the recipient to use in the order document.
+               Possible values: MAIN, INVOICE, DELIVERY, OTHER.'''))
+    org_location = models.ForeignKey(
+        Location, verbose_name=_('Parent'), blank=True, null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_location',
+        help_text=_('Paying Organisation'))
+
+    @property
+    def sequence_number(self):
+        return self.get_sequence_number('ER')
+
+    # overwriting of order categories seems to work
+    '''
+    def clean(self):
+        # Check if not changeable
+        if self.pk and IncomingOrder.objects.filter(category=self).exists():
+            raise ValidationError(
+                _("Categories with existing contracts cannot be changed"))
+        super().clean()
+    '''
+
+    def __str__(self):
+        return _('Creditors') + ': ' + primary_language(self.name_plural)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'code'],
+                name='unique_order_category_outgoing'
+            )
+        ]
+        verbose_name = _("OrderCategory Debtors - Category")
+        verbose_name_plural = _("OrderCategory Debtors - Category")  # rank(2) + _("Creditors - Categories")
 
 
 class Order(AcctApp):
@@ -1817,6 +1984,9 @@ class IncomingOrder(Order):
         verbose_name=_('Clerk'), related_name='%(class)s_person',
         help_text=_('Clerk'))
     attachments = GenericRelation('core.Attachment')
+    reference = models.CharField(
+        _('QR Reference'), max_length=50, blank=True, null=True,
+        help_text=_('Reference in invoice'))
 
     def __str__(self):
         return (f"{self.contract.associate.company}, {self.date}, "
@@ -1827,7 +1997,99 @@ class IncomingOrder(Order):
         verbose_name_plural = rank(1) + '*' + _("Incoming Invoices")
 
 
-class IncomingBookEntry(AcctApp):
+class OutgoingOrder(Order):
+    ''' Outgoing, i.e INVOICE
+    Note:
+    When outcomding order is created first booking is done:
+        account_id:
+            account given
+            (if empty taken from OrderCategory, but we avoid this)
+        items:
+            accountId: expense account, e.g. Wareneingang
+            name: derived from contract
+            unitPrice: use price_incl_vat
+            quantity: use 1
+            tax_id: derive from ...
+    '''
+    category = models.ForeignKey(
+        OrderCategoryIncoming, on_delete=models.CASCADE,
+        related_name='%(class)s_category',
+        verbose_name=_('Category'),
+        help_text=_('all booking details are defined in category'))
+    contract = models.ForeignKey(
+        OrderContract, on_delete=models.PROTECT,
+        related_name='%(class)s_contract',
+        verbose_name=_('Contract'),
+        help_text=_(
+            "Contract with booking instructions. "
+            "Upload actual invoice as attachment."))
+    description = models.TextField(
+        _('Description'), blank=True, null=True,
+        help_text=_("e.g. Services May"))
+    status = models.CharField(
+        _('Status'), max_length=50,
+        choices=OrderCategoryIncoming.STATUS.choices)
+    due_days = models.PositiveSmallIntegerField(
+        _('Due Days'), null=True, blank=True,
+        help_text=_('''Leave blank to calculate from contract'''))
+    responsible_person = models.ForeignKey(
+        PersonCrm, on_delete=models.PROTECT, blank=True, null=True,
+        verbose_name=_('Clerk'), related_name='%(class)s_person',
+        help_text=_('Clerk'))
+    attachments = GenericRelation('core.Attachment')
+
+    # custom
+    reference = models.CharField(
+        _('QR Reference'), max_length=50, blank=True, null=True,
+        help_text=_('Reference in invoice'))
+    header = models.TextField(
+        _("Header Text"), blank=True, null=True,
+        help_text=_(
+            "The text displayed above  the items list on the document used by "
+            "default for order objects. Leave empty if default."))
+    footer = models.TextField(
+        _("Footer Text"), blank=True, null=True,
+        help_text=_(
+            "The text displayed below the items list on the document used by "
+            "default for order objects. Leave empty if default."))
+
+    def __str__(self):
+        return (f"{self.contract.associate.company}, {self.date}, "
+                f"{self.description}")
+
+    class Meta:
+        verbose_name = _("Incoming Invoice")
+        verbose_name_plural = rank(1) + '*' + _("Incoming Invoices")
+
+
+class OutgoingItem(AcctApp):
+    article = models.ForeignKey(
+        Article, on_delete=models.PROTECT, related_name='%(class)s_article',
+        verbose_name=_('Article'))
+    quantity = models.DecimalField(
+        _('Quantity'), max_digits=11, decimal_places=2)
+    order = models.ForeignKey(
+        OutgoingOrder, on_delete=models.PROTECT,
+        related_name='%(class)s_order',
+        verbose_name=_('Order'))
+
+
+class BookEntry(AcctApp):
+    ''' Book Entry for incoming orders
+    '''
+    date = models.DateField(_('Date'))
+    template_id = models.PositiveIntegerField(
+        _('Book Template Id'), null=True, blank=True,
+        help_text=_('''CashCtrl id, automatically filled out'''))
+
+    class Meta:
+        ordering = ['-date']
+        verbose_name = _("Book Entry")
+        verbose_name_plural = _("Book Entries")
+        abstract = True
+
+
+class IncomingBookEntry(BookEntry):
     ''' Book Entry for incoming orders
     '''
     order = models.ForeignKey(
@@ -1835,10 +2097,6 @@ class IncomingBookEntry(AcctApp):
         related_name='%(class)s_order',
         verbose_name=_('Order'),
         help_text=_('automatically generated'))
-    date = models.DateField(_('Date'))
-    template_id = models.PositiveIntegerField(
-        _('Book Template Id'), null=True, blank=True,
-        help_text=_('''CashCtrl id, automatically filled out'''))
 
     class Meta:
         constraints = [
@@ -1847,9 +2105,24 @@ class IncomingBookEntry(AcctApp):
                 name='unique_incoming_book_entry'
             )
         ]
-        ordering = ['-date']
-        verbose_name = _("Book Entry")
-        verbose_name_plural = _("Book Entries")
+
+
+class OutgoingBookEntry(BookEntry):
+    ''' Book Entry for incoming orders
+    '''
+    order = models.ForeignKey(
+        OutgoingOrder, on_delete=models.CASCADE,
+        related_name='%(class)s_order',
+        verbose_name=_('Order'),
+        help_text=_('automatically generated'))
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['setup', 'order', 'template_id'],
+                name='unique_outgoing_book_entry'
+            )
+        ]
 
 
 # scerp entities with foreign key to Ledger ---------------------------------

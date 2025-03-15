@@ -1,3 +1,6 @@
+from decimal import Decimal
+import yaml
+
 from api_cash_ctrl import *
 
 
@@ -23,6 +26,18 @@ if __name__ == "__main__":
         print("*", data_list)
 
     if True:
+        conn = AccountCategory(org, api, convert_dt=False)
+        data_list = conn.list()
+        for data in data_list:
+            if data['id'] < 10:
+                print("*", data['name'].upper(), "=", data['id'], 
+                    data['number'], type(data['number']))
+        
+        conn.create({'name': 'test 1_d', 'parent_id': 1, 'number': Decimal(99.9)})
+        conn.create({'name': 'test 1_f', 'parent_id': 1, 'number': 99.9})
+        conn.create({'name': 'test 1_str', 'parent_id': 1, 'number': '99.9'})
+        
+    if False:
         conn = AccountBankAccount(org, api, convert_dt=False)
 
         data = {

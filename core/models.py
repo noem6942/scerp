@@ -483,6 +483,9 @@ class BankAccount(TenantAbstract):
         return f"{self.type} - {self.iban}"
 
 class Sync(TenantAbstract):
+    is_enabled_sync = models.BooleanField(
+        _("Enable Sync"), default=True,
+        help_text="Disable sync with Accounting; useful for admin tasks.")
     sync_to_accounting = models.BooleanField(
         _("Sync to Accounting"), default=False,
         help_text=(
@@ -686,17 +689,17 @@ class Person(Sync):
 
     def __str__(self):
         company = self.company or ''
-        
+
         # Ensure all name components are strings (handle None)
         last_name = self.last_name or ''
         first_name = self.first_name or ''
         alt_name = self.alt_name or ''
         date_birth = str(self.date_birth) if self.date_birth else ''
-        
+
         # Construct the full name
         name_parts = [last_name, first_name, alt_name, date_birth]
         name = ', '.join(filter(None, name_parts))  # Remove empty strings
-        
+
         # Ensure at least one value is returned
         if company and name:
             return f"{company}, {name}"
