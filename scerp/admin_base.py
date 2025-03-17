@@ -268,10 +268,6 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
         # Atomic save with error handling
         self.has_errors = True
-        with transaction.atomic():
-            super().save_model(request, instance, form, change)
-            self.has_errors = False
-        return
         try:
             with transaction.atomic():
                 super().save_model(request, instance, form, change)

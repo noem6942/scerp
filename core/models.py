@@ -459,9 +459,14 @@ class BankAccount(TenantAbstract):
     type = models.CharField(
         max_length=20, choices=TYPE.choices, default=TYPE.DEFAULT)
     iban = models.CharField(
-        _('IBAN'), max_length=32,
-        help_text=('The IBAN (International Bank Account Number) of the person.')
-    )
+        _('IBAN'), max_length=32, blank=True, null=True,
+        help_text=_(
+            'The IBAN (International Bank Account Number) of the person.'))
+    qr_iban = models.CharField(
+        _('QR IBAN'), max_length=32, blank=True, null=True,
+        help_text=_(
+            "The QR-IBAN, which is an IBAN especially for QR invoices "
+            "(former ESR)."))
     bic = models.CharField(
         _('BIC Code'), max_length=11, blank=True, null=True,
         help_text=_(
@@ -469,10 +474,12 @@ class BankAccount(TenantAbstract):
             "Most common Swiss BIC codes are detected automatically."))
 
     def clean(self):
-        if self.iban and not self.bic:
+        if (self.iban or self.qr_iban) and not self.bic:
             self.bic = get_bic(self.iban)
             if not self.bic:
                 raise ValidationError(_("No BIC Code found."))
+        if not self.iban and not self.qr_iban:
+            raise ValidationError(_("No IBAN given."))
 
     class Meta:
         abstract = True
@@ -688,7 +695,12 @@ class Person(Sync):
                 _('Either First Name, Last Name or Company must be set.'))
 
     def __str__(self):
-        company = self.company or ''
+        if self.is_employee:
+            company = '℗' + self.company
+        elif self.company:
+            company = '©' + self.company
+        else:
+            company = ''
 
         # Ensure all name components are strings (handle None)
         last_name = self.last_name or ''

@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
 
+from core.models import PersonBankAccount
 from core.safeguards import save_logging
 from scerp.actions import action_check_nr_selected
 from scerp.exceptions import APIRequestError
@@ -225,10 +226,9 @@ def accounting_get_data(modeladmin, request, queryset, data):
     model = modeladmin.model.__name__
     api = getattr(conn, model, None)
     language = None  # i.e. English
-    if api:
+    if api:        
         handler = api(modeladmin.model, language=language)
         setup = queryset.first().setup
-        tenant = setup.tenant
         handler.get(
             setup, request.user, 
             overwrite_data=data['overwrite_data'], 
@@ -272,3 +272,34 @@ def de_sync_accounting(modeladmin, request, queryset):
     ''' update is_enabled_sync to False '''
     if action_check_nr_selected(request, queryset, min_count=1):
         queryset = queryset.update(is_enabled_sync=False)
+
+
+@action_with_form(
+    forms.IncomingOrderForm, description=_('Scan banking data from invoice')
+)
+def get_bank_data(modeladmin, request, queryset, data):
+    ''' update is_enabled_sync to False '''
+    if action_check_nr_selected(request, queryset, count=1):
+        invoice = queryset.first()
+
+        changed = False
+        if data['price_incl_vat']:
+            invoice.price_incl_vat = data.pop('price_incl_vat')
+            changed = True
+        
+        data = {k: v.replace(' ', '') for k, v in data.items()}
+        bank_account = invoice.supplier_bank_account
+
+        if bank_account:
+            if data['iban'] != bank_account.iban:
+                bank_account.iban = data['iban'] 
+                changed = True
+            if data['qr_iban'] != bank_account.qr_iban:
+                bank_account.qr_iban = data['qr_iban'] 
+                changed = True
+            if data['bic'] != bank_account.bic:
+                bank_account.bic = data['bic'] 
+                changed = True
+        
+        if changed:
+            bank_account.save()

@@ -1,6 +1,7 @@
 '''
 accounting/connector_cash_ctrl_2.py
 '''
+from django.db.models import Q
 from django.forms.models import model_to_dict
 from django.utils import timezone
 from django.utils.encoding import force_str
@@ -102,8 +103,10 @@ class CashCtrl:
             instance.sync_to_accounting = False
             instance.save()
 
-        if delete_not_existing:
-            self.model.objects.exclude(setup=setup, c_id__in=c_ids).delete()
+        if delete_not_existing:            
+            self.model.objects.filter(
+                ~Q(setup=setup), ~Q(c_id__in=c_ids), c_id__isnull=False
+            ).delete()
 
     def reload(self, instance):
         data = self.api.read(instance.c_id)
@@ -116,7 +119,7 @@ class CashCtrl:
     def save(self, instance, created=None):
         # Check if read only
         if getattr(self, 'read_only', False):
-            raise ValueError('cashCtrl, read only entity.')
+            raise ValueError('cashCtrl, read only entity. Only code saved.')
         
         # Get api
         api = self._get_api(instance.setup)
@@ -156,8 +159,10 @@ class CashCtrl:
 
     def delete(self, instance):
         api = self._get_api(instance.setup)
-        response = api.delete(instance.c_id)
-        return response
+        if instance.c_id:
+            response = api.delete(instance.c_id)
+            return response
+        return None
 
 
 class CashCtrlDual(CashCtrl):
@@ -449,10 +454,12 @@ class BankAccount(CashCtrl):
         # currency_id
         data['currency_id'] = (
             instance.currency.c_id if instance.currency else None)
-            
-        print("*data", data)
 
     def save_download(self, instance, data):
+        # account
+        instance.account = models.Account.objects.filter(
+            c_id=data['account_id']).first()
+            
         if not instance.code:
             instance.code = f"custom {data['id']}"
 
@@ -554,9 +561,9 @@ class OrderCategory(CashCtrl):
             'is_display_item_gross': instance.is_display_item_gross
         })
 
-        # Order template
-        if instance.template:
-            data['template_id'] = instance.template.c_id
+        # Order layout
+        if instance.layout:
+            data['layout_id'] = instance.layout.c_id
 
         if instance.sequence_number:
             data['sequence_nr_id'] = instance.sequence_number.c_id
@@ -572,7 +579,7 @@ class OrderCategory(CashCtrl):
         instance.refresh_from_db()
         data = self.api.read(instance.c_id)
         instance.status_data = data['status']
-        instance.book_template_data = data['bookTemplates']
+        instance.book_template_data = data['book_templates']
 
         # save
         instance.sync_to_accounting = False
@@ -586,11 +593,14 @@ class OrderCategoryContract(OrderCategory):
         data['account_id'] = instance.account.c_id
 
         # status, we only use minimal values as we do the booking ourselves
-        data['status'] = [{
-            'icon': instance.COLOR_MAPPING[status],
-            'name': convert_to_xml(
-                get_translations(force_str(status.label))),
-        } for status in self.model.STATUS]
+        if created:
+            data['status'] = [{
+                'icon': instance.COLOR_MAPPING[status],
+                'name': convert_to_xml(
+                    get_translations(force_str(status.label))),
+            } for status in self.model.STATUS]
+        else:
+            data['status'] = instance.status_data            
 
 
 class OrderCategoryIncoming(OrderCategory):
@@ -610,16 +620,28 @@ class OrderCategoryIncoming(OrderCategory):
                 get_translations(force_str(status.label))),
             'isBook': instance.BOOKING_MAPPING[status]
         } for status in STATUS]
-
+        
         # BookTemplates
-        data['book_templates'] = [{
+        # booking
+        booking = {
             'accountId': data['account_id'],
             'name': convert_to_xml(get_translations('Booking')),
+            'isAllowTax': True if instance.tax else False,
             'taxId': instance.tax.c_id if instance.tax else None
-        }, {
-            'accountId': bank_account,
-            'name': convert_to_xml(get_translations('Payment'))
-        }]
+        }
+        
+        # payment
+        payment_account = instance.bank_account
+        if payment_account.account and payment_account.account.c_id:
+            payment = {
+                'accountId': payment_account.account.c_id,
+                'name': convert_to_xml(get_translations('Payment'))
+            }            
+        else:
+            raise ErrorValue("Bank account has no booking account assigned")
+      
+        # assign
+        data['book_templates'] = [booking, payment]
 
         # Rounding
         if getattr(instance, 'rounding', None):
@@ -653,15 +675,23 @@ class OrderContract(Order):
         self.make_base(instance, data)
 
         # associate
-        if instance.associate:
-            person = models.Person.objects.filter(
-                core=instance.associate).first()
-            data['associate_id'] = person.c_id if person else None
+        person = models.Person.objects.filter(
+            core=instance.associate).first()
+        if not person or not person.c_id:
+            raise ValueError("OrderContract: No associate.id given.")
+        data['associate_id'] = person.c_id
+
+        # description
+        if instance.description:
+            description = instance.description
+        else:
+            description = f'Order from {instance.date}'
+            data['description'] = description
 
         # Create one item with total price
         data['items'] = [{
             'accountId': instance.category.account.c_id,
-            'name': instance.description,            
+            'name': description,            
             'unitPrice': float(instance.price_excl_vat)
         }]
 
@@ -701,13 +731,14 @@ class IncomingOrder(Order):
         bank_account = PersonBankAccount.objects.filter(
             tenant=instance.tenant, 
             person=instance.contract.associate,
-            default=True
+            type=PersonBankAccount.TYPE.DEFAULT
         ).first()
         data['items'] = [{
             'accountId': instance.category.expense_account.c_id,
             'name': instance.description,
             'description': (
-                f"{_('Account')}: {bank_account.bic}, {bank_account.iban}"),
+                f"{PersonBankAccount._meta.verbose_name}: "
+                f"{bank_account.bic}, {bank_account.iban}"),
             'unitPrice': float(instance.price_incl_vat),
             'taxId': category.tax.c_id if category.tax else None
         }]
@@ -719,6 +750,9 @@ class IncomingOrder(Order):
         # Due days
         if getattr(instance, 'due_days', None):
             data['due_days'] = instance.due_days
+            
+        print("*data", data)    
+            
 
 class IncomingBookEntry(CashCtrl):
     api_class = api_cash_ctrl.OrderBookEntry
@@ -790,10 +824,6 @@ class Article(CashCtrl):
         if getattr(instance, 'unit', None):
             data['unit_id'] = instance.unit.c_id
 
-    def save_download(self, instance, data):
-        if not instance.code:
-            instance.code = f"custom {data['id']}"
-
 
 # CashCtrlDual
 class Title(CashCtrlDual):
@@ -803,10 +833,6 @@ class Title(CashCtrlDual):
 
     def adjust_for_upload(self, instance, data, created=None):
         return model_to_dict(instance, exclude=self.exclude)
-
-    def save_download(self, instance, data):
-        if not instance.code:
-            instance.code = f"custom {data['id']}"
 
 
 class PersonCategory(CashCtrlDual):

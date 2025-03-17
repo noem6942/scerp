@@ -340,7 +340,7 @@ class BankAccountInline(BaseTabularInline):  # or admin.StackedInline
 
     # Inline
     model = models.PersonBankAccount
-    fields = ['type', 'iban', 'bic']
+    fields = ['type', 'iban', 'qr_iban', 'bic']
     extra = 0  # Number of empty forms displayed
     show_change_link = True  # Shows a link to edit the related model
     verbose_name_plural = _("Bank Accounts")

@@ -187,7 +187,7 @@ class LedgeUpdate:
             # Update, note: we do not re-arrange groups, needs new creation
             account.name=self.instance.name
             account.number = self.get_number()
-            account.hrm=instance.hrm
+            account.hrm=self.instance.hrm
             account.function=self.instance.function
             account.sync_to_accounting=True
             account.save()
@@ -310,16 +310,16 @@ class LedgerFunctionalUpdate(LedgeUpdate):
 
     def get_account_category(self):
         # Get all expense cases:
-        if (int(self.instance.hrm[0]) in accounts_expense
+        if (int(self.instance.hrm[0]) in self.accounts_expense
                 or '9000.' in self.instance.hrm):
             return self.instance.parent.category_expense
         return self.instance.parent.category_revenue
 
 class LedgerPLUpdate(LedgerFunctionalUpdate):
-    top_level_expense = TOP_LEVEL_ACCOUNT.PL_EXPENSE.value  # 3.1
-    top_level_revenue = TOP_LEVEL_ACCOUNT.PL_REVENUE.value  # 4.1
+    top_level_expense = TOP_LEVEL_ACCOUNT.PL_EXPENSE.value  # '3.1'
+    top_level_revenue = TOP_LEVEL_ACCOUNT.PL_REVENUE.value  # '4.1'
 
 
 class LedgerICUpdate(LedgerFunctionalUpdate):
-    top_level_expense = TOP_LEVEL_ACCOUNT.IS_EXPENSE.value  # 3.2
-    top_level_revenue = TOP_LEVEL_ACCOUNT.IS_REVENUE.value  # 4.2
+    top_level_expense = TOP_LEVEL_ACCOUNT.IS_EXPENSE.value  # '3.2'
+    top_level_revenue = TOP_LEVEL_ACCOUNT.IS_REVENUE.value  # '4.2'

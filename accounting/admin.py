@@ -317,7 +317,7 @@ class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'code', 'display_name', 'iban') + FIELDS.C_DISPLAY_SHORT
+        'code', 'display_name', 'iban', 'account') + FIELDS.C_DISPLAY_SHORT
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
     list_display_links = ('code', 'display_name')
 
@@ -675,13 +675,14 @@ class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', *make_language_fields('name'), 'sales_account'
+                'code', *make_language_fields('name'), 'sales_account',
+                'sequence_nr'
             ),
             'classes': ('expand',),
         }),
         (_("Extra"), {
             'fields': (
-                'parent', 'purchase_account', 'sequence_nr'
+                'parent', 'purchase_account'
             ),
             'classes': ('collapse',),
         }),
@@ -720,15 +721,15 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'nr', 'category', *make_language_fields('name'),
-                'sales_price', 'unit', 'tax',
+                'category', *make_language_fields('name'),
+                'sales_price', 'unit', 'tax', 'sequence_nr', 'nr', 
                 *make_language_fields('description')),
             'classes': ('expand',),
         }),
         (_("Stock Management"), {
             'fields': (
                 'location', 'bin_location', 'is_stock_article', 'stock',
-                'min_stock', 'max_stock', 'sequence_nr'),
+                'min_stock', 'max_stock'),
             'classes': ('collapse',),
         }),
         (_("Pricing"), {
@@ -871,7 +872,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
         'tenant', 'version', 'setup', 'credit_account', 'expense_account', 
-        'bank_account', 'tax', 'currency', 'template'
+        'bank_account', 'tax', 'currency', 'layout'
     ]
 
     # Helpers
@@ -894,7 +895,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (
                 'code', 
                 *make_language_fields('name_singular'),
-                *make_language_fields('name_plural'), 'template'
+                *make_language_fields('name_plural'), 'layout'
             ),
             'classes': ('expand',),
         }),
@@ -974,23 +975,30 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
         'date', 'display_category_type', 'description', 'display_supplier',
-        'price_incl_vat', 'category__currency', 'status'
-    )  + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
+        'display_price', 'category__currency', 'display_bank_account',
+        'status'
+    )  + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT + FIELDS.C_DISPLAY_SHORT
     list_display_links = (
         'date', 'display_category_type', 'description'
     ) + CORE_FIELDS.LINK_ATTACHMENT
-    readonly_fields = ('display_category_type',) + FIELDS.C_READ_ONLY
+    readonly_fields = (
+        'display_category_type', 'display_bank_account'
+    ) + FIELDS.C_READ_ONLY
 
     # Search, filter
     search_fields = ('contract__associate_company', 'description')
     list_filter = ('category', 'status', 'date')
+
+    # Actions
+    actions = [a.get_bank_data]
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
                 'category', 'contract', 'status', 'description', 'date',
-                'price_incl_vat', 'due_days', 'responsible_person'),
+                'price_incl_vat', 'due_days', 'reference',
+                'responsible_person', 'display_bank_account'),
             'classes': ('expand',),
         }),
         BASE_FIELDSET.NOTES_AND_STATUS,
@@ -1000,9 +1008,18 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     
     inlines = [AttachmentInline]
 
+    @admin.display(description=_('Price (Incl. VAT)'))
+    def display_price(self, obj):
+        return Display.big_number(obj.price_incl_vat)
+
+    @admin.display(description=_('Supplier IBAN / QR IBAN'))
+    def display_bank_account(self, obj):
+        account = obj.supplier_bank_account
+        return account.iban + ' / ' + account.qr_iban if account else None
+
     @admin.display(description=_('Supplier'))
     def display_supplier(self, obj):
-        return self.display_link_to_company(obj.contract.associate)
+        return obj.contract.associate
 
 
 # unregister @admin.register(models.IncomingBookEntry, site=admin_site)
@@ -1107,6 +1124,7 @@ class LedgerAdmin(TenantFilteringAdmin, BaseAdmin):
         'link_to_balance', 'link_to_pl', 'link_to_ic',
         'display_current')
     list_display_links = ('code', 'display_name', )
+    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
 
     # Search, filter
     search_fields = ('code', 'name', 'period__name')
@@ -1234,7 +1252,7 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
         (None, {
             'fields': (
                 'ledger', 'hrm', *make_language_fields('name'), 'type',
-                'function', 'parent', 'category', 'account'),
+                'parent', 'category', 'account'),
             'classes': ('expand',),
         }),
         ('Balances', {

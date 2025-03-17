@@ -179,3 +179,5 @@ class SyncLedger:
                 logger.info(f"synched {position.hrm}.")
             except:
                 logger.error(f"could not synch {position.hrm}.")
+        if not queryset:
+            logger.warning(f"no positions to by synched.")

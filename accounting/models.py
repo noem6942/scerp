@@ -17,7 +17,7 @@ from django.utils.translation import gettext_lazy as _
 from core.models import (
     LogAbstract, NotesAbstract, Attachment ,
     Tenant, TenantAbstract, TenantSetup, TenantLogo,
-    Country, Address, Contact, PersonAddress
+    Country, Address, Contact, PersonAddress, PersonBankAccount
 )
 from core.models import (
     Title as TitleCrm,
@@ -37,23 +37,24 @@ class APPLICATION(models.TextChoices):
     CASH_CTRL = 'CC', 'Cash Control'
 
 
-class TOP_LEVEL_ACCOUNT(Enum):
+class TOP_LEVEL_ACCOUNT(models.TextChoices):
+    ''' choices do not support float '''
     # CachCtrl + OWN
-    ASSETS = 1
-    LIABILITIES = 2
+    ASSET = '1', _('ASSET')
+    LIABILITY = '2', _('Liability')
 
     # Expense
-    EXPENSE = 3
-    PL_EXPENSE = 3.1  # Aufwand
-    IS_EXPENSE = 3.2  # Ausgaben
+    EXPENSE = '3', _('Expense')
+    PL_EXPENSE = '3.1', _('IV - Aufwand')
+    IS_EXPENSE = '3.2', _('IV - Ausgaben')
 
     # Revene
-    REVENUE = 4
-    PL_REVENUE = 4.1  # Ertrag
-    IS_REVENUE = 4.2  # Einnahmen
+    REVENUE = '4', _('Revenue')
+    PL_REVENUE = '4.1', _('Ertrag')
+    IS_REVENUE = '4.2', _('Einnahmen')
 
     # Balance
-    BALANCE = 5
+    BALANCE = '5', _('Balance')
 
 TOP_LEVEL_ACCOUNT_NRS = [x.value for x in TOP_LEVEL_ACCOUNT]
 
@@ -529,7 +530,7 @@ class Unit(AcctApp):
         help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
 
     def __str__(self):
-        return get_code_w_name(self)
+        return primary_language(self.name)
 
     class Meta:
         constraints = [
@@ -674,10 +675,20 @@ class AccountCategory(AcctApp):
 
     @property
     def is_top_level_account(self):
-        return Decimal(str(self.number)) in TOP_LEVEL_ACCOUNT_NRS
+        return str(self.number) in TOP_LEVEL_ACCOUNT_NRS
 
     def __str__(self):
-        return f"{self.number} {primary_language(self.name)}"
+        decimal_part = self.number % 1  # Get the decimal part
+        if decimal_part == 0:
+            key = str(self.number)[0]
+        else:
+            key = str(decimal_part * 10).replace('0', '')
+        if key[-1] == '.':
+            key = key.replace('.', '')
+        praefix = next(
+            (str(x.label) + ' - ' for x in TOP_LEVEL_ACCOUNT if x == key)
+            , None)
+        return f"{praefix}{self.number} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -760,12 +771,12 @@ class Account(AcctApp):
         help_text=_('The budget as agreed.')
     )
 
-    def __str__(self):
+    def __str__(self):              
         if not self.hrm or self.hrm[0] in ['1', '2']:  # balance
-            name = ''
+            function = ''  # do not display
         elif self.function:
-            name = self.function + ' '
-        return f"{name}{self.hrm} {primary_language(self.name)}"
+            function = self.function + ' '
+        return f"{function}{self.hrm} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -774,7 +785,7 @@ class Account(AcctApp):
                 name='unique_setup_account'
             )
         ]
-        ordering = ['number']
+        ordering = ['function', 'hrm', 'number']
         verbose_name = ('Ledgers - Setup Account')
         verbose_name_plural = _('Ledgers - Setup Accounts')
 
@@ -963,7 +974,7 @@ class Tax(AcctApp):
             raise ValidationError(_("Name must not be empty"))
 
     def __str__(self):
-        return get_code_w_name(self)
+        return primary_language(self.name)
 
     class Meta:
         constraints = [
@@ -1028,7 +1039,7 @@ class BankAccount(AcctApp):
             raise ValidationError(_("Name must not be empty"))
 
     def __str__(self):
-        return get_code_w_name(self)
+        return f"{primary_language(self.name)}, {self.account}"
 
     class Meta:
         constraints = [
@@ -1113,7 +1124,7 @@ class ArticleCategory(AcctApp):
             "Leave empty."))
 
     def __str__(self):
-        return get_code_w_name(self)
+        return primary_language(self.name)
 
     class Meta:
         constraints = [
@@ -1133,7 +1144,9 @@ class Article(AcctApp):
     """
     nr = models.CharField(
         _('Article Number'), max_length=50, blank=True, null=True,
-        help_text=_("The article number."))
+        help_text=_(
+        "The article number. Leave empty per default. "
+         "BUG: currently nr is mandatory and must be unique"))
     name = models.JSONField(
         _('Name'),
         help_text=_("The name of the article. For localized text, use XML format: "
@@ -1234,7 +1247,7 @@ class Article(AcctApp):
 
 
 # Person ----------------------------------------------------------------
-class Core(AcctApp):    
+class Core(AcctApp):
     # redefine the related classes
     tenant = models.ForeignKey(
         Tenant, on_delete=models.CASCADE,
@@ -1702,7 +1715,7 @@ class OrderCategoryIncoming(OrderCategory):
     bank_account = models.ForeignKey(
         BankAccount, on_delete=models.CASCADE,
         related_name='%(class)s_banke_account',
-        verbose_name=_('Bank Account (payment)'))
+        verbose_name=_('Bank Account'))
     tax = models.ForeignKey(
         Tax, on_delete=models.CASCADE, blank=True, null=True,
         related_name='%(class)s_tax',
@@ -1751,7 +1764,7 @@ class OrderCategoryIncoming(OrderCategory):
     '''
 
     def __str__(self):
-        return _('Creditors') + ': ' + primary_language(self.name_plural)
+        return _('Incoming Invoice') + ': ' + primary_language(self.name_plural)
 
     class Meta:
         constraints = [
@@ -1760,8 +1773,8 @@ class OrderCategoryIncoming(OrderCategory):
                 name='unique_order_category_incoming'
             )
         ]
-        verbose_name = _("OrderCategory Creditors - Category")
-        verbose_name_plural = _("OrderCategory Creditors - Category")  # rank(2) + _("Creditors - Categories")
+        verbose_name = _("OrderCategory Incoming Invoice")
+        verbose_name_plural = rank(2) + '* ' + _("OrderCategory Incoming Invoices") 
 
 
 class OrderCategoryOutgoing(OrderCategory):
@@ -1907,7 +1920,8 @@ class OrderContract(Order):
     ]
     associate = models.ForeignKey(
         # to be mapped to manytomany field in cashCtrl
-        PersonCrm, on_delete=models.PROTECT, related_name='associate_2',
+        PersonCrm, on_delete=models.PROTECT, 
+        related_name='%(class)s_associate',
         verbose_name=_('Contract party'),
         help_text=_('Supplier or Client, usually a company'))
     status = models.CharField(
@@ -1986,7 +2000,14 @@ class IncomingOrder(Order):
     attachments = GenericRelation('core.Attachment')
     reference = models.CharField(
         _('QR Reference'), max_length=50, blank=True, null=True,
-        help_text=_('Reference in invoice'))
+        help_text=_('Reference in invoice'))   
+        
+    @property
+    def supplier_bank_account(self):
+        return PersonBankAccount.objects.filter(
+            person=self.contract.associate,
+            type=PersonBankAccount.TYPE.DEFAULT
+        ).first()        
 
     def __str__(self):
         return (f"{self.contract.associate.company}, {self.date}, "
@@ -2058,8 +2079,8 @@ class OutgoingOrder(Order):
                 f"{self.description}")
 
     class Meta:
-        verbose_name = _("Incoming Invoice")
-        verbose_name_plural = rank(1) + '*' + _("Incoming Invoices")
+        verbose_name = _("Outgoing Invoice")
+        verbose_name_plural = rank(1) + '*' + _("Outgoing Invoices")
 
 
 class OutgoingItem(AcctApp):
@@ -2201,12 +2222,12 @@ class LedgerAccount(AcctLedger):
     function = models.CharField(
          _('Function'), max_length=5, null=True, blank=True,
         help_text=_(
-            'Function code, e.g. 071, in Balance this is the balance '
-            'this is the acount group belonging to one category'))
+            'Function code, e.g. 071, leave empty for Balance positions, as '
+            'it gets filled automatically.' ))
     account = models.ForeignKey(
         Account, verbose_name=_('Account'), null=True, blank=True,
         on_delete=models.PROTECT, related_name='%(class)s_category',
-        help_text="The underlying account.")
+        help_text="The underlying account.")    
 
     @property
     def cash_ctrl_ids(self):
@@ -2258,7 +2279,7 @@ class LedgerBalance(LedgerAccount):
         _('Decrease'), max_digits=11, decimal_places=2, null=True, blank=True,
         help_text=_('The decrease in value during the year.')
     )
-
+    
     def __str__(self):
         return f"{self.hrm} {primary_language(self.name)}"
 

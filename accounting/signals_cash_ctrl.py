@@ -55,7 +55,7 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
     if created or kwargs.get('init', False):
         # Get request from init
         request = kwargs.get('request')
-        
+
         # Open yaml
         init_data = read_yaml_file('accounting', YAML_FILENAME)
 
@@ -78,27 +78,27 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
             setup_data_add_logging(setup, data)
             _obj, _created = models.CustomField.objects.update_or_create(
                 setup=setup, code=data.pop('code'), defaults=data)
- 
+
         # Create FileCategory
         for data in init_data['FileCategory']:
             setup_data_add_logging(setup, data)
             _obj, _created = models.FileCategory.objects.update_or_create(
-                setup=setup, code=data.pop('code'), defaults=data)       
-        
+                setup=setup, code=data.pop('code'), defaults=data)
+
         # Unit
         for data in init_data['Unit']:
             setup_data_add_logging(setup, data)
             _obj, _created = models.Unit.objects.update_or_create(
-                setup=setup, code=data.pop('code'), defaults=data)                 
-   
+                setup=setup, code=data.pop('code'), defaults=data)
+
         # Order Layout
         for data in init_data['OrderLayout']:
             setup_data_add_logging(setup, data)
             _obj, _created = models.OrderLayout.objects.update_or_create(
-                setup=setup, name=data.pop('name'), defaults=data) 
-        
-        # get core data ----------------------------------------------        
-                      
+                setup=setup, name=data.pop('name'), defaults=data)
+
+        # get core data ----------------------------------------------
+
         # Get titles
         sync = conn.Title(CoreTitle)
         sync.get(models.Title, setup, request.user, update=False)
@@ -111,7 +111,7 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         # we use default params, currently:
         #   overwrite_data=True,
         #   delete_not_existing=True
-        
+
         # Location
         sync = conn.Location(models.Location)
         sync.get(setup, request.user)
@@ -157,14 +157,14 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         sync.get(setup, request.user)
 
         # Create data -----------------------------------------------
-        
+
         # AccountCategory
         for data in init_data['AccountCategory']:
             setup_data_add_logging(setup, data)
             data['parent'] = models.AccountCategory.objects.filter(
                 number=data.pop('parent_number')).first()
             _obj, _created = models.AccountCategory.objects.update_or_create(
-                setup=setup, number=data.pop('number'), defaults=data)       
+                setup=setup, number=data.pop('number'), defaults=data)
 
 
 # accounting.models ----------------------------------------------------------
@@ -175,7 +175,7 @@ Note that instances only get synced if saved in scerp (
 # Helper
 def sync(instance):
     return instance.is_enabled_sync and instance.sync_to_accounting
-    
+
 
 # CustomFieldGroup
 @receiver(post_save, sender=models.CustomFieldGroup)
@@ -473,7 +473,7 @@ def order_layout_contract_post_pre_delete(sender, instance, **kwargs):
     if sync(instance) and instance.c_id:
         api = conn.OrderLayout(sender)
         api.delete(instance)
-        
+
 
 # OrderCategoryContract
 @receiver(post_save, sender=models.OrderCategoryContract)

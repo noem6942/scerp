@@ -17,6 +17,7 @@ from core.models import Address, Contact
 from scerp.admin import verbose_name_field
 from scerp.forms import MultilanguageForm, make_multilanguage_form
 
+from . banking import extract_qr_from_pdf, get_bic
 from .models import (
     AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, CostCenterCategory,
@@ -196,6 +197,60 @@ class AccountingUpdateForm(AdminActionForm):
         help_text=_('Delete items that do not exist in accounting system.')
     )
     
+
+class IncomingOrderForm(AdminActionForm):
+    price_incl_vat = forms.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        required=True, 
+        label=_('Price (Incl. VAT)')
+    )    
+    iban = forms.CharField(
+        max_length=255, 
+        required=True, 
+        label=_('IBAN')
+    )
+    qr_iban = forms.CharField(
+        max_length=255, 
+        required=True, 
+        label=_('QR IBAN')
+    )    
+    bic = forms.CharField(
+        max_length=255, 
+        required=True, 
+        label=_('BIC Code')
+    )    
+
+    def __post_init__(self, modeladmin, request, queryset):
+        # Get invoice
+        invoice = queryset.first()
+        bank_account = invoice.supplier_bank_account
+
+        # Helptext
+        label = _('from contract')   
+        self.fields['price_incl_vat'].help_text=(
+            f"{label}: {invoice.contract.price_excl_vat} ({_('excl. VAT')})")
+        if bank_account:         
+            self.fields['iban'].help_text = f"{label}: {bank_account.iban}"
+            self.fields['qr_iban'].help_text = f"{label}: {bank_account.qr_iban}"
+            self.fields['bic'].help_text = f"{label}: {bank_account.bic}"
+        
+        # file retrieving
+        print("*bank_account", bank_account)
+        if invoice.attachments.exists():
+            for attachment in invoice.attachments.all():
+                # Ensure it's a PDF
+                if attachment.file.name.lower().endswith('.pdf'):
+                    # Pass the file path
+                    qr_data = extract_qr_from_pdf(attachment.file.path)  
+                    if qr_data and qr_data.get('creditor'):
+                        iban = qr_data['creditor']['iban']
+                        self.fields['price_incl_vat'].initial = qr_data[
+                            'amount']
+                        self.fields['iban'].initial = iban                        
+                        self.fields['qr_iban'].initial = iban
+                        self.fields['bic'].initial = get_bic(iban)
+                        break
 
 # ChartOfAccountsCanton
 class ChartOfAccountsTemplateForm(AdminActionForm):

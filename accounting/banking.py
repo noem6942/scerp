@@ -2,6 +2,7 @@
 accounting/banking.py
 
 '''
+from decimal import Decimal
 from pdf2image import convert_from_path
 import cv2
 import numpy as np
@@ -28,6 +29,12 @@ def clean(text):
     return text
 
 
+def make_decimal(value):
+    try:
+        return Decimal(value)
+    except:
+        return None
+
 def format_qr_data(qr_data):
     formatted_data = {
         "creditor": {
@@ -45,7 +52,8 @@ def format_qr_data(qr_data):
             "city": qr_data[25],
             "country": qr_data[26]
         },
-        "amount": f"{qr_data[18]} {qr_data[19]}",
+        "amount": make_decimal(qr_data[18]),
+        "currency": qr_data[19],
         "reference": qr_data[27],
         "type": qr_data[2],
         "payment Type": qr_data[30]
