@@ -231,6 +231,17 @@ class TenantAbstract(LogAbstract, NotesAbstract):
         related_name='%(class)s_tenant',
         help_text=_('assignment of tenant / client'))
 
+    def get_attachment_link(self, nr=1, html=False):
+        try:
+            attachments = self.attachments.all()
+        except:
+            attachments = []
+        
+        for index, attachment in enumerate(attachments, start=1):
+            if index == nr:        
+                return attachment.file.url
+        return None
+
     class Meta:
         abstract = True
 
@@ -462,11 +473,6 @@ class BankAccount(TenantAbstract):
         _('IBAN'), max_length=32, blank=True, null=True,
         help_text=_(
             'The IBAN (International Bank Account Number) of the person.'))
-    qr_iban = models.CharField(
-        _('QR IBAN'), max_length=32, blank=True, null=True,
-        help_text=_(
-            "The QR-IBAN, which is an IBAN especially for QR invoices "
-            "(former ESR)."))
     bic = models.CharField(
         _('BIC Code'), max_length=11, blank=True, null=True,
         help_text=_(
@@ -751,7 +757,7 @@ class PersonAddress(TenantAbstract):
     additional_information = models.CharField(
         _('Additional Address Information'),
         max_length=50, blank=True, null=True,
-        help_text=_("e.g. c/o"))
+        help_text=_("e.g. c/o or company name for invoice addresses"))
 
     @property
     def address_full(self):

@@ -1,0 +1,21 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block content %}
+    <!-- Add Custom Information or Action Button -->
+    {% if help_text %}
+        <div class="help-text" style="background: #f9f9f9; padding: 10px; border-left: 4px solid #007bff; margin-bottom: 10px;">
+            <strong>ℹ {% translate 'Info' %}:</strong> {{ help_text }}
+        </div>
+    {% endif %}
+
+    {% if not request.GET.edit == 'true' %}
+      <!-- Add edit action button -->
+      <div style="margin: 20px 0; text-align: left;">
+          <a href="?edit=true" class="button button-primary">{% translate 'Edit' %}</a>
+      </div>   
+    {% endif %} 
+    
+    {{ block.super }}
+    
+{% endblock %}

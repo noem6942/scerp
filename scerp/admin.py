@@ -555,7 +555,9 @@ class BaseAdmin:
     def display_attachment_icon(self, obj):
         '''Displays a paperclip 📎 or folder 📂 icon if attachments exist.'''
         if obj.attachments.exists():  # ✅ Efficient query
-            return '📂'  # You can also use '📎' or '🗂️'
+            url = obj.get_attachment_link(nr=1)
+            link = f'<a href="{url}" target="_blank">🗂</a>'
+            return mark_safe(link)
         return ' '  # No icon if no attachments'
 
     @admin.display(description='')
@@ -612,6 +614,9 @@ class BaseAdmin:
 
 
 class BaseTabularInline(RelatedModelInline):
+    ''' 
+    same concept as BaseAdmin, currently no methods 
+    '''
     pass
 
 

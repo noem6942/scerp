@@ -276,8 +276,7 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': (
-                'code', 'display_name', *make_language_fields('name')),
+            'fields': ('code', *make_language_fields('name')),
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -332,7 +331,11 @@ class AddressInline(BaseTabularInline):
     autocomplete_fields = ['address']  # Enables a searchable dropdown
     show_change_link = True  # Allows editing the address
     verbose_name_plural = _("Addresses")
+    
 
+        
+
+    
 
 class BankAccountInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
@@ -340,7 +343,7 @@ class BankAccountInline(BaseTabularInline):  # or admin.StackedInline
 
     # Inline
     model = models.PersonBankAccount
-    fields = ['type', 'iban', 'qr_iban', 'bic']
+    fields = ['type', 'iban', 'bic']
     extra = 0  # Number of empty forms displayed
     show_change_link = True  # Shows a link to edit the related model
     verbose_name_plural = _("Bank Accounts")
@@ -410,40 +413,6 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     ]
 
 
-@admin.register(models.PersonAddress, site=admin_site)
-class PersonAddressAdmin(TenantFilteringAdmin, BaseAdmin):
-    # Safeguards
-    protected_foreigns = ['tenant', 'version', 'address']
-
-    # Display these fields in the list view
-    list_display = (
-        'address__zip', 'address__city', 'address__address', 'type',
-        'person__last_name', 'person__first_name', 'person__company',
-        'display_categories')
-    list_display_links = ('address__address',)
-
-    # Search, filter
-    list_filter = (filters.PersonAddressCategoryFilter, 'type')
-    search_fields = (
-        'person__last_name', 'person__first_name', 'person__company', 'type',
-        'address__zip', 'address__city', 'address__address'
-    )
-
-    # Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': (
-                'type', 'person', 'address', 'post_office_box',
-                'additional_information'),
-            'classes': ('expand',),
-        }),
-    )
-
-    @admin.display(description=_("Categories"))
-    def display_categories(self, obj):
-        return obj.address.category_str()
-
-
 @admin.register(models.Building, site=admin_site)
 class BuildingAdmin(TenantFilteringAdmin, BaseAdmin):
     protected_foreigns = ['tenant', 'version',  'address']
@@ -451,6 +420,7 @@ class BuildingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = ('name', 'description', 'address', 'type')
     list_display_links = ('name',)
+    readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
     list_filter = ('type',)

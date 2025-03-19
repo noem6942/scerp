@@ -23,6 +23,7 @@ from .models import (
     ChartOfAccounts, AccountPosition, Currency, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, BankAccount, Allocation, 
     Unit, Tax, BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
+    OrderCategoryOutgoing,
     ArticleCategory, Article, Ledger, LedgerBalance, LedgerPL, LedgerIC
 )
 
@@ -103,6 +104,17 @@ class OrderCategoryIncomingAdminForm(MultilanguageForm):
 
     class Meta:
         model = OrderCategoryIncoming
+        fields = '__all__'
+
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
+
+
+class OrderCategoryOutgoingAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name_singular', 'name_plural']
+
+    class Meta:
+        model = OrderCategoryOutgoing
         fields = '__all__'
 
     # Dynamically create fields for each language
@@ -204,22 +216,32 @@ class IncomingOrderForm(AdminActionForm):
         decimal_places=2, 
         required=True, 
         label=_('Price (Incl. VAT)')
-    )    
+    )  
+    currency = forms.CharField(
+        max_length=3, 
+        required=False, 
+        label=_('Currency')
+    )
     iban = forms.CharField(
-        max_length=255, 
+        max_length=50,   # allow blanks
         required=True, 
         label=_('IBAN')
     )
     qr_iban = forms.CharField(
-        max_length=255, 
+        max_length=50,   # allow blanks
         required=True, 
         label=_('QR IBAN')
     )    
     bic = forms.CharField(
-        max_length=255, 
+        max_length=11, 
         required=True, 
         label=_('BIC Code')
-    )    
+    ) 
+    reference = forms.CharField(
+        max_length=50,  # allow blanks
+        required=False, 
+        label=_('QR Reference')
+    )      
 
     def __post_init__(self, modeladmin, request, queryset):
         # Get invoice
@@ -236,7 +258,7 @@ class IncomingOrderForm(AdminActionForm):
             self.fields['bic'].help_text = f"{label}: {bank_account.bic}"
         
         # file retrieving
-        print("*bank_account", bank_account)
+        self.fields['reference'].initial = invoice.reference 
         if invoice.attachments.exists():
             for attachment in invoice.attachments.all():
                 # Ensure it's a PDF
@@ -245,11 +267,17 @@ class IncomingOrderForm(AdminActionForm):
                     qr_data = extract_qr_from_pdf(attachment.file.path)  
                     if qr_data and qr_data.get('creditor'):
                         iban = qr_data['creditor']['iban']
+                        
+                        # fields
                         self.fields['price_incl_vat'].initial = qr_data[
                             'amount']
                         self.fields['iban'].initial = iban                        
                         self.fields['qr_iban'].initial = iban
                         self.fields['bic'].initial = get_bic(iban)
+                            
+                        if not invoice.reference:
+                            self.fields['reference'].initial = qr_data['reference']
+   
                         break
 
 # ChartOfAccountsCanton

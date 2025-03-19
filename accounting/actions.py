@@ -253,9 +253,6 @@ def accounting_get_data_update(modeladmin, request, queryset, data):
         modeladmin, request, queryset, update=True, delete_not_existing=True)
 
 
-
-
-
 # Default row actions, accounting
 @admin.action(description=_("Sync with Accounting"))
 def sync_accounting(modeladmin, request, queryset):
@@ -272,6 +269,24 @@ def de_sync_accounting(modeladmin, request, queryset):
     ''' update is_enabled_sync to False '''
     if action_check_nr_selected(request, queryset, min_count=1):
         queryset = queryset.update(is_enabled_sync=False)
+
+
+@admin.action(description=_("Approve"))
+def incoming_order_approve(modeladmin, request, queryset):
+    ''' update is_enabled_sync to False '''
+    if action_check_nr_selected(request, queryset, count=1):
+        invoice = queryset.first()
+        invoice.status = invoice.category.STATUS.APPROVED_1
+        invoice.save()
+
+
+@admin.action(description=_("Submit for booking"))
+def incoming_order_approve(modeladmin, request, queryset):
+    ''' update is_enabled_sync to False '''
+    if action_check_nr_selected(request, queryset, count=1):
+        invoice = queryset.first()
+        invoice.status = invoice.category.STATUS.SUBMITTED
+        invoice.save()
 
 
 @action_with_form(

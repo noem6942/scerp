@@ -50,6 +50,17 @@ class FIELDSET:
         })
 
 
+# Helpers
+def is_form_read_only(modeladmin):
+    return getattr(modeladmin, 'read_only', False)
+
+def is_change_view(request):
+    return request.path.endswith('/change/')
+
+def edit_is_set(request):
+    return request.GET.get('edit') == 'true'
+
+
 class TenantFilteringAdmin(admin.ModelAdmin):
     '''
     A base admin class that handles tenant filtering efficiently.
@@ -119,7 +130,20 @@ class TenantFilteringAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         if obj and getattr(obj, 'is_protected', False):
             return [field.name for field in obj._meta.fields]
+
         return super().get_readonly_fields(request, obj)
+
+    def has_change_permission(self, request, obj=None):
+        if is_form_read_only(self) or (
+                is_change_view(request) and not edit_is_set(request)):
+            return False  # Disable editing
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if is_form_read_only(self) or (
+                is_change_view(request) and not edit_is_set(request)):
+            return False  # Disable deleting
+        return super().has_delete_permission(request, obj)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         '''
@@ -170,20 +194,20 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
-    # messaging    
+    # messaging
     def change_view(self, request, object_id, form_url='', extra_context=None):
         obj = self.get_object(request, object_id)
         if obj and getattr(obj, 'is_protected', False):
             messages.warning(request, _('Record is protected.'))
         return super().change_view(request, object_id, form_url, extra_context)
-        
+
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
             extra_context = {}
         extra_context['help_text'] = getattr(self, 'help_text', None)
 
-        return super().changelist_view(request, extra_context=extra_context)    
-    
+        return super().changelist_view(request, extra_context=extra_context)
+
     def response_change(self, request, obj):
         if obj.is_protected or self.has_errors:
             return HttpResponseRedirect(request.path)  # No success message
@@ -218,7 +242,7 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         self.has_errors = True
         with transaction.atomic():  # Ensures each delete is independent
             for obj in queryset:
-                try:                
+                try:
                     obj.delete()
                     count += 1
                     self.has_errors = False
@@ -226,8 +250,8 @@ class TenantFilteringAdmin(admin.ModelAdmin):
                     messages.warning(request, f'{obj}: {str(e)}')
 
         msg = '{count} records successfully deleted.'.format(count=count)
-        messages.info(request, msg)    
-    
+        messages.info(request, msg)
+
     def save_model(self, request, instance, form, change):
         '''
         Override save to enforce tenant/setup assignment, log actions,
@@ -268,6 +292,14 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
         # Atomic save with error handling
         self.has_errors = True
+
+        # debug
+        #"""
+        with transaction.atomic():
+            super().save_model(request, instance, form, change)
+            self.has_errors = False
+        #"""
+
         try:
             with transaction.atomic():
                 super().save_model(request, instance, form, change)

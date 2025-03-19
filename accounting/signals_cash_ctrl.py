@@ -158,13 +158,27 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
 
         # Create data -----------------------------------------------
 
-        # AccountCategory
+        # AccountCategory, ER / IR categories like 3.1, 4.1 etc.
         for data in init_data['AccountCategory']:
             setup_data_add_logging(setup, data)
             data['parent'] = models.AccountCategory.objects.filter(
                 number=data.pop('parent_number')).first()
             _obj, _created = models.AccountCategory.objects.update_or_create(
                 setup=setup, number=data.pop('number'), defaults=data)
+
+        # Tax
+        # Take first 2000 account
+        account = models.Account.objects.filter(
+            number__startswith='2'
+        ).first()
+        print("*account", account)
+
+        # Add
+        for data in init_data['Tax']:
+            data['account'] = account
+            setup_data_add_logging(setup, data)
+            _obj, _created = models.Tax.objects.update_or_create(
+                setup=setup, code=data.pop('code'), defaults=data)
 
 
 # accounting.models ----------------------------------------------------------
@@ -509,6 +523,23 @@ def order_category_incoming_post_pre_delete(sender, instance, **kwargs):
         api.delete(instance)
 
 
+# OrderCategoryOutgoing
+@receiver(post_save, sender=models.OrderCategoryOutgoing)
+def order_category_outgoing_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on OrderCategoryOutgoing. '''
+    if sync(instance):
+        api = conn.OrderCategoryOutgoing(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=models.OrderCategoryOutgoing)
+def order_category_outgoing_post_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on OrderCategoryOutgoing. '''
+    if sync(instance) and instance.c_id:
+        api = conn.OrderCategoryOutgoing(sender)
+        api.delete(instance)
+
+
 # ContractOrder
 @receiver(post_save, sender=models.OrderContract)
 def order_contract_post_save(sender, instance, created, **kwargs):
@@ -543,6 +574,24 @@ def incoming_order_pre_delete(sender, instance, **kwargs):
         api.delete(instance)
 
 
+# OutgoingOrder
+@receiver(post_save, sender=models.OutgoingOrder)
+def outgoing_order_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on OutgoingOrder. '''
+    if sync(instance):
+        api = conn.OutgoingOrder(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=models.OutgoingOrder)
+def outgoing_order_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on OutgoingOrder. '''
+    if sync(instance) and instance.c_id:
+        api = conn.OutgoingOrder(sender)
+        api.delete(instance)
+
+
+""" do not use
 @receiver(post_save, sender=models.IncomingBookEntry)
 def incoming_book_entry_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on IncomingBookEntry. '''
@@ -557,7 +606,7 @@ def incoming_book_entry_pre_delete(sender, instance, **kwargs):
     if sync(instance) and instance.c_id:
         api = conn.IncomingBookEntry(sender)
         api.delete(instance)
-
+"""
 
 # Ledger ------------------------------------------------------------------
 @receiver(post_save, sender=models.LedgerBalance)

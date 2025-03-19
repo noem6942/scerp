@@ -15,8 +15,8 @@ class PersonAddressForm(forms.ModelForm):
         fields = ['type', 'address']
         widgets = {
             'address': forms.Select(attrs={'style': 'width: 300px;'}),
-            'post_office_box': forms.TextInput(attrs={'size': 20}),  
-            'additional_information': forms.TextInput(attrs={'size': 20}),             
+            'post_office_box': forms.TextInput(attrs={'size': 10}),  
+            'additional_information': forms.TextInput(attrs={'size': 30}),             
         }
 
 

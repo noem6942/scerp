@@ -182,6 +182,22 @@ CustomField:
     values: []
 
 
+Tax:
+  - code: er_sf_wv_2024_normal
+    name:
+      de: MWST-Umsatzsteuer ER - SF WV - Normalsatz
+    percentage: 8.1
+    document_name:
+      de: CHE-112.793.129 MWST, 8.1%
+      
+  - code: er_sf_wv_2024_reduziert
+    name:
+      de: MWST-Umsatzsteuer ER - SF WV - reduziert
+    percentage: 2.6
+    document_name:
+      de: CHE-108.964.80 MWST, 2.6%
+
+
 # Config Data --------------------------------------------------------
 # Location:  # not working
   # - name: Hauptsitz
@@ -199,9 +215,15 @@ Unit:
       en: 'm³'
       fr: 'm³'
       it: 'm³'
-  - code: contract
+  - code: order
     name:
       de: Auftrag
+      en: Order
+      fr: Ordre
+      it: Ordine
+  - code: contract
+    name:
+      de: Vertrag
       en: Contract
       fr: Contrat
       it: Contratto
@@ -209,8 +231,9 @@ Unit:
     name:
       de: Rechnung
       en: Invoice
-      fr: Commande
-      it: Ordine
+      fr: Facture
+      it: Fattura
+
 
 
 FiscalPeriod: []

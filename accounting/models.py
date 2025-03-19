@@ -346,7 +346,7 @@ class Location(AcctApp):
         on_delete=models.CASCADE, related_name='%(class)s_logo',
         help_text=_('Logo to be used for accounting'))
 
-    # Accounting
+    # Accounting, do not use; use entities BankAccount and Tax instead
     bic = models.CharField(
         _("BIC"), max_length=11, blank=True, null=True,
         help_text=_("The BIC (Business Identifier Code) of your bank."))
@@ -771,7 +771,7 @@ class Account(AcctApp):
         help_text=_('The budget as agreed.')
     )
 
-    def __str__(self):              
+    def __str__(self):
         if not self.hrm or self.hrm[0] in ['1', '2']:  # balance
             function = ''  # do not display
         elif self.function:
@@ -939,7 +939,7 @@ class Tax(AcctApp):
         _('name'), blank=True, null=True,
         help_text=_("The name of the tax rate."))
     account = models.ForeignKey(
-        Account, on_delete=models.CASCADE, blank=True, null=True,
+        Account, on_delete=models.CASCADE,
         verbose_name=_('Account'),
         related_name='%(class)s_account',
         help_text=_('The account which collects the taxes.'))
@@ -1075,7 +1075,7 @@ class Rounding(AcctApp):
         help_text=_("The rounding mode. Defaults to HALF_UP."))
 
     def __str__(self):
-        return get_code_w_name(self)
+        return primary_language(self.name)
 
     class Meta:
         constraints = [
@@ -1114,7 +1114,12 @@ class ArticleCategory(AcctApp):
         verbose_name=_('Account'),
         help_text=_(
             "Sales account, which will be used when selling articles. "
-            "Leave empty"))
+            "Mandatory for selling articles."))
+    tax = models.ForeignKey(
+        # additional field, not included in cashCtrl
+        Tax, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='%(class)s_tax',
+        verbose_name=_('Tax'), help_text=_("Applying tax rate"))
     sequence_nr = models.ForeignKey(
         SequenceNumber, on_delete=models.SET_NULL, blank=True, null=True,
         related_name='%(class)s_account',
@@ -1225,11 +1230,6 @@ class Article(AcctApp):
         Unit, on_delete=models.SET_NULL, blank=True, null=True,
         related_name='%(class)s_unit',
         verbose_name=_('Unit'))
-    tax = models.ForeignKey(
-        # additional field, not included in cashCtrl
-        Tax, on_delete=models.SET_NULL, blank=True, null=True,
-        related_name='%(class)s_tax',
-        verbose_name=_('Tax'), help_text=_("Applying tax rate"))
 
     def __str__(self):
         return f"{self.nr} {primary_language(self.name)}"
@@ -1592,6 +1592,7 @@ class OrderCategoryContract(OrderCategory):
         AWARDED = 'Awarded', _("Awarded")
         RULING = 'Ruling', _("Ruling")
         APPEAL = 'Appeal', _("Appeal")
+        ONGOING = 'On Going', _("On Going")
         CONTRACT_RECEIVED = 'Contract Received', _("Contract Received")
         CONTRACT_SIGNED = 'Contract Signed', _("Contract Signed")
         CANCELLED = 'Cancelled', _("Cancelled")
@@ -1607,6 +1608,7 @@ class OrderCategoryContract(OrderCategory):
         STATUS.AWARDED: COLOR.VIOLET,
         STATUS.RULING: COLOR.ORANGE,
         STATUS.APPEAL: COLOR.RED,
+        STATUS.ONGOING: COLOR.GREEN,
         STATUS.CONTRACT_RECEIVED: COLOR.BLUE,
         STATUS.CONTRACT_SIGNED: COLOR.GREEN,
         STATUS.CANCELLED: COLOR.BLACK,
@@ -1615,9 +1617,11 @@ class OrderCategoryContract(OrderCategory):
         STATUS.ARCHIVED: COLOR.GRAY,
     }
     org_location = models.ForeignKey(
-        Location, verbose_name=_('Parent'), blank=True, null=True,
+        Location, verbose_name=_('Organisation'),
         on_delete=models.PROTECT, related_name='%(class)s_location',
-        help_text=_('Responsible Organisation'))
+        help_text=_(
+            'Responsible Internal Organisation, will be shown in invoicing '
+            'documents'))
     is_display_item_gross = False
 
     @property
@@ -1672,7 +1676,8 @@ class OrderCategoryIncoming(OrderCategory):
         OPEN = 'Open', _('Open')
         APPROVED_1 = 'Approved 1', _('Approved 1')
         APPROVED_2 = 'Approved 2', _('Approved 2')
-        SUBMITTED = 'Submitted', _('Submitted')
+        BOOKED = 'Booked', _('Booked')
+        TRANSFERRED = 'Transferred', _('Transferred (pain.001)')
         REMINDER_1 = 'Reminder 1', _('Reminder 1')
         REMINDER_2 = 'Reminder 2', _('Reminder 2')
         PAID = 'Paid', _('Paid')
@@ -1683,7 +1688,8 @@ class OrderCategoryIncoming(OrderCategory):
         STATUS.OPEN: COLOR.GRAY,
         STATUS.APPROVED_1: COLOR.GREEN,
         STATUS.APPROVED_2: COLOR.GREEN,
-        STATUS.SUBMITTED: COLOR.BLUE,
+        STATUS.BOOKED: COLOR.BLUE,
+        STATUS.TRANSFERRED: COLOR.VIOLET,
         STATUS.REMINDER_1: COLOR.PINK,
         STATUS.REMINDER_2: COLOR.ORANGE,
         STATUS.PAID: COLOR.GREEN,
@@ -1695,7 +1701,8 @@ class OrderCategoryIncoming(OrderCategory):
         STATUS.OPEN: False,
         STATUS.APPROVED_1: False,
         STATUS.APPROVED_2: False,
-        STATUS.SUBMITTED: True,
+        STATUS.BOOKED: True,
+        STATUS.TRANSFERRED: False,
         STATUS.REMINDER_1: False,
         STATUS.REMINDER_2:False,
         STATUS.PAID: True,
@@ -1774,7 +1781,7 @@ class OrderCategoryIncoming(OrderCategory):
             )
         ]
         verbose_name = _("OrderCategory Incoming Invoice")
-        verbose_name_plural = rank(2) + '* ' + _("OrderCategory Incoming Invoices") 
+        verbose_name_plural = rank(2) + '* ' + _("OrderCategory Incoming Invoices")
 
 
 class OrderCategoryOutgoing(OrderCategory):
@@ -1820,20 +1827,11 @@ class OrderCategoryOutgoing(OrderCategory):
     debit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_debit_account',
-        verbose_name=_('Credit Account'))
-    revenue_account = models.ForeignKey(
-        Account, on_delete=models.CASCADE,
-        related_name='%(class)s_revenue_account',
-        verbose_name=_('Revenue Account'))
+        verbose_name=_('Debit Account'))
     bank_account = models.ForeignKey(
         BankAccount, on_delete=models.CASCADE,
         related_name='%(class)s_banke_account',
         verbose_name=_('Bank Account (receiving)'))
-    tax = models.ForeignKey(
-        Tax, on_delete=models.CASCADE, blank=True, null=True,
-        related_name='%(class)s_tax',
-        verbose_name=_('Tax'),
-        help_text="Tax rate to be applied.")
     rounding = models.ForeignKey(
         Rounding, on_delete=models.PROTECT, blank=True, null=True,
         related_name='%(class)s_rounding',
@@ -1856,10 +1854,14 @@ class OrderCategoryOutgoing(OrderCategory):
         Location, verbose_name=_('Parent'), blank=True, null=True,
         on_delete=models.PROTECT, related_name='%(class)s_location',
         help_text=_('Paying Organisation'))
+    responsible_person = models.ForeignKey(
+        PersonCrm, on_delete=models.PROTECT, 
+        verbose_name=_('Responsible'), related_name='%(class)s_person',
+        help_text=_('Contact person mentioned in invoice.'))
 
     @property
     def sequence_number(self):
-        return self.get_sequence_number('ER')
+        return self.get_sequence_number('RE')
 
     # overwriting of order categories seems to work
     '''
@@ -1881,8 +1883,8 @@ class OrderCategoryOutgoing(OrderCategory):
                 name='unique_order_category_outgoing'
             )
         ]
-        verbose_name = _("OrderCategory Debtors - Category")
-        verbose_name_plural = _("OrderCategory Debtors - Category")  # rank(2) + _("Creditors - Categories")
+        verbose_name = _("OrderCategory Outgoing Invoice")
+        verbose_name_plural = _("OrderCategory Outgoing Invoices")  # rank(2) + _("Creditors - Categories")
 
 
 class Order(AcctApp):
@@ -1920,7 +1922,7 @@ class OrderContract(Order):
     ]
     associate = models.ForeignKey(
         # to be mapped to manytomany field in cashCtrl
-        PersonCrm, on_delete=models.PROTECT, 
+        PersonCrm, on_delete=models.PROTECT,
         related_name='%(class)s_associate',
         verbose_name=_('Contract party'),
         help_text=_('Supplier or Client, usually a company'))
@@ -1939,7 +1941,7 @@ class OrderContract(Order):
     responsible_person = models.ForeignKey(
         PersonCrm, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Responsible'), related_name='%(class)s_person',
-        help_text=_('Principal'))
+        help_text=_('Signer of the contract'))
     valid_from = models.DateField(
         _('Valid From'), null=True, blank=True)
     valid_until = models.DateField(
@@ -2000,14 +2002,14 @@ class IncomingOrder(Order):
     attachments = GenericRelation('core.Attachment')
     reference = models.CharField(
         _('QR Reference'), max_length=50, blank=True, null=True,
-        help_text=_('Reference in invoice'))   
-        
+        help_text=_('Reference in invoice'))
+
     @property
     def supplier_bank_account(self):
         return PersonBankAccount.objects.filter(
             person=self.contract.associate,
             type=PersonBankAccount.TYPE.DEFAULT
-        ).first()        
+        ).first()
 
     def __str__(self):
         return (f"{self.contract.associate.company}, {self.date}, "
@@ -2033,10 +2035,10 @@ class OutgoingOrder(Order):
             tax_id: derive from ...
     '''
     category = models.ForeignKey(
-        OrderCategoryIncoming, on_delete=models.CASCADE,
+        OrderCategoryOutgoing, on_delete=models.CASCADE,
         related_name='%(class)s_category',
         verbose_name=_('Category'),
-        help_text=_('all booking details are defined in category'))
+        help_text=_('contact details and contractual base (if any)'))
     contract = models.ForeignKey(
         OrderContract, on_delete=models.PROTECT,
         related_name='%(class)s_contract',
@@ -2056,7 +2058,7 @@ class OutgoingOrder(Order):
     responsible_person = models.ForeignKey(
         PersonCrm, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Clerk'), related_name='%(class)s_person',
-        help_text=_('Clerk'))
+        help_text=_('Clerk, leave empty or defined in category'))
     attachments = GenericRelation('core.Attachment')
 
     # custom
@@ -2111,7 +2113,7 @@ class BookEntry(AcctApp):
 
 
 class IncomingBookEntry(BookEntry):
-    ''' Book Entry for incoming orders
+    ''' Book Entry for incoming orders, do not use
     '''
     order = models.ForeignKey(
         IncomingOrder, on_delete=models.CASCADE,
@@ -2227,7 +2229,7 @@ class LedgerAccount(AcctLedger):
     account = models.ForeignKey(
         Account, verbose_name=_('Account'), null=True, blank=True,
         on_delete=models.PROTECT, related_name='%(class)s_category',
-        help_text="The underlying account.")    
+        help_text="The underlying account.")
 
     @property
     def cash_ctrl_ids(self):
@@ -2279,7 +2281,7 @@ class LedgerBalance(LedgerAccount):
         _('Decrease'), max_digits=11, decimal_places=2, null=True, blank=True,
         help_text=_('The decrease in value during the year.')
     )
-    
+
     def __str__(self):
         return f"{self.hrm} {primary_language(self.name)}"
 

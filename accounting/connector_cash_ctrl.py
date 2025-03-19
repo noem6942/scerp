@@ -5,11 +5,12 @@ from django.db.models import Q
 from django.forms.models import model_to_dict
 from django.utils import timezone
 from django.utils.encoding import force_str
+from django.utils.translation import gettext_lazy as _
 
 from core.models import PersonBankAccount, PersonContact, PersonAddress
 from scerp.mixins import get_translations
 from . import api_cash_ctrl, models
-from .api_cash_ctrl import clean_dict, convert_to_xml
+from .api_cash_ctrl import clean_dict, convert_to_xml, prepare_dict
 
 
 CASH_CTRL_FIELDS = [
@@ -98,12 +99,12 @@ class CashCtrl:
             if getattr(self, 'save_download', None):
                 # Individual saving
                 self.save_download(instance, data)
-                
+
             # Default saving
             instance.sync_to_accounting = False
             instance.save()
 
-        if delete_not_existing:            
+        if delete_not_existing:
             self.model.objects.filter(
                 ~Q(setup=setup), ~Q(c_id__in=c_ids), c_id__isnull=False
             ).delete()
@@ -120,7 +121,7 @@ class CashCtrl:
         # Check if read only
         if getattr(self, 'read_only', False):
             raise ValueError('cashCtrl, read only entity. Only code saved.')
-        
+
         # Get api
         api = self._get_api(instance.setup)
 
@@ -184,10 +185,10 @@ class CashCtrlDual(CashCtrl):
         self.instance_acct = self.model_accounting.objects.filter(
                 tenant=instance.tenant, core=instance).first()
         if self.instance_acct:
-            setup = self.instance_acct.setup       
+            setup = self.instance_acct.setup
         else:
             # instance_acct not existing yet
-            setup = models.APISetup.get_setup(tenant=instance.tenant)            
+            setup = models.APISetup.get_setup(tenant=instance.tenant)
 
         # Get api
         api = self._get_api(setup)
@@ -208,7 +209,7 @@ class CashCtrlDual(CashCtrl):
                 tenant=instance.tenant,
                 setup=setup,
                 created_by=instance.tenant.created_by
-            )          
+            )
             if getattr(self, 'reload_keys', []):
                 self.reload(self.instance_acct)
         else:
@@ -250,10 +251,10 @@ class CashCtrlDual(CashCtrl):
             if getattr(self, 'save_download', None):
                 # Individual saving
                 self.save_download(instance, data)
-            
+
             instanc.sync_to_accounting = False
-            instance.save()            
-            
+            instance.save()
+
             # save instance_acct
             if not instance_acct:
                 # create accounting_instance
@@ -317,7 +318,7 @@ class Location(CashCtrl):
 class FiscalPeriod(CashCtrl):
     api_class = api_cash_ctrl.FiscalPeriod
     exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
-    
+
 
 class Currency(CashCtrl):
     api_class = api_cash_ctrl.Currency
@@ -445,7 +446,7 @@ class BankAccount(CashCtrl):
     api_class = api_cash_ctrl.AccountBankAccount
     exclude = EXCLUDE_FIELDS + ['account', 'code', 'notes']
     read_only = True
-    
+
     def adjust_for_upload(self, instance, data, created=None):
         # account_id
         data['account_id'] = (
@@ -459,7 +460,7 @@ class BankAccount(CashCtrl):
         # account
         instance.account = models.Account.objects.filter(
             c_id=data['account_id']).first()
-            
+
         if not instance.code:
             instance.code = f"custom {data['id']}"
 
@@ -592,7 +593,7 @@ class OrderCategoryContract(OrderCategory):
         self.make_base(instance, data, created)
         data['account_id'] = instance.account.c_id
 
-        # status, we only use minimal values as we do the booking ourselves
+        # status, we only use minimal values as no booking with contracts
         if created:
             data['status'] = [{
                 'icon': instance.COLOR_MAPPING[status],
@@ -600,7 +601,7 @@ class OrderCategoryContract(OrderCategory):
                     get_translations(force_str(status.label))),
             } for status in self.model.STATUS]
         else:
-            data['status'] = instance.status_data            
+            data['status'] = instance.status_data
 
 
 class OrderCategoryIncoming(OrderCategory):
@@ -620,26 +621,69 @@ class OrderCategoryIncoming(OrderCategory):
                 get_translations(force_str(status.label))),
             'isBook': instance.BOOKING_MAPPING[status]
         } for status in STATUS]
-        
+
         # BookTemplates
         # booking
         booking = {
             'accountId': data['account_id'],
             'name': convert_to_xml(get_translations('Booking')),
-            'isAllowTax': True if instance.tax else False,
-            'taxId': instance.tax.c_id if instance.tax else None
+            'isAllowTax': False,  # no --> we specify tax in the item
         }
-        
+
         # payment
         payment_account = instance.bank_account
         if payment_account.account and payment_account.account.c_id:
             payment = {
                 'accountId': payment_account.account.c_id,
                 'name': convert_to_xml(get_translations('Payment'))
-            }            
+            }
         else:
             raise ErrorValue("Bank account has no booking account assigned")
-      
+
+        # assign
+        data['book_templates'] = [booking, payment]
+
+        # Rounding
+        if getattr(instance, 'rounding', None):
+            data['rounding_id'] = instance.rounding.c_id
+
+
+class OrderCategoryOutgoing(OrderCategory):
+
+    def adjust_for_upload(self, instance, data, created=None):
+        self.make_base(instance, data, created)
+
+        # accounts
+        data['account_id'] = instance.debit_account.c_id
+        bank_account = instance.bank_account.c_id
+
+        # status, we only use minimal values as we do the booking ourselves
+        STATUS = instance.STATUS
+        data['status'] = [{
+            'icon': instance.COLOR_MAPPING[status],
+            'name': convert_to_xml(
+                get_translations(force_str(status.label))),
+            'isBook': instance.BOOKING_MAPPING[status]
+        } for status in STATUS]
+
+        # BookTemplates
+        # booking
+        booking = {
+            'accountId': data['account_id'],
+            'name': convert_to_xml(get_translations('Booking')),
+            'isAllowTax': False,  # specify with order items
+        }
+
+        # payment
+        payment_account = instance.bank_account
+        if payment_account.account and payment_account.account.c_id:
+            payment = {
+                'accountId': payment_account.account.c_id,
+                'name': convert_to_xml(get_translations('Payment'))
+            }
+        else:
+            raise ErrorValue("Bank account has no booking account assigned")
+
         # assign
         data['book_templates'] = [booking, payment]
 
@@ -691,7 +735,7 @@ class OrderContract(Order):
         # Create one item with total price
         data['items'] = [{
             'accountId': instance.category.account.c_id,
-            'name': description,            
+            'name': description,
             'unitPrice': float(instance.price_excl_vat)
         }]
 
@@ -729,10 +773,14 @@ class IncomingOrder(Order):
         # Create one item with total price
         category = instance.category
         bank_account = PersonBankAccount.objects.filter(
-            tenant=instance.tenant, 
+            tenant=instance.tenant,
             person=instance.contract.associate,
             type=PersonBankAccount.TYPE.DEFAULT
         ).first()
+
+        if not bank_account:
+            raise ValueError(_("No bank account for creditor specified."))
+
         data['items'] = [{
             'accountId': instance.category.expense_account.c_id,
             'name': instance.description,
@@ -750,10 +798,106 @@ class IncomingOrder(Order):
         # Due days
         if getattr(instance, 'due_days', None):
             data['due_days'] = instance.due_days
-            
-        print("*data", data)    
-            
 
+    def upload_attachment(self, instance):
+        '''
+        Attach file, currently not in use
+        '''
+        # get the full record to update status
+        for attachment in instance.attachments.all():
+            # upload file
+            conn = api_cash_ctrl.File(
+                instance.setup.org_name, instance.setup.api_key)
+            data = {
+                'name': attachment.file.name,
+                'category_id': 1,
+            }
+            file_id, _path = conn.upload(attachment.file.path, data)
+
+            # update OrderDocument
+            conn = api_cash_ctrl.OrderDocument(
+                instance.setup.org_name, instance.setup.api_key)
+            document = self.api.read(instance.c_id)
+            document['file_id'] = file_id
+            response = conn.update(document)
+
+
+class OutgoingOrder(Order):
+
+    def adjust_for_upload(self, instance, data, created=None):
+        self.make_base(instance, data)
+
+        # associate
+        if instance.contract.associate:
+            person = models.Person.objects.filter(
+                core=instance.contract.associate).first()
+            data['associate_id'] = person.c_id if person else None
+
+        # Create one item with total price
+        category = instance.category
+        bank_account = PersonBankAccount.objects.filter(
+            tenant=instance.tenant,
+            person=instance.contract.associate,
+            type=PersonBankAccount.TYPE.DEFAULT
+        ).first()
+
+        data['items'] = [{
+            'accountId': instance.category.expense_account.c_id,
+            'name': instance.description,
+            'description': (
+                f"{PersonBankAccount._meta.verbose_name}: "
+                f"{bank_account.bic}, {bank_account.iban}"),
+            'unitPrice': float(instance.price_incl_vat),
+            'taxId': category.tax.c_id if category.tax else None
+        }]
+
+        # Rounding
+        if getattr(instance.category, 'rounding', None):
+            data['rounding_id'] = instance.category.rounding.c_id
+
+        # Due days
+        if getattr(instance, 'due_days', None):
+            data['due_days'] = instance.due_days           
+
+    def adjust_for_upload(self, instance, data, created=None):
+        self.make_base(instance, data)
+
+        # associate
+        if instance.contract.associate:
+            person = models.Person.objects.filter(
+                core=instance.contract.associate).first()
+            data['associate_id'] = person.c_id if person else None
+
+        # Create one item with total price
+        category = instance.category
+        bank_account = PersonBankAccount.objects.filter(
+            tenant=instance.tenant,
+            person=instance.contract.associate,
+            type=PersonBankAccount.TYPE.DEFAULT
+        ).first()
+
+        if not bank_account:
+            raise ValueError(_("No bank account for creditor specified."))
+
+        data['items'] = [{
+            'accountId': instance.category.expense_account.c_id,
+            'name': instance.description,
+            'description': (
+                f"{PersonBankAccount._meta.verbose_name}: "
+                f"{bank_account.bic}, {bank_account.iban}"),
+            'unitPrice': float(instance.price_incl_vat),
+            'taxId': category.tax.c_id if category.tax else None
+        }]
+
+        # Rounding
+        if getattr(instance.category, 'rounding', None):
+            data['rounding_id'] = instance.category.rounding.c_id
+
+        # Due days
+        if getattr(instance, 'due_days', None):
+            data['due_days'] = instance.due_days
+
+'''
 class IncomingBookEntry(CashCtrl):
     api_class = api_cash_ctrl.OrderBookEntry
     exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
@@ -770,7 +914,7 @@ class IncomingBookEntry(CashCtrl):
 
         if category.currency:
             data['currency_id'] = category.currency.c_id
-
+'''
 
 class ArticleCategory(CashCtrl):
     api_class = api_cash_ctrl.ArticleCategory
@@ -854,6 +998,49 @@ class Person(CashCtrlDual):
     reload_keys = ['nr']
     model_accounting = models.Person
 
+    @staticmethod
+    def make_address(addr):
+        # Base
+        data = {
+            'type': addr.type,
+            'city': addr.address.city,
+            'zip': addr.address.zip,
+            'country': addr.address.country.alpha3,            
+        }
+
+        # Individual
+        if addr.type == PersonAddress.TYPE.INVOICE:
+            # address
+            praefix = (
+                addr.post_office_box + '\n' if addr.post_office_box else '')            
+            
+            # use additional_information for company            
+            data.update(prepare_dict({
+                'company': addr.additional_information,
+                'address': praefix + addr.address.address,
+                'is_hide_name': True
+            }))
+        else:
+            # add post_office_box and additional_information
+            data['address'] = addr.address_full
+            
+        return data
+
+    @staticmethod
+    def make_contact(contact):
+        return {
+            'type': contact.type,
+            'address': contact.address
+        }
+        
+    @staticmethod
+    def make_bank_account(account):
+        return {
+            'type': account.type,
+            'iban': account.iban,
+            'bic': account.bic
+        }
+
     def adjust_for_upload(self, instance, data, created=None):
         # Make data
 
@@ -872,30 +1059,26 @@ class Person(CashCtrlDual):
         if title:
             data['title_id'] = title.c_id
 
-        # Make Bank accoutns
+        # Make Bank accounts
         bank_accounts = PersonBankAccount.objects.filter(person=instance)
-        data['bank_accounts'] = [{
-            'type': account.type,
-            'iban': account.iban,
-            'bic': account.bic
-        } for account in bank_accounts.order_by('id')]
+        data['bank_accounts'] = [
+            self.make_bank_account(account)
+            for account in bank_accounts.order_by('id')
+        ]
 
         # Make contacts
         contacts = PersonContact.objects.filter(person=instance)
-        data['contacts'] = [{
-            'type': contact.type,
-            'address': contact.address
-        } for contact in contacts.order_by('id')]
+        data['contacts'] = [
+            self.make_contact(contact) 
+            for contact in contacts.order_by('id')
+        ]
 
         # Make addresses
         addresses = PersonAddress.objects.filter(person=instance)
-        data['addresses'] = [{
-            'type': addr.type,
-            'address': addr.address_full,
-            'city': addr.address.city,
-            'country': addr.address.country.alpha3,
-            'zip': addr.address.zip
-        } for addr in addresses.order_by('id')]
+        data['addresses'] = [
+            self.make_address(addr) 
+            for addr in addresses.order_by('id')
+       ]
 
     def save(self, instance, created=None):
         '''

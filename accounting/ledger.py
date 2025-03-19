@@ -47,6 +47,7 @@ class Ledger:
         return value_str
 
     def update_account(self, instance):
+        print("*update_account")
         # type
         instance.type = self.model.TYPE.ACCOUNT
 
