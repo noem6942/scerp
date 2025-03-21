@@ -3,10 +3,12 @@ accounting/banking.py
 
 '''
 from decimal import Decimal
-from pdf2image import convert_from_path
-import cv2
-import numpy as np
-from pyzbar.pyzbar import decode
+# currently deactivated
+if False:
+    from pdf2image import convert_from_path  
+    import cv2
+    import numpy as np
+    from pyzbar.pyzbar import decode
 
 try:
     from .banking_swiss_dir import SWISS_BANKS
@@ -69,7 +71,8 @@ def get_bic(iban):
             
     return None
 
-
+# currently deactivated
+'''
 def extract_qr_from_pdf(pdf_path):
     # Convert PDF to images (all pages)
     images = convert_from_path(pdf_path, poppler_path=POPPLER_PATH)
@@ -103,4 +106,5 @@ def extract_qr_from_pdf(pdf_path):
                 return data
 
     return None
+'''
     
