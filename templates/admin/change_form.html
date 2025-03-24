@@ -12,7 +12,10 @@
     {% if not request.GET.edit == 'true' %}
       <!-- Add edit action button -->
       <div style="margin: 20px 0; text-align: left;">
-          <a href="?edit=true" class="button button-primary">{% translate 'Edit' %}</a>
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'edit' %}{{ key }}={{ value }}&{% endif %}{% endfor %}edit=true" 
+           class="button button-primary">
+            {% translate 'Edit' %}
+        </a>
       </div>   
     {% endif %} 
     

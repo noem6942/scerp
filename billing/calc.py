@@ -9,7 +9,7 @@ from django.db.models import Q, Sum, Min, Max
 from django.http import HttpResponse
 from django.utils.translation import gettext as _
 
-from core.models import AddressCategory, Building, PersonAddress
+from core.models import AddressTag, AddressMunicipal, PersonAddress
 from scerp.admin import ExportExcel
 from .models import Period, Route, Measurement, Subscription
 
@@ -54,15 +54,15 @@ class RouteMeterExport:
 
     # Helpers
     def get_buildings(self):
-        # Get address_categories
-        categories = [x for x in self.route.address_categories.all()]
+        # Get address_tags
+        tags = [x for x in self.route.address_tags.all()]
 
         # Filter Buildings
         if self.route.buildings.exists():
             queryset = self.route.buildings.all()
         else:
             queryset = Building.objects.filter(tenant=self.route.tenant)
-        buildings = queryset.filter(address__categories__in=categories)
+        buildings = queryset.filter(address__tags__in=tags)
 
         return buildings
 

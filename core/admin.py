@@ -40,6 +40,34 @@ class AttachmentInline(GenericTabularInline):
         super().save_model(request, instance, form, change)
 
 
+# Public Data
+@admin.register(models.AddressMunicipal, site=admin_site)
+class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Display these fields in the list view
+    list_display = ('display_zip', 'city', 'street', 'adr_number')    
+    list_display_links = ('display_zip', 'city', 'street', 'adr_number')    
+    readonly_fields = FIELDS.LOGGING
+
+    # Search, filter
+    search_fields = ('zip', 'city', 'street')
+
+    # Fieldsets
+    '''
+    fieldsets = (
+        (None, {
+            'fields': (
+                'building', 'adr_number'),
+            'classes': ('expand',),
+        }),
+        FIELDSET.LOGGING,
+    )
+    '''
+    
+    @admin.display(description=_('Photo'))
+    def display_zip(self, obj):
+        return str(obj.zip)     
+
+
 @admin.register(models.Message, site=admin_site)
 class MessageAdmin(TenantFilteringAdmin, BaseAdmin):
     ''' currently only a superuser function '''
@@ -197,21 +225,21 @@ class TenantLogoAdmin(TenantFilteringAdmin, BaseAdmin):
 
 
 # Address, Persons ---------------------------------------------------------
-@admin.register(models.AddressCategory, site=admin_site)
-class AddressCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
+@admin.register(models.AddressTag, site=admin_site)
+class AddressTagAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
 
     # Display these fields in the list view
-    list_display = ('type', 'code', 'name')
+    list_display = ('tag', 'address')
 
     # Search, filter
-    search_fields = ('type', 'code', 'name')
+    search_fields = ('tag',)
 
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': ('type', 'code', 'name', 'description'),
+            'fields': ('tag', 'address'),
             'classes': ('expand',),
         }),
     )
@@ -289,20 +317,18 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
 class AddressAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
-    protected_many_to_many = ['categories']
 
     # Display these fields in the list view
-    list_display = ('country', 'zip', 'city', 'address', 'display_categories')
+    list_display = ('country', 'zip', 'city', 'address')
     list_display_links = ('zip', 'city',)
 
     # Search, filter
-    list_filter = (filters.AddressCategoryFilter,)
     search_fields = ('zip', 'city', 'address')
 
     # Fieldsets
     fieldsets = (
         (None, {
-            'fields': (('zip', 'city'), 'address', 'country', 'categories'),
+            'fields': (('zip', 'city'), 'address', 'country'),
             'classes': ('expand',),
         }),
     )
@@ -311,10 +337,6 @@ class AddressAdmin(TenantFilteringAdmin, BaseAdmin):
         initial = super().get_changeform_initial_data(request)
         """Set default country to 'CHE' (Switzerland) by fetching the instance."""
         return {'country': get_object_or_404(models.Country, alpha3='CHE')}
-
-    @admin.display(description=_("Categories"))
-    def display_categories(self, obj):
-        return obj.category_str()
 
 
 class AddressInline(BaseTabularInline):
@@ -331,10 +353,6 @@ class AddressInline(BaseTabularInline):
     autocomplete_fields = ['address']  # Enables a searchable dropdown
     show_change_link = True  # Allows editing the address
     verbose_name_plural = _("Addresses")
-    
-
-        
-
     
 
 class BankAccountInline(BaseTabularInline):  # or admin.StackedInline
@@ -368,10 +386,12 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'company', 'first_name', 'last_name', 'category', 'display_photo'
+        'company', 'first_name', 'last_name', 'alt_name', 'category', 
+        'display_photo'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = (
-        'company', 'first_name', 'last_name') + FIELDS.LINK_ATTACHMENT
+        'company', 'first_name', 'last_name', 'alt_name'
+    ) + FIELDS.LINK_ATTACHMENT
     readonly_fields = ('nr',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -385,11 +405,14 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (_('Basic Information'), {
             'fields': (
-                'category', 'title', 'company', 'first_name', 'last_name', 'alt_name',
+                'category', 'title', 'company', 'first_name', 'last_name', 
+                'alt_name',
             ),
         }),
         (_('Company/VAT/Work Information'), {
-            'fields': ('vat_uid', 'industry', 'position', 'department', 'superior'),
+            'fields': (
+                'vat_uid', 'industry', 'position', 'department', 'superior'
+            ),
             'classes': ('collapse',),
         }),
         (_('Personal Details'), {
@@ -413,26 +436,28 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     ]
 
 
-@admin.register(models.Building, site=admin_site)
-class BuildingAdmin(TenantFilteringAdmin, BaseAdmin):
-    protected_foreigns = ['tenant', 'version',  'address']
+@admin.register(models.PersonAddress, site=admin_site)
+class PersonAddressAdmin(TenantFilteringAdmin, BaseAdmin):
+    protected_foreigns = ['tenant', 'version', 'person', 'address']
 
     # Display these fields in the list view
-    list_display = ('name', 'description', 'address', 'type')
-    list_display_links = ('name',)
+    list_display = (
+        'type', 'person', 'address') + FIELDS.ICON_DISPLAY
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
-    list_filter = ('type',)
-    search_fields = ('name', 'description')
+
+    # Actions
 
     #Fieldsets
     fieldsets = (
-        (_('Categorization'), {
+        (None, {
             'fields': (
-                'name', 'description', 'type', 'address'
-                )
+                'type', 'person', 
+                'additional_information', 'post_office_box', 'address', 
+            ),
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
+        FIELDSET_SYNC
     )

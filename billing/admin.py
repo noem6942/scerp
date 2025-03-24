@@ -53,7 +53,7 @@ class PeriodAdmin(TenantFilteringAdmin, BaseAdmin):
 class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'period']
-    protected_many_to_many = ['buildings', 'address_categories']
+    protected_many_to_many = ['addresses']
 
     # Display these fields in the list view
     list_display = (
@@ -61,7 +61,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
         'is_default', 'status'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT + (
         'number_of_subscriptions', 'number_of_counters',
-        'number_of_buildings'    
+        'number_of_addresses'    
     )
     readonly_fields = ('duration', 'status') + FIELDS.LOGGING_TENANT
 
@@ -84,7 +84,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
         }),
         (_('Filters'), {
             'fields': (
-                'address_categories', 'buildings', 'start', 'end',                 
+                'address_tags', 'addresses', 'start', 'end',                 
             ),
             'classes': ('expand',),
         }),
@@ -101,8 +101,8 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('filters'))
     def display_filters(self, obj):
         values = []
-        if obj.buildings.exists():
-            values.append(str(_('Buildings')))
+        if obj.addresses.exists():
+            values.append(str(_('Addresses')))
         if obj.start:
             values.append(str(_('Start')))
         if obj.end:
@@ -207,21 +207,21 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(Subscription, site=admin_site)
 class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'subscriber', 'building']
+    protected_foreigns = [
+        'tenant', 'version', 'subscriber', 'invoice_address', 'address']
     protected_many_to_many = ['articles']
 
     # Display these fields in the list view
     list_display = (
-        'subscriber__alt_name', 'recipient__alt_name', 'building',
+        'subscriber__alt_name', 'invoice_address', 'address',
         'start', 'end', 'display_abo_nr', 'number_of_counters'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT 
     list_display_links = ('subscriber__alt_name', )
-    readonly_fields = FIELDS.LOGGING_TENANT
+    readonly_fields = ('address',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = (
-        'subscriber__alt_name', 'subscriber__company', 'subscriber__last_name',
-        'recipient__alt_name', 'recipient__company', 'recipient__last_name',
+        'subscriber__alt_name', 'subscriber__company', 'subscriber__last_name',        
         'building__name', 'start', 'end')
     list_filter = (
         filters.SubscriptionArticlesFilter,
@@ -231,7 +231,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'subscriber', 'recipient', 'start', 'end', 'building',
+                'subscriber', 'invoice_address', 'start', 'end', 'address',
                 'articles'
             ),
         }),

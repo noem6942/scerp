@@ -10,7 +10,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from core.models import TenantAbstract, Person, Building, Dwelling, Room
+from core.models import (
+    TenantAbstract, Person, AddressMunicipal, Dwelling, Room)
 from scerp.mixins import primary_language
 
 
@@ -144,9 +145,9 @@ class EventLog(TenantAbstract):
         help_text=_(
             "Leave empty if irrelevant (e.g. counters)."
             "Do not use for counters."))
-    building = models.ForeignKey(
-        Building, on_delete=models.SET_NULL, blank=True, null=True,
-        verbose_name=_("Building"),
+    address = models.ForeignKey(
+        AddressMunicipal, on_delete=models.SET_NULL, blank=True, null=True,
+        verbose_name=_("Address"),
         related_name='%(class)s_customer',
         help_text=_(
             "Mandatory for counters, "

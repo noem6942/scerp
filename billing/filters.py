@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounting.models import Article
 from core.safeguards import get_tenant_data
-from core.models import AddressCategory
+from core.models import AddressTag
 from scerp.mixins import primary_language
 from .models import ARTICLE, Period, Route
 
@@ -101,19 +101,18 @@ class MeasurementRouteFilter(admin.SimpleListFilter):
 
 class MeasurementBuildingAddressCategoryFilter(admin.SimpleListFilter):
     title = _('Area')
-    parameter_name = 'categories'
+    parameter_name = 'tags'
 
     def lookups(self, request, model_admin):
         '''Return categories filtered by tenant'''
         tenant_data = get_tenant_data(request)
         tenant_id = tenant_data.get('id')
 
-        categories = AddressCategory.objects.filter(
-            type=AddressCategory.TYPE.AREA,
+        tags = AddressTag.objects.filter(
             tenant_id=tenant_id  # Add tenant filtering here
-        ).values_list('id', 'name')
+        ).values_list('id', 'tag')
 
-        return categories
+        return tags
 
     def queryset(self, request, queryset):
         tenant_data = get_tenant_data(request)

@@ -92,11 +92,11 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
 class EventLogAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'customer', 'building', 'dwelling', 'room']
+        'tenant', 'version', 'customer', 'address', 'dwelling', 'room']
 
     # Display these fields in the list view
     list_display = (
-        'device', 'device__category', 'datetime', 'status', 'building'
+        'device', 'device__category', 'datetime', 'status', 'address'
     ) + FIELDS.ICON_DISPLAY
     readonly_fields = FIELDS.LOGGING_TENANT
 
@@ -113,7 +113,7 @@ class EventLogAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'device', 'datetime', 'status', 'customer', 'building',
+                'device', 'datetime', 'status', 'customer', 'address',
                 'dwelling', 'room'
             ),
         }),

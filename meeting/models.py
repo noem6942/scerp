@@ -3,7 +3,7 @@ from django.db import models
 from django.utils.translation import get_language, gettext_lazy as _
 
 # from core.models import TenantAbstract, to be done later
-from core.models import Building
+from core.models import AddressMunicipal
 from vault.models import Status
 
 
@@ -39,7 +39,7 @@ class Meeting(models.Model):
         help_text=_("The date and time the meeting ends.")
     )
     venue = models.ForeignKey(
-        Building, null=True, blank=True, on_delete=models.CASCADE,
+        AddressMunicipal, null=True, blank=True, on_delete=models.CASCADE,
         related_name='meeting',
         verbose_name=_("Venue"),
         help_text=_("The venue where the meeting is held.")

@@ -5,7 +5,8 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from accounting.models import Article
-from core.models import TenantAbstract, AddressCategory, Person, Building
+from core.models import (
+    TenantAbstract, AddressMunicipal, AddressTag, Person, PersonAddress)
 from asset.models import AssetCategory, Device
 
 
@@ -52,7 +53,7 @@ class Period(TenantAbstract):
     end = models.DateField(
         _("End"), help_text=_("End date of the period"))
     asset_categories = models.ManyToManyField(
-        AssetCategory, verbose_name=_('Categories'),        
+        AssetCategory, verbose_name=_('Categories'),
         help_text=_("Category"))
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
@@ -88,16 +89,18 @@ class Route(TenantAbstract):
         on_delete=models.PROTECT, related_name='%(class)s_period')
     last_period = models.ForeignKey(
         Period, verbose_name=_('Last Period'), blank=True, null=True,
-        on_delete=models.PROTECT, related_name='%(class)s_last_period')        
-    address_categories = models.ManyToManyField(
-        AddressCategory, verbose_name=_('Address Categories'),
+        on_delete=models.PROTECT, related_name='%(class)s_last_period')
+
+    address_tags = models.ManyToManyField(
+        AddressTag, verbose_name=_('Address Tags'), blank=True,
         help_text=_(
-            "Area Categories to include, leave empty if to include all"))
-    buildings = models.ManyToManyField(
-        Building, verbose_name=_('Buildings'), blank=True,
-        help_text=_(
-            "Buildings that should be included, "
+            "Address Tags that should be included, "
             "leave empty to include all in scope"))
+    addresses = models.ManyToManyField(
+        AddressMunicipal, verbose_name=_('Addresses'), blank=True,
+        help_text=_(
+            "Addresses that should be included, "
+            "leave empty to include all in scope"))            
     start = models.DateField(
         _("Start"), blank=True, null=True,
         help_text=_("Leave empty if period start"))
@@ -126,13 +129,13 @@ class Route(TenantAbstract):
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
     # For analysis
-    number_of_buildings = models.PositiveIntegerField(
-        _('Number of Buildings'), blank=True, null=True, editable=False)
+    number_of_addresses = models.PositiveIntegerField(
+        _('Number of Addresses'), blank=True, null=True, editable=False)
     number_of_subscriptions = models.PositiveIntegerField(
         _('Number of Subscriptions'), blank=True, null=True, editable=False)
     number_of_counters = models.PositiveIntegerField(
         _('Number of Counters'), blank=True, null=True, editable=False)
-    
+
     def get_start(self):
         return self.start if self.start else self.period.start
 
@@ -176,14 +179,14 @@ class Subscription(TenantAbstract):
             "subscriber / inhabitant / owner"
             "invoice address may be different to subscriber, defined under "
             "address"))
-    recipient = models.ForeignKey(
-        Person, verbose_name=_('Recipient'), blank=True, null=True,
-        on_delete=models.PROTECT, related_name='%(class)s_recipient',
-        help_text=_(
-            "invoice person / company if different from subscriber"))
-    building = models.ForeignKey(
-        Building, verbose_name=_('Building'),
-        on_delete=models.PROTECT, related_name='%(class)s_building')
+    invoice_address = models.ForeignKey(
+        PersonAddress, on_delete=models.PROTECT, blank=True, null=True, 
+         verbose_name=_('Invoice Address'),
+        related_name='%(class)s_invoice_address',
+        help_text=_("invoice address"))
+    address = models.ForeignKey(
+        AddressMunicipal, verbose_name=_('Building Address'),
+        on_delete=models.PROTECT, related_name='%(class)s_address')
     start = models.DateField(
         _('Start Date'))
     end = models.DateField(
@@ -217,7 +220,7 @@ class Subscription(TenantAbstract):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['tenant', 'subscriber', 'start', 'end', 'building'],
+                fields=['tenant', 'subscriber', 'start', 'end', 'address'],
                 name='unique_billing_subscription'
             )
         ]
@@ -275,14 +278,14 @@ class Measurement(TenantAbstract):
         blank=True, null=True)
 
     # for efficiency analysis, automatically updated
-    building = models.ForeignKey(
-        Building, verbose_name=_('Building'), 
-        on_delete=models.PROTECT, related_name='%(class)s_building')
+    address = models.ForeignKey(
+        AddressMunicipal, verbose_name=_('Address'),
+        on_delete=models.PROTECT, related_name='%(class)s_address')
     period = models.ForeignKey(
-        Period, verbose_name=_('Period'), 
+        Period, verbose_name=_('Period'),
         on_delete=models.PROTECT, related_name='%(class)s_period')
     subscription = models.ForeignKey(
-        Subscription, verbose_name=_('Subscription'), 
+        Subscription, verbose_name=_('Subscription'),
         on_delete=models.PROTECT, related_name='%(class)s_subscriber')
     consumption_previous = models.FloatField(
         _('Consumption'), blank=True, null=True)
@@ -291,12 +294,14 @@ class Measurement(TenantAbstract):
         return f'{self.route}, {self.counter}, {self.datetime}'
 
     class Meta:
+        '''
         constraints = [
             models.UniqueConstraint(
                 fields=['tenant', 'counter', 'route', 'datetime'],
                 name='unique_measurement'
             )
         ]
+        '''
         ordering = [
             '-route__period__end', 'counter__number']
         verbose_name = _('Measurement')

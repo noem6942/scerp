@@ -49,7 +49,7 @@ class Command(BaseCommand):
             # Load addresses
             file_name = 'Abonnenten Gebühren einzeilig.xlsx'
             handler = ImportAddress(setup_id)
-            address_data = handler.load(file_name)
+            address_data = handler.load(file_name)            
 
             # Load subscribers + counters
             file_name = 'Abonnenten mit Zähler und Gebühren.xlsx'
