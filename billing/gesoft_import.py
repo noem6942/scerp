@@ -14,8 +14,8 @@ from accounting.models import APISetup, ArticleCategory, Article
 from asset.models import DEVICE_STATUS, AssetCategory, Device, EventLog
 from billing.models import Period, Route, Measurement, Subscription
 from core.models import (
-     AddressCategory, Address, PersonCategory, Person, PersonAddress,
-     Building
+     AddressMunicipal, AddressTag, Address, PersonCategory,
+     Person, PersonAddress
 )
 from scerp.mixins import parse_gesoft_to_datetime
 from .models import ARTICLE
@@ -238,10 +238,10 @@ class ImportData(ImportAddress):
         if (alt_name in ALLMEND
                 or building_address.address.startswith('Allmend ')):
             # e.g. Allmend 4 but not Allmendstrasse
-            category = AddressCategory.objects.get(
+            category = AddressTag.objects.get(
                 tenant=self.tenant, code='allmend')
         elif building_address.zip == str(ZIP):
-            category = AddressCategory.objects.get(
+            category = AddressTag.objects.get(
                 tenant=self.tenant, code='gunzgen')
         else:
             logger.warning(
@@ -249,18 +249,6 @@ class ImportData(ImportAddress):
             return
 
         building_address.categories.add(category)
-
-    def add_building(self, name, description, address):
-        obj, created = Building.objects.get_or_create(
-            tenant=self.tenant,
-            name=name,
-            defaults={
-                'address': address,
-                'description': description,
-                'created_by': self.created_by
-            }
-        )
-        return obj, created
 
     def add_person(self, data):
         data.update({
@@ -348,8 +336,8 @@ class ImportData(ImportAddress):
         )
         return obj, created
 
-    def add_subscription(self, subscriber_number, data):
-        obj, created = Subscription.objects.get_or_create(
+    def add_subscription(self, subscriber_number, data):        
+        obj, created = Subscription.objects.update_or_create(
             tenant=self.tenant,
             created_by=self.created_by,
             subscriber_number=subscriber_number,
@@ -385,30 +373,36 @@ class ImportData(ImportAddress):
         # Clean
         subscriber_name = self.clean_cell(subscriber_name)
         subscriber_address_c = self.clean_address(subscriber_address)
-        building_address_c = self.clean_address(building_address)
         invoice_name = self.clean_cell(invoice_name)
-        building_category = self.clean_cell(building_category)
 
-        logger.info(f"Reading abo_nr {subscriber_number}")
+        if building_address:                 
+            building_address, *building_category = (
+                building_address.split(',', 1))   # sometime in one cell
+            if not building_address:
+                building_address, *building_category = (
+                    building_address.split('    ', 1))   # sometime in one cell
+            if not building_address:
+                building_address, *building_category = (
+                    building_address.split('    ', 1))   # sometime in one cell                
+        building_address_c = self.clean_address(building_address)
+
+        if not building_category:
+            building_category = self.clean_cell(building_category)
+
+        # logger.info(f"Reading abo_nr {subscriber_number}")
 
         # Building Address
+        try:
+            stn_label, adr_number = building_address_c.rsplit(' ', 1)
+        except:
+            stn_label, adr_number = None, None
 
-        if not building_address_c:
-            # Make address, e.g. Autobahnraststätte Gunzgen Nord AG
-            building_address_c = subscriber_name
-
-        # Make address
-        data = dict(
-            zip=ZIP,
-            city=CITY,
-            address=building_address_c
-        )
-        building_address, _created = self.add_address(data)
-
-        # Building
-        name = building_address_c
-        building, _created = self.add_building(
-            name, building_category, building_address)
+        if stn_label:
+            adr_building = AddressMunicipal.objects.filter(
+                tenant=self.tenant, zip=ZIP,
+                stn_label=stn_label, adr_number=adr_number).first()
+        else:
+            adr_building = None
 
         # Subscriber
         company = self.get_company(subscriber_name)
@@ -428,8 +422,8 @@ class ImportData(ImportAddress):
         }
         subscriber, _created = self.add_person(data)
 
-        # AddressCategory: Allmend or other
-        self.add_address_category(building_address, subscriber_name)
+        # AddressTag: Allmend or other
+        # not yet self.add_address_category(building_address, subscriber_name)
 
         # Get subscriber address, we look it up from address_data
         lookup = address_data.get(subscriber_name)
@@ -483,16 +477,20 @@ class ImportData(ImportAddress):
         data = {
             'subscriber': subscriber,
             'invoice_address': invoice_address,
-            'building': building,
+            'address': adr_building,
             'start': start_date,
             'end': end_date,
         }
+        if not adr_building:
+            logger.info(f"{building_address_c} not found")
+            data['notes'] = f"{building_address_c} not found"
+            
         subscription, _created = self.add_subscription(
             subscriber_number, data)
 
-        return subscriber_number, building, subscription
+        return subscriber_number, adr_building, subscription
 
-    def load_block_counter(self, row, building, subscription):
+    def load_block_counter(self, row, adr_building, subscription):
         '''
         returns:
             water_tarif
@@ -526,7 +524,7 @@ class ImportData(ImportAddress):
 
         # Add Montage
         data = {
-            'building': building,
+            'address': adr_building,
             'notes': f'Mont-Nr. {montage_nr}'
         }
         event, _created = self.add_event(
@@ -535,7 +533,7 @@ class ImportData(ImportAddress):
         # Add Measurements
         data = {
             'value_previous': zw_alt_1 or zw_alt_2,
-            'building': building,  # efficieny
+            'address': adr_building,  # efficieny
             'period': self.period,  # efficieny
             'subscription': subscription,  # efficieny
         }
@@ -584,7 +582,7 @@ class ImportData(ImportAddress):
         # Add article
         self.add_subscription_article(subscription, article)
 
-    def load(self, file_name, address_data):        
+    def load(self, file_name, address_data):
         '''
         Note: we do not know the inhabitant if not identical with subscriber
         '''
@@ -595,6 +593,14 @@ class ImportData(ImportAddress):
         ws = wb.active  # Or wb['SheetName']
         rows = [row for row in ws.iter_rows(values_only=True)]
 
+        # Pre-Load
+        for row_nr, row in enumerate(rows):
+            first_cell = row[0]
+            if (first_cell and isinstance(first_cell, str)
+                    and first_cell.startswith('WA-')):
+                # Load intro
+                result = self.load_block_intro(row_nr, rows, address_data)
+        return
         # Load
         for row_nr, row in enumerate(rows):
             first_cell = row[0]
@@ -602,14 +608,14 @@ class ImportData(ImportAddress):
                     and first_cell.startswith('WA-')):
                 # Load intro
                 result = self.load_block_intro(row_nr, rows, address_data)
-                subscriber_number, building, subscription = result
+                subscriber_number, adr_building, subscription = result
                 measurements = []
                 tarif_water = None
             elif isinstance(first_cell, (int, float)):
                 if first_cell > 100:
                     # Load counters
                     result = self.load_block_counter(
-                        row, building, subscription)
+                        row, adr_building, subscription)
                     tarif_water, counter, measurement = result
 
                     # Add measurement
@@ -681,24 +687,24 @@ class ImportArchive(Import):
                 subscriber_number = abo_nr
                 alt_name = name_vorname
                 subscriber_address = strasse
-                subscriber_zip, subscriber_city = plz_ort.split(' 'm, 1)
-                
+                subscriber_zip, subscriber_city = plz_ort.split(' ', 1)
+
                 # Article
                 article_nr = f"{tarif}_{ansatz_nr}"
-                
+
                 # Period
                 year = 2000 + int(periode[:2])
                 month = 4 if periode[-1] == '1' else 10
                 day = 1
                 start = date(year, month, day)
-                
+
                 if tage:
                     end = start + timedelta(days=tage)
                 else:
                     year = year if periode[-1] == '1' else year + 1
                     month = 9 if periode[-1] == '1' else 3
                     day = 30 if periode[-1] == '1' else 31
-                
+
                 # Route
                 # period = period
 
@@ -707,5 +713,5 @@ class ImportArchive(Import):
                     # e.g. Autobahnraststätte Gunzgen Nord AG
                     strasse = namevorname.strip()
 
-                # Measurement 
-                # get counter 
+                # Measurement
+                # get counter

@@ -185,8 +185,9 @@ class Subscription(TenantAbstract):
         related_name='%(class)s_invoice_address',
         help_text=_("invoice address"))
     address = models.ForeignKey(
-        AddressMunicipal, verbose_name=_('Building Address'),
-        on_delete=models.PROTECT, related_name='%(class)s_address')
+        AddressMunicipal, verbose_name=_('Building Address'), null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_address',
+        help_text=_("May be null at the beginning but must be entered later"))
     start = models.DateField(
         _('Start Date'))
     end = models.DateField(

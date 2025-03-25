@@ -40,34 +40,6 @@ class AttachmentInline(GenericTabularInline):
         super().save_model(request, instance, form, change)
 
 
-# Public Data
-@admin.register(models.AddressMunicipal, site=admin_site)
-class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):
-    # Display these fields in the list view
-    list_display = ('display_zip', 'city', 'street', 'adr_number')    
-    list_display_links = ('display_zip', 'city', 'street', 'adr_number')    
-    readonly_fields = FIELDS.LOGGING
-
-    # Search, filter
-    search_fields = ('zip', 'city', 'street')
-
-    # Fieldsets
-    '''
-    fieldsets = (
-        (None, {
-            'fields': (
-                'building', 'adr_number'),
-            'classes': ('expand',),
-        }),
-        FIELDSET.LOGGING,
-    )
-    '''
-    
-    @admin.display(description=_('Photo'))
-    def display_zip(self, obj):
-        return str(obj.zip)     
-
-
 @admin.register(models.Message, site=admin_site)
 class MessageAdmin(TenantFilteringAdmin, BaseAdmin):
     ''' currently only a superuser function '''
@@ -173,7 +145,7 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'canton', 'type', 'language', 'show_only_primary_language',
-                'display_users'
+                'zips', 'display_users'
             ),  # Including the display method here is okay for readonly display
             'classes': ('expand',),
         }),
@@ -224,7 +196,59 @@ class TenantLogoAdmin(TenantFilteringAdmin, BaseAdmin):
         return Display.photo_h(obj.logo)
 
 
-# Address, Persons ---------------------------------------------------------
+# MunicipalAdmin + Tag ----------------------------------------------------
+@admin.register(models.AddressMunicipal, site=admin_site)
+class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = ['tenant', 'version']
+
+    # Display these fields in the list view
+    list_display = (
+        'display_zip', 'city', 'display_address', 'bdg_egid', 'bdg_category')
+    list_display_links = ('display_zip', 'city', 'display_address')
+    readonly_fields = (
+        'display_zip', 'display_address') + FIELDS.LOGGING_TENANT
+    list_per_page = 1000
+
+    # Search, filter
+    search_fields = ('zip', 'city', 'stn_label')
+    list_filter = ('zip', 'bdg_category', 'adr_status')
+
+    # Fieldsets
+    fieldsets = (
+        (_('Municipality'), {
+            'fields': (
+                'com_fosnr', 'com_name', 'com_canton', 'display_zip', 'city'),
+            'classes': ('expand',),
+        }),
+        (_('Street'), {
+            'fields': ('str_esid', 'stn_label'),
+            'classes': ('expand',),
+        }),
+        (_('Building'), {
+            'fields': ('bdg_egid', 'bdg_category', 'bdg_name'),
+            'classes': ('expand',),
+        }),
+        (_('Address'), {
+            'fields': (
+                'adr_egaid', 'adr_number', 'adr_status', 'adr_official',
+                'adr_modified', 'adr_easting', 'adr_northing', 'lat', 'lon'
+            ),
+            'classes': ('expand',),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+    )
+
+    @admin.display(description=_('ZIP'))
+    def display_zip(self, obj):
+        return str(obj.zip)
+
+    @admin.display(description=_('ZIP'))
+    def display_address(self, obj):
+        return f"{obj.stn_label} {obj.adr_number}"
+
+
 @admin.register(models.AddressTag, site=admin_site)
 class AddressTagAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
@@ -232,6 +256,7 @@ class AddressTagAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = ('tag', 'address')
+    readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ('tag',)
@@ -245,6 +270,7 @@ class AddressTagAdmin(TenantFilteringAdmin, BaseAdmin):
     )
 
 
+# Address, Persons ---------------------------------------------------------
 @admin.register(models.Title, site=admin_site)
 class TitleAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
@@ -353,7 +379,7 @@ class AddressInline(BaseTabularInline):
     autocomplete_fields = ['address']  # Enables a searchable dropdown
     show_change_link = True  # Allows editing the address
     verbose_name_plural = _("Addresses")
-    
+
 
 class BankAccountInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
@@ -386,7 +412,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'company', 'first_name', 'last_name', 'alt_name', 'category', 
+        'company', 'first_name', 'last_name', 'alt_name', 'category',
         'display_photo'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = (
@@ -405,7 +431,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (_('Basic Information'), {
             'fields': (
-                'category', 'title', 'company', 'first_name', 'last_name', 
+                'category', 'title', 'company', 'first_name', 'last_name',
                 'alt_name',
             ),
         }),
@@ -453,8 +479,8 @@ class PersonAddressAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'type', 'person', 
-                'additional_information', 'post_office_box', 'address', 
+                'type', 'person',
+                'additional_information', 'post_office_box', 'address',
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,

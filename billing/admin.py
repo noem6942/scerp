@@ -214,7 +214,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
         'subscriber__alt_name', 'invoice_address', 'address',
-        'start', 'end', 'display_abo_nr', 'number_of_counters'
+        'start', 'end', 'display_abo_nr', 'number_of_counters', 'notes'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT 
     list_display_links = ('subscriber__alt_name', )
     readonly_fields = ('address',) + FIELDS.LOGGING_TENANT
@@ -222,7 +222,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = (
         'subscriber__alt_name', 'subscriber__company', 'subscriber__last_name',        
-        'building__name', 'start', 'end')
+        'address__stn_label', 'address__adr_number', 'start', 'end')
     list_filter = (
         filters.SubscriptionArticlesFilter,
         'number_of_counters', 'end', 'subscriber__company')

@@ -11,8 +11,7 @@ from pathlib import Path
 from django.conf import settings
 
 from scerp.mixins import get_admin
-from .models import (
-    Country, Municipality, Street, Building, MunicipalityAddress)
+from .models import Country, Tenant, TenantSetup, AddressMunicipal
 
 
 # Helper function to parse the date string into a datetime object
@@ -96,11 +95,12 @@ class ImportCountry:
 
 class ImportBuilding:
     '''
-    Initializes alpha3_dict by reading country data from JSON files
-    for each language defined in settings.LANGUAGES.
+    Load actual Buildings, currently per tenant, not grouped
     '''
-    def __init__(self):
-        pass
+    def __init__(self, tenant_id):
+        self.tenant = Tenant.objects.get(id=tenant_id)
+        self.zips = TenantSetup.objects.get(tenant=self.tenant).zips
+        logging.info(f"Got {self.zips} as zip")
 
     def load(self, file_name_csv):
         # Initialize the dictionary
@@ -115,17 +115,19 @@ class ImportBuilding:
             logger.info("Starting")
 
             # Iterate over each row in the CSV
-            for count, row in enumerate(csv_reader):
+            count = 0
+            for row in csv_reader:
                 # Prepare data dictionary with relevant fields
                 zip, label = row.pop('ZIP_LABEL').split(' ', 1)
 
                 # Check scope
-                if int(zip) not in [4616, 4617]:
+                if int(zip) not in self.zips:
                     continue
 
                 address_data = {
+                    # import
                     'zip': zip,
-                    'label': label,
+                    'city': label,
                     'com_fosnr': row['COM_FOSNR'],  # Include COM_FOSNR here
                     'com_name': row['COM_NAME'],
                     'com_canton': row['COM_CANTON'],
@@ -144,53 +146,19 @@ class ImportBuilding:
                         if row['BDG_NAME'].strip() else None),
                     'adr_egaid': row['ADR_EGAID'],
                     'str_esid': row['STR_ESID'],
+                    
+                    # custom
+                    'tenant': self.tenant,
+                    'created_by': admin
                 }
 
-                # Municipality
-                municipality, _created = Municipality.objects.update_or_create(
-                    com_fosnr=address_data.pop('com_fosnr'),
-                    defaults={
-                        'com_name': address_data.pop('com_name'),
-                        'com_canton': address_data.pop('com_canton'),
-                        'zip': address_data.pop('zip'),
-                        'city': address_data.pop('label'),
-                        'created_by': admin
-                    }
-                )
-
-                # Street
-                street, _created = Street.objects.update_or_create(
-                    str_esid=address_data.pop('str_esid'),
-                    defaults={
-                        'stn_label': address_data.pop('stn_label'),
-                        'municipality': municipality,
-                        'created_by': admin
-                    }
-                )
-
-                # Building
-                building, _created = (
-                    Building.objects.update_or_create(
-                        bdg_egid=address_data.pop('bdg_egid'),
-                        defaults={
-                            'bdg_category': address_data.pop('bdg_category'),
-                            'bdg_name': address_data.pop('bdg_name'),
-                            'street': street,
-                        'created_by': admin
-                        }
-                    )
-                )
-
-                # Address
-                address_data.update({
-                    'building': building,
-                    'created_by': admin
-                })
+                # AddressMunicipal
                 address, _created = (
-                    AddressNew.objects.update_or_create(
+                    AddressMunicipal.objects.update_or_create(
                         adr_egaid=address_data.pop('adr_egaid'),
                         defaults=address_data
                     )
                 )
+                count += 1
 
-        return count + 1
+        return count

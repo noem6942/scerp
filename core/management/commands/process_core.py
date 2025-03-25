@@ -1,6 +1,7 @@
 # core/management/commands/process_core.py
 '''usage:
     python manage.py process_core core__init_first
+    python manage.py process_core update_swiss_buildings --tenant_id=3 --filename=amtliches-gebaeudeadressverzeichnis_ch_2056.csv
 '''
 from django.core.management.base import BaseCommand
 from django.core.management import CommandError
@@ -36,6 +37,9 @@ class Command(BaseCommand):
         parser.add_argument(
             '--filename', type=str, help='filename'
         )
+        parser.add_argument(
+            '--tenant_id', type=str, help='tenant_id'
+        )
 
     def handle(self, *args, **options):
         action = options['action']
@@ -64,6 +68,7 @@ class Command(BaseCommand):
             c = ImportCountry()
             c.load()
         elif action == 'update_swiss_buildings':
-            c = ImportBuilding()
+            tenant_id = options.get('tenant_id')
+            c = ImportBuilding(tenant_id)
             file_name_csv = options.get('filename')
             c.load(file_name_csv)
