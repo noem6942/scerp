@@ -1,5 +1,6 @@
 # core/models.py
 import os
+import pyproj  # A library for coordinate transformations
 
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -9,6 +10,7 @@ from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models.functions import Cast
 from django.utils import timezone
 from django.utils.translation import get_language, gettext_lazy as _
 
@@ -17,7 +19,7 @@ from scerp.locales import CANTON_CHOICES
 from scerp.mixins import primary_language
 
 
-# Base
+# Base ----------------------------------------------------------------------
 class LogAbstract(models.Model):
     '''used for time stamp handling
     '''
@@ -72,6 +74,81 @@ class NotesAbstract(models.Model):
 
     class Meta:
         abstract = True  # This makes it an abstract model
+
+
+# Official Address --------------------------------------------------------
+'''
+They are read only and provided centrally.
+See https://data.geo.admin.ch/ch.swisstopo.amtliches-gebaeudeadressverzeichnis/amtliches-gebaeudeadressverzeichnis_ch/amtliches-gebaeudeadressverzeichnis_ch_2056.csv.zip
+
+data = {
+    # City
+    "ZIP_LABEL": "4052 Basel",
+    "COM_FOSNR": 2701,
+    "COM_NAME": "Basel",
+    "COM_CANTON": "BS",
+
+    # Street
+    "STR_ESID": 10089624,
+    "STN_LABEL": "Christoph Merian-Platz",
+
+    # Building and Address
+    "BDG_EGID": 443930,
+    "BDG_CATEGORY": "residential",
+    "BDG_NAME": None,
+
+    "ADR_EDID": 0,  # not used
+    "ADR_EGAID": 100335354,
+    "ADR_NUMBER": "8",
+
+    "ADR_STATUS": "real",
+    "ADR_OFFICIAL": True,
+    "ADR_MODIFIED": "15.11.2024",
+    "ADR_EASTING": 2613090,
+    "ADR_NORTHING": 1266479
+}
+'''
+# A function to convert Swiss coordinates to WGS84 (latitude/longitude)
+def convert_ch1903_to_wgs84(easting, northing):
+    try:
+        transformer = pyproj.Transformer.from_crs("EPSG:2056", "EPSG:4326", always_xy=True)  # LV95 to WGS84
+        lon, lat = transformer.transform(easting, northing)
+        return lat, lon
+    except Exception as e:
+        raise ValidationError(f"Error converting coordinates: {e}")
+
+
+class Country(LogAbstract):
+    """Model to represent a person's category.
+    not used: parentId
+    """
+    alpha2 = models.CharField(
+        _('Country'),
+        max_length=2, help_text=_("2-letter country code")
+    )
+    alpha3 = models.CharField(
+        _('Country'),
+        max_length=3, help_text=_("3-letter country code")
+    )
+    name = models.JSONField(
+        _('Name'),
+        help_text=_("The name of the country")
+    )
+    is_default = models.BooleanField(
+        _('Is default'), default=False,
+        help_text=_("Default for data entry"))
+
+    def get_default_id():
+        default = Country.objects.filter(is_default=True).first()
+        return default.id if default else None
+
+    def __str__(self):
+        return f'{self.alpha3}, {primary_language(self.name)}'
+
+    class Meta:
+        ordering = ['-is_default', 'alpha3']
+        verbose_name = _('Country')
+        verbose_name_plural = _('Countries')
 
 
 # App
@@ -154,6 +231,9 @@ class TenantSetup(LogAbstract, NotesAbstract):
          _('Type'), max_length=1, choices=TYPE.choices,
         null=True, blank=True,
         help_text=_('Type, add new one of no match'))
+    zips = models.JSONField(
+        _('municipality zips'), null=True, blank=True,
+        help_text=_('Zips that belong to the tenant, e.g. [4034]'))
     formats = models.JSONField(
         _('formats'), null=True, blank=True,
         help_text=_('Format definitions'))
@@ -236,9 +316,9 @@ class TenantAbstract(LogAbstract, NotesAbstract):
             attachments = self.attachments.all()
         except:
             attachments = []
-        
+
         for index, attachment in enumerate(attachments, start=1):
-            if index == nr:        
+            if index == nr:
                 return attachment.file.url
         return None
 
@@ -309,62 +389,133 @@ class TenantLogo(TenantAbstract):
         verbose_name_plural =  _('tenant logos')
 
 
+
+# Address Assignment must be quick so we use a flat table
+class AddressMunicipal(TenantAbstract):
+    '''These are the official addresses of the tenant's city,
+        we use it for inhabitants, tags and buildings
+    '''
+    # Municipality
+    com_fosnr = models.PositiveIntegerField(        
+        help_text="Unique identifier for the municipality."
+    )
+    com_name = models.CharField(
+        max_length=255,
+        help_text="Name of the municipality."
+    )
+    com_canton = models.CharField(
+        max_length=2,
+        help_text="Abbreviation for the canton (e.g., BS, ZH)."
+    )
+    zip = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1000), MaxValueValidator(9999)]
+    )
+    city = models.CharField(
+        max_length=100, help_text="Name of the municipality."
+    )
+
+    # Street
+    str_esid = models.PositiveBigIntegerField(        
+        help_text="Unique identifier for the street."
+    )
+    stn_label = models.CharField(
+        max_length=255,
+        help_text="Name of the street."
+    )
+
+    # Building
+    bdg_egid = models.PositiveBigIntegerField(
+        help_text="Unique identifier for the building."
+    )
+    bdg_category = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Category of the building (e.g., residential, commercial)."
+    )
+    bdg_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Name of the building (if applicable)."
+    )
+
+    # Address
+    adr_egaid = models.PositiveBigIntegerField(
+        help_text="Unique identifier for the address."
+    )
+    adr_number = models.CharField(
+        max_length=10,
+        help_text="Address number (e.g., 8, 12A)."
+    )
+    adr_status = models.CharField(
+        max_length=50,
+        help_text="The status of the address (e.g., real, historical)."
+    )
+    adr_official = models.BooleanField(
+        help_text="Whether the address is official (true or false)."
+    )
+    adr_modified = models.DateField(
+        help_text="The last modified date of the address."
+    )
+    adr_easting = models.PositiveIntegerField(
+        help_text="Easting coordinate of the address (Swiss coordinate system)."
+    )
+    adr_northing = models.PositiveIntegerField(
+        help_text="Northing coordinate of the address (Swiss coordinate system)."
+    )
+    lat = models.FloatField(
+        blank=True,
+        null=True,
+        help_text="Latitude (WGS84) for Google Maps."
+    )
+    lon = models.FloatField(
+        blank=True,
+        null=True,
+        help_text="Longitude (WGS84) for Google Maps."
+    )
+
+    def save(self, *args, **kwargs):
+        # Automatically calculate latitude and longitude if missing
+        if self.adr_easting and self.adr_northing and (
+                self.lat is None or self.lon is None):
+            self.lat, self.lon = convert_ch1903_to_wgs84(
+                self.adr_easting, self.adr_northing)
+        super().save(*args, **kwargs)
+
+    def __str__(self):        
+        return (
+            f"{self.zip} {self.city}, {self.stn_label} {self.adr_number}"
+            f", EGID {self.bdg_egid}"
+        )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'adr_egaid'],
+                name='unique_address_municipality'
+            )
+        ]        
+        ordering = ['zip', 'stn_label', 'adr_number']
+
+
 # Base Entities: Country, Address, Contact
-class AddressCategory(TenantAbstract):
-    class TYPE(models.TextChoices):
-        # CashCtrl
-        AREA = 'Area', _('Area')
-        REGION = 'Region', _('Region')
-        OTHER = 'OTHER', _('Other')
-
-    type = models.CharField(max_length=20, choices=TYPE.choices)
-    code = models.CharField(
-        _('Code'), max_length=50, help_text=_("Code"))
-    name = models.CharField(
-        _('Name'), max_length=100, help_text=_("Name"))
-    description = models.TextField(
-        _('Description'), blank=True, null=True)
+class AddressTag(TenantAbstract):
+    tag = models.CharField(
+        _('Tag'), max_length=50, help_text=_("Tag to categorize addresses"))
+    address = models.ForeignKey(
+        AddressMunicipal, on_delete=models.PROTECT,
+        related_name="municipality_address",
+        verbose_name=_('Address'), help_text=_("Address")
+    )
 
     def __str__(self):
-        return f"{self.type} {self.name}"
+        return f"{self.tag} {self.address}"
 
     class Meta:
-        ordering = ['code', 'name']
-        verbose_name = _('Address Category')
-        verbose_name_plural = _('Address Categories')
-
-
-class Country(LogAbstract):
-    """Model to represent a person's category.
-    not used: parentId
-    """
-    alpha2 = models.CharField(
-        _('Country'),
-        max_length=2, help_text=_("2-letter country code")
-    )
-    alpha3 = models.CharField(
-        _('Country'),
-        max_length=3, help_text=_("3-letter country code")
-    )
-    name = models.JSONField(
-        _('Name'),
-        help_text=_("The name of the country")
-    )
-    is_default = models.BooleanField(
-        _('Is default'), default=False,
-        help_text=_("Default for data entry"))
-
-    def get_default_id():
-        default = Country.objects.filter(is_default=True).first()
-        return default.id if default else None
-
-    def __str__(self):
-        return f'{self.alpha3}, {primary_language(self.name)}'
-
-    class Meta:
-        ordering = ['-is_default', 'alpha3']
-        verbose_name = _('Country')
-        verbose_name_plural = _('Countries')
+        ordering = ['tag', 'address__zip']
+        verbose_name = _('Municipality Address with Tag')
+        verbose_name_plural = _('Municipality Addresses with Labels')
 
 
 class Address(TenantAbstract):
@@ -386,11 +537,6 @@ class Address(TenantAbstract):
         Country, on_delete=models.PROTECT, related_name="%(class)s_country",
         verbose_name=_('Country'), default=Country.get_default_id,
         help_text=_("Country")
-    )
-    categories = models.ManyToManyField(
-        AddressCategory, related_name='address_categories',
-        verbose_name=_('Category'), blank=True,
-        help_text=_('Categorize address for planning or statistical analysis.')
     )
 
     def category_str(self, filter_type=None):
@@ -770,8 +916,19 @@ class PersonAddress(TenantAbstract):
 
         return value
 
+    @property
+    def address_invoice(self):
+        value = self.get_type_display() + ': '
+
+        if self.additional_information:
+            value += self.additional_information + ', '
+        if self.post_office_box:
+            value += self.post_office_box + ', '
+
+        return f"{value}{self.address}"
+
     def __str__(self):
-        return f"{self.address}"
+        return f"{self.address} ({self.type})"
 
     class Meta:
         ordering = ['address__zip', 'address__address', 'type']
@@ -824,40 +981,14 @@ class UserProfile(LogAbstract, NotesAbstract):
 
 
 # Buildings, Rooms
-class Building(TenantAbstract):
-    ''' Used to identify own buildings '''
-    name = models.CharField(
-        _('Name'), max_length=100, blank=True, null=True)
-    description = models.CharField(
-        _('Description'), max_length=200, blank=True, null=True)
-    address = models.ForeignKey(
-        Address, verbose_name=_('Address'), blank=True, null=True,
-        on_delete=models.CASCADE, related_name='%(class)s_address_building')
-    egid = models.PositiveIntegerField(
-        'EGID', blank=True, null=True)
-    type = models.CharField(
-        _('Type'), max_length=32, blank=True, null=True)
-
-    def __str__(self):
-        names = [self.name or '']
-        if self.address:
-            names.append(self.address.address or '')
-        return ', '.join(names)
-
-    class Meta:
-        ordering = ['name', 'egid']
-        verbose_name = _('Building')
-        verbose_name_plural = _('Buildings')
-
-
 class Dwelling(TenantAbstract):
     ''' Used to identify own rooms '''
     name = models.CharField(_('Name'), max_length=200)
     ewid = models.PositiveIntegerField(
         'EWID', blank=True, null=True)
-    building = models.ForeignKey(
-        Building, verbose_name=_('Building'),
-        on_delete=models.CASCADE, related_name='%(class)s_building')
+    address = models.ForeignKey(
+        AddressMunicipal, verbose_name=_('Building'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_address')
 
     def __str__(self):
         return f"{self.name}, {self.address}"
@@ -870,12 +1001,12 @@ class Dwelling(TenantAbstract):
 
 class Room(TenantAbstract):
     name = models.CharField(_('Name'), max_length=200)
-    building = models.ForeignKey(
-        Building, verbose_name=_('Building'), blank=True, null=True,
-        on_delete=models.CASCADE, related_name='%(class)s_building')
+    address = models.ForeignKey(
+        AddressMunicipal, verbose_name=_('Building'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_address')
     dwelling = models.ForeignKey(
         Dwelling, verbose_name=_('Dwelling'),
-        on_delete=models.CASCADE, related_name='%(class)s_building')
+        on_delete=models.CASCADE, related_name='%(class)s_dwelling')
 
     def __str__(self):
         return f"{self.name}, {self.building}, {self.dwelling}"
