@@ -14,46 +14,55 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             'action',  # Positional argument
-            choices=['gesoft'],  # Restrict valid values
+            choices=['gesoft', 'gesoft_area'],  # Restrict valid values
             help='Specify the action: gesoft'
         )
         parser.add_argument(
             '--setup_id',  # Optional argument (use '--')
             type=int,
-            required=False, 
+            required=False,
             help='Setup ID for the operation'
         )
         parser.add_argument(
-            '--route_id', 
+            '--route_id',
             type=int,
             required=False,
             help='Route ID for the operation'
-        ) 
+        )
         parser.add_argument(
-            '--date', 
+            '--date',
             type=str,
             required=False,
             help='Date default for counter data'
-        )          
+        )
 
     def handle(self, *args, **options):
         action = options['action']
         setup_id = options.get('setup_id')
         route_id = options.get('route_id')
         date = options.get('date')
-        
+
         if action == 'gesoft':
             # Import library
             from billing.gesoft_import import ImportAddress, ImportData
-                        
+
             # Load addresses
             file_name = 'Abonnenten Gebühren einzeilig.xlsx'
             handler = ImportAddress(setup_id)
-            address_data = handler.load(file_name)            
+            address_data = handler.load(file_name)
 
             # Load subscribers + counters
             file_name = 'Abonnenten mit Zähler und Gebühren.xlsx'
-            handler = ImportData(setup_id, route_id, date)                        
+            handler = ImportData(setup_id, route_id, date)
             handler.load(file_name, address_data)
+
+        elif action == 'gesoft_area':
+            # Import library
+            from billing.gesoft_import import AreaAssignment
+
+            # Load subscribers + counters
+            handler = AreaAssignment(setup_id)
+            handler.assign()
+            
         else:
             raise ValueError("No valid action")

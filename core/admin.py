@@ -204,7 +204,8 @@ class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_zip', 'city', 'display_address', 'bdg_egid', 'bdg_category')
+        'display_zip', 'city', 'display_address', 'bdg_egid', 'bdg_category', 
+        'area')
     list_display_links = ('display_zip', 'city', 'display_address')
     readonly_fields = (
         'display_zip', 'display_address') + FIELDS.LOGGING_TENANT
@@ -212,7 +213,7 @@ class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('zip', 'city', 'stn_label')
-    list_filter = ('zip', 'bdg_category', 'adr_status')
+    list_filter = (filters.AreaFilter, 'zip', 'bdg_category', 'adr_status')
 
     # Fieldsets
     fieldsets = (
@@ -244,27 +245,27 @@ class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):
     def display_zip(self, obj):
         return str(obj.zip)
 
-    @admin.display(description=_('ZIP'))
+    @admin.display(description=_('Address'))
     def display_address(self, obj):
         return f"{obj.stn_label} {obj.adr_number}"
 
 
-@admin.register(models.AddressTag, site=admin_site)
-class AddressTagAdmin(TenantFilteringAdmin, BaseAdmin):
+@admin.register(models.Area, site=admin_site)
+class AreaAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
 
     # Display these fields in the list view
-    list_display = ('tag', 'address')
+    list_display = ('code', 'name')
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
-    search_fields = ('tag',)
+    search_fields = ('code', 'name')    
 
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': ('tag', 'address'),
+            'fields': ('code', 'name'),
             'classes': ('expand',),
         }),
     )

@@ -5,18 +5,19 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
 from core.safeguards import get_tenant_data
+from .models import Area
 
 
-# Custom Filter for Existing Categories
-class PersonAddressCategoryFilter(admin.SimpleListFilter):
-    title = _('Categories')
-    parameter_name = 'categories'
+# Custom Filter for Area
+class AreaFilter(admin.SimpleListFilter):
+    title = _('Areas')
+    parameter_name = 'areas'
 
     def lookups(self, request, model_admin): 
         '''Return all categories '''
         return [
-            (cat.id, cat.name) 
-            for cat in AddressCategory.objects.all()  # Fetch all categories
+            (area.id, area.name) 
+            for area in Area.objects.all()  # Fetch all categories
         ]
 
     def queryset(self, request, queryset):
@@ -27,6 +28,7 @@ class PersonAddressCategoryFilter(admin.SimpleListFilter):
         if self.value():
             return queryset.filter(
                 tenant__id=tenant_id,
-                address__categories__id=self.value()
+                area=self.value()
             )
         return queryset
+

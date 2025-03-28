@@ -1,15 +1,17 @@
 '''
 billing/calc.py
 '''
+from datetime import datetime
 import json
 import openpyxl
 from openpyxl.styles import Font
 
 from django.db.models import Q, Sum, Min, Max
 from django.http import HttpResponse
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from core.models import AddressTag, AddressMunicipal, PersonAddress
+from core.models import Area, AddressMunicipal, PersonAddress
 from scerp.admin import ExportExcel
 from .models import Period, Route, Measurement, Subscription
 
@@ -30,6 +32,27 @@ class METER:
 # Helpers
 def convert_datetime_to_date(dt):
     return dt.strftime('%Y-%m-%d')
+
+
+def extract_datetime_from_route_filename(filename):
+    ''' e.g. filename = "route0120250325_2025-03-25_16-28-49.json"
+    '''
+    try:
+        # Extract the datetime string after the first underscore
+        datetime_part = (
+            filename.split('_')[1] + '_'
+            + filename.split('_')[2].split('.')[0])
+
+        # Parse the datetime string into a naive datetime object
+        naive_datetime = datetime.strptime(datetime_part, '%Y-%m-%d_%H-%M-%S')
+
+        # Convert the naive datetime to an aware datetime
+        aware_datetime = timezone.make_aware(naive_datetime)
+
+        return aware_datetime
+    except (ValueError, IndexError):
+        # Return None if the filename doesn't match the expected pattern
+        return None
 
 
 def shift_encode(text, shift=3):
@@ -53,20 +76,20 @@ class RouteMeterExport:
         self.key = key
 
     # Helpers
-    def get_buildings(self):
-        # Get address_tags
-        tags = [x for x in self.route.address_tags.all()]
-
-        # Filter Buildings
-        if self.route.buildings.exists():
-            queryset = self.route.buildings.all()
+    def get_addresses(self):
+        # Filter Addresses
+        if self.route.addresses.exists():
+            addresses = self.route.addresses.all()
         else:
-            queryset = Building.objects.filter(tenant=self.route.tenant)
-        buildings = queryset.filter(address__tags__in=tags)
+            queryset = AddressMunicipal.objects.filter(
+                tenant=self.route.tenant)
+            if self.route.areas.exists():                
+                queryset = queryset.filter(area__in=areas)
+            addresses = queryset.all()
 
-        return buildings
+        return addresses
 
-    def get_subscriptions(self, buildings):
+    def get_subscriptions(self, addresses):
         # start, end
         start = self.route.get_start()
         end = self.route.get_start()
@@ -74,7 +97,7 @@ class RouteMeterExport:
         # In scope
         queryset = Subscription.objects.filter(
             tenant=self.route.tenant,
-            building__in=buildings,
+            address__in=addresses,
             start__lte=end,
         ).filter(
             Q(end__gte=start) | Q(end__isnull=True)
@@ -82,65 +105,59 @@ class RouteMeterExport:
         return queryset.all()
 
     def get_last_consumption(self, counter):
-        if self.route.last_period:
+        if self.route.previous_period:
             total = Measurement.objects.filter(
                 tenant=self.route.tenant,
                 counter=counter,
-                period=self.last_period
+                period=self.route.previous_period
             ).aggregate(Sum('consumption'))
             return total['consumption__sum']
         else:
             return 0
+
+    def get_last_value(self, counter):
+        measurement = Measurement.objects.filter(
+                tenant=self.route.tenant,
+                counter=counter,
+                period=self.route.previous_period
+            ).order_by('datetime').last()        
+        return measurement.value or 0 if measurement else 0
 
     def make_meter(self, subscription, counter, excel, start, end):
         ''' make meter dict for json / excel export
         if excel we optimize data to our needs
         '''
         # last consumption
+        value = self.get_last_value(counter)
         consumption = self.get_last_consumption(counter)
-        consumption = round(consumption, 1) if consumption else None
-        min = (
-            round(consumption * float(self.route.confidence_min), 1)
-            if consumption else 0)
-        max = (
-            round(consumption * float(self.route.confidence_max), 1)
-            if consumption else None)
+        
+        min, max = value, value
+        if consumption:            
+            min += consumption * float(self.route.confidence_min)
+            max += consumption * float(self.route.confidence_max)
 
         # subscription
-        name = subscription.subscriber.alt_name
+        name = subscription.subscriber.__str__()
+        if subscription.partner:
+            name += ' & ' + subscription.partner.__str__()
 
-        # building address
-        address = subscription.building.address
-        address_category_names = ','.join([
-            x.code for x in subscription.building.address.categories.all()])
-        street = address.address or ''
-
-        # encryption
-        if self.key:
-            name = shift_encode(name, self.key)
-            street = shift_encode(street, self.key)
+        # address
+        address = subscription.address
+        street = address.stn_label or ''
+        nr = address.adr_number or ''
 
         # make record
         if excel:
-            # Get recepient address
-            recipient_addr = PersonAddress.objects.filter(
-                person=subscription.recipient,
-                type=PersonAddress.TYPE.INVOICE).first().address
-
             # Make record
             meter = {
                 'counter_id': counter.number,
-                'street': street,
+                'address': f"{street} {nr}",
                 'subscriber': name,
-                'invoice_recipient': subscription.recipient.alt_name,
-                'invoice_address': (
-                    f"{recipient_addr.address}, "
-                    f"{recipient_addr.zip}, {recipient_addr.city}"
-                ),
-                'area': address_category_names,
+                'area': address.area,
                 'start': start,
                 'end': end,
-                'consumption_old': consumption
+                'consumption_old': consumption,
+                'obiscode': counter.obiscode
             }
         else:
             # current date
@@ -150,11 +167,17 @@ class RouteMeterExport:
                 current_date = None
 
             # previous date
-            if self.route.last_period:
+            if self.route.previous_period:
                 previous_date = convert_datetime_to_date(
-                    self.route.last_period.end)
+                    self.route.previous_period.end)
             else:
                 previous_date = None
+
+            # encryption
+            if self.key:
+                name = shift_encode(name, self.key)
+                nr = shift_encode(street, self.key)
+                street = shift_encode(nr, self.key)
 
             meter = {
                 'id': counter.number,
@@ -163,10 +186,10 @@ class RouteMeterExport:
                 'hint': counter.notes,
                 'address': {
                     'street': street,
-                    'housenr': '',
-                    'city': address.city,
-                    'zip': address.zip,
-                    'hint': subscription.building.description
+                    'housenr': nr,
+                    'city': subscription.address.city,
+                    'zip': subscription.address.zip,
+                    'hint': None
                 },
                 'subscriber': {
                     'name': name,
@@ -175,9 +198,9 @@ class RouteMeterExport:
                 'value': {
                     'obiscode': counter.obiscode,
                     'dateOld': previous_date,
-                    'old': consumption,
-                    'min': min,
-                    'max': max,
+                    'old': round(value, 1),
+                    'min': round(min, 1),
+                    'max': round(max, 1),
                     'dateCur': current_date
                 }
             }
@@ -186,7 +209,7 @@ class RouteMeterExport:
 
     # Methods
     def get_data(self, excel=False):
-        data = METER.TEMPLATE
+        data = dict(METER.TEMPLATE)
 
         # Update route
         data['billing_mde']['route'].update({
@@ -201,8 +224,10 @@ class RouteMeterExport:
             self.route.end if self.route.end else self.route.period.end)
 
         # Get subscriptions
-        buildings = self.get_buildings()
-        subscriptions = self.get_subscriptions(buildings)
+        addresses = self.get_addresses()
+        print("*addresses", len(addresses))
+        subscriptions = self.get_subscriptions(addresses)
+        print("*subscriptions", len(subscriptions))
         number_of_counters = 0
         # Fill in meters
 
@@ -214,9 +239,10 @@ class RouteMeterExport:
                 number_of_counters += 1
 
         # Update route
-        self.route.number_of_buildings = len(buildings)
+        self.route.number_of_addresses = len(addresses)
         self.route.number_of_subscriptions = len(subscriptions)
         self.route.number_of_counters = number_of_counters
+        self.route.status = Route.STATUS.COUNTER_EXPORTED
         self.route.save()
 
         # return data, if excel only meter records
@@ -224,7 +250,7 @@ class RouteMeterExport:
 
     def make_response_json(self, data, filename):
         # Create json
-        json_data = json.dumps(data, ensure_ascii=False)
+        json_data = json.dumps(data, ensure_ascii=False, indent=4)
 
         # Create the HTTP response and set the appropriate content type with
         # UTF-8 charset
@@ -268,8 +294,8 @@ class MeasurementAnalyse:
         distinct_routes = set([x.route for x in self.queryset.all()])
 
         # Distinct values of areas (assuming 'address__categories' link to areas)
-        distinct_areas = AddressCategory.objects.filter(
-            id__in=self.queryset.values('building__address__categories')
+        distinct_areas = Area.objects.filter(
+            id__in=self.queryset.values('address__area')
         ).distinct()
 
         # Start and end of periods

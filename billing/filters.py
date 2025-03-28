@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounting.models import Article
 from core.safeguards import get_tenant_data
-from core.models import AddressTag
+from core.models import Area
 from scerp.mixins import primary_language
 from .models import ARTICLE, Period, Route
 
@@ -99,20 +99,20 @@ class MeasurementRouteFilter(admin.SimpleListFilter):
         return queryset
 
 
-class MeasurementBuildingAddressCategoryFilter(admin.SimpleListFilter):
+class MeasurementAreaFilter(admin.SimpleListFilter):
     title = _('Area')
-    parameter_name = 'tags'
+    parameter_name = 'areas'
 
     def lookups(self, request, model_admin):
         '''Return categories filtered by tenant'''
         tenant_data = get_tenant_data(request)
         tenant_id = tenant_data.get('id')
 
-        tags = AddressTag.objects.filter(
+        areas = Area.objects.filter(
             tenant_id=tenant_id  # Add tenant filtering here
-        ).values_list('id', 'tag')
+        ).values_list('id', 'name')
 
-        return tags
+        return areas
 
     def queryset(self, request, queryset):
         tenant_data = get_tenant_data(request)
@@ -121,7 +121,7 @@ class MeasurementBuildingAddressCategoryFilter(admin.SimpleListFilter):
         if self.value():
             return queryset.filter(
                 tenant__id=tenant_id,  # Ensure tenant filter applies here too
-                building__address__categories__id=self.value()
+                address__area=self.value()
             )
         return queryset
 
@@ -129,15 +129,15 @@ class MeasurementBuildingAddressCategoryFilter(admin.SimpleListFilter):
 class MeasurementConsumptionFilter(admin.SimpleListFilter):
     title = _('Consumption')  # The title of the filter
     parameter_name = 'consumption'  # The query parameter in the URL
-    STEPS = [0, 50, 100, 1000]    
+    STEPS = [0, 50, 100, 1000]
     STEP_MAX = max(STEPS)
 
     def lookups(self, request, model_admin):
         '''
         Return a list of tuples of filter options (displayed in the admin filter sidebar).
         '''
-        steps = self.STEPS        
-        
+        steps = self.STEPS
+
         return [
             ('null', _('Empty'))
         ] + [

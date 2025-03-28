@@ -28,7 +28,7 @@ class PeriodAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = ('code', 'name', 'start', 'end')
     list_filter = ('end',)
-    
+
     # Actions
     actions = default_actions
 
@@ -61,7 +61,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
         'is_default', 'status'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT + (
         'number_of_subscriptions', 'number_of_counters',
-        'number_of_addresses'    
+        'number_of_addresses'
     )
     readonly_fields = ('duration', 'status') + FIELDS.LOGGING_TENANT
 
@@ -71,26 +71,27 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Actions
     actions = [
-        a.export_counter_data_json, 
-        a.export_counter_data_excel
+        a.export_counter_data_json,
+        a.export_counter_data_excel,
+        a.route_copy
     ] + default_actions
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'name', 'period', 'last_period', 
+                'name', 'period', 'previous_period',
             ),
         }),
         (_('Filters'), {
             'fields': (
-                'address_tags', 'addresses', 'start', 'end',                 
+                'areas', 'addresses', 'start', 'end',
             ),
             'classes': ('expand',),
         }),
         (_('Calculations'), {
             'fields': (
-                'confidence_min', 'confidence_max', 'duration', 'status'              
+                'confidence_min', 'confidence_max', 'duration', 'status'
             ),
             'classes': ('expand',),
         }),
@@ -114,7 +115,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
 class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'counter', 'route', 'building', 'period', 
+        'tenant', 'version', 'counter', 'route', 'address', 'period',
         'subscription']
 
     # Display these fields in the list view
@@ -123,13 +124,14 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         'display_subscriber', 'display_area', 'display_consumption'
     ) + FIELDS.ICON_DISPLAY
     list_display_links = ('id', 'datetime')
-    ordering = ('-consumption', 'subscription__subscriber__alt_name')
+    ordering = ('-consumption',)
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
-    search_fields = ('subscription__subscriber__alt_name', 'datetime')
+    search_fields = (
+        'subscription__company', 'subscription__last_name','datetime')
     list_filter = (
-        filters.MeasurementBuildingAddressCategoryFilter,
+        filters.MeasurementAreaFilter,
         filters.MeasurementPeriodFilter,
         filters.MeasurementRouteFilter,
         filters.MeasurementConsumptionFilter,
@@ -137,7 +139,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Actions
     actions = [
-        a.analyse_measurment, 
+        a.analyse_measurment,
         a.anaylse_measurent_excel,
     ] + [export_excel] + default_actions
 
@@ -152,7 +154,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         }),
         (_('References'), {
             'fields': (
-                'building', 'period', 'subscription', 'consumption_previous'
+                'address', 'period', 'subscription', 'consumption_previous'
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -177,9 +179,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     def display_abo_nr(self, obj):
         return obj.subscription.subscriber_number
 
-    @admin.display(
-        description=_('Subscriber'),
-        ordering='subscription__subscriber__alt_name')
+    @admin.display(description=_('Subscriber'))
     def display_subscriber(self, obj):
         return obj.subscription.subscriber.__str__()[:40]
 
@@ -201,28 +201,31 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     @admin.display(description=_('Area'))
     def display_area(self, obj):
-        return obj.building.address.category_str('area')
+        return obj.address.area
 
 
 @admin.register(Subscription, site=admin_site)
 class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = [
-        'tenant', 'version', 'subscriber', 'invoice_address', 'address']
+    protected_foreigns = ['tenant', 'version', 'subscriber', 'address']
     protected_many_to_many = ['articles']
 
     # Display these fields in the list view
     list_display = (
-        'subscriber__alt_name', 'invoice_address', 'address',
-        'start', 'end', 'display_abo_nr', 'number_of_counters', 'notes'
-    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT 
-    list_display_links = ('subscriber__alt_name', )
-    readonly_fields = ('address',) + FIELDS.LOGGING_TENANT
+        'display_subscriber', 'partner', 'address', 'display_invoice_address_list',
+        'start', 'end', 'display_abo_nr', 'number_of_counters', 
+    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
+    list_display_links = ('display_subscriber', 'address')
+    readonly_fields = (
+        'display_invoice_address', 'display_invoice_address_list'
+    ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = (
-        'subscriber__alt_name', 'subscriber__company', 'subscriber__last_name',        
-        'address__stn_label', 'address__adr_number', 'start', 'end')
+        'subscriber__company', 
+        'subscriber__last_name','subscriber__first_name', 
+        'partner__last_name','partner__first_name', 
+        'address__stn_label', 'address__adr_number', 'start', 'end', 'notes')
     list_filter = (
         filters.SubscriptionArticlesFilter,
         'number_of_counters', 'end', 'subscriber__company')
@@ -231,21 +234,30 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'subscriber', 'invoice_address', 'start', 'end', 'address',
-                'articles'
+                'subscriber', 'partner', 'display_invoice_address',
+                'start', 'end', 'address', 'articles'
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
 
-    # Actions    
+    # Actions
     actions = [export_excel] + default_actions
 
     @admin.display(description=_('abo_nr'))
     def display_abo_nr(self, obj):
         return obj.subscriber_number
 
-    @admin.display(description=_('Consumption'))
+    @admin.display(description=_('Subscriber'))
     def display_subscriber(self, obj):
-        return obj.subscription.subscriber.__str__()[:40]
+        return obj.subscriber.__str__()[:40]
+
+    @admin.display(description=_(
+        'Invoice Address (Invoice if specified else Main)'))
+    def display_invoice_address(self, obj):
+        return obj.invoice_address
+
+    @admin.display(description=_('Invoice Address'))
+    def display_invoice_address_list(self, obj):
+        return obj.invoice_address

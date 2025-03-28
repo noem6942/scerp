@@ -233,7 +233,9 @@ class TenantSetup(LogAbstract, NotesAbstract):
         help_text=_('Type, add new one of no match'))
     zips = models.JSONField(
         _('municipality zips'), null=True, blank=True,
-        help_text=_('Zips that belong to the tenant, e.g. [4034]'))
+        help_text=_(
+            'Zips that belong to the tenant, e.g. [4034]. '
+            'We use it for importing the building addresses. '))
     formats = models.JSONField(
         _('formats'), null=True, blank=True,
         help_text=_('Format definitions'))
@@ -389,6 +391,22 @@ class TenantLogo(TenantAbstract):
         verbose_name_plural =  _('tenant logos')
 
 
+# Area
+class Area(TenantAbstract):
+    code = models.CharField(
+        _('Code'), max_length=50)    
+    name = models.CharField(
+        _('Name'), max_length=200, 
+        help_text=_("Area to categorize addresses"))
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['code']
+        verbose_name = _('Area')
+        verbose_name_plural = _('Areas')
+
 
 # Address Assignment must be quick so we use a flat table
 class AddressMunicipal(TenantAbstract):
@@ -419,7 +437,7 @@ class AddressMunicipal(TenantAbstract):
         help_text="Unique identifier for the street."
     )
     stn_label = models.CharField(
-        max_length=255,
+        _('Street'), max_length=255, 
         help_text="Name of the street."
     )
 
@@ -467,13 +485,19 @@ class AddressMunicipal(TenantAbstract):
     lat = models.FloatField(
         blank=True,
         null=True,
-        help_text="Latitude (WGS84) for Google Maps."
+        help_text="Latitude (WGS84)"
     )
     lon = models.FloatField(
         blank=True,
         null=True,
-        help_text="Longitude (WGS84) for Google Maps."
+        help_text="Longitude (WGS84)"
     )
+    
+    # Custom
+    area = models.ForeignKey(
+        Area, on_delete=models.PROTECT, blank=True, null=True,        
+        verbose_name=_('Area'), related_name="%(class)s_area",
+        help_text=_("Area"))
 
     def save(self, *args, **kwargs):
         # Automatically calculate latitude and longitude if missing
@@ -500,23 +524,6 @@ class AddressMunicipal(TenantAbstract):
 
 
 # Base Entities: Country, Address, Contact
-class AddressTag(TenantAbstract):
-    tag = models.CharField(
-        _('Tag'), max_length=50, help_text=_("Tag to categorize addresses"))
-    address = models.ForeignKey(
-        AddressMunicipal, on_delete=models.PROTECT,
-        related_name="municipality_address",
-        verbose_name=_('Address'), help_text=_("Address")
-    )
-
-    def __str__(self):
-        return f"{self.tag} {self.address}"
-
-    class Meta:
-        ordering = ['tag', 'address__zip']
-        verbose_name = _('Municipality Address with Tag')
-        verbose_name_plural = _('Municipality Addresses with Labels')
-
 
 class Address(TenantAbstract):
     ''' Addresses, per Tenant

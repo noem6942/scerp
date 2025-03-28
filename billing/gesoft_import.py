@@ -1,10 +1,12 @@
 '''
 billing/gesoft_import.py
 '''
+from enum import Enum
 import json
 import logging
+import re
 from datetime import date, datetime, timedelta
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 from pathlib import Path
 
 from django.conf import settings
@@ -14,7 +16,7 @@ from accounting.models import APISetup, ArticleCategory, Article
 from asset.models import DEVICE_STATUS, AssetCategory, Device, EventLog
 from billing.models import Period, Route, Measurement, Subscription
 from core.models import (
-     AddressMunicipal, AddressTag, Address, PersonCategory,
+     AddressMunicipal, Area, Address, PersonCategory,
      Person, PersonAddress
 )
 from scerp.mixins import parse_gesoft_to_datetime
@@ -25,32 +27,82 @@ logger = logging.getLogger(__name__)
 # Address default
 CITY = 'Gunzgen'
 ZIP = 4617
+ALLMEND_EGIDS = [
+    502181189,
+    9041136,
+    502181223,
+    502181108,
+    192039736,
+    502181109,
+    502180980,
+    2125744
+]
+
+class AREA(Enum):
+    GUNZGEN = {'code': 'gunzgen', 'name': 'Gunzgen'}
+    ALLMEND = {'code': 'allmend', 'name': 'Allmend'}
 
 
 # Needed for area assignment
-ALLMEND = [
-    'Aerni Anton',
-    'Plüss-Holliger Dominik und Marlies',
-    'Schickling-Gasser Bernhard + Monika',
-    'Heeb Edda',
-    'Uhlmann Rudolf',
-    'Grütter-Flühmann Liliane',
-    'Romano Adriano',
-    'Schönenberger Urs',
-    'Meier-Holzherr Leonore',
-    'Düblin Sascha',
-    'Widmer-Lanz Peter + Ursula',
-    'Rainer Walter',
-    'NSNW AG',
-    'Marché Restaurants Schweiz AG',
-    'Kieswerk Gunzgen AG',
-    'Wagner-Stulz Thomas + Sandra',
-    'Baggenstos Franziska Ursula',
-    'Lanz Kevin',
-    'Krähenbühl Sascha',
-    'Valora Schweiz SA',
-    'Caderas Jacqueline'
-]
+BUILDING_MAP = {
+    # AboNr: Address in 4617, or EGID Number',
+    44: 'Industriestrasse 7',
+    556: 'Markstrasse 12',
+    409: 'Raststätte Gunzgen Nord 2',
+    602: 'Markstrasse 12',
+    624: 'Bornstrasse 14',
+    488: 'Banackerstrasse 25',
+    457: 'Niederhofweg 4',
+    65: 'Niederhofweg 1',
+    64: 'Industriestrasse 2',
+    63: 'Industriestrasse 4',
+    62: 'Niederhofweg 5',
+    61.1: 'Niederhofweg 13',
+    61: 'Niederhofweg 11',
+    206: 'Alte Poststrasse 4',
+    204: 'Schulstrasse 2',
+    203: 'Allmendstrasse 8',
+    202: 'Allmendstrasse 2',
+    201: 'Schulstrasse 4',
+    200: 'Ghölstrasse 20',
+    288: 'Rotsangelstrasse 13',
+    533: 'Ghölstrasse 18',
+    572: 'Industriestrasse 19',
+    142: 'Allmendstrasse 31',
+    628: 'Niderfeld 2',
+    42: 'Industriestrasse 23',
+    458: 'Härkingerstrasse 1l',
+    408: 'Härkingerstrasse 1i',
+    407.1: 'Härkingerstrasse 1m',
+    407: 'Härkingerstrasse 1g',
+    313: 'Niderfeld 9',
+    86.1: 'Römerweg 20',
+    597: 'Mittelgäustrasse 81',
+    557: 'Markstrasse 16',
+    212: 'Hanselmattweg 4',
+    81: 'Oberfeldweg 24',
+    404: 'Raststätte Gunzgen Süd 3',
+    23: 'Lipsmattweg 3',
+    427: 'Eichliban 1',
+    403: 'Raststätte Gunzgen Nord 2.1',
+    401: 'Allmend 29',
+    45: 'Industriestrasse 11',
+    127: 'Römerweg Ost 20',
+    431: 'Banackerstrasse 28a',
+    438: 'Banackerstrasse 26a',
+    351: 'Mittelgäustrasse 52',
+    167: 'Banackerstrasse 24a',
+    280: 'Mittelgäustrasse 37',
+    626.2: 'Raststätte Gunzgen Süd 1a',
+    626.1: 'Raststätte Gunzgen Süd 1',
+    343: 'Mittelgäustrasse 49',
+    417: 'Klärstrasse 12',
+    205: 'Klärstrasse 12',
+    288: 502272780,    
+    404: 9041136,    
+    626.1: 2125744,    
+    626.2: 502180980
+}
 
 # Wrong Counters
 COUNTER_REPLACE = {
@@ -58,6 +110,22 @@ COUNTER_REPLACE = {
     (23529877, 1276): (23529878, 1276)
 }
 
+COMPANIES = [
+    'GmbH',
+    'AG',
+    ' SA',
+    'Einwohnergemeinde',
+    'Eigentümergemeinschaft',
+    'Erbengemeinschaft',
+    'Genossenschaft',
+    'Kirchgemeinde',
+    'Zweckverband',
+    'Bürgergemeinde',
+    'Immobilien',
+    'STOWE',
+    'STWE'
+    'STWEG'
+]
 
 class Import:
 
@@ -71,7 +139,7 @@ class Import:
         self.created_by = self.setup.created_by
         self.person_category = PersonCategory.objects.get(
             tenant=self.tenant, code='subscriber')
-
+            
     @staticmethod
     def clean_address(address):
         if address:
@@ -145,6 +213,36 @@ class ImportAddress(Import):
         return address_data
 
 
+class AreaAssignment(ImportAddress):
+    
+    def __init__(self, setup_id):
+        super().__init__(setup_id)
+        
+    def assign(self):
+        # Area
+        area_obj = {}
+        for item in AREA:
+            area = item.value
+            obj, _created = Area.objects.get_or_create(
+                tenant=self.tenant,
+                code=area['code'],
+                defaults={
+                    'name': area['name'], 
+                    'created_by': self.created_by
+                }
+            )
+            area_obj[obj.code] = obj
+            
+        # Assign Areas    
+        for address in AddressMunicipal.objects.filter(tenant=self.tenant):
+            if (address.stn_label == AREA.ALLMEND.value['name']
+                    or address.bdg_egid in ALLMEND_EGIDS):
+                address.area = area_obj[AREA.ALLMEND.value['code']]            
+            else:
+                address.area = area_obj[AREA.GUNZGEN.value['code']]
+            address.save()
+
+
 class ImportData(ImportAddress):
 
     def __init__(self, setup_id, route_id, datetime_default):
@@ -163,7 +261,7 @@ class ImportData(ImportAddress):
         self.datetime = timezone.make_aware(
             datetime.strptime(datetime_default, "%Y-%m-%d"))
         self.date = self.datetime.date()
-
+        
         # Const, discontinue as we encoded VAT etc. in categories
         # --> do it later in cashCtrl manually
         #self.article_category = ArticleCategory.objects.filter(
@@ -176,27 +274,64 @@ class ImportData(ImportAddress):
         return datetime.strptime(date_string, '%d.%m.%Y').date()
 
     @staticmethod
-    def get_company(name):
-        if ' AG' in name:
-            return name
-        elif ' gmbh' in name.lower():
-            return name
-        elif 'genossenschaft' in name.lower():
-            return name
-        elif 'verband' in name.lower():
-            return name
-        elif 'verein' in name.lower():
-            return name
-        elif 'gemeinde' in name.lower():
-            return name
-        elif 'STWEG' in name.upper():
-            return name
+    def parse_subscriber_name(subscriber_name):
+        """
+        Parses the subscriber name into a person and partner dictionary.
+        Returns:
+            person: Dictionary containing company, title, last_name, and first_name of the main person.
+            partner: Dictionary containing last_name and first_name of the partner (if available).
+        """
+        subscriber_name = subscriber_name.strip()
 
-        return None
+        person = {
+            'subscriber_name': subscriber_name,
+            'company': None,
+            'title': None,
+            'last_name': None,
+            'first_name': None,
+            'partner_title': None,
+            'partner_last_name': None,
+            'partner_first_name': None,
+        }
 
-    @staticmethod
-    def get_last_name(name):
-        return name.split(' ', 1)[0]
+        # Clean
+        subscriber_name = subscriber_name.replace('  ', ' ')
+
+        # Condition 1: If name contains "GmbH" or "AG" (exactly)
+        for keyword in COMPANIES:
+            if keyword in subscriber_name:
+                person['company'] = subscriber_name.strip()
+                return person
+
+        # Condition 2: Matches "last_name first_name und first_name_partner" or "last_name first_name + first_name_partner"
+        pattern = (
+            r"^(?P<last_name>[^\s]+)\s(?P<first_name>[^\s]+)\s(?:und|\+ ?)"
+            r"(?P<partner_first_name>.+)$"
+        )
+        match = re.match(pattern, subscriber_name)
+        if match:
+            person.update({
+                'last_name': match.group("last_name"),
+                'first_name': match.group("first_name"),
+                'partner_last_name': match.group("last_name"),
+                'partner_first_name': match.group("partner_first_name").strip(),
+            })
+            return person
+
+        # Condition 3: Matches "last_name first_name" (single person)
+        pattern_single = r"^(?P<last_name>[^\s]+)\s(?P<first_name>.+)$"
+        match_single = re.match(pattern_single, subscriber_name)
+        if match_single:
+            person.update({
+                'last_name': match_single.group("last_name"),
+                'first_name': match_single.group("first_name").strip(),
+            })
+            return person
+
+        # Condition 4: If no pattern matches, treat the entire string as the last name
+        person['last_name'] = subscriber_name.strip()
+
+        return person
 
     @staticmethod
     def make_article(tarif, anr, name, price):
@@ -234,36 +369,48 @@ class ImportData(ImportAddress):
         )
         return obj, created
 
-    def add_address_category(self, building_address, alt_name):
-        if (alt_name in ALLMEND
-                or building_address.address.startswith('Allmend ')):
-            # e.g. Allmend 4 but not Allmendstrasse
-            category = AddressTag.objects.get(
-                tenant=self.tenant, code='allmend')
-        elif building_address.zip == str(ZIP):
-            category = AddressTag.objects.get(
-                tenant=self.tenant, code='gunzgen')
-        else:
-            logger.warning(
-                f"{building_address}: no address category found.")
-            return
-
-        building_address.categories.add(category)
-
     def add_person(self, data):
-        data.update({
-            'category': self.person_category,
-            'is_customer': True,
-            'sync_to_accounting': False,
-            'created_by': self.created_by
-        })
-        obj, created = Person.objects.update_or_create(
-            tenant=self.tenant,
-            company=data.pop('company'),
-            alt_name=data.pop('alt_name'),
-            defaults=data
-        )
-        return obj, created
+        if data['company']:
+            # find
+            query_set = Person.objects.filter(
+                tenant=self.tenant,
+                category=self.person_category,
+                company=data['company']
+            )
+        else:
+            #  We hope that nobody has the same first and last name
+            query_set = Person.objects.filter(
+                tenant=self.tenant,
+                category=self.person_category,
+                last_name=data['last_name'],
+                first_name=data['first_name'],
+            )
+                
+        if query_set:
+            # update
+            query_set.update(
+                company=data['company'],
+                last_name=data['last_name'],
+                first_name=data['first_name'],
+                notes=data['notes']
+            )
+            person = query_set.first()
+            created = False
+        else:
+            person = Person.objects.create(
+                tenant=self.tenant,
+                company=data['company'],
+                last_name=data['last_name'],
+                first_name=data['first_name'],
+                notes=data['notes'],
+                category=self.person_category,
+                is_customer=True,
+                sync_to_accounting=False,
+                created_by=self.created_by
+            )
+            created = True
+            
+        return person, created
 
     def add_person_address(
             self, person, address, address_type, additional_information=None):
@@ -282,16 +429,14 @@ class ImportData(ImportAddress):
 
     # Asset
     def add_device(self, data):
-        data['created_by'] = self.created_by
-        obj, created = Device.objects.get_or_create(
+        device = Device.objects.filter(            
             tenant=self.tenant,
-            code=data.pop('code'),
-            defaults=data
-        )
-        if created:
-            logger.warning(f"counter {obj.code} did not exist. Created now")
-
-        return obj, created
+            code=data.pop('code')
+        ).first()
+        if device:
+            return device
+            
+        raise ValueError(f"counter {obj.code} does not exist.")
 
     def add_event(self, device, dt, status, data):
         data['created_by'] = self.created_by
@@ -336,7 +481,7 @@ class ImportData(ImportAddress):
         )
         return obj, created
 
-    def add_subscription(self, subscriber_number, data):        
+    def add_subscription(self, subscriber_number, data):
         obj, created = Subscription.objects.update_or_create(
             tenant=self.tenant,
             created_by=self.created_by,
@@ -374,8 +519,11 @@ class ImportData(ImportAddress):
         subscriber_name = self.clean_cell(subscriber_name)
         subscriber_address_c = self.clean_address(subscriber_address)
         invoice_name = self.clean_cell(invoice_name)
+        building_address_excel = building_address
 
-        if building_address:                 
+        if subscriber_number in BUILDING_MAP:
+            building_address_c = BUILDING_MAP[subscriber_number]            
+        elif building_address:
             building_address, *building_category = (
                 building_address.split(',', 1))   # sometime in one cell
             if not building_address:
@@ -383,8 +531,8 @@ class ImportData(ImportAddress):
                     building_address.split('    ', 1))   # sometime in one cell
             if not building_address:
                 building_address, *building_category = (
-                    building_address.split('    ', 1))   # sometime in one cell                
-        building_address_c = self.clean_address(building_address)
+                    building_address.split('    ', 1))   # sometime in one cell
+            building_address_c = self.clean_address(building_address)
 
         if not building_category:
             building_category = self.clean_cell(building_category)
@@ -397,33 +545,47 @@ class ImportData(ImportAddress):
         except:
             stn_label, adr_number = None, None
 
-        if stn_label:
-            adr_building = AddressMunicipal.objects.filter(
+        if isinstance(building_address_c, int):
+            addr_building = AddressMunicipal.objects.filter(
+                tenant=self.tenant, bdg_egid=building_address_c
+            ).first()            
+        elif stn_label:
+            addr_building = AddressMunicipal.objects.filter(
                 tenant=self.tenant, zip=ZIP,
                 stn_label=stn_label, adr_number=adr_number).first()
         else:
-            adr_building = None
+            addr_building = None
 
         # Subscriber
-        company = self.get_company(subscriber_name)
-        alt_name = subscriber_name
-        if company:
-            last_name = None
-        else:
-            last_name = self.get_last_name(subscriber_name)
+        person = self.parse_subscriber_name(subscriber_name)
 
         data = {
-            'company': company,
-            'last_name': last_name,
-            'alt_name': subscriber_name,
+            'company': person['company'],
+            'last_name': person['last_name'],
+            'first_name': person['first_name'],
 
             # we use notes for storing old number
-            'notes': f'abo_nr: {subscriber_number}'
+            'notes': (
+                f"abo_nr: {subscriber_number}, "
+                f"subscriber_name: {subscriber_name}")
         }
         subscriber, _created = self.add_person(data)
 
-        # AddressTag: Allmend or other
-        # not yet self.add_address_category(building_address, subscriber_name)
+        # Partner
+        if person['partner_last_name']:            
+            data = {
+                'company': None,
+                'last_name': person['partner_last_name'],
+                'first_name': person['partner_first_name'],
+
+                # we use notes for storing old number
+                'notes': (
+                    f"abo_nr: {subscriber_number}, "
+                    f"subscriber_name: {subscriber_name}")
+            }
+            partner, _created = self.add_person(data)
+        else:
+            partner = None
 
         # Get subscriber address, we look it up from address_data
         lookup = address_data.get(subscriber_name)
@@ -443,29 +605,30 @@ class ImportData(ImportAddress):
 
         # Invoice address
         # Check if invoice_name == subscriber_name
+        invoice_note = None
         if (subscriber_address_c != building_address_c):
             lookup = address_data.get(invoice_name)
             if lookup:
                 invoice_address_data = dict(
                     zip=lookup['zip'],
                     city=lookup['city'],
-                    address=f"{lookup['address']} ???"
+                    address=f"{lookup['address']}"
                 )
+                invoice_note = 'check invoice address, '
             else:
-                logger.warning(f"No address found for {invoice_name}")
+                logger.warning(f"No address found for {invoice_name}'not")
                 invoice_address_data = dict(
                     zip='0000',
                     city='???',
                     address='???'
                 )
+                invoice_note = 'invoice address not found, '
 
             # add invoice address
             address, _created = self.add_address(invoice_address_data)
             invoice_address, _created = self.add_person_address(
                 subscriber, address, PersonAddress.TYPE.INVOICE,
                 invoice_name)
-        else:
-            invoice_address = subscriber_address
 
         # Subscription
         start_date = self.convert_to_date(start)
@@ -476,21 +639,30 @@ class ImportData(ImportAddress):
 
         data = {
             'subscriber': subscriber,
-            'invoice_address': invoice_address,
-            'address': adr_building,
+            'partner': partner,
+            'address': addr_building,
             'start': start_date,
             'end': end_date,
+            'notes': ''
         }
-        if not adr_building:
-            logger.info(f"{building_address_c} not found")
-            data['notes'] = f"{building_address_c} not found"
-            
+        if addr_building:
+            data['notes'] = building_address_excel
+        else:
+            data['notes'] = f"{building_address_excel}: building not found"
+            logger.info(f"{building_address_excel} building not found")
+        if invoice_note:
+            if data['notes']:
+                data['notes'] += ', '
+            data['notes'] += invoice_note
+        if building_category:
+            data['notes'] += f'building: {building_category}' 
+
         subscription, _created = self.add_subscription(
             subscriber_number, data)
 
-        return subscriber_number, adr_building, subscription
+        return subscriber_number, addr_building, subscription
 
-    def load_block_counter(self, row, adr_building, subscription):
+    def load_block_counter(self, row, addr_building, subscription):
         '''
         returns:
             water_tarif
@@ -516,15 +688,15 @@ class ImportData(ImportAddress):
             counter_nr, montage_nr = COUNTER_REPLACE[(counter_nr, montage_nr)]
             logger.info(f"counter replacement {counter_nr}")
 
-        # Add device
-        device, _created = self.add_device(data)
+        # Check device
+        device = self.add_device(data)
 
         # Add to subscription
         subscription.counters.add(device)
 
         # Add Montage
         data = {
-            'address': adr_building,
+            'address': addr_building,
             'notes': f'Mont-Nr. {montage_nr}'
         }
         event, _created = self.add_event(
@@ -533,7 +705,7 @@ class ImportData(ImportAddress):
         # Add Measurements
         data = {
             'value_previous': zw_alt_1 or zw_alt_2,
-            'address': adr_building,  # efficieny
+            'address': addr_building,  # efficieny
             'period': self.period,  # efficieny
             'subscription': subscription,  # efficieny
         }
@@ -600,7 +772,7 @@ class ImportData(ImportAddress):
                     and first_cell.startswith('WA-')):
                 # Load intro
                 result = self.load_block_intro(row_nr, rows, address_data)
-        return
+
         # Load
         for row_nr, row in enumerate(rows):
             first_cell = row[0]
@@ -608,14 +780,22 @@ class ImportData(ImportAddress):
                     and first_cell.startswith('WA-')):
                 # Load intro
                 result = self.load_block_intro(row_nr, rows, address_data)
-                subscriber_number, adr_building, subscription = result
+                subscriber_number, addr_building, subscription = result
+                
+                # check if 
+                if not addr_building:
+                    logger.warning(
+                        f"No building address found for {subscriber_number}. "
+                        "Cannot continue processing."
+                    )
+                
                 measurements = []
                 tarif_water = None
-            elif isinstance(first_cell, (int, float)):
+            elif isinstance(first_cell, (int, float)) and addr_building:
                 if first_cell > 100:
                     # Load counters
                     result = self.load_block_counter(
-                        row, adr_building, subscription)
+                        row, addr_building, subscription)
                     tarif_water, counter, measurement = result
 
                     # Add measurement

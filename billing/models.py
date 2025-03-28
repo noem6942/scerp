@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounting.models import Article
 from core.models import (
-    TenantAbstract, AddressMunicipal, AddressTag, Person, PersonAddress)
+    TenantAbstract, AddressMunicipal, Area, Person, PersonAddress)
 from asset.models import AssetCategory, Device
 
 
@@ -87,20 +87,19 @@ class Route(TenantAbstract):
     period = models.ForeignKey(
         Period, verbose_name=_('Period'),
         on_delete=models.PROTECT, related_name='%(class)s_period')
-    last_period = models.ForeignKey(
-        Period, verbose_name=_('Last Period'), blank=True, null=True,
+    previous_period = models.ForeignKey(
+        Period, verbose_name=_('Previous Period'), blank=True, null=True,
         on_delete=models.PROTECT, related_name='%(class)s_last_period')
-
-    address_tags = models.ManyToManyField(
-        AddressTag, verbose_name=_('Address Tags'), blank=True,
+    areas = models.ManyToManyField(
+        Area, verbose_name=_('Areas'), blank=True,
         help_text=_(
-            "Address Tags that should be included, "
+            "Areas that should be included, "
             "leave empty to include all in scope"))
     addresses = models.ManyToManyField(
         AddressMunicipal, verbose_name=_('Addresses'), blank=True,
         help_text=_(
             "Addresses that should be included, "
-            "leave empty to include all in scope"))            
+            "leave empty to include all in scope"))
     start = models.DateField(
         _("Start"), blank=True, null=True,
         help_text=_("Leave empty if period start"))
@@ -159,7 +158,7 @@ class Route(TenantAbstract):
                 name='unique_billing_route'
             )
         ]
-        ordering = ['-period__end', 'period__code', 'name']
+        ordering = ['-period__end', '-start', '-end', 'period__code', 'name']
         verbose_name = _('Route')
         verbose_name_plural = _('Routes')
 
@@ -179,11 +178,13 @@ class Subscription(TenantAbstract):
             "subscriber / inhabitant / owner"
             "invoice address may be different to subscriber, defined under "
             "address"))
-    invoice_address = models.ForeignKey(
-        PersonAddress, on_delete=models.PROTECT, blank=True, null=True, 
-         verbose_name=_('Invoice Address'),
-        related_name='%(class)s_invoice_address',
-        help_text=_("invoice address"))
+    partner = models.ForeignKey(
+        Person, on_delete=models.PROTECT, blank=True, null=True,
+        verbose_name=_('Partner'), related_name='%(class)s_partner',
+        help_text=_(
+            "subscriber / inhabitant / owner"
+            "invoice address may be different to subscriber, defined under "
+            "address"))
     address = models.ForeignKey(
         AddressMunicipal, verbose_name=_('Building Address'), null=True,
         on_delete=models.PROTECT, related_name='%(class)s_address',
@@ -204,8 +205,22 @@ class Subscription(TenantAbstract):
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
     @property
+    def invoice_address(self):
+        addresses = PersonAddress.objects.filter(person=self.subscriber)
+        invoice = addresses.filter(type=PersonAddress.TYPE.INVOICE)
+        if invoice:
+            return invoice.first()
+
+        main = addresses.filter(type=PersonAddress.TYPE.MAIN)
+        if main:
+            return main.first()
+
+        return addresses.first()
+
+    @property
     def number(self):
         return f'S {self.id}'
+
 
     def save(self, *args, **kwargs):
         ''' Make number '''
@@ -240,13 +255,8 @@ class Measurement(TenantAbstract):
     route = models.ForeignKey(
         Route, verbose_name=_('Period'),
         on_delete=models.PROTECT, related_name='%(class)s_counter')
-    datetime = models.DateTimeField(
-        _('Date and time'))
     datetime_previous = models.DateTimeField(
         _('Previous Date and Time'), blank=True, null=True)
-    value = models.FloatField(
-        _('Value'), blank=True, null=True,
-        help_text=('Actual counter value'))
     value_previous = models.FloatField(
         _('Previous Value'), blank=True, null=True,
         help_text=('Previous counter value'))
@@ -261,6 +271,18 @@ class Measurement(TenantAbstract):
         help_text=('Min counter value'))
 
     # import
+    datetime = models.DateTimeField(
+        _('Date and time'))
+    datetime_reference = models.DateTimeField(
+        _('Date and time'), blank=True, null=True)
+    value = models.FloatField(
+        _('Value'), blank=True, null=True,
+        help_text=('Actual counter value'))
+    current_battery_level = models.FloatField(
+        _('Battery Level'), blank=True, null=True,
+        help_text=_('number of recommended periods for using'))
+
+    # not used
     status = models.CharField(
         max_length=50, blank=True, null=True)
     remark = models.CharField(
@@ -275,8 +297,6 @@ class Measurement(TenantAbstract):
         max_length=200, blank=True, null=True)
     radio_version = models.CharField(
         max_length=20, blank=True, null=True)
-    current_battery_level = models.FloatField(
-        blank=True, null=True)
 
     # for efficiency analysis, automatically updated
     address = models.ForeignKey(
