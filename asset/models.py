@@ -56,7 +56,9 @@ class Device(TenantAbstract):
     # Base
     code = models.CharField(
         _('Code'), max_length=50, db_index=True,
-        help_text='Internal code for scerp')
+        help_text=_(
+            'Internal code for scerp. '
+            'This is also transferred to water counter software'))
     name = models.CharField(
         _('Name'), max_length=100, blank=True, null=True)
     category = models.ForeignKey(

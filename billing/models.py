@@ -126,6 +126,8 @@ class Route(TenantAbstract):
             "Max confidence factor based on previous period, "
             "e.g. 2: value must be ≤ 20 if previous value was 10"))
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
+    import_file_id = models.PositiveIntegerField(
+        blank=True, null=True, help_text=('for internal usage'))
 
     # For analysis
     number_of_addresses = models.PositiveIntegerField(
@@ -253,16 +255,13 @@ class Measurement(TenantAbstract):
         Device, verbose_name=_('Counter'),
         on_delete=models.PROTECT, related_name='%(class)s_counter')
     route = models.ForeignKey(
-        Route, verbose_name=_('Period'),
+        Route, verbose_name=_('Route'),
         on_delete=models.PROTECT, related_name='%(class)s_counter')
     datetime_previous = models.DateTimeField(
         _('Previous Date and Time'), blank=True, null=True)
     value_previous = models.FloatField(
         _('Previous Value'), blank=True, null=True,
         help_text=('Previous counter value'))
-    consumption = models.FloatField(
-        _('Consumption'), blank=True, null=True,
-        help_text=('Consumption = value - value_previous'))
     value_max = models.FloatField(
         _('Min. Value'), blank=True, null=True,
         help_text=('Max counter value'))
@@ -278,6 +277,9 @@ class Measurement(TenantAbstract):
     value = models.FloatField(
         _('Value'), blank=True, null=True,
         help_text=('Actual counter value'))
+    consumption = models.FloatField(
+        _('Consumption'), blank=True, null=True,
+        help_text=('Consumption = value - value_previous'))        
     current_battery_level = models.FloatField(
         _('Battery Level'), blank=True, null=True,
         help_text=_('number of recommended periods for using'))

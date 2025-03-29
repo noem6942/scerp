@@ -11,7 +11,8 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from core.models import Area, AddressMunicipal, PersonAddress
+from asset.models import Device
+from core.models import Area, AddressMunicipal, PersonAddress, Attachment
 from scerp.admin import ExportExcel
 from .models import Period, Route, Measurement, Subscription
 
@@ -32,6 +33,17 @@ class METER:
 # Helpers
 def convert_datetime_to_date(dt):
     return dt.strftime('%Y-%m-%d')
+
+
+def convert_str_to_datetime(dt_string):
+    # is only date
+    try:
+        naive_datetime = datetime.strptime(dt_string, '%Y-%m-%d')
+    except:
+        return None
+        
+    # Convert the naive datetime to an aware datetime
+    return timezone.make_aware(naive_datetime)    
 
 
 def extract_datetime_from_route_filename(filename):
@@ -104,14 +116,14 @@ class RouteMeterExport:
         )
         return queryset.all()
 
-    def get_last_consumption(self, counter):
+    def get_consumption_previous(self, counter):
         if self.route.previous_period:
             total = Measurement.objects.filter(
                 tenant=self.route.tenant,
                 counter=counter,
                 period=self.route.previous_period
             ).aggregate(Sum('consumption'))
-            return total['consumption__sum']
+            return total['consumption__sum'] or 0
         else:
             return 0
 
@@ -129,12 +141,12 @@ class RouteMeterExport:
         '''
         # last consumption
         value = self.get_last_value(counter)
-        consumption = self.get_last_consumption(counter)
+        consumption_previous = self.get_consumption_previous(counter)
         
         min, max = value, value
-        if consumption:            
-            min += consumption * float(self.route.confidence_min)
-            max += consumption * float(self.route.confidence_max)
+        if consumption_previous:            
+            min += consumption_previous * float(self.route.confidence_min)
+            max += consumption_previous * float(self.route.confidence_max)
 
         # subscription
         name = subscription.subscriber.__str__()
@@ -156,7 +168,7 @@ class RouteMeterExport:
                 'area': address.area,
                 'start': start,
                 'end': end,
-                'consumption_old': consumption,
+                'consumption_previous': consumption_previous,
                 'obiscode': counter.obiscode
             }
         else:
@@ -183,13 +195,17 @@ class RouteMeterExport:
                 'id': counter.number,
                 'energytype': self.route.period.energy_type,
                 'number': counter.number,
-                'hint': counter.notes,
-                'address': {
+                'hint': json.dumps({
+                    'subscription_id': subscription.id,
+                    'address_id': address.id,
+                    'consumption_previous': round(consumption_previous, 1)
+                }),
+                'address': {                    
                     'street': street,
                     'housenr': nr,
-                    'city': subscription.address.city,
-                    'zip': subscription.address.zip,
-                    'hint': None
+                    'city': address.city,
+                    'zip': address.zip,
+                    'hint': f'address_id: {address.id}',
                 },
                 'subscriber': {
                     'name': name,
@@ -386,3 +402,81 @@ class MeasurementAnalyse:
         # Save workbook to response
         wb.save(response)
         return response
+
+
+class RouteMeterImport:
+    
+    def __init__(self, request, route):
+        self.route = route
+        self.user = request.user
+        
+    def process(self, json_file):
+        # Load file
+        file_data = json_file.read().decode('utf-8')
+        data = json.loads(file_data)
+
+        # Check file    
+        try:
+            measurements = data['billing_mde']['meter']
+        except:
+            raise ValueError(_("Not a valid file"))
+        
+        # get meter data
+        count = 0
+        for meter in measurements:
+            counter = Device.objects.filter(
+                tenant=self.route.tenant, code=meter['id']
+            ).first()
+            if not counter:
+                raise ValueError(_(f"counter {meter['id']} not found."))
+
+            # Prepare data
+            value = meter['value']
+            actual_value = (value['min'] + value['max']) / 2  # fake actual_value
+            maintenance = json.loads(meter['hint'])
+            
+            data = {
+                # previous
+                'datetime_previous': convert_str_to_datetime(value['dateOld']),
+                'value_previous': value['old'],                
+                'value_max': value['max'],
+                'value_min': value['min'],
+                
+                # import
+                'datetime': convert_str_to_datetime(value['dateCur']),
+                'value': actual_value,
+                'consumption': actual_value - value['old'],
+
+                # maintenance
+                'period': self.route.period,
+                'address_id': maintenance['address_id'],
+                'subscription_id': maintenance['subscription_id'],
+                'consumption_previous': maintenance['consumption_previous'],
+                'tenant': self.route.tenant,
+                'created_by': self.user,
+            }
+            
+            # Store data
+            obj, created = Measurement.objects.get_or_create(
+                counter=counter, route=self.route,
+                defaults=data)                
+            if created:    
+                count += 1
+
+        # Create an Attachment instance
+        attachment = Attachment.objects.create(
+            tenant=self.route.tenant,  # Set the tenant
+            content_object=self.route,  # Set the associated route
+            file=json_file,  # The uploaded file
+            created_by=self.user
+        )
+        
+        # Add the attachment to the route's attachments
+        self.route.attachments.add(attachment)
+                
+        # update route
+        self.route.status = Route.STATUS.COUNTER_IMPORTED
+        self.route.import_file_id = attachment.id
+        self.route.save()
+                
+        return count

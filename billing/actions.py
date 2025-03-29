@@ -10,7 +10,7 @@ from scerp.actions import action_check_nr_selected
 from . import forms
 
 from asset.models import Device
-from .calc import RouteMeterExport, MeasurementAnalyse
+from .calc import RouteMeterExport, RouteMeterImport, MeasurementAnalyse
 from .models import Route, Subscription
 
 
@@ -41,22 +41,19 @@ def export_counter_data_json(modeladmin, request, queryset, data):
 
 
 @action_with_form(
-    forms.RouteCopyActionForm,
-    description=_('Copy Route'))
-def route_copy(modeladmin, request, queryset, data):
+    forms.RouteMeterImportJSONActionForm,
+    description=_('Import JSON Counter List from Routing'))
+def import_counter_data_json(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, 1):
-        # Copy
+        # Prepare
         route = queryset.first()
-        route.pk = None  # Copy
-        route.name = data['name']
-        route.previous_period = route.period
-        route.period = data['period']
-        route.status = Route.STATUS.INITIALIZED
-        route.save()
+
+        # Import
+        route_import = RouteMeterImport(request, route)
+        count = route_import.process(data['json_file'])
         
-        # Copy many-to-many relationships explicitly
-        # route.areas.add(*route.areas.all())
-        # route.addresses.add(*route.addresses.all())
+        messages.info(request, _("{count} counters updated."))
+        messages.info(request, _("File uploaded and stored as attachment."))
 
 
 @action_with_form(
@@ -79,6 +76,26 @@ def export_counter_data_excel(modeladmin, request, queryset, data):
         response = export.make_response_excel(data, filename)
 
         return response
+
+
+
+@action_with_form(
+    forms.RouteCopyActionForm,
+    description=_('Copy Route'))
+def route_copy(modeladmin, request, queryset, data):
+    if action_check_nr_selected(request, queryset, 1):
+        # Copy
+        route = queryset.first()
+        route.pk = None  # Copy
+        route.name = data['name']
+        route.previous_period = route.period
+        route.period = data['period']
+        route.status = Route.STATUS.INITIALIZED
+        route.save()
+
+        # Copy many-to-many relationships explicitly
+        # route.areas.add(*route.areas.all())
+        # route.addresses.add(*route.addresses.all())
 
 
 @admin.action(description=_("Consumption Analysis"))

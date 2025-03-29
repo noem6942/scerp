@@ -72,6 +72,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     # Actions
     actions = [
         a.export_counter_data_json,
+        a.import_counter_data_json,
         a.export_counter_data_excel,
         a.route_copy
     ] + default_actions
@@ -121,7 +122,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
         'id', 'datetime', 'display_abo_nr',
-        'display_subscriber', 'display_area', 'display_consumption'
+        'display_subscriber', 'display_area', 'route', 'display_consumption'
     ) + FIELDS.ICON_DISPLAY
     list_display_links = ('id', 'datetime')
     ordering = ('-consumption',)

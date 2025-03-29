@@ -79,6 +79,18 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
         self.fields['filename'].initial = f"route_{route.name}_{today}.json"
 
 
+class RouteMeterImportJSONActionForm(AdminActionForm):
+    json_file = forms.FileField(
+        label=_('File'),
+        required=True,
+        widget=forms.ClearableFileInput(attrs={'class': 'file-upload'}),
+        help_text=_("JSON File with the collected data"),
+    )
+    
+    class Meta:
+        list_objects = True
+
+
 class RouteMeterExportExcelActionForm(AdminActionForm):    
     filename = forms.CharField(
         label=_('Filename'),
