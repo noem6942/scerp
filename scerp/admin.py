@@ -82,7 +82,7 @@ def make_language_fields(field_name):
         if lang_code == settings.LANGUAGE_CODE_PRIMARY
     ]
 
-    # Check if only show preferred languagen
+    # Check if only show preferred languagen    
     return [
         f'{field_name}_{lang_code}'
         for lang_code, _lang in languages
@@ -219,7 +219,7 @@ class Display:
             # Last resort: Catch any other exceptions
             return f'Unexpected error displaying data: {e}'
 
-    def link(url, name):
+    def link(url, name, target='_blank'):
         '''
         Generates a clickable link for the Django admin interface.
 
@@ -230,7 +230,8 @@ class Display:
         Returns:
             str: HTML string with a clickable link.
         '''
-        return format_html('<a href="{}" target="_blank">{}</a>', url, name)
+        return format_html(
+            '<a href="{}" target="{}">{}</a>', url, target, name)
 
     def list(items):
         output_list = [f'<li>{item}</li>' for item in items]
@@ -618,19 +619,3 @@ class BaseTabularInline(RelatedModelInline):
     same concept as BaseAdmin, currently no methods 
     '''
     pass
-
-
-class ReadOnlyAdmin(admin.ModelAdmin):
-    '''A mixin to make an admin model read-only.'''
-    def has_add_permission(self, request):
-        return False  # Disable adding
-
-    def has_change_permission(self, request, obj=None):
-        return False  # Disable editing
-
-    def has_delete_permission(self, request, obj=None):
-        return False  # Disable deleting
-
-    def get_readonly_fields(self, request, obj=None):
-        '''Make all fields read-only.'''
-        return [field.name for field in self.model._meta.fields]

@@ -10,7 +10,6 @@ class FIELDS:
         'message',
         'is_enabled_sync',
         'sync_to_accounting',
-        'setup'
     )
     C_FIELDS = (
         'c_id',
@@ -24,7 +23,7 @@ class FIELDS:
         'display_last_update', 'c_id', 'message', 'is_enabled_sync')
     C_DISPLAY_SHORT = ('c_id', 'is_enabled_sync')
     C_ALL = C_FIELDS + C_DISPLAY
-    C_READ_ONLY = FIELDS_BASE.LOGGING_SETUP + C_FIELDS + ('setup',)
+    C_READ_ONLY = FIELDS_BASE.LOGGING_SETUP + C_FIELDS
 
 
 class FIELDSET:

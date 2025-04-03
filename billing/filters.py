@@ -8,7 +8,7 @@ from accounting.models import Article
 from core.safeguards import get_tenant_data
 from core.models import Area
 from scerp.mixins import primary_language
-from .models import ARTICLE, Period, Route
+from .models import Period, Route
 
 
 # Custom Filters for Subscription
@@ -22,8 +22,7 @@ class SubscriptionArticlesFilter(admin.SimpleListFilter):
         tenant_id = tenant_data.get('id')
 
         articles = Article.objects.filter(
-            tenant_id=tenant_id,
-            nr__startswith=ARTICLE.TYPE.PREFIX
+            tenant_id=tenant_id
         ).values_list('id', 'name')
 
         # return translated names

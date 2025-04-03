@@ -9,9 +9,10 @@ from django.utils.translation import gettext_lazy as _
 
 from accounting.actions import de_sync_accounting, sync_accounting
 from scerp.admin import (
-    BaseTabularInline, Display, make_language_fields,
+    BaseTabularInline, Display, make_language_fields, primary_language,
     BaseAdmin
 )
+from scerp.actions import export_excel, default_actions
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 from . import actions as a
@@ -38,6 +39,23 @@ class AttachmentInline(GenericTabularInline):
         obj.tenant = get_tenant_instance(request)
         obj.created_by = request.user
         super().save_model(request, instance, form, change)
+
+
+# Base elements - no tenant needed
+@admin.register(models.App, site=admin_site)
+class AppAdmin(admin.ModelAdmin):
+    ''' currently only a superuser function '''
+    list_display = ('name', 'is_mandatory', 'verbose_name')
+    search_fields = ('name', 'is_mandatory')
+    list_filter = ('is_mandatory', )
+
+
+@admin.register(models.Country, site=admin_site)
+class CountryAdmin(admin.ModelAdmin):
+    ''' currently only a superuser function '''
+    list_display = ('alpha3', 'name', 'is_default')
+    search_fields = ('name', 'alpha3', 'alpha2')
+    list_filter = ('is_default', )
 
 
 @admin.register(models.Message, site=admin_site)
@@ -90,7 +108,7 @@ class UserProfileAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.Tenant, site=admin_site)
 class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
-    list_display = ('name', 'code', 'created_at')
+    list_display = ('code', 'name', 'created_at')
     readonly_fields = FIELDS.LOGGING
 
     # Search, filter
@@ -105,23 +123,22 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': ('name', 'code', 'is_app_time_trustee'),
             'classes': ('expand',),
         }),
+        ('cashCtrl', {
+            'fields': ('cash_ctrl_org_name', 'cash_ctrl_api_key', 'language'),
+            'classes': ('expand',),
+        }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING,
     )
 
-    def save_model(self, request, obj, form, change):
-        """
-        Override save_model to perform session update
-        """
-        # Save the object first
-        super().save_model(request, obj, form, change)
+    # Actions
+    actions = [
+        a.init_setup,
+    ] + default_actions
 
-        # Perform your post-save action
-        if not change:  # If this is a new object being created
-            # Set session variables
-            get_available_tenants(request, recheck_from_db=True)
-            set_tenant(request, obj.id)
-            messages.success(request, _("Session updated."))
+    @admin.display(description=_('API Key'))
+    def display_api_key(self, obj):
+        return show_hidden(obj.api_key)
 
 
 @admin.register(models.TenantSetup, site=admin_site)
@@ -131,7 +148,7 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_users', 'group_names', 'display_apps', 'created_at')
+        'tenant', 'display_users', 'group_names', 'display_apps', 'created_at')
     readonly_fields = ('display_users', ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -145,7 +162,7 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'canton', 'type', 'language', 'show_only_primary_language',
-                'zips', 'display_users'
+                'zips', 'bdg_egids', 'display_users'
             ),  # Including the display method here is okay for readonly display
             'classes': ('expand',),
         }),
@@ -205,7 +222,7 @@ class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
         'display_zip', 'city', 'display_address', 'bdg_egid', 'bdg_category', 
-        'area')
+        'adr_status', 'area')
     list_display_links = ('display_zip', 'city', 'display_address')
     readonly_fields = (
         'display_zip', 'display_address') + FIELDS.LOGGING_TENANT
@@ -281,8 +298,10 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdmin):
     form = forms.TitleAdminForm
 
     # Display these fields in the list view
-    list_display = ('code', 'display_name')
-    readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
+    list_display = ('code', 'display_name', 'is_enabled_sync')
+    list_display_links = ('code', 'display_name')
+    readonly_fields = (
+        'display_name', 'display_sentence') + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ('code', 'name')
@@ -295,18 +314,26 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'gender', *make_language_fields('name')),
+                'code', 'gender', 'display_name', *make_language_fields('name'),
+            ),
             'classes': ('expand',),
         }),
         (_('Texts'), {
             'fields': (
-                *make_language_fields('sentence'),),
+                'display_sentence', *make_language_fields('sentence'),),
             'classes': ('collapse',),
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
         FIELDSET_SYNC
     )
+    
+    @admin.display(description=_('Sentence'))
+    def display_sentence(self, obj):
+        try:
+            return primary_language(obj.sentence)
+        except:
+            return ' '    
 
 
 @admin.register(models.PersonCategory, site=admin_site)
@@ -318,7 +345,7 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     form = forms.PersonCategoryAdminForm
 
     # Display these fields in the list view
-    list_display = ('code', 'display_name')
+    list_display = ('code', 'display_name', 'is_enabled_sync')
     list_display_links = ('code', 'display_name')
     readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
 
@@ -331,7 +358,7 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': ('code', *make_language_fields('name')),
+            'fields': ('code', 'display_name', *make_language_fields('name')),
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -409,7 +436,8 @@ class ContactInline(BaseTabularInline):  # or admin.StackedInline
 
 @admin.register(models.Person, site=admin_site)
 class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
-    protected_foreigns = ['tenant', 'version', 'title', 'superior', 'category']
+    protected_foreigns = [
+        'tenant', 'version', 'title', 'superior', 'category']
 
     # Display these fields in the list view
     list_display = (

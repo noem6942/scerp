@@ -12,12 +12,14 @@ import json
 import logging
 import mimetypes
 import os
+import pytz
 import re
 import requests
 import xmltodict
 
 
 DECODE = 'utf-8'
+TIMEZONE = pytz.timezone('Europe/Zurich')
 URL_ROOT = "https://{org}.cashctrl.com"
 
 
@@ -162,6 +164,13 @@ class FISCAL_PERIOD_TYPE(Enum):
     LATEST = 'LATEST'
 
 
+class PERSON_CATEGORY(Enum):
+    CUSTOMER = 1
+    VENDOR = 2
+    EMPLOYER = 3
+    INSURANCE = 8
+
+
 class ROUNDING(Enum):
     '''Modes for rounding behavior'''
     UP = 'UP'
@@ -180,6 +189,11 @@ class TEXT_TYPE(Enum):
     ORDER_FOOTER = 'ORDER_FOOTER'
     ORDER_MAIL = 'ORDER_MAIL'
     ORDER_ITEM = 'ORDER_ITEM'
+
+
+class TITLE(Enum):
+    MR = 1  # Herr
+    MRS = 2  # Frau
 
 
 class ELEMENT_TYPE:
@@ -263,11 +277,14 @@ def snake_to_camel(snake_str):
     return camel_case_str[0].lower() + camel_case_str[1:]
 
 
-def str_to_dt(dt_string):
+def str_to_dt(dt_string, timezone):
     '''Convert to a datetime object
         dt_string = '2024-10-14 09:58:33.0'
     '''
-    return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S.%f')
+    naive_dt = datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S.%f')  # Naive datetime
+    aware_dt = timezone.localize(naive_dt)
+    return aware_dt
+    
 
 def slugify_filename(filename):
     """Converts a filename into a safe format."""
@@ -335,15 +352,18 @@ def convert_to_xml(value):
     return value
 
 
-def clean_dict(data, convert_dt=True):
+def clean_dict(data, convert_dt=True, timezone=pytz.utc):
     ''' convert cashctrl data to python '''
+    DATE_TIME_KEYS = (
+        'created',  'last_updated', 'start', 'end', 
+        'salary_start' 'salary_end')
+    
     post_data = {}
     for key, value in data.items():
         key = camel_to_snake(key)
-        if (convert_dt and
-                key in ('created',  'last_updated', 'start', 'end')):
+        if convert_dt and key in DATE_TIME_KEYS:
             try:
-                value = str_to_dt(value)
+                value = str_to_dt(value, timezone)
             except:
                 pass
         post_data[key] = clean_value(value)
@@ -387,7 +407,9 @@ class CashCtrl():
     MAX_TRIES = 5  # Maximum number of retries
     SLEEP_DURATION = 2  # Sleep duration between retries in second
 
-    def __init__(self, org, api_key, language='en', convert_dt=True):
+    def __init__(
+            self, org, api_key, language='en', convert_dt=True, 
+            timezone=TIMEZONE):
         # Auth
         self.org = org
         self.api_key = api_key
@@ -395,7 +417,8 @@ class CashCtrl():
 
         # Params
         self.language = language
-        self.convert_dt = convert_dt
+        self.timezone = timezone
+        self.convert_dt = convert_dt        
 
         # Data
         self.data = None  # data can be loaded (list, read) or posted
@@ -466,7 +489,7 @@ class CashCtrl():
                         f"{content.get('errors')}")
 
                 # Clean and return response content
-                return clean_dict(content, self.convert_dt)
+                return clean_dict(content, self.convert_dt, self.timezone)
 
             except requests.exceptions.Timeout:
                 raise Exception(
@@ -558,6 +581,8 @@ class CashCtrl():
     # REST API mine: list, read, create, update, delete, data
     def list(self, params={}, **filter_kwargs):
         ''' cash_ctrl list '''
+        # special filters not supported by cashCtrl
+        created_by_system = filter_kwargs.pop('created_by_system', False)            
 
         if filter_kwargs:
             # e.g. categoryId=110,  camelCase!
@@ -571,9 +596,14 @@ class CashCtrl():
             org=self.org, url=self.url, params=params, action='list')
         response = self.get(url, params)
         self.data = [
-            clean_dict(x, self.convert_dt)
+            clean_dict(x, self.convert_dt, self.timezone)
             for x in response.json()['data']
         ]
+        
+        # special filters
+        if created_by_system:
+            self.data = [x for x in self.data if x['created_by'] == 'SYSTEM']
+            
         return self.data
 
     def read(self, id=None, params=None):
@@ -597,7 +627,7 @@ class CashCtrl():
                 else:
                     data = None
 
-            return clean_dict(data, self.convert_dt)
+            return clean_dict(data, self.convert_dt, self.timezone)
 
         return response
 
@@ -707,7 +737,10 @@ class Text(CashCtrl):
 class FiscalPeriod(CashCtrl):
     '''see public api desc'''
     url = 'fiscalperiod/'
-    actions = ['list']
+    actions = ['list', 'switch']
+    
+    def set_as_current(id):
+        pass  # currently not implemented        
 
 class Location(CashCtrl):
     '''see public api desc'''

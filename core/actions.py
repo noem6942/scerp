@@ -14,15 +14,18 @@ from .models import UserProfile
 from .signals import tenant_post_save
 
 
-@admin.action(description=('Admin: Init setup'))
+@admin.action(description=('Admin: Run setup'))
 def init_setup(modeladmin, request, queryset):    
     # Check
     if action_check_nr_selected(request, queryset, 1):        
         instance = queryset.first() 
-        tenant_post_save(
-            modeladmin.model, instance, created=False, init=True, 
-            request=request)
-        messages.success(request, _("Scerp initialized"))
+        try:
+            tenant_post_save(
+                modeladmin.model, instance, created=False, init=True, 
+                request=request)
+            messages.success(request, _("Scerp initialized"))
+        except Exception as e:
+            messages.error(request, _('Unexpected error: ') + str(e))        
 
 
 @action_with_form(

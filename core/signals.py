@@ -1,33 +1,28 @@
 # core/signals.py
-import copy
-import json
 import logging
 import os
 from datetime import date
 from PIL import Image
 
-from django.apps import apps
 from django.conf import settings
-from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from django.utils.crypto import get_random_string
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 
-from asset.models import AssetCategory
+from asset.models import Unit, AssetCategory
 from billing.models import Period
+from core.models import Title, PersonCategory
 
 from .models import App, Tenant, TenantSetup, TenantLogo, UserProfile, Country
-from scerp.mixins import is_url_friendly
+from scerp.mixins import is_url_friendly, read_yaml_file
 
-
-PASSWORD_LENGTH = 32
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
-from scerp.mixins import init_yaml_data
+
+YAML_FILENAME = 'init_tenant.yaml'
 
 
 @receiver(pre_save, sender=Tenant)
@@ -46,128 +41,85 @@ def tenant_pre_save(sender, instance, **kwargs):
 def tenant_post_save(sender, instance, created, **kwargs):
     """Perform follow-up actions when a new Tenant is created."""
     __ = sender  # not used
-    if created:
-        # Add default apps
-        for app in App.objects.order_by('name'):
-            if app.is_mandatory:
-                instance.apps.add(app)
+    if not created and not kwargs.get('init'):
+        return  # No action
 
-        # Create TenantSetup
-        tenant_setup = TenantSetup.objects.create(
+    # Intro ---------------------------------------------------------------
+
+    # Add default apps
+    for app in App.objects.order_by('name'):
+        if app.is_mandatory:
+            instance.apps.add(app)
+
+    # Create TenantSetup
+    tenant_setup, _created = TenantSetup.objects.get_or_create(
+        tenant=instance,
+        created_by=instance.created_by)
+    logger.info(f"Tenant Setup '{instance.code}' created.")
+
+    # Core ---------------------------------------------------------------
+    init_data = read_yaml_file('core', YAML_FILENAME)
+
+    # Title
+    for data in init_data['Title']:
+        data.update({
+            'created_by': instance.created_by,
+            'is_enabled_sync': False  # do not synchronize
+        })
+        obj, _created = Title.objects.get_or_create(
             tenant=instance,
-            created_by=instance.created_by)
-        logger.info(f"Tenant Setup '{instance.code}' created.")
+            c_id=data.pop('c_id', None),
+            code=data.pop('code'),
+            defaults=data)
+        logger.info(f"created {obj}")
 
-        # Init Data
-        for app_name in ['asset']:
-            init_yaml_data(
-                app_name,
-                tenant=instance,
-                created_by=instance.created_by,
-                filename_yaml='tenant_init.yaml')
-
-    if kwargs.get('init'):
-        ''' run first init scripts '''
-        request = kwargs.get('request')
-        country_default = kwargs.get('country_default', 'che').upper()
-
-        """
-        # Country ------------------------------------------------------
-        '''
-        Initializes alpha3_dict by reading country data from JSON files
-        for each language defined in settings.LANGUAGES.
-        '''
-        # Initialize the dictionary
-        country_default = kwargs.get('country_default', 'che').upper()
-        alpha3_dict = {}
-        languages = [lang for lang, _language in settings.LANGUAGES]
-        lang_dict = {
-            'name': {lang: None for lang in languages},
-            'is_default': False,
-            'created_by': request.user
-        }
-
-        # Parse
-        for lang in languages:
-            # Construct the path to the JSON file for the current language
-            path_to_file = os.path.join(
-                settings.BASE_DIR, 'crm', 'fixtures', 'countries', lang,
-                'countries.json'
-            )
-            try:
-                # Open and read the JSON file
-                with open(path_to_file, 'r', encoding='utf-8') as file:
-                    countries = json.load(file)  # Load JSON data
-
-                    # Build/update the dictionary using 'alpha3' as the key
-                    for country in countries:
-                        alpha3 = country['alpha3'].upper()
-
-                        if alpha3 not in alpha3_dict:
-                            # Create an independent copy
-                            alpha3_dict[alpha3] = copy.deepcopy(lang_dict)
-
-                            if alpha3.upper() == country_default:
-                                alpha3_dict[alpha3]['is_default'] = True
-
-                        # Assign name correctly
-                        alpha3_dict[alpha3]['name'][lang] = country['name']
-
-            except FileNotFoundError:
-                print(f"File not found for language '{lang}': {path_to_file}")
-            except json.JSONDecodeError:
-                print(f'''Error decoding JSON for language '{lang}'.
-                    Please check the file format.''')
-            except Exception as e:
-                print(f"An unexpected error occurred for language '{lang}': {e}")
-
-        # Save Db
-        # Begin a database transaction for better performance
-        with transaction.atomic():
-            for alpha3, country in alpha3_dict.items():
-                # Use update_or_create to store data
-                _obj, _created = Country.objects.update_or_create(
-                    alpha3=alpha3,  # Lookup field
-                    defaults=country
-                )
-
-        # Info
-        logger.info(
-            f"Countries: '{ len(alpha3_dict) }' records created successfully."
-        )
-
-        """
-
-        # asset
-        wa_obj, _created = AssetCategory.objects.get_or_create(
+    # PersonCategory
+    for data in init_data['PersonCategory']:
+        data.update({
+            'created_by': instance.created_by,
+            'is_enabled_sync': False  # do not synchronize
+        })
+        obj, _created = PersonCategory.objects.get_or_create(
             tenant=instance,
-            code='WA',
-            defaults=dict(
-                name={'de': 'Wasserzähler', 'en': 'Water Counter'},
-                created_by=request.user
-            )
-        )
+            c_id=data.pop('c_id', None),
+            code=data.pop('code'),
+            defaults=data)
+        logger.info(f"created {obj}")
 
-        hwa_obj, _created = AssetCategory.objects.get_or_create(
+    # Asset ---------------------------------------------------------------
+    units = []
+    for data in init_data['Unit']:
+        data.update({
+            'created_by': instance.created_by,
+            'is_enabled_sync': False  # do not synchronize
+        })
+        obj, _created = Unit.objects.get_or_create(
             tenant=instance,
-            code='HWA',
-            defaults=dict(
-                name={'de': 'Warmwasserzähler', 'en': 'Hot Water Counter'},
-                created_by=request.user
-            )
-        )
-
-        # billing
-        obj, _created = Period.objects.get_or_create(
+            c_id=data.pop('c_id', None),
+            code=data.pop('code'),
+            defaults=data)
+        units.append(obj)
+        logger.info(f"created {obj}")    
+        
+    for data in init_data['AssetCategory']:
+        # Get unit
+        unit = next(
+            (x for x in units if x.code == data['unit']), None)
+        if not unit:
+            raise ValidationError(_(f"{data} has no valid unit."))
+            
+        # Assign    
+        data.update({
+            'unit': unit,
+            'created_by': instance.created_by,
+            'is_enabled_sync': False  # do not synchronize
+        })
+        obj, _created = AssetCategory.objects.update_or_create(
             tenant=instance,
-            code='WA',
-            defaults=dict(
-                start=date(2024, 1, 1),
-                end=date(2024, 12, 31),
-                created_by=request.user)
-        )
-        obj.asset_categories.add(wa_obj)
-        obj.asset_categories.add(hwa_obj)
+            c_id=data.pop('c_id', None),
+            code=data.pop('code'),
+            defaults=data)
+        logger.info(f"created {obj}")                  
 
 
 @receiver(pre_save, sender=TenantSetup)

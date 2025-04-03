@@ -10,7 +10,8 @@ from django.utils.translation import gettext_lazy as _
 from core.models import PersonBankAccount, PersonContact, PersonAddress
 from scerp.mixins import get_translations
 from . import api_cash_ctrl, models
-from .api_cash_ctrl import clean_dict, convert_to_xml, prepare_dict
+from .api_cash_ctrl import convert_to_xml, prepare_dict
+from .api_cash_ctrl import PERSON_CATEGORY, TITLE
 
 
 CASH_CTRL_FIELDS = [
@@ -27,14 +28,18 @@ EXCLUDE_FIELDS = CASH_CTRL_FIELDS + [
 class CashCtrl:
     api_class = None  # gets assigned with get, save or delete
 
-    def __init__(self, model=None, language=None):
+    def __init__(self, tenant, model=None, language=None):
         self.language = language
         self.model = model  # needed for get and fields with custom
+        self.tenant = tenant
         self.api = None  # store later for further usage
 
-    def _get_api(self, setup):
+    def _get_api(self, tenant):
         self.api = self.api_class(
-            setup.org_name, setup.api_key, language=self.language)
+            self.tenant.setup.org_name, 
+            self.tenant.setup.api_key, 
+            language=self.language
+        )
         return self.api
 
     def _init_custom_fields(self, instance):
@@ -64,8 +69,17 @@ class CashCtrl:
 
         return custom
 
+    def get_custom_field_tag(self, code):
+        ''' return xml tag that can be sent to cashCtrl '''
+        try:
+            field = models.CustomField.objects.get(
+                tenant=self.tenant, code=code)
+            return f"customField{field.c_id}"
+        except:
+            raise ValueError(f"'{code}' not existing.")
+
     def get(self, setup, created_by, params={}, overwrite_data=True,
-            delete_not_existing=True):
+            delete_not_existing=True, **filter_kwargs):
         api = self._get_api(setup)
         data_list = api.list(params)
         c_ids = []
@@ -164,107 +178,6 @@ class CashCtrl:
             response = api.delete(instance.c_id)
             return response
         return None
-
-
-class CashCtrlDual(CashCtrl):
-
-    def __init__(self, model=None, language=None):
-        super().__init__(model, language)
-        self.instance_acct = None  # gets assigned in save
-
-    def reload(self, instance):
-        data = self.api.read(instance.c_id)
-        for key, value in data.items():
-            if key == 'id':
-                continue
-            elif key in CASH_CTRL_FIELDS + self.reload_keys:
-                setattr(instance, key, value)
-
-    def save(self, instance, created=None):
-        # Get setup
-        self.instance_acct = self.model_accounting.objects.filter(
-                tenant=instance.tenant, core=instance).first()
-        if self.instance_acct:
-            setup = self.instance_acct.setup
-        else:
-            # instance_acct not existing yet
-            setup = models.APISetup.get_setup(tenant=instance.tenant)
-
-        # Get api
-        api = self._get_api(setup)
-
-        # Prepare data
-        data = model_to_dict(instance, exclude=self.exclude)
-        if getattr(self, 'adjust_for_upload', None):
-            self.adjust_for_upload(instance, data, created)
-
-        # Save
-        if not self.instance_acct or not self.instance_acct.c_id:
-            # Save object
-            response = api.create(data)
-            c_id = response.get('insert_id')
-            self.instance_acct = self.model_accounting.objects.create(
-                core=instance,
-                c_id=c_id,
-                tenant=instance.tenant,
-                setup=setup,
-                created_by=instance.tenant.created_by
-            )
-            if getattr(self, 'reload_keys', []):
-                self.reload(self.instance_acct)
-        else:
-            data['id'] = self.instance_acct.c_id
-            _response = api.update(data)
-
-        # Only updates this field, avoids triggering full post_save
-        instance.sync_to_accounting = False
-        instance.save(update_fields=['sync_to_accounting'])
-
-    def get(self, model_accounting, setup, created_by, update=True):
-        api = self._get_api(setup)
-        data_list = api.list()
-
-        for data in data_list:
-            # Get or create instances
-            instance_acct = model_accounting.objects.filter(
-                setup=setup, c_id=data['id']).first()
-            if instance_acct:
-                if update:
-                    instance = instance_acct.core  # assign instance
-                else:
-                    continue  # no further update
-            else:
-                # create instance
-                instance = self.model(
-                    tenant=setup.tenant,
-                    created_by=created_by
-                )
-
-            # add data
-            for field in model_to_dict(instance, exclude=self.exclude):
-                setattr(instance, field, data.get(field))
-
-            if instance.is_inactive is None:
-                instance.is_inactive = False
-
-            # save instance
-            if getattr(self, 'save_download', None):
-                # Individual saving
-                self.save_download(instance, data)
-
-            instanc.sync_to_accounting = False
-            instance.save()
-
-            # save instance_acct
-            if not instance_acct:
-                # create accounting_instance
-                instance_acct = model_accounting(
-                    core=instance,
-                    c_id=data['id'],
-                    tenant=setup.tenant,
-                    setup=setup,
-                    created_by=created_by
-                )
 
 
 class CustomFieldGroup(CashCtrl):
@@ -857,7 +770,7 @@ class OutgoingOrder(Order):
 
         # Due days
         if getattr(instance, 'due_days', None):
-            data['due_days'] = instance.due_days           
+            data['due_days'] = instance.due_days
 
     def adjust_for_upload(self, instance, data, created=None):
         self.make_base(instance, data)
@@ -970,33 +883,38 @@ class Article(CashCtrl):
 
 
 # CashCtrlDual
-class Title(CashCtrlDual):
+class Title(CashCtrl):
     api_class = api_cash_ctrl.PersonTitle
     exclude = EXCLUDE_FIELDS + ['code']
-    model_accounting = models.Title
 
     def adjust_for_upload(self, instance, data, created=None):
         return model_to_dict(instance, exclude=self.exclude)
 
+    def save_download(self, data):
+        # make code
+        item = next(
+            (x for x in TITLE if x.value == data['id']), None)
+        data['code'] = item.value if item else f"custom {data['id']}"
 
-class PersonCategory(CashCtrlDual):
+
+class PersonCategory(CashCtrl):
     api_class = api_cash_ctrl.PersonCategory
     exclude = EXCLUDE_FIELDS + ['code']
-    model_accounting = models.PersonCategory
 
     def adjust_for_upload(self, instance, data, created=None):
         return model_to_dict(instance, exclude=self.exclude)
 
-    def save_download(self, instance, data):
-        if not instance.code:
-            instance.code = f"custom {data['id']}"
+    def save_download(self, data):
+        # make code
+        item = next(
+            (x for x in PERSON_CATEGORY if x.value == data['id']), None)
+        data['code'] = item.value if item else f"custom {data['id']}"
 
 
-class Person(CashCtrlDual):
+class Person(CashCtrl):
     api_class = api_cash_ctrl.Person
     exclude = EXCLUDE_FIELDS + ['photo']  # for now
-    reload_keys = ['nr']
-    model_accounting = models.Person
+    reload_keys = ['nr']    
 
     @staticmethod
     def make_address(addr):
@@ -1005,16 +923,16 @@ class Person(CashCtrlDual):
             'type': addr.type,
             'city': addr.address.city,
             'zip': addr.address.zip,
-            'country': addr.address.country.alpha3,            
+            'country': addr.address.country.alpha3,
         }
 
         # Individual
         if addr.type == PersonAddress.TYPE.INVOICE:
             # address
             praefix = (
-                addr.post_office_box + '\n' if addr.post_office_box else '')            
-            
-            # use additional_information for company            
+                addr.post_office_box + '\n' if addr.post_office_box else '')
+
+            # use additional_information for company
             data.update(prepare_dict({
                 'company': addr.additional_information,
                 'address': praefix + addr.address.address,
@@ -1023,7 +941,7 @@ class Person(CashCtrlDual):
         else:
             # add post_office_box and additional_information
             data['address'] = addr.address_full
-            
+
         return data
 
     @staticmethod
@@ -1032,7 +950,7 @@ class Person(CashCtrlDual):
             'type': contact.type,
             'address': contact.address
         }
-        
+
     @staticmethod
     def make_bank_account(account):
         return {
@@ -1069,14 +987,14 @@ class Person(CashCtrlDual):
         # Make contacts
         contacts = PersonContact.objects.filter(person=instance)
         data['contacts'] = [
-            self.make_contact(contact) 
+            self.make_contact(contact)
             for contact in contacts.order_by('id')
         ]
 
         # Make addresses
         addresses = PersonAddress.objects.filter(person=instance)
         data['addresses'] = [
-            self.make_address(addr) 
+            self.make_address(addr)
             for addr in addresses.order_by('id')
        ]
 
@@ -1094,3 +1012,6 @@ class Person(CashCtrlDual):
         # save
         instance.sync_to_accounting = False
         instance.save()
+
+    def get(self, *args, **kwargs):
+        raise ValueError("Not supported")

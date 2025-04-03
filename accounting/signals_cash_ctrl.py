@@ -12,11 +12,8 @@ from django.db.models.signals import pre_delete, post_delete
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
-from core.models import (
-    Title as CoreTitle,
-    PersonCategory as CorePersonCategory,
-    Person as CorePerson
-)
+from core.models import Tenant
+from core.models import Title, PersonCategory, Person  # we sync them here
 from scerp.mixins import read_yaml_file
 from . import connector_cash_ctrl as conn
 from . import models
@@ -41,9 +38,9 @@ def setup_data_add_logging(setup, data):
 
 # APISetup ----------------------------------------------------------------
 
-@receiver(post_save, sender=models.APISetup)
+@receiver(post_save, sender=Tenant)
 def api_setup_post_save(sender, instance, created=False, **kwargs):
-    '''Post action for APISetup:
+    '''Post action for Tenant:
         - init accounting instances
 
     params
@@ -51,6 +48,9 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
     '''
     # Init
     YAML_FILENAME = 'init_setup.yaml'
+    
+    if not instance.cash_ctrl_org_name:
+        return  # No cashCtrl accounting setup 
 
     if created or kwargs.get('init', False):
         # Get request from init
@@ -61,6 +61,14 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
 
         # Make data -----------------------------------------------
         setup = instance
+
+        # Create ArticleCategory
+        for data in init_data['ArticleCategory']:
+            setup_data_add_logging(setup, data)
+            _obj, _created = models.ArticleCategory.objects.update_or_create(
+                setup=setup, code=data.pop('code'), defaults=data)
+            print("*_obj", _obj.__dict__)
+        return 
 
         # update_or_create data ------------------------------------
         # Create CustomFieldGroups
@@ -77,6 +85,12 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
                 raise ValueError(f"{data}: no group given")
             setup_data_add_logging(setup, data)
             _obj, _created = models.CustomField.objects.update_or_create(
+                setup=setup, code=data.pop('code'), defaults=data)
+
+        # Create ArticleCategory
+        for data in init_data['ArticleCategory']:
+            setup_data_add_logging(setup, data)
+            _obj, _created = models.ArticleCategory.objects.update_or_create(
                 setup=setup, code=data.pop('code'), defaults=data)
 
         # Create FileCategory
@@ -100,12 +114,12 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
         # get core data ----------------------------------------------
 
         # Get titles
-        sync = conn.Title(CoreTitle)
-        sync.get(models.Title, setup, request.user, update=False)
+        sync = conn.Title(Title)
+        sync.get(setup, request.user, created_by_system=True)
 
         # Get Person Categories
-        sync = conn.PersonCategory(CorePersonCategory)
-        sync.get(models.PersonCategory, setup, request.user, update=False)
+        sync = conn.PersonCategory(PersonCategory)
+        sync.get(setup, request.user, created_by_system=True)
 
         # Read data -----------------------------------------------
         # we use default params, currently:
@@ -640,7 +654,7 @@ def ledger_ic_post_save(sender, instance, created, **kwargs):
 # Helpers
 def get_or_create_accounting_instance(model, instance, created):
     # Init
-    setup = models.APISetup.objects.filter(
+    setup = APISetup.objects.filter(
         tenant=instance.tenant, is_default=True).first()
     create = created
 
@@ -666,7 +680,7 @@ def get_or_create_accounting_instance(model, instance, created):
 
 
 # Title
-@receiver(post_save, sender=CoreTitle)
+@receiver(post_save, sender=Title)
 def title_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Title. '''
     if sync(instance):
@@ -674,7 +688,7 @@ def title_post_save(sender, instance, created, **kwargs):
         api.save(instance, created)
 
 
-@receiver(post_delete, sender=models.Title)
+@receiver(post_delete, sender=Title)
 def title_post_delete(sender, instance, **kwargs):
     '''Signal handler for post_delete signals on Title. '''
     if sync(instance) and instance.c_id:
@@ -683,15 +697,15 @@ def title_post_delete(sender, instance, **kwargs):
 
 
 # PersonCategory
-@receiver(post_save, sender=CorePersonCategory)
+@receiver(post_save, sender=PersonCategory)
 def person_category_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on CorePersonCategory. '''
+    '''Signal handler for post_save signals on PersonCategory. '''
     if sync(instance):
         api = conn.PersonCategory(sender)
         api.save(instance, created)
 
 
-@receiver(pre_delete, sender=models.PersonCategory)
+@receiver(pre_delete, sender=PersonCategory)
 def person_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on PersonCategory. '''
     if sync(instance) and instance.c_id:
@@ -700,15 +714,15 @@ def person_category_pre_delete(sender, instance, **kwargs):
 
 
 # Person
-@receiver(post_save, sender=CorePerson)
+@receiver(post_save, sender=Person)
 def person_category_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on CorePerson. '''
+    '''Signal handler for post_save signals on Person. '''
     if sync(instance):
         api = conn.Person(sender)
         api.save(instance, created)
 
 
-@receiver(pre_delete, sender=models.Person)
+@receiver(pre_delete, sender=Person)
 def person_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Person. '''
     if sync(instance) and instance.c_id:

@@ -43,6 +43,29 @@ class AREA(Enum):
     ALLMEND = {'code': 'allmend', 'name': 'Allmend'}
 
 
+ADDITIONAL_EGIDS = [
+    502181189,
+    2125744,
+    502181035,
+    502181163,
+    9023745,
+    192039728,
+    502181164,
+    502180979,
+    9041136,
+    502180980,
+    502181035,
+    502181163,
+    9023745,
+    9023745,
+    192039728,
+    502181164,
+    502180979,
+    9041136,
+    502180980
+]
+
+
 # Needed for area assignment
 BUILDING_MAP = {
     # AboNr: Address in 4617, or EGID Number',
@@ -126,6 +149,10 @@ COMPANIES = [
     'STWE'
     'STWEG'
 ]
+
+OBIS_CODE = [
+]
+
 
 class Import:
 

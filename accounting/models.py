@@ -14,15 +14,12 @@ from django.db.models.functions import Cast
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from asset.models import AssetCategory, Unit
 from core.models import (
     LogAbstract, NotesAbstract, Attachment ,
     Tenant, TenantAbstract, TenantSetup, TenantLogo,
-    Country, Address, Contact, PersonAddress, PersonBankAccount
-)
-from core.models import (
-    Title as TitleCrm,
-    PersonCategory as PersonCategoryCrm,
-    Person as PersonCrm
+    Country, AcctApp, Address, Contact, PersonAddress, PersonBankAccount,
+    Person
 )
 from scerp.locales import CANTON_CHOICES
 from scerp.mixins import get_code_w_name, primary_language
@@ -64,125 +61,6 @@ def rank(nr):
     return ' ' * (diff if diff > 0 else 0)
 
 
-# CashCtrl Basics ------------------------------------------------------------
-class APISetup(TenantAbstract):
-    '''only restricted to admin!
-        triggers signals.py past_save
-        org_name, application is unique (cashCtrl)
-        all cashCtrl entities have foreign key to APISetup
-    '''
-    org_name = models.CharField(
-        'org_name', max_length=100, unique=True,
-        help_text='name of organization as used in cashCtrl domain')
-    api_key = models.CharField(
-        _('api key'), max_length=100, help_text=_('api key'))
-    application = models.CharField(
-        _('application'), max_length=2, choices=APPLICATION.choices,
-        default=APPLICATION.CASH_CTRL)
-    initialized = models.DateTimeField(
-        _('initialized'), max_length=100, null=True, blank=True,
-        help_text=_('date and time when initialized'))
-    language = models.CharField(
-        _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
-        help_text=_('The main language of the person. May be used for documents.')
-    )
-    encode_numbers = models.BooleanField(
-        _('Encode numbers in cashCtrl headings'), default=True,
-        help_text=_(
-            'e.g. 02 Allgemeinde Dienste'))
-    account_plan_loaded = models.BooleanField(
-        _('Account plan loaded'), default=False,
-        help_text=_(
-            'gets set to True if account plan uploaded to accounting system'))
-    is_default = models.BooleanField(
-        _('Default setup'), default=True,
-        help_text=_('use this setup for adding accounting data'))
-    readonly_fields = ('api_key_hidden',)
-
-    def __str__(self):
-        return self.org_name
-
-    @classmethod
-    def get_setup(cls, tenant=None, tenant_id=None,**kwargs):
-        '''
-        get api_setup from different parameters
-        currently only one accounting system --> derive only from tenant
-        '''
-        if tenant:
-            return cls.objects.get(tenant=tenant, is_default=True)
-        elif tenant_id:
-            return cls.objects.get(tenant__id=tenant_id, is_default=True)
-        raise ValidationError('No tenant given')
-
-    @property
-    def url(self):
-        return URL_ROOT.format(org=self.org_name)
-
-    def get_custom_field_tag(self, code):
-        ''' return xml tag that can be sent to cashCtrl '''
-        try:
-            field = CustomField.objects.get(tenant=self.tenant, code=code)
-            return f"customField{field.c_id}"
-        except:
-            raise ValueError(f"'{code}' not existing.")
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['application', 'org_name'],
-                name='unique_org_name_per_tenant'
-            )
-        ]
-        ordering = ['tenant__name',]
-        verbose_name = _('Setup - Accounting')
-        verbose_name_plural = _('Setup - Accounting')
-
-
-class AcctAppBase(models.Model):
-    '''
-    attributes to manage cashCtrl sync
-    '''
-    # CashCtrl
-    c_id = models.PositiveIntegerField(
-        _('CashCtrl id'), null=True, blank=True)
-    c_created = models.DateTimeField(
-        _('CashCtrl created'), null=True, blank=True)
-    c_created_by = models.CharField(
-        _('CashCtrl created_by'), max_length=100, null=True, blank=True)
-    c_last_updated = models.DateTimeField(
-        _('CashCtrl last_updated'), null=True, blank=True)
-    c_last_updated_by = models.CharField(
-        _('CashCtrl last_updated_by'), max_length=100, null=True, blank=True)
-    last_received = models.DateTimeField(
-        _('Last received'), null=True, blank=True,
-        help_text=_(
-            "Last time data has been received from cashCtrl. "
-            "Gets filled out in signals_cash_ctrl.get "))
-    setup = models.ForeignKey(
-        APISetup, verbose_name=_('Accounting Setup'),
-        on_delete=models.CASCADE, related_name='%(class)s_setup',
-        help_text=_('Account Setup used'))
-    message = models.CharField(
-        _('Message'), max_length=200, null=True, blank=True,
-        help_text=_('Here we show error messages. Just be empty.'))
-    is_enabled_sync = models.BooleanField(
-        _("Enable Sync"), default=True,
-        help_text="Disable sync with cashCtrl; useful for admin tasks.")
-    sync_to_accounting = models.BooleanField(
-        _("Sync to Accounting"), default=False,
-        help_text=(
-            "This records needs to be synched to cashctr, if the cycle is "
-            "over it gets reset to False"))
-
-    class Meta:
-        abstract = True
-
-
-class AcctApp(TenantAbstract, AcctAppBase):
-    class Meta:
-        abstract = True
-
-
 # CashCtrl entities with foreign key to APISetup -----------------------------
 class CustomFieldGroup(AcctApp):
     '''
@@ -200,7 +78,7 @@ class CustomFieldGroup(AcctApp):
         help_text='''
             The type of group, meaning: which module the group belongs to.
             Possible values: JOURNAL, ACCOUNT, INVENTORY_ARTICLE,
-            INVENTORY_ASSET, ORDER, PersonCrm, FILE.''')
+            INVENTORY_ASSET, ORDER, Person, FILE.''')
 
     def __str__(self):
         return get_code_w_name(self)
@@ -208,7 +86,7 @@ class CustomFieldGroup(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code', 'c_id'],
+                fields=['tenant', 'code', 'c_id'],
                 name='unique_custom_field_group_setup'
             )
         ]
@@ -242,7 +120,7 @@ class CustomField(AcctApp):
         help_text='''
             The type of group, meaning: which module the group belongs to.
             Possible values: JOURNAL, ACCOUNT, INVENTORY_ARTICLE,
-            INVENTORY_ASSET, ORDER, PersonCrm, FILE.''')
+            INVENTORY_ASSET, ORDER, Person, FILE.''')
     data_type = models.CharField(
         _("Data Type"), max_length=50, choices=DATA_TYPE,
         help_text='''
@@ -274,10 +152,11 @@ class CustomField(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code', 'c_id'],
+                fields=['tenant', 'code', 'c_id'],
                 name='unique_custom_setup_field'
             )
         ]
+
         ordering = ['group__code', 'code']
         verbose_name = _("Setup - Custom Field")
         verbose_name_plural = _("Setup - Custom Field")
@@ -301,10 +180,11 @@ class FileCategory(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['tenant', 'code'],
                 name='unique_setup_file_category'
             )
         ]
+
         ordering = ['code']
         verbose_name = _("Setup - File Category")
         verbose_name_plural = _("Setup - File Categories")
@@ -379,10 +259,11 @@ class Location(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'name', 'c_id'],
+                fields=['tenant', 'name', 'c_id'],
                 name='unique_setup_location'
             )
         ]
+
         ordering = ['name']
         verbose_name = _("Settings - Location, Logo")
         verbose_name_plural = _("Settings - Locations, Logos")
@@ -451,10 +332,11 @@ class FiscalPeriod(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'name', 'c_id'],
+                fields=['tenant', 'name', 'c_id'],
                 name='unique_setup_period'
             )
         ]
+
         ordering = ['-start']
         verbose_name = _("Settings - Fiscal Period")
         verbose_name_plural = _('Settings - Fiscal Periods')
@@ -475,10 +357,11 @@ class Currency(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['tenant', 'code'],
                 name='unique_setup_currency'
             )
         ]
+
         ordering = ['code']
         verbose_name = _("Settings - Currency")
         verbose_name_plural = _("Settings - Currencies")
@@ -511,37 +394,14 @@ class SequenceNumber(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'pattern', 'c_id'],
+                fields=['tenant', 'pattern', 'c_id'],
                 name='unique_setup_sequence_number'
             )
         ]
+
         ordering = ['pattern']
         verbose_name = _("Settings - Sequence Number")
         verbose_name_plural = _("Settings - Sequence Numbers")
-
-
-class Unit(AcctApp):
-    ''' Unit '''
-    code = models.CharField(
-        _('Code'), max_length=50, null=True, blank=True,
-        help_text='Internal code for scerp')
-    name = models.JSONField(
-        _('name'), default=dict,
-        help_text=_("The name of the unit ('hours', 'minutes', etc.)."))
-
-    def __str__(self):
-        return primary_language(self.name)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'code', 'c_id'],
-                name='unique_setup_unit'
-            )
-        ]
-        ordering = ['code']
-        verbose_name = _("Settings - Unit")
-        verbose_name_plural = _("Settings - Units")
 
 
 class Text(AcctApp):
@@ -571,10 +431,11 @@ class Text(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'type', 'name'],
+                fields=['tenant', 'type', 'name'],
                 name='unique_text_block'
             )
         ]
+
         ordering = ['type', 'name']
         verbose_name = 'Text Block, not used'
         verbose_name_plural = 'Text Blocks, not used'
@@ -598,10 +459,11 @@ class CostCenterCategory(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'number', 'c_id'],
+                fields=['tenant', 'number', 'c_id'],
                 name='unique_setup_cost_center_category'
             )
         ]
+
         ordering = ['number']
         verbose_name = _("Settings - Cost Center Category")
         verbose_name_plural = _("Settings - Cost Center Categories")
@@ -644,10 +506,11 @@ class CostCenter(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'number', 'c_id'],
+                fields=['tenant', 'number', 'c_id'],
                 name='unique_setup_cost_center'
             )
         ]
+
         ordering = ['number']
         verbose_name = _("Settings - Cost Center")
         verbose_name_plural = _("Settings - Cost Centers")
@@ -694,14 +557,15 @@ class AccountCategory(AcctApp):
         constraints = [
             models.UniqueConstraint(
                 # Generous, as cashCtrl allows identical numbers.
-                fields=['setup', 'number', 'c_id'],
+                fields=['tenant', 'number', 'c_id'],
                 name='unique_setup_account_category'
             )
         ]
+
         # Lexicographic ordering
         ordering = [Cast('number', models.CharField())]
-        verbose_name = ('Ledgers - Setup Account Category')
-        verbose_name_plural = _('Ledgers - Setup Account Categories')
+        verbose_name = ('Ledger - Setup Account Category')
+        verbose_name_plural = _('Ledger - Setup Account Categories')
 
 
 class Account(AcctApp):
@@ -781,13 +645,14 @@ class Account(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'number', 'c_id'],
+                fields=['tenant', 'number', 'c_id'],
                 name='unique_setup_account'
             )
         ]
+
         ordering = ['function', 'hrm', 'number']
-        verbose_name = ('Ledgers - Setup Account')
-        verbose_name_plural = _('Ledgers - Setup Accounts')
+        verbose_name = ('Ledger - Setup Account')
+        verbose_name_plural = _('Ledger - Setup Accounts')
 
 
 class Allocation(AcctApp):
@@ -812,10 +677,11 @@ class Allocation(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'account', 'to_cost_center', 'c_id'],
+                fields=['tenant', 'account', 'to_cost_center', 'c_id'],
                 name='unique_allocation'
             )
         ]
+
         ordering = ['to_cost_center__number']
         verbose_name = ('Cost Center Allocation')
         verbose_name_plural = _('Cost Center Allocations')
@@ -979,10 +845,11 @@ class Tax(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code', 'c_id'],
+                fields=['tenant', 'code', 'c_id'],
                 name='unique_setup_tax'
             )
         ]
+
         ordering = ['code']
         verbose_name = _("Settings - Tax Rate")
         verbose_name_plural = _("Settings - Tax Rates")
@@ -1044,10 +911,11 @@ class BankAccount(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code', 'c_id'],
+                fields=['tenant', 'code', 'c_id'],
                 name='unique_setup_bank_account'
             )
         ]
+
         ordering = ['code']
         verbose_name = _("Settings - Bank Account")
         verbose_name_plural = _("Settings - Bank Accounts")
@@ -1080,10 +948,11 @@ class Rounding(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code', 'c_id'],
+                fields=['tenant', 'code', 'c_id'],
                 name='unique_setup_rounding'
             )
         ]
+
         ordering = ['code']
         verbose_name = _("Settings - Rounding")
         verbose_name_plural = _("Settings - Roundings")
@@ -1091,7 +960,7 @@ class Rounding(AcctApp):
 
 class ArticleCategory(AcctApp):
     ''' ArticleCategory
-        allocation not implemented yet
+        allocation not implemented yet; maybe strip down
     '''
     code = models.CharField(
         _('Code'), max_length=50, help_text=_("internal code"))
@@ -1134,13 +1003,14 @@ class ArticleCategory(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['tenant', 'code'],
                 name='unique_setup_article_category'
             )
         ]
+
         ordering = ['code']
-        verbose_name = _("Order Settings - Article Category")
-        verbose_name_plural = _("Order Settings - Article Categories")
+        verbose_name = _("Debtor - Article Category")
+        verbose_name_plural = _("Debtor - Article Categories")
 
 
 class Article(AcctApp):
@@ -1234,111 +1104,16 @@ class Article(AcctApp):
     def __str__(self):
         return f"{self.nr} {primary_language(self.name)}"
 
-    class Meta:
-        ordering = ['nr']
+    class Meta:    
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'nr'],
+                fields=['tenant', 'nr'],
                 name='unique_setup_article'
             )
         ]
-        verbose_name = _("Order Settings - Article")
-        verbose_name_plural = _("Order Settings - Articles")
-
-
-# Person ----------------------------------------------------------------
-class Core(AcctApp):
-    # redefine the related classes
-    tenant = models.ForeignKey(
-        Tenant, on_delete=models.CASCADE,
-        related_name='%(class)s_core_tenant',
-        help_text='every instance must have a tenant')
-    created_by = models.ForeignKey(
-        User, verbose_name=_('created by'),
-        on_delete=models.CASCADE, related_name='%(class)s_core_created')
-    modified_by = models.ForeignKey(
-        User, verbose_name=_('modified by'), null=True, blank=True,
-        on_delete=models.CASCADE, related_name='%(class)s_core_modified')
-    is_enabled_sync = None   # use the one in the core model
-    sync_to_accounting = None   # use the one in the core model
-
-    class Meta:
-        abstract = True
-
-
-class Title(Core):
-    '''
-    Title.
-    Map core title to accounting system, not shown in any GUI
-    '''
-    core = models.ForeignKey(
-        TitleCrm, on_delete=models.CASCADE,
-        related_name='%(class)s_core', help_text='origin')
-
-    def __str__(self):
-        return 'acct_' + self.core.__str__()
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'core'],
-                name='accounting_unique_title')
-        ]
-        verbose_name = '_Title'
-
-
-class PersonCategory(Core):
-    '''
-    Person's category.
-    Map core person category to accounting system, not shown in any GUI
-    '''
-    core = models.ForeignKey(
-        PersonCategoryCrm, on_delete=models.CASCADE,
-        related_name='%(class)s_core', help_text='origin')
-    parent = None  # we do not use this
-
-    def __str__(self):
-        return f'{self.core}'
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'core'],
-                name='accounting_unique_person_category')
-        ]
-        verbose_name = '_Person Category'
-
-
-class Person(Core):
-    '''
-    Person.
-    Map core person to accounting system, not shown in any GUI
-    '''
-    core = models.ForeignKey(
-        PersonCrm, on_delete=models.CASCADE,
-        related_name='%(class)s_core', help_text='origin')
-
-    @property
-    def url(self):
-        return (
-            f'https://{self.setup.org_name}.cashctrl.com/'
-            f'#person/detail?id={self.c_id}')
-
-    @classmethod
-    def get_accounting_object(cls, person_id):
-        accounting_object = cls.objects.filter(
-            core__id=person_id).first()
-        if accounting_object:
-            return accounting_object
-        raise ValidationError("No accounting_object found for person")
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['setup', 'core'],
-                name='accounting_unique_person')
-        ]
-        verbose_name = '_Person'
+        ordering = ['nr']    
+        verbose_name = _("Debtor - Article")
+        verbose_name_plural = _("Debtor - Articles")
 
 
 # Orders --------------------------------------------------------------------
@@ -1383,10 +1158,11 @@ class BookTemplate(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code', 'type'],
+                fields=['tenant', 'code', 'type'],
                 name='unique_c_id_per_tenant_setup__order_template'
             )
         ]
+
         ordering = ['code', 'type']
         verbose_name = _("Booking Template")
         verbose_name_plural = '_' + _('Booking Template')
@@ -1475,10 +1251,11 @@ class OrderLayout(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'name', 'c_id'],
+                fields=['tenant', 'name', 'c_id'],
                 name='unique_order_layout'
             )
         ]
+
         ordering = ['name']
         verbose_name = _("Order Settings - Layout")
         verbose_name_plural = _("Order Settings - Layout")
@@ -1660,12 +1437,12 @@ class OrderCategoryContract(OrderCategory):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['tenant', 'code'],
                 name='unique_order_category_contract'
             )
         ]
-        verbose_name = _("OrderCategory Settings - Contract")
-        verbose_name_plural = _("OrderCategory Settings - Contracts")  # rank(2) +
+        verbose_name = _("Contract - Category")
+        verbose_name_plural = _("Contract - Categories")  # rank(2) +
 
 
 class OrderCategoryIncoming(OrderCategory):
@@ -1707,7 +1484,7 @@ class OrderCategoryIncoming(OrderCategory):
         STATUS.REMINDER_2:False,
         STATUS.PAID: True,
         STATUS.ARCHIVED: False,
-        STATUS.CANCELLED: False,
+        STATUS.CANCELLED: True,
     }
     is_display_item_gross = True
 
@@ -1776,28 +1553,30 @@ class OrderCategoryIncoming(OrderCategory):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['tenant', 'code'],
                 name='unique_order_category_incoming'
             )
         ]
-        verbose_name = _("OrderCategory Incoming Invoice")
-        verbose_name_plural = rank(2) + '* ' + _("OrderCategory Incoming Invoices")
+
+        verbose_name = _("Creditor - Category")
+        verbose_name_plural = _("Creditor - Categories")
 
 
 class OrderCategoryOutgoing(OrderCategory):
     '''Category for outgoing invoices,
         use this to define all booking details
+        replace by article category
     '''
     class STATUS(models.TextChoices):
         DRAFT = 'Draft', _('Draft')
-        OPEN = 'Open', _('Open')
-        SUBMITTED = 'Submitted', _('Submitted')
-        SENT = 'Sent', _('Submitted')
-        REMINDER_1 = 'Reminder 1', _('Reminder 1')
-        REMINDER_2 = 'Reminder 2', _('Reminder 2')
-        PAID = 'Paid', _('Paid')
-        ARCHIVED = 'Archived', _("Archived")
-        CANCELLED = 'Cancelled', _('Cancelled')
+        OPEN = 'Open', _('Open')  # Erfasst 
+        SUBMITTED = 'Submitted', _('Submitted')  # Verbucht
+        SENT = 'Sent', _('Submitted')  # Versendet
+        REMINDER_1 = 'Reminder 1', _('Reminder 1')  # Mahnstufe 1
+        REMINDER_2 = 'Reminder 2', _('Reminder 2')  # Mahnstufe 2, verbucht
+        PAID = 'Paid', _('Paid')  # Bezahlt, Buchung
+        ARCHIVED = 'Archived', _('Archived')  # Archiviert
+        CANCELLED = 'Cancelled', _('Cancelled')  # Storniert, verbucht
 
     COLOR_MAPPING = {
         STATUS.DRAFT: COLOR.GRAY,
@@ -1817,7 +1596,7 @@ class OrderCategoryOutgoing(OrderCategory):
         STATUS.SUBMITTED: True,
         STATUS.SENT: False,
         STATUS.REMINDER_1: False,
-        STATUS.REMINDER_2: False,
+        STATUS.REMINDER_2: True,
         STATUS.PAID: True,
         STATUS.ARCHIVED: False,
         STATUS.CANCELLED: True,
@@ -1855,7 +1634,7 @@ class OrderCategoryOutgoing(OrderCategory):
         on_delete=models.PROTECT, related_name='%(class)s_location',
         help_text=_('Paying Organisation'))
     responsible_person = models.ForeignKey(
-        PersonCrm, on_delete=models.PROTECT, 
+        Person, on_delete=models.PROTECT, 
         verbose_name=_('Responsible'), related_name='%(class)s_person',
         help_text=_('Contact person mentioned in invoice.'))
 
@@ -1879,12 +1658,13 @@ class OrderCategoryOutgoing(OrderCategory):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'code'],
+                fields=['tenant', 'code'],
                 name='unique_order_category_outgoing'
             )
         ]
-        verbose_name = _("OrderCategory Outgoing Invoice")
-        verbose_name_plural = _("OrderCategory Outgoing Invoices")  # rank(2) + _("Creditors - Categories")
+
+        verbose_name = _("Debtor - Invoice Category")
+        verbose_name_plural = _("Debtor - Invoice Categories")  # rank(2) + _("Creditors - Categories")
 
 
 class Order(AcctApp):
@@ -1922,7 +1702,7 @@ class OrderContract(Order):
     ]
     associate = models.ForeignKey(
         # to be mapped to manytomany field in cashCtrl
-        PersonCrm, on_delete=models.PROTECT,
+        Person, on_delete=models.PROTECT,
         related_name='%(class)s_associate',
         verbose_name=_('Contract party'),
         help_text=_('Supplier or Client, usually a company'))
@@ -1939,7 +1719,7 @@ class OrderContract(Order):
         Currency, on_delete=models.PROTECT, null=True, blank=True,
         verbose_name=_('Currency'))
     responsible_person = models.ForeignKey(
-        PersonCrm, on_delete=models.PROTECT, blank=True, null=True,
+        Person, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Responsible'), related_name='%(class)s_person',
         help_text=_('Signer of the contract'))
     valid_from = models.DateField(
@@ -1955,7 +1735,7 @@ class OrderContract(Order):
 
     class Meta:
         verbose_name = _("Contract")
-        verbose_name_plural = rank(1) + '*' + _("Contracts")
+        verbose_name_plural = _("Contracts")
 
 
 class IncomingOrder(Order):
@@ -1996,7 +1776,7 @@ class IncomingOrder(Order):
         _('Due Days'), null=True, blank=True,
         help_text=_('''Leave blank to calculate from contract'''))
     responsible_person = models.ForeignKey(
-        PersonCrm, on_delete=models.PROTECT, blank=True, null=True,
+        Person, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Clerk'), related_name='%(class)s_person',
         help_text=_('Clerk'))
     attachments = GenericRelation('core.Attachment')
@@ -2016,8 +1796,8 @@ class IncomingOrder(Order):
                 f"{self.description}")
 
     class Meta:
-        verbose_name = _("Incoming Invoice")
-        verbose_name_plural = rank(1) + '*' + _("Incoming Invoices")
+        verbose_name = _("Creditor - Invoice")
+        verbose_name_plural = _("Creditor - Invoices")
 
 
 class OutgoingOrder(Order):
@@ -2046,6 +1826,12 @@ class OutgoingOrder(Order):
         help_text=_(
             "Contract with booking instructions. "
             "Upload actual invoice as attachment."))
+    associate = models.ForeignKey(
+        # to be mapped to manytomany field in cashCtrl
+        Person, on_delete=models.PROTECT,
+        related_name='%(class)s_associate',
+        verbose_name=_('Client'),
+        help_text=_('Client'))
     description = models.TextField(
         _('Description'), blank=True, null=True,
         help_text=_("e.g. Services May"))
@@ -2056,7 +1842,7 @@ class OutgoingOrder(Order):
         _('Due Days'), null=True, blank=True,
         help_text=_('''Leave blank to calculate from contract'''))
     responsible_person = models.ForeignKey(
-        PersonCrm, on_delete=models.PROTECT, blank=True, null=True,
+        Person, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Clerk'), related_name='%(class)s_person',
         help_text=_('Clerk, leave empty or defined in category'))
     attachments = GenericRelation('core.Attachment')
@@ -2081,8 +1867,8 @@ class OutgoingOrder(Order):
                 f"{self.description}")
 
     class Meta:
-        verbose_name = _("Outgoing Invoice")
-        verbose_name_plural = rank(1) + '*' + _("Outgoing Invoices")
+        verbose_name = _("Debtor - Invoice")
+        verbose_name_plural = _("Debtor - Invoices")
 
 
 class OutgoingItem(AcctApp):
@@ -2098,7 +1884,7 @@ class OutgoingItem(AcctApp):
 
 
 class BookEntry(AcctApp):
-    ''' Book Entry for incoming orders
+    ''' Book Entry for incoming orders  # do not use
     '''
     date = models.DateField(_('Date'))
     template_id = models.PositiveIntegerField(
@@ -2124,14 +1910,15 @@ class IncomingBookEntry(BookEntry):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'order', 'template_id'],
+                fields=['tenant', 'order', 'template_id'],
                 name='unique_incoming_book_entry'
             )
         ]
 
 
+
 class OutgoingBookEntry(BookEntry):
-    ''' Book Entry for incoming orders
+    ''' Book Entry for incoming orders  # do not use
     '''
     order = models.ForeignKey(
         OutgoingOrder, on_delete=models.CASCADE,
@@ -2142,10 +1929,11 @@ class OutgoingBookEntry(BookEntry):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'order', 'template_id'],
+                fields=['tenant', 'order', 'template_id'],
                 name='unique_outgoing_book_entry'
             )
         ]
+
 
 
 # scerp entities with foreign key to Ledger ---------------------------------
@@ -2172,9 +1960,10 @@ class Ledger(AcctApp):
                 name='unique_ledger'
             )
         ]
+
         ordering = ['-period__start', 'code']
         verbose_name = ('Ledger')
-        verbose_name_plural = _('Ledgers')
+        verbose_name_plural = _('Ledger')
 
 
 class AcctLedger(AcctApp):
@@ -2292,8 +2081,9 @@ class LedgerBalance(LedgerAccount):
                 name='unique_balance'
             )
         ]
+
         verbose_name = ('Ledger - Balance')
-        verbose_name_plural = _('Ledgers - Balances')
+        verbose_name_plural = _('Ledger - Balances')
 
 
 class FunctionalLedger(LedgerAccount):
@@ -2351,12 +2141,13 @@ class LedgerPL(FunctionalLedger):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'ledger', 'hrm', 'function'],
+                fields=['tenant', 'ledger', 'hrm', 'function'],
                 name='unique_ledger_pl'
             )
         ]
+
         verbose_name = ('Ledger - Profit/Loss')
-        verbose_name_plural = _('Ledgers - Profit/Loss')
+        verbose_name_plural = _('Ledger - Profit/Loss')
 
 
 class LedgerIC(FunctionalLedger):
@@ -2392,12 +2183,13 @@ class LedgerIC(FunctionalLedger):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['setup', 'ledger', 'hrm', 'function'],
+                fields=['tenant', 'ledger', 'hrm', 'function'],
                 name='unique_ledger_ic'
             )
         ]
+
         verbose_name = ('Ledger - Investment Calculation')
-        verbose_name_plural = _('Ledgers - Investment Calculations')
+        verbose_name_plural = _('Ledger - Investment Calculations')
 
 
 # Accounting Charts -----------------------------------------------------------
@@ -2452,6 +2244,7 @@ class ChartOfAccountsTemplate(LogAbstract, NotesAbstract):
                 name='unique_chart_template'
             )
         ]
+
         ordering = ['account_type', 'name']
         verbose_name = _('Chart of Accounts (Canton)')
         verbose_name_plural = _('Charts of Accounts (Canton)')
@@ -2487,6 +2280,7 @@ class ChartOfAccounts(TenantAbstract):
                 name='unique_name_period'
             )
         ]
+
         ordering = ['name']
         verbose_name = _('Chart of Accounts')
         verbose_name_plural = _('Charts of Accounts')
@@ -2554,6 +2348,7 @@ class AccountPositionTemplate(
                 name='unique_account_position_canton_number'
             ),
         ]
+
         ordering = ['chart', 'account_number',  '-is_category']
         verbose_name = _('Account Position (Canton or Others)')
         verbose_name_plural = _('Account Positions (Canton or Others)')
@@ -2645,20 +2440,9 @@ class AccountPosition(AccountPositionAbstract, AcctApp):
                 name='unique_account_position_number'
             )
         ]
+
         ordering = [
             'chart', 'account_type', 'function', '-is_category',
             'account_number']
         verbose_name = ('Account Position (Municipality)')
         verbose_name_plural = _('Account Positions')
-
-
-"""
-class Employee(CRM):
-    '''store categories
-    '''
-    crm = models.OneToOneField(
-        CrmEmployee,
-        on_delete=models.CASCADE,
-        related_name="employee",
-        help_text="internal use for mapping")
-"""

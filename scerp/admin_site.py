@@ -58,8 +58,11 @@ class Site(AdminSite):
                 return HttpResponseForbidden(_("No tenant selected."))            
             
         # Handle GET request: Get the current tenant and available tenants
-        tenant_data = get_tenant_data(request)  # get_tenant
+        tenant_data = get_tenant_data(request)  # get_tenant        
         available_tenants = get_available_tenants(request)
+        if not tenant_data and len(available_tenants):
+            tenant_data = available_tenants[0]
+            tenant = set_tenant(request, tenant_data['id'])          
         
         # Pass available tenants and selected tenant ID to the template
         extra_context = extra_context or {}
@@ -123,10 +126,10 @@ class Site(AdminSite):
 
         # Make Menu
         for app_label, app_info in self.app_setup.items():
-            if not app_info.get('needs_tenant', True) or tenant:
+            if not app_info.get('needs_tenant', True) or tenant:                
                 app = self._find_app(app_list, app_label)
                 if app:
-                    self._process_app(app, app_info)
+                    self._process_app(app, app_info, tenant)
                     ordered_app_list.append(app)
 
         # Append remaining apps
@@ -160,7 +163,7 @@ class Site(AdminSite):
             (app for app in app_list if app['app_label'] == app_label), None
         )
 
-    def _process_app(self, app, app_info):
+    def _process_app(self, app, app_info, tenant=None):
         '''Process the app and its models.'''
         symbol = app_info.get('symbol', self.DEFAULT_ORDER)
         app_config = apps.get_app_config(app['app_label'])
@@ -179,7 +182,7 @@ class Site(AdminSite):
             )
         )
         '''
-        for model in app['models']:
+        for model in app['models']:            
             order, postfix = model_order_dict.get(
                 model['object_name'], (self.DEFAULT_ORDER, None)
             )

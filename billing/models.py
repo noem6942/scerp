@@ -7,54 +7,20 @@ from django.utils.translation import gettext_lazy as _
 from accounting.models import Article
 from core.models import (
     TenantAbstract, AddressMunicipal, Area, Person, PersonAddress)
-from asset.models import AssetCategory, Device
-
-
-# Articles
-class ARTICLE:
-    '''
-    only for definition, see accounting.Article for full article
-    '''
-    class TYPE(models.TextChoices):
-        '''
-        different VAT's!
-        '''
-        PREFIX = 'W'
-        SEWAGE  = 'WA', _('Sewage')  # Abwasser
-        WATER = 'WW', _('Water')
-
-    class WATER:
-        '''
-        needed for gesoft
-        '''
-        anr = 1
-        name = {'de': 'Verbrauch Wasser'}
-        price = 1.1
+from asset.models import AssetCategory, Device, Unit
 
 
 # Timing
 class Period(TenantAbstract):
-    class ENERGY_TYPE(models.TextChoices):
-        WATER = 'W', _('Water')
-        GAS = 'G', _('Gas')
-        ENERGY = 'E', _('Energy')
-
     code = models.CharField(
         _('Code'), max_length=50,
         help_text=_("e.g. water, semi annual"))
-    energy_type = models.CharField(
-         _('Type'), max_length=1, choices=ENERGY_TYPE.choices,
-        default=ENERGY_TYPE.WATER,
-        help_text=_('Needed for counter route.'))
     name = models.CharField(
         _('name'), max_length=50, help_text=_("name"))
     start = models.DateField(
         _("Start"), help_text=_("Start date of the  period"))
     end = models.DateField(
         _("End"), help_text=_("End date of the period"))
-    asset_categories = models.ManyToManyField(
-        AssetCategory, verbose_name=_('Categories'),
-        help_text=_("Category"))
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
     def __str__(self):
@@ -100,6 +66,10 @@ class Route(TenantAbstract):
         help_text=_(
             "Addresses that should be included, "
             "leave empty to include all in scope"))
+    asset_categories = models.ManyToManyField(
+        AssetCategory, verbose_name=_('Categories'),
+        help_text=_(
+            "Categories of counters to be included. Leave empty if all."))
     start = models.DateField(
         _("Start"), blank=True, null=True,
         help_text=_("Leave empty if period start"))
@@ -279,7 +249,7 @@ class Measurement(TenantAbstract):
         help_text=('Actual counter value'))
     consumption = models.FloatField(
         _('Consumption'), blank=True, null=True,
-        help_text=('Consumption = value - value_previous'))        
+        help_text=('Consumption = value - value_previous'))
     current_battery_level = models.FloatField(
         _('Battery Level'), blank=True, null=True,
         help_text=_('number of recommended periods for using'))

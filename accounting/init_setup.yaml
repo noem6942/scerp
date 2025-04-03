@@ -244,31 +244,31 @@ Rounding: []
 
 SequenceNumber: []
 
-AssetCategory:
-  - code: water
+ArticleCategory:
+  - code: fee
     name:
-      de: Wasser
+      de: Gebühren
+      en: Fees
+      fr: Fees
+      it: Fees   
+  - code: water_cold
+    name:
+      de: Kaltwasser
       en: Water
       fr: Water
-      it: Water  
-
-Asset:
-  - code: water
+      it: Water   
+  - code: water_waste
     name:
-      de: Wassergebühren
-      en: Water Billing
-      fr: Water Billing
-      it: Water Billing  
-
-AssetCategory:
-  - code: water
+      de: Abwasser
+      en: Waste Water
+      fr: Waste Water
+      it: Waste Water   
+  - code: water_hot
     name:
-      de: Wassergebühren
-      en: Water Billing
-      fr: Water Billing
-      it: Water Billing  
-
-
+      de: Warmwasser
+      en: Hot Water
+      fr: Hot Water
+      it: Hot Water         
 
 
 FileCategory:

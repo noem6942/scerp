@@ -3,6 +3,7 @@ scerp/mixins.py
 """
 import logging
 import os
+import pyproj  # A library for coordinate transformations
 import secrets
 import string
 import yaml
@@ -65,6 +66,19 @@ def read_yaml_file(app_name, filename_yaml):
         settings.BASE_DIR, app_name, filename_yaml)
     with open(file_path, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)
+
+
+# A function to convert Swiss coordinates to WGS84 (latitude/longitude)
+def convert_ch1903_to_wgs84(easting, northing):
+    try:
+        # LV95 to WGS84
+        transformer = pyproj.Transformer.from_crs(
+            'EPSG:2056', 'EPSG:4326', always_xy=True)
+        lon, lat = transformer.transform(easting, northing)
+        return lat, lon
+    except Exception as e:
+        raise ValidationError(f"Error converting coordinates: {e}")
+
 
 # Models
 def get_admin():

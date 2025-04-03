@@ -221,11 +221,6 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,  # Prevent double logging
         },
-        'core': {  # Example app-specific logger
-            'handlers': ['console'],
-            'level': 'DEBUG',  # Adjust level as needed
-            'propagate': True,
-        },
     },
 }
 
@@ -252,5 +247,4 @@ ADMIN_ROOT = 'scerp'
 APPLICATION_NAME = 'SC-ERP'
 ADMIN_ACCESS_ALL = True  # Admin can access all clients
 LOGO = '/static/img/default-logo.png'
-TENANT_CODE = env('TENANT_CODE')
-PASSWORD_LENGTH = 16
+PASSWORD_LENGTH = 16  # needed to generate generate random password

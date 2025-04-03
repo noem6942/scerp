@@ -1,274 +1,277 @@
 ''' core/process.py
-Init and Update Jobs 
+Init and Update Jobs
 '''
+import copy
+import csv
 import json
-import logging
+import logging  # initialized at process_core --> no need to re-init
 import os
+from datetime import datetime
+from pathlib import Path
 
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User, Group, Permission
-from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.utils.text import slugify
 
-from scerp.locales import APP_CONFIG, APP_MODEL_ORDER, COUNTRY_CHOICES
-from scerp.mixins import get_admin, generate_random_password
+from scerp.mixins import get_admin, read_yaml_file
+from .models import App, Country, TenantSetup, AddressMunicipal
 
-from .init_permissions import USER_GROUPS, USER_GROUP_TRUSTEE, PERMISSIONS
-from .models import App, Message, Tenant, TenantSetup, UserProfile
+# Get logging
+logger = logging.getLogger('core')
 
-logger = logging.getLogger(__name__)  # Using the app name for logging
-User = get_user_model()
+BUILDING_CSV = 'amtliches-gebaeudeadressverzeichnis_ch_2056.csv'
+SETUP_SYSTEM_YAML = 'init_system.yaml'
+
+COUNTRY_DEFAULT = 'CHE'
+COUNTRY_DIR = 'countries'
+COUNTRY_FILENAME = 'countries.json'
 
 
 # helpers
-def add_logging(data, user):
-    '''add mandatory fields
+def parse_date(date_string):
+    try:
+        return datetime.strptime(date_string, '%d.%m.%Y')  # Parse date in the format "15.11.2024"
+    except ValueError:
+        return None  # Return None if the date cannot be parsed
+
+
+# core
+def update_or_create_apps(update=True):
+    ''' Update or create apps
     '''
-    data.update({
-        'created_by': user
-    })
-    return data
+    # Open yaml
+    init_data = read_yaml_file('core', SETUP_SYSTEM_YAML)
 
+    # Init
+    created, updated, deleted = 0, 0, 0
+    admin = get_admin()
+    app_names = []
+    if update:
+        db_op = App.objects.update_or_create
+    else:
+        db_op = App.objects.get_or_create    
 
-class GroupAdmin:
-    
-    def __init__(self, group=None):
-        self.group = group
-    
-    def create(self, name):
-        self.group, created = Group.objects.get_or_create(name=name)             
-        if created:
-            logger.info(
-                f"Created `{self.group.name}`."
-            )            
-        else:
-            logger.info(
-                f"Allready existing `{self.group.name}`."
-            )            
-            
-    def clean_permissions(self):
-        # Clear all existing permissions from the group
-        self.group.permissions.clear()
-        logger.info(
-            f"All permissions removed from group `{self.group.name}`."
-        )
-
-    def get_all_permissions(self):
-        '''Get all permissions
-        e.g. print(
-                f"Model: {permission.content_type.model} "
-                "Permission: {permission.codename}")
-        '''        
-        return Permission.objects.all()
-        
-    def assign_permission(self, permission=None, permission_codename=None):
-        '''permission_codename, e.g.
-            permission_codename = 'add_user'
-        '''
-        # Get the permission by its codename
-        if not permission:
-            permission = Permission.objects.get(codename=permission_codename)
-
-        # Assign the permission to the group
-        self.group.permissions.add(permission)
-
-    def assign_permissions(self, permissions=[], cls=None):        
-        permissions_all = [p for p in self.get_all_permissions()]                
-        if cls and cls.get('exceptions'):            
-            # Remove
-            for permission in permissions:
-                model = ('Model', permission.content_type.model) 
-                if model in cls['exceptions']:
-                    permissions.remove(permission)                    
-                    continue
-                
-                codename = ('Permission', permission.codename)                
-                if codename in cls['exceptions']:
-                    permissions.remove(permission)                    
-            
-        # Assign
-        self.clean_permissions()
-        for permission in permissions:
-            self.group.permissions.add(permission)
-
-        logger.info(
-            f"All permissions assigned to group `{self.group.name}`."
-        )
-
-
-class UserAdmin:
-    
-    def __init__(self, user=None):
-        self.user = user
-        
-    def create(self, **kwargs):
-        ''' kwargs must contains username '''
-        if not kwargs.get('username'):
-            raise ValueError("Username is required and cannot be empty.")
-            
-        self.password = kwargs.get('password', generate_random_password())
-        
-        # Create user
-        if kwargs.get('is_superuser'):
-            self.user = User.objects.create_superuser(**kwargs)
-            logger.info(f"Superuser {kwargs['username']} created successfully!")
-        else:
-            self.user = User.objects.create_user(**kwargs)
-
-        return self.user
-
-
-class TenantAdmin:
-    
-    def __init__(self, admin):
-        self.admin = admin
-
-    def create(self, name, code, tenant_type=None, users=[]):
-        '''Make tenant
-        '''
-        # Create Tenant, triggers Tenant Setup
-        data = {'name': code}
-        tenant, created = Tenant.objects.get_or_create(
-            code=code,
-            defaults=add_logging(data, self.admin)
-        )
-        if created:
-            logger.info(f"Tenant '{code}' created.")
-        else:
-            logger.warning(f"Tenant '{code}' already exists.")
-
-        # Modify Tenant Setup
-        queryset = TenantSetup.objects.filter(tenant=tenant)
-        queryset.update(type=tenant_type)
-        tenant_setup = queryset.first()
-
-        # Add users
-        for user in users:
-            add_user(tenant_setup, user)
-
-        # Add profiles
-        for user in users:
-            obj, created = UserProfile.objects.update_or_create(user=user)
-            logger.info(f"User profile '{user.username}' created.")
-
-        return tenant
-
-
-class AppAdmin:
-
-    def __init__(self, admin):        
-        self.admin = admin if admin else get_admin()
-
-    def create_message(self):
-        if not Message.objects.all().exists():
-            # Prepare
-            message = {
-                'name': APP_CONFIG['index_title'],
-                'text': APP_CONFIG['site_title']
-            }
-
+    # Create
+    for app_config in apps.get_app_configs():
+        name = app_config.label
+        app_names.append(name)
+        if name not in init_data['apps_ignore']:
             # Save
-            add_logging(message, self.admin)
-            Message.objects.create(**message)
-            logger.info(f"created {message['name']}")
+            is_mandatory = name in init_data['apps_mandatory']
+            _obj, _created = db_op(
+                name=name, defaults={
+                    'is_mandatory': is_mandatory,
+                    'verbose_name': app_config.verbose_name,
+                    'created_by': admin
+                })
 
-    def update_apps(self):
-        '''Get all apps
-        '''        
-        # get mandatory
-        mandatories = [
-            app_name for app_name, def_ in APP_MODEL_ORDER.items()
-            if def_['is_mandatory']
-        ]
-        for app_config in apps.get_app_configs():
-            # Init
-            data = add_logging(
-                {'verbose_name': app_config.verbose_name}, self.admin)
-            data['is_mandatory'] = app_config.name in mandatories
-            
-            # Update or create
-            obj, created = App.objects.update_or_create(
-                name=app_config.name,
-                defaults=data)
+            # Maintain
+            if _created:
+                created += 1
+            else:
+                updated += 1
 
-        # Register mandatory apps
-        for app in App.objects.order_by('name'):
-            if app.is_mandatory:
-                for tenant in Tenant.objects.all():
-                    tenant.apps.add(app)
+            logger.info(
+                f"App Label: {app_config.label}, "
+                f"Verbose Name: {app_config.verbose_name}")
 
-        logger.info(f"Register apps.")
+    # Delete
+    if update:
+        deleted, _records = App.objects.exclude(name__in=app_names).delete()
 
-    def update_documentation(self, app_name=None):
-        """Creates a markdown file with sections
-        """
-        # Load File
-        file_path = os.path.join(settings.BASE_DIR, 'core/init_markdown.md')
-        with open(file_path, 'r') as file:
-            template = file.read()
+    return created, updated, deleted
 
-        if app_name:
-            # Define the filename
-            names = [app_name]
-        else:
-            names = []
-            for app_name in APP_MODEL_ORDER.keys():
-                app_config = apps.get_app_config(app_name)
-                names.append(app_config.verbose_name)
 
-        # Create
+def update_or_create_countries(update=True):
+    ''' Update or create apps
+    '''
+    # Init
+    admin = get_admin()
+    alpha3_dict = {}
+    languages = [lang for lang, _language in settings.LANGUAGES]
+    lang_dict = {
+        'name': {lang: None for lang in languages},
+        'is_default': False,
+        'created_by': admin
+    }
+    created, updated, deleted = 0, 0, 0
+
+    # Parse
+    for lang in languages:
+        # Construct the path to the JSON file for the current language
+        path_to_file = os.path.join(
+            settings.BASE_DIR, 'core', 'fixtures', COUNTRY_DIR, lang,
+            COUNTRY_FILENAME
+        )
+        try:
+            # Open and read the JSON file
+            with open(path_to_file, 'r', encoding='utf-8') as file:
+                countries = json.load(file)  # Load JSON data
+
+                # Build/update the dictionary using 'alpha3' as the key
+                for country in countries:
+                    alpha3 = country['alpha3'].upper()
+
+                    if alpha3 not in alpha3_dict:
+                        # Create an independent copy
+                        alpha3_dict[alpha3] = copy.deepcopy(lang_dict)
+
+                        if alpha3.upper() == COUNTRY_DEFAULT:
+                            alpha3_dict[alpha3]['is_default'] = True
+
+                    # Assign name correctly
+                    alpha3_dict[alpha3]['name'][lang] = country['name']
+
+        except FileNotFoundError:
+            print(f"File not found for language '{lang}': {path_to_file}")
+        except json.JSONDecodeError:
+            print(f'''Error decoding JSON for language '{lang}'.
+                Please check the file format.''')
+        except Exception as e:
+            print(f"An unexpected error occurred for language '{lang}': {e}")
+
+    # Save Db
+    # Begin a database transaction for better performance
+    if update:
+        db_op = Country.objects.update_or_create
+    else:
+        db_op = Country.objects.get_or_create
+        
+    with transaction.atomic():
+        for alpha3, country in alpha3_dict.items():
+            # Use update_or_create to store data
+            _obj, _created = db_op(
+                alpha3=alpha3,  # Lookup field
+                defaults=country
+            )
+
+            # Maintain
+            if _created:
+                created += 1
+            else:
+                updated += 1
+
+    # Delete
+    if update:
+        deleted, _records = Country.objects.exclude(
+            alpha3__in=alpha3_dict.keys()).delete()
+
+    return created, updated, deleted
+
+
+def update_or_create_groups(update=True):
+    ''' Create Groups, no permissions are granted yet
+    '''
+    # Open yaml
+    init_data = read_yaml_file('core', SETUP_SYSTEM_YAML)
+    if update:
+        db_op = Group.objects.update_or_create
+    else:
+        db_op = Group.objects.get_or_create
+        
+    # Init
+    group_data = init_data['groups']
+    created, updated, deleted = 0, 0, 0
+    group_names = []
+
+    # Create
+    for category, names in group_data.items():
         for name in names:
-            # Prepare the content for the Markdown file
-            content = template.format(name=name)
-            filename = f'{slugify(name)}.md'
+            # Save
+            _obj, _created = Group.objects.get_or_create(name=name)
 
-            # Write the content to the markdown file
-            filepath = os.path.join(settings.DOCS_SOURCE, filename)
-            with open(filepath, 'w') as file:
-                file.write(content)
+            # Maintain
+            group_names.append(name)
+            if _created:
+                created += 1
+            logger.info(f"{category}: {name}, ")
 
-            logger.info(f'Created {filename}.md')
+    # Delete
+    if update:
+        deleted, _records = Group.objects.exclude(name__in=group_names).delete()
 
-class Core:
+    return created, updated, deleted
+
+
+def update_or_create_base_buildings(tenant_id=None, update=True):
+    '''
+    Load actual Buildings, currently per tenant, not grouped
+    see https://data.geo.admin.ch/ch.swisstopo.amtliches-gebaeudeadressverzeichnis/amtliches-gebaeudeadressverzeichnis_ch/amtliches-gebaeudeadressverzeichnis_ch_2056.csv.zip
     
-    def init_first(self):        
-        # User
-        user = UserAdmin()
-        admin = user.create(username='admin', is_superuser=True)
+    deleted not implemented yet
+    '''
+    # Init
+    file_path = Path(settings.BASE_DIR / 'core' / 'fixtures' / BUILDING_CSV)
+    admin = get_admin()      
+    created, updated, deleted = 0, 0, 0
+    
+    # db_op
+    if update:
+        db_op = AddressMunicipal.objects.update_or_create
+    else:
+        db_op = AddressMunicipal.objects.get_or_create
+    
+    # Get tenants
+    queryset = TenantSetup.objects.filter(is_inactive=False)
+    if tenant_id:
+        queryset = queryset.filter(tenant__id=tenant_id)
+    
+    for tenant_setup in queryset.all():
+        # Open the CSV file
+        with open(file_path, mode='r', encoding='utf-8-sig') as csv_file:
+            csv_reader = csv.DictReader(csv_file, delimiter=';')
+            logger.info(f"Starting {tenant_setup.tenant}")
 
-        # App
-        app = AppAdmin(admin)
-        app.update_apps()
-        app.update_documentation()        
-        app.update_countries()
-        app.create_message()
+            # Iterate over each row in the CSV            
+            for row in csv_reader:
+                # Prepare data dictionary with relevant fields
+                zip, label = row.pop('ZIP_LABEL').split(' ', 1)
 
-        # Groups
-        group = GroupAdmin()
-        self.update_groups()
-        
-        # Group Trustee
-        group = GroupAdmin()
-        group.create(USER_GROUP_TRUSTEE)
-        group.assign_permissions(cls=PERMISSIONS.TRUSTEE)
+                # Check scope
+                if (int(zip) not in tenant_setup.zips and 
+                        int(row['BDG_EGID']) not in tenant_setup.bdg_egids):
+                    continue
 
-        # Tenant
-        code = settings.TENANT_CODE
-        name = code        
-        tenant_type=TenantSetup.TYPE.TRUSTEE
-        
-        tenant = TenantAdmin(admin)
-        tenant_obj = tenant.create(name, code, tenant_type=tenant_type)
-        
-        # Tenant Setup User
-        tenant_setup = TenantSetup.objects.filter(tenant=tenant_obj).first()
-        tenant_setup.users.add(admin)
+                address_data = {
+                    # import
+                    'zip': zip,
+                    'city': label,
+                    'com_fosnr': row['COM_FOSNR'],  # Include COM_FOSNR here
+                    'com_name': row['COM_NAME'],
+                    'com_canton': row['COM_CANTON'],
+                    'stn_label': row['STN_LABEL'],
+                    'adr_number': row['ADR_NUMBER'],
+                    'adr_status': row['ADR_STATUS'],
+                    'adr_official': (
+                        row['ADR_OFFICIAL'].strip().lower() == 'true'),
+                    'adr_modified': parse_date(row['ADR_MODIFIED'].strip()),
+                    'adr_easting': row['ADR_EASTING'],
+                    'adr_northing': row['ADR_NORTHING'],
+                    'bdg_egid': row['BDG_EGID'],
+                    'bdg_category': row['BDG_CATEGORY'],
+                    'bdg_name': (
+                        row['BDG_NAME'].strip()
+                        if row['BDG_NAME'].strip() else None),
+                    'adr_egaid': row['ADR_EGAID'],
+                    'str_esid': row['STR_ESID'],
+                    
+                    # custom
+                    'tenant': tenant_setup.tenant,
+                    'created_by': admin
+                }
 
-    def update_groups(self):
-        for group in USER_GROUPS:
-            group_obj = GroupAdmin()
-            group_obj.create(group['name'])
-            group_obj.assign_permissions(group['permissions'])
+                # AddressMunicipal
+                address, _created = db_op(
+                    adr_egaid=address_data.pop('adr_egaid'),
+                    defaults=address_data
+                )
+                
+                # Maintain
+                if _created:
+                    created += 1
+                else:
+                    updated += 1                
+
+        return created, updated, deleted

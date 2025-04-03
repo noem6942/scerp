@@ -1,133 +1,77 @@
 # tenant_init.yaml
 #
 # This YAML file defines the initialization values for system init and updates
-user_groups:
+
+# Apps
+apps_ignore:
+  - home
+  - contenttypes
+  - sessions
+  - messages
+  - staticfiles
+  - django_admin_action_forms
+  - bootstrap4
+  - import_export
+  - rest_framework
+
+
+apps_mandatory:
+  - admin
+  - auth
+  - core
+  - crm
+
+
+# Groups
+groups:
   intern:
-    - name: "Intern Leitung"
-      permissions: []
-    - name: "Intern Kanzlei"
-      permissions: []
-    - name: "Intern Einwohnerdienste"
-      permissions: []
-    - name: "Intern Personalwesen"
-      permissions: []
-    - name: "Intern Gesundheit-/Sozialwesen"
-      permissions: []
-    - name: "Intern Finanzen"
-      permissions: []
-    - name: "Intern Steuern"
-      permissions: []
-    - name: "Intern Liegenschaftsverwaltung"
-      permissions: []
-    - name: "Intern Bauwesen"
-      permissions: []
-    - name: "Intern Bildung"
-      permissions: []
+    - Intern Leitung
+    - Intern Kanzlei
+    - Intern Einwohnerdienste
+    - Intern Personalwesen
+    - Intern Gesundheit-/Sozialwesen
+    - Intern Finanzen
+    - Intern Steuern
+    - Intern Liegenschaftsverwaltung
+    - Intern Bauwesen
+    - Intern Bildung
 
   functions:
-    - name: "Funktion Zweckverband"
-      permissions: []
+    - Funktion Zweckverband    
 
-  bürger_rat:
-    - name: "Bürgerrat"
-      permissions: []
+  bürgerrat:
+    - Bürgerrat
 
   gemeinderat:
-    - name: "Gemeinderat"
-      permissions: []
-    - name: "Gemeinderat - Präsidiales"
-      permissions: []
-    - name: "Gemeinderat - Finanzen"
-      permissions: []
-    - name: "Gemeinderat - Sicherheit"
-      permissions: []
-    - name: "Gemeinderat - Soziales"
-      permissions: []
-    - name: "Gemeinderat - Planung/Wirtschaft/Tourismus"
-      permissions: []
-    - name: "Gemeinderat - Hoch-/Tiefbau"
-      permissions: []
-    - name: "Gemeinderat - Bildung/Kultur"
-      permissions: []
+    - Gemeinderat
+    - Gemeinderat - Präsidiales
+    - Gemeinderat - Finanzen
+    - Gemeinderat - Sicherheit
+    - Gemeinderat - Soziales
+    - Gemeinderat - Planung/Wirtschaft/Tourismus
+    - Gemeinderat - Hoch-/Tiefbau
+    - Gemeinderat - Bildung/Kultur
 
   roles:
-    - name: "Bürgergemeindepräsident"
-      permissions: []
-    - name: "Bürgergemeindepräsidentin"
-      permissions: []
-    - name: "Bürgerratspräsident"
-      permissions: []
-    - name: "Bürgerratspräsidentin"
-      permissions: []
-    - name: "Bürgerschreiber"
-      permissions: []
-    - name: "Bürgerschreiberin"
-      permissions: []
-    - name: "Gemeinderatspräsident"
-      permissions: []
-    - name: "Gemeinderatspräsidentin"
-      permissions: []
-    - name: "Gemeinderatsschreiber"
-      permissions: []
-    - name: "Gemeinderatsschreiberin"
-      permissions: []
-    - name: "Stadtpräsident"
-      permissions: []
-    - name: "Stadtpräsidentin"
-      permissions: []
-    - name: "Präsident Wasserkommission"
-      permissions: []
-    - name: "Präsidentin Wasserkommission"
-      permissions: []
-    - name: "Externer Experte"
-      permissions: []
-    - name: "Externer Expertin"
-      permissions: []
-    - name: "Extern IT"
-      permissions: []
-    - name: "Extern Revision"
-      permissions: []
+    - Bürgergemeindepräsident
+    - Bürgergemeindepräsidentin
+    - Bürgerratspräsident
+    - Bürgerratspräsidentin
+    - Bürgerschreiber
+    - Bürgerschreiberin
+    - Gemeinderatspräsident
+    - Gemeinderatspräsidentin
+    - Gemeinderatsschreiber
+    - Gemeinderatsschreiberin
+    - Stadtpräsident
+    - Stadtpräsidentin
+    - Präsident Wasserkommission
+    - Präsidentin Wasserkommission
+    - Externer Experte    
+    - Extern IT
+    - Extern Revision
 
   special:
-    - name: "Extern Treuhand"
-      permissions: []
-    - name: "zzz_test~"
-      permissions: []
-
-permissions:
-  trustee:
-    exceptions:
-      - type: "Model"
-        name: "apisetup"
-      - type: "Model"
-        name: "app"
-      - type: "Model"
-        name: "mappingid"
-      - type: "Permission"
-        name: "add_group"
-      - type: "Permission"
-        name: "change_group"
-      - type: "Permission"
-        name: "delete_group"
-      - type: "Permission"
-        name: "add_permission"
-      - type: "Permission"
-        name: "change_permission"
-      - type: "Permission"
-        name: "delete_permission"
-      - type: "Permission"
-        name: "delete_user"
-      - type: "Permission"
-        name: "change_logentry"
-      - type: "Permission"
-        name: "delete_logentry"
-      - type: "Permission"
-        name: "delete_message"
-      - type: "Permission"
-        name: "add_tenant"
-      - type: "Permission"
-        name: "change_tenant"
-      - type: "Permission"
-        name: "delete_tenant"
-      - type: "Permission"
-        name: "delete_tenantsetup"
+    - Extern Treuhand
+    - Brunnenmeister
+    - ~ Test

@@ -16,12 +16,11 @@ from .models import Period, Route, Measurement, Subscription
 @admin.register(Period, site=admin_site)
 class PeriodAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'version']
-    protected_many_to_many = ['asset_categories']
+    protected_foreigns = ['tenant', 'version']
 
     # Display these fields in the list view
     list_display = (
-        'name', 'display_categories', 'start', 'end'
+        'name', 'start', 'end'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     readonly_fields = FIELDS.LOGGING_TENANT
 
@@ -35,18 +34,11 @@ class PeriodAdmin(TenantFilteringAdmin, BaseAdmin):
     #Fieldsets
     fieldsets = (
         (None, {
-            'fields': (
-                'code', 'energy_type', 'asset_categories', 'name', 'start',
-                'end'),
+            'fields': ('code', 'name', 'start', 'end'),
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
-
-    @admin.display(description=_('Categories'))
-    def display_categories(self, obj):
-        values = [x.code for x in obj.asset_categories.all()]
-        return ', '.join(values)
 
 
 @admin.register(Route, site=admin_site)
@@ -57,8 +49,8 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'name', 'period', 'start', 'end', 'duration', 'display_filters',
-        'is_default', 'status'
+        'name', 'period', 'display_start', 'display_end',
+        'duration', 'display_filters', 'is_default', 'status'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT + (
         'number_of_subscriptions', 'number_of_counters',
         'number_of_addresses'
@@ -110,6 +102,14 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
         if obj.end:
             values.append(str(_('End')))
         return ', '.join(values)
+
+    @admin.display(description=_('Start'))
+    def display_start(self, obj):
+        return obj.get_start()
+
+    @admin.display(description=_('End'))
+    def display_end(self, obj):
+        return obj.get_end()
 
 
 @admin.register(Measurement, site=admin_site)

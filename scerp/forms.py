@@ -62,7 +62,6 @@ class MultilanguageForm(forms.ModelForm):
         # Initialize the form
         super().__init__(*args, **kwargs)
         self.request = kwargs.pop('request', None)
-        print("*self.request", args)
 
         for field in self.multi_lang_fields:
             # Populate the dynamically created fields with data from the 'name' JSON field if it's available

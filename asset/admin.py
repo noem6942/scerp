@@ -20,7 +20,7 @@ class AssetCategory(TenantFilteringAdmin, BaseAdmin):
     form = forms.AssetCategoryAdminForm
 
     # Display these fields in the list view
-    list_display = ('code', 'display_name') + FIELDS.ICON_DISPLAY
+    list_display = ('code', 'display_name', 'unit') + FIELDS.ICON_DISPLAY
     readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -34,7 +34,7 @@ class AssetCategory(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', *make_language_fields('name')),
+                'code', 'display_name', *make_language_fields('name')),
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -56,7 +56,7 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('number', 'name', 'category__code')
-    list_filter = ('status', 'obiscode', 'category')
+    list_filter = ('status', 'category__code', 'category')
     
     # Actions
     actions = [export_excel] + default_actions
@@ -65,7 +65,7 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'name', 'category', 'description'),
+                'code', 'name', 'category', 'purchase_price', 'description'),
         }),
         (_("Status & Dates"), {
             'fields': (
@@ -76,11 +76,7 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
                 'number', 'serial_number', 'tag', 'registration_number',
                 'batch'),
             'classes': ('collapse',),  # Collapsible section
-        }),
-        (_("Technical Details"), {
-            'fields': ('obiscode',),
-            'classes': ('collapse',),  # Collapsible section
-        }),
+        }),        
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )

@@ -15,7 +15,7 @@ from core.models import Country, Address, Contact
 from core.safeguards import get_tenant, save_logging
 from scerp.actions import export_excel, default_actions
 from scerp.admin import (
-     BaseAdmin, BaseTabularInline, Display,
+     BaseAdmin, BaseTabularInline, Display, 
      verbose_name_field, make_language_fields)
 from scerp.admin_base import (
     TenantFilteringAdmin, FIELDS as BASE_FIELDS, FIELDSET as BASE_FIELDSET)
@@ -37,52 +37,10 @@ accounting_actions = [
 ]
 
 
-@admin.register(models.APISetup, site=admin_site)
-class APISetupAdmin(TenantFilteringAdmin, BaseAdmin):
-    # Safeguards
-    protected_foreigns = ['tenant', 'version']
-
-    # Display these fields in the list view
-    list_display = ('tenant', 'org_name', 'display_link', 'display_api_key')
-    readonly_fields = ('display_name',) + BASE_FIELDS.LOGGING_TENANT
-
-    # Search, filter
-    search_fields = ('tenant', 'org_name')
-
-    # Actions
-    actions = [
-        a.init_setup,
-    ] + default_actions
-
-    #Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': (
-                'org_name',
-                'api_key',
-                'language',
-                'is_default'
-            ),
-            'classes': ('expand',),
-        }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT
-    )
-
-    @admin.display(description=_('API Key'))
-    def display_api_key(self, obj):
-        return show_hidden(obj.api_key)
-
-    @admin.display(description=_('Link'))
-    def display_link(self, obj):
-        url = cashControl_URL_ROOT.format(org=obj.org_name)
-        return format_html(f'<a href="{url}" target="new">{url}</a>', url)
-
-
 @admin.register(models.CustomFieldGroup, site=admin_site)
 class CustomFieldGroupAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['setup', 'tenant']
+    protected_foreigns = ['tenant']
 
     # Display these fields in the list view
     list_display = ('code', 'display_name', 'type') + FIELDS.C_DISPLAY_SHORT
@@ -109,7 +67,7 @@ class CustomFieldGroupAdmin(TenantFilteringAdmin, BaseAdmin):
 
 @admin.register(models.CustomField, site=admin_site)
 class CustomFieldAdmin(TenantFilteringAdmin, BaseAdmin):
-    protected_foreigns = ['tenant', 'version', 'setup', 'group']
+    protected_foreigns = ['tenant', 'version', 'group']
 
     # Display these fields in the list view
     list_display = (
@@ -140,7 +98,7 @@ class CustomFieldAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.Setting, site=admin_site)
 class SettingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup']
+    protected_foreigns = ['tenant', 'version']
     
     # Helpers
     help_text = _("Read only model. Use cashControl for edits.")
@@ -192,11 +150,16 @@ class SettingAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.CASH_CTRL
     )
 
+    @admin.display(description=_('Link'))
+    def display_url(self, obj):
+        url = URL_ROOT.format(org=obj.tenant.cash_ctrl_org_name)
+        return Display.link(url, 'cashCtrl', 'new')
+
 
 @admin.register(models.Location, site=admin_site)
 class Location(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup']
+    protected_foreigns = ['tenant', 'version']
     read_only = True
     
     # Helpers
@@ -245,14 +208,14 @@ class Location(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('Applikation link'))
     def url(self, obj):
         if obj.type == obj.TYPE.MAIN:
-            link = obj.setup.url
+            link = obj.tenant.setup.url
             return Display.link(link, link)
 
 
 @admin.register(models.FiscalPeriod, site=admin_site)
 class FiscalPeriodAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup']
+    protected_foreigns = ['tenant', 'version']
 
     # Display these fields in the list view
     list_display = ('name', 'start', 'end', 'is_current', 'display_last_update')
@@ -283,7 +246,7 @@ class FiscalPeriodAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.Unit, site=admin_site)
 class UnitAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup']
+    protected_foreigns = ['tenant', 'version']
 
     # Helpers
     form = forms.UnitAdminForm
@@ -316,7 +279,7 @@ class UnitAdmin(TenantFilteringAdmin, BaseAdmin):
 class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'account', 'currency']
+        'tenant', 'version', 'account', 'currency']
 
     # Helpers
     help_text = _("Read only model. Use cashControl for edits.")    
@@ -353,7 +316,7 @@ class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.Tax, site=admin_site)
 class TaxAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup']
+    protected_foreigns = ['tenant', 'version']
 
     # Helpers
     form = forms.TaxAdminForm
@@ -399,7 +362,7 @@ class TaxAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.Rounding, site=admin_site)
 class RoundingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup']
+    protected_foreigns = ['tenant', 'version']
 
     # Helpers
     form = forms.RoundingAdminForm
@@ -437,7 +400,7 @@ class RoundingAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.SequenceNumber, site=admin_site)
 class SequenceNumberAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup']
+    protected_foreigns = ['tenant', 'version']
     read_only = True
     
     # Helpers
@@ -449,8 +412,7 @@ class SequenceNumberAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('name',)
-    list_filter = ('setup',)
-
+    
     # Actions
     actions = accounting_actions + default_actions
 
@@ -469,7 +431,7 @@ class SequenceNumberAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.CostCenterCategory, site=admin_site)
 class CostCenterCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup', 'parent']
+    protected_foreigns = ['tenant', 'version', 'parent']
 
     # Helpers
     form = forms.CostCenterCategoryAdminForm
@@ -481,7 +443,6 @@ class CostCenterCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('name', 'number')
-    list_filter = ('setup',)
 
     # Actions
     actions = accounting_actions + default_actions
@@ -502,7 +463,7 @@ class CostCenterCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.CostCenter, site=admin_site)
 class CostCenterAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup', 'category']
+    protected_foreigns = ['tenant', 'version', 'category']
 
     # Helpers
     form = forms.CostCenterAdminForm
@@ -534,7 +495,7 @@ class CostCenterAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.Currency, site=admin_site)
 class CurrencyAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup']    
+    protected_foreigns = ['tenant', 'version']    
     read_only = True
 
     # Helpers
@@ -572,7 +533,7 @@ class CurrencyAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.AccountCategory, site=admin_site)
 class AccountCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup', 'parent']
+    protected_foreigns = ['tenant', 'version', 'parent']
 
     # Helpers
     form = forms.AccountCategoryAdminForm
@@ -586,8 +547,7 @@ class AccountCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     ordering = [Cast('number', CharField())]
 
     # Search, filter
-    search_fields = ('name', 'number')
-    # list_filter = (TenantFilteredSetupListFilter,)
+    search_fields = ('name', 'number')    
 
     # Actions
     actions = accounting_actions + default_actions
@@ -606,7 +566,7 @@ class AccountCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
 
 class AllocationsInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup', 'to_cost_center']
+    protected_foreigns = ['tenant', 'version', 'to_cost_center']
 
     # Inline
     model = models.Allocation
@@ -619,7 +579,7 @@ class AllocationsInline(BaseTabularInline):  # or admin.StackedInline
 @admin.register(models.Account, site=admin_site)
 class AccountAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup', 'category', 'currency']
+    protected_foreigns = ['tenant', 'version', 'category', 'currency']
 
     # Helpers
     form = forms.AccountAdminForm
@@ -664,7 +624,7 @@ class AccountAdmin(TenantFilteringAdmin, BaseAdmin):
 class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'setup', 'purchase_account',  'sales_account', 
+        'tenant', 'purchase_account',  'sales_account', 
         'sequence_nr'
     ]
 
@@ -678,8 +638,7 @@ class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display_links = ('code', 'display_name',)
 
     # Search, filter
-    search_fields = ('code', 'name')
-    list_filter = ('setup',)
+    search_fields = ('code', 'name')    
 
     # Actions
     actions = accounting_actions + default_actions
@@ -709,7 +668,7 @@ class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
 class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'category', 'currency', 'location', 
+        'tenant', 'version', 'category', 'currency', 'location', 
         'sequence_nr', 'unit'
     ]
 
@@ -760,7 +719,7 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.OrderLayout, site=admin_site)
 class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup']
+    protected_foreigns = ['tenant', 'version']
     
     # Display these fields in the list view
     list_display = ('name', 'is_default') + FIELDS.C_DISPLAY_SHORT
@@ -806,7 +765,7 @@ class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
 class BookTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'credit_account', 'debit_account', 'tax'
+        'tenant', 'version', 'credit_account', 'debit_account', 'tax'
     ]
 
     # Helpers
@@ -839,7 +798,7 @@ class BookTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.OrderCategoryContract, site=admin_site)
 class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup', 'layout']
+    protected_foreigns = ['tenant', 'version', 'layout']
 
     # Helpers
     form = forms.OrderCategoryContractAdminForm
@@ -884,7 +843,7 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
 class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'credit_account', 'expense_account', 
+        'tenant', 'version', 'credit_account', 'expense_account', 
         'bank_account', 'tax', 'currency', 'layout'
     ]
 
@@ -930,7 +889,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
 class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'debit_account', 'bank_account',  
+        'tenant', 'version', 'debit_account', 'bank_account',  
         'currency', 'layout'
     ]
 
@@ -975,7 +934,7 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
 class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'associate', 'category', 'currency',
+        'tenant', 'version', 'associate', 'category', 'currency',
         'responsible_person'
     ]
     
@@ -1026,7 +985,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
 class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'contract', 'category', 
+        'tenant', 'version', 'contract', 'category', 
         'responsible_person'
     ]
 
@@ -1084,7 +1043,7 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
 class IncomingBookEntry(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'order'
+        'tenant', 'version', 'order'
     ]
 
     # Display these fields in the list view
@@ -1115,7 +1074,7 @@ class IncomingBookEntry(TenantFilteringAdmin, BaseAdmin):
 class OutgoingItemsInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'article', 'order']
+        'tenant', 'version', 'article', 'order']
 
     # Inline
     model = models.OutgoingItem
@@ -1129,7 +1088,7 @@ class OutgoingItemsInline(BaseTabularInline):  # or admin.StackedInline
 class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'contract', 'category', 
+        'tenant', 'version', 'contract', 'category', 
         'responsible_person'
     ]
 
@@ -1171,7 +1130,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.Ledger, site=admin_site)
 class LedgerAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'setup', 'period']
+    protected_foreigns = ['tenant', 'version', 'period']
 
     # Helpers
     form = forms.LedgerAdminForm
@@ -1282,7 +1241,7 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
     """
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'ledger', 'parent', 'account', 'category'
+        'tenant', 'version', 'ledger', 'parent', 'account', 'category'
     ]
 
     # Helpers
@@ -1345,7 +1304,7 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
     """
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'setup', 'ledger', 'parent', 'account', 
+        'tenant', 'version', 'ledger', 'parent', 'account', 
         'category_expense', 'category_revenue'
     ]
 
@@ -1413,51 +1372,6 @@ class LedgerPL(LedgerFunctional):
 
 @admin.register(models.LedgerIC, site=admin_site)
 class LedgerIC(LedgerFunctional):
-    pass
-
-
-
-# Core Title, PersonCategory, Person ----------------------------------------
-class Core(TenantFilteringAdmin, BaseAdmin):
-    # Safeguards
-    protected_foreigns = ['tenant', 'core']
-
-    # Display these fields in the list view
-    list_display = ('core', ) + FIELDS.C_DISPLAY_SHORT    
-    readonly_fields = FIELDS.C_READ_ONLY
-
-    # Actions
-    actions = accounting_actions + default_actions
-
-    #Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': ('core', ),
-            'classes': ('expand',),
-        }),
-        FIELDSET.CASH_CTRL
-    )
-    """
-    def has_add_permission(self, request):
-        return False  # Prevent adding new instances
-
-    def has_delete_permission(self, request, obj=None):
-        return False  # Prevent deleting instances
-    """
-    
-
-@admin.register(models.Title, site=admin_site)
-class TitleAdmin(Core):
-    pass
-
-
-@admin.register(models.PersonCategory, site=admin_site)
-class PersonCategoryAdmin(Core):
-    pass
-
-
-@admin.register(models.Person, site=admin_site)
-class PersonAdmin(Core):
     pass
 
 

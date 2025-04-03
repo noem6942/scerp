@@ -11,7 +11,6 @@ from django.db import IntegrityError, transaction
 from django.http import HttpResponseRedirect
 from django.utils.translation import gettext_lazy as _
 
-from accounting.models import APISetup
 from core.safeguards import get_tenant_data, save_logging
 from .exceptions import APIRequestError
 
@@ -19,8 +18,8 @@ from .exceptions import APIRequestError
 class FIELDS:
     LOGGING = ('modified_at', 'modified_by', 'created_at', 'created_by')
     LOGGING_TENANT = LOGGING + ('tenant',)
-    LOGGING_SETUP = LOGGING_TENANT + ('setup',)
-    LOGGING_SAVE = ('tenant', 'setup', 'created_by')
+    LOGGING_SETUP = LOGGING_TENANT  # + ('tenant__setup',)
+    LOGGING_SAVE = ('tenant', 'created_by')
     NOTES = ('notes', 'is_protected', 'is_inactive')
     ICON_DISPLAY = (
         'display_is_protected', 'display_is_inactive', 'display_notes')
@@ -69,36 +68,20 @@ class TenantFilteringAdmin(admin.ModelAdmin):
     protected_many_to_many = []  # ManyToMany optimization fields
     has_errors = False
 
-    def get_tenant_and_setup(self, request):
+    def get_tenant_id(self, request):
         '''
-        Retrieve tenant_id and setup once per request, but only fetch `setup`
-        if the model has a `setup` field.
+        Retrieve tenant_id once per request
         '''
-        if not hasattr(request, '_cached_tenant_setup'):
+        if not hasattr(request, '_cached_tenant_id'):
             tenant_data = get_tenant_data(request)  # Fetch tenant info
-            tenant_id = tenant_data.get('id')
+            request._cached_tenant_id = (
+                tenant_data.get('id', None) if tenant_data else None)
 
-            # Check if the model has a 'setup' field before calling APISetup.get_setup
-            fields = {
-                field.name
-                for field in self.model._meta.get_fields()
-            } if self.model else set()
-
-            if 'setup' in fields and tenant_id:
-                setup = APISetup.get_setup(tenant_id=tenant_id)
-            else:
-                setup = None
-
-            request._cached_tenant_setup = {
-                'tenant_id': tenant_id,
-                'setup': setup
-            }
-
-        return request._cached_tenant_setup
+        return request._cached_tenant_id        
 
     def get_queryset(self, request):
         '''
-        Filter the queryset by setup (if present) or tenant.
+        Filter the queryset by tenant.
         '''
         queryset = super().get_queryset(request)
 
@@ -109,14 +92,10 @@ class TenantFilteringAdmin(admin.ModelAdmin):
             field.name
             for field in self.model._meta.get_fields()
         }  # Fast lookup
-        tenant_setup_data = self.get_tenant_and_setup(request)
-        tenant_id = tenant_setup_data['tenant_id']
-        setup = tenant_setup_data['setup']
+        tenant_id = self.get_tenant_id(request)
 
-        # Prefer filtering by 'setup' if the field exists
-        if 'setup' in fields and setup:
-            queryset = queryset.filter(setup=setup)
-        elif 'tenant' in fields and tenant_id:
+        # Filtering by 'tenant' if the field exists
+        if 'tenant' in fields and tenant_id:
             queryset = queryset.filter(tenant__id=tenant_id)
 
         # Optimize ForeignKey and ManyToMany fields
@@ -147,21 +126,16 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         '''
-        Filter ForeignKey choices by setup (if available) or tenant.
+        Filter ForeignKey choices by tenant.
         '''
         if db_field.name in self.protected_foreigns:
-            tenant_setup_data = self.get_tenant_and_setup(request)
-            tenant_id = tenant_setup_data['tenant_id']
-            setup = tenant_setup_data['setup']
+            tenant_id = self.get_tenant_id(request)
 
             fields = {
                 field.name for field in self.model._meta.get_fields()
             }  # Fast lookup
 
-            if db_field.name == 'setup' and 'setup' in fields and setup:
-                kwargs['queryset'] = db_field.related_model.objects.filter(
-                    id=setup.id)
-            elif (db_field.name == 'tenant' and
+            if (db_field.name == 'tenant' and
                     'tenant' in fields and tenant_id):
                 kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=tenant_id)
@@ -170,24 +144,19 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         '''
-        Filter and optimize ManyToMany choices by setup (if available) or tenant.
+        Filter and optimize ManyToMany choices by tenant.
         '''
         if db_field.name in self.protected_many_to_many:
-            # Fetch cached tenant & setup
-            tenant_setup_data = self.get_tenant_and_setup(request)
-            tenant_id = tenant_setup_data['tenant_id']
-            setup = tenant_setup_data['setup']
+            # Fetch cached tenant
+            tenant_id = self.get_tenant_id(request)
 
             fields = {
                 field.name
                 for field in self.model._meta.get_fields()
             }  # Use a set for fast lookup
 
-            # Prefer filtering by 'setup' if available
-            if db_field.name == 'setup' and 'setup' in fields and setup:
-                kwargs['queryset'] = db_field.related_model.objects.filter(
-                    id=setup.id)
-            elif (db_field.name == 'tenant' and 'tenant' in fields
+            # Prefer filtering by 'tenant' if available
+            if (db_field.name == 'tenant' and 'tenant' in fields
                     and tenant_id):
                 kwargs['queryset'] = db_field.related_model.objects.filter(
                     id=tenant_id)
@@ -254,7 +223,7 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
     def save_model(self, request, instance, form, change):
         '''
-        Override save to enforce tenant/setup assignment, log actions,
+        Override save to enforce tenant assignment, log actions,
         and handle errors.
         '''
         # Check if protected and has been protected
@@ -265,21 +234,15 @@ class TenantFilteringAdmin(admin.ModelAdmin):
                     messages.warning(request, _('Record is protected.'))
                     return
 
-        # Fetch cached tenant & setup data
-        tenant_setup_data = self.get_tenant_and_setup(request)
-        tenant_id = tenant_setup_data['tenant_id']
-        setup = tenant_setup_data['setup']
+        # Fetch cached tenant
+        tenant_id = self.get_tenant_id(request)
 
-        # Ensure tenant/setup is set if they exist in protected_foreigns
+        # Ensure tenant is set if they exist in protected_foreigns
         protected_foreigns = getattr(self, 'protected_foreigns', [])
         if ('tenant' in protected_foreigns and tenant_id
                 and not getattr(instance, 'tenant', None)):
             # Assign the ID directly to avoid unnecessary lookups
             instance.tenant_id = tenant_id
-
-        if ('setup' in protected_foreigns and setup
-                and not getattr(instance, 'setup', None)):
-            instance.setup = setup
 
         # Ensure sync_to_accounting is set
         if hasattr(instance, 'sync_to_accounting'):

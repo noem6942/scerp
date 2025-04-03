@@ -2,3 +2,231 @@
 #
 # This YAML file defines the initialization values for cash_ctrl
 # It includes information about various categories and their respective codes.
+
+# core ------------------------------------------------------------------
+Title:
+  # from cashCtrl
+  - c_id: 1
+    code: mr
+    name:
+      de: Herr
+      en: Mr.
+      fr: M.
+      it: Sig.
+    sentence:
+      de: Sehr geehrter Herr
+      en: Dear Mr.
+      fr: Monsieur
+      it: Gentile Signor
+    gender: MALE
+  - c_id: 2
+    code: mrs
+    name:
+      de: Frau
+      en: Mrs.
+      fr: Mme
+      it: Sig.ra
+    sentence:
+      de: Sehr geehrte Frau
+      en: Dear Mrs.
+      fr: Madame
+      it: Gentile Signora
+    gender: FEMALE
+
+PersonCategory:
+  # from cashCtrl
+  - c_id: 1
+    code: client
+    name:
+      de: "Kunden"
+      en: "Customers"
+      fr: "Clients"
+      it: "Clienti"
+  - c_id: 2
+    code: vendor
+    name:
+      de: "Lieferanten"
+      en: "Vendors"
+      fr: "Fournisseurs"
+      it: "Fornitori"
+  - c_id: 3
+    code: employee
+    name:
+      de: "Mitarbeiter"
+      en: "Employees"
+      fr: "Employés"
+      it: "Dipendenti"
+  - c_id: 8
+    code: assurance
+    name:
+      de: "Versicherungen"
+      en: "Insurances"
+      fr: "Assurances"
+      it: "Assicurazioni"
+
+  # own
+  - code: subscribers
+    name:
+      de: "Abonnenten"
+      en: "Subscribers"
+      fr: "Subscribers"
+      it: "Subscribers"
+
+# assets ---------------------------------------------------------------
+Unit:
+  # cashCtrl
+  - c_id: 1
+    code: minute
+    name:
+      de: Min.
+      en: min.
+      fr: min.
+      it: min.
+  - c_id: 2
+    code: hour
+    name:
+      de: Std.
+      en: hrs.
+      fr: hrs.
+      it: ore
+  - c_id: 3
+    code: day
+    name:
+      de: Tage
+      en: days
+      fr: jours
+      it: giorni
+  - c_id: 4
+    code: piece
+    name:
+      de: Stk.
+      en: pcs.
+      fr: pcs.
+      it: pz.
+  - c_id: 5
+    code: year
+    name:
+      de: Jahre
+      en: years
+      fr: années
+      it: anni
+
+  # own
+  - code: contract
+    name:
+      de: Stk.
+      en: pcs.
+      fr: pcs.
+      it: pz.
+  - code: volume
+    name:
+      de: m³
+      en: m³
+      fr: m³
+      it: m³
+  - code: energy
+    name:
+      de: kWh
+      en: kWh
+      fr: kWh
+      it: kWh
+  - code: power
+    name:
+      de: kW
+      en: kW
+      fr: kW
+      it: kW
+  - code: temperature
+    name:
+      de: °C
+      en: °C
+      fr: °C
+      it: °C
+  - code: flow
+    name:
+      de: m³/h
+      en: m³/h
+      fr: m³/h
+      it: m³/h
+
+AssetCategory:
+  - code: notebook
+    name:
+      de: Notebook
+    unit: piece
+  - code: 8-0:1.0.0
+    name:
+      de: Wasserzähler - Bezug Volumen Aktuell
+    unit: volume
+  - code: 9-0:1.0.0
+    name:
+      de: Warmwasserzähler - Bezug Volumen Aktuell
+    unit: volume
+  - code: 7-0:3.0.0
+    name:
+      de: Gas -  Bezug Volumen Aktuell
+    unit: volume
+  - code: 1-1:1.8.0
+    name:
+      de: Strom - Wirkenergie Bezug Total
+    unit: energy
+  - code: 1-1:1.8.1
+    name:
+      de: Strom - Wirkenergie Bezug Tarif 1
+    unit: energy
+  - code: 1-1:1.8.2
+    name:
+      de: Strom - Wirkenergie Bezug Tarif 2
+    unit: energy
+  - code: 1-1:2.8.0
+    name:
+      de: Strom - Wirkenergie Einspeisung Total
+    unit: energy
+  - code: 1-1:2.8.1
+    name:
+      de: Strom - Wirkenergie Einspeisung Tarif 1
+    unit: energy
+  - code: 1-1:2.8.2
+    name:
+      de: Strom - Wirkenergie Einspeisung Tarif 2
+    unit: energy
+  - code: 1-1:15.7.0
+    name:
+      de: Strom -  Wirkenergie Leistung Aktuell
+    unit: power
+  - code: 1-1:16.7.0
+    name:
+      de: Strom - Wirkenergie Leistung Aktuell
+    unit: power
+  - code: 1-1:1.2.1
+    name:
+      de: Strom - Wirkenergie Leistung Max
+    unit: power
+  - code: 6-0:1.0.0
+    name:
+      de: Wärme - Energie Aktuell
+    unit: energy
+  - code: 6-0:2.0.0
+    name:
+      de: Wärme - Volumen Aktuell
+    unit: volume
+  - code: 6-0:8.0.0
+    name:
+      de: Wärme - Leistung
+    unit: power
+  - code: 6-0:9.0.0
+    name:
+      de: Wärme - Durchfluss
+    unit: flow
+  - code: 6-0:10.0.0
+    name:
+      de: Wärme - Temperatur Vorlauf
+    unit: volume
+  - code: 6-0:11.0.0
+    name:
+      de: Wärme - Temperatur Rücklauf
+    unit: volume
+  - code: 5-0:1.0.0
+    name:
+      de: Kälte - Energie
+    unit: energy

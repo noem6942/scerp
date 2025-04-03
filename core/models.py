@@ -1,6 +1,5 @@
 # core/models.py
 import os
-import pyproj  # A library for coordinate transformations
 
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -16,7 +15,7 @@ from django.utils.translation import get_language, gettext_lazy as _
 
 from accounting.banking import get_bic
 from scerp.locales import CANTON_CHOICES
-from scerp.mixins import primary_language
+from scerp.mixins import primary_language, convert_ch1903_to_wgs84
 
 
 # Base ----------------------------------------------------------------------
@@ -76,81 +75,6 @@ class NotesAbstract(models.Model):
         abstract = True  # This makes it an abstract model
 
 
-# Official Address --------------------------------------------------------
-'''
-They are read only and provided centrally.
-See https://data.geo.admin.ch/ch.swisstopo.amtliches-gebaeudeadressverzeichnis/amtliches-gebaeudeadressverzeichnis_ch/amtliches-gebaeudeadressverzeichnis_ch_2056.csv.zip
-
-data = {
-    # City
-    "ZIP_LABEL": "4052 Basel",
-    "COM_FOSNR": 2701,
-    "COM_NAME": "Basel",
-    "COM_CANTON": "BS",
-
-    # Street
-    "STR_ESID": 10089624,
-    "STN_LABEL": "Christoph Merian-Platz",
-
-    # Building and Address
-    "BDG_EGID": 443930,
-    "BDG_CATEGORY": "residential",
-    "BDG_NAME": None,
-
-    "ADR_EDID": 0,  # not used
-    "ADR_EGAID": 100335354,
-    "ADR_NUMBER": "8",
-
-    "ADR_STATUS": "real",
-    "ADR_OFFICIAL": True,
-    "ADR_MODIFIED": "15.11.2024",
-    "ADR_EASTING": 2613090,
-    "ADR_NORTHING": 1266479
-}
-'''
-# A function to convert Swiss coordinates to WGS84 (latitude/longitude)
-def convert_ch1903_to_wgs84(easting, northing):
-    try:
-        transformer = pyproj.Transformer.from_crs("EPSG:2056", "EPSG:4326", always_xy=True)  # LV95 to WGS84
-        lon, lat = transformer.transform(easting, northing)
-        return lat, lon
-    except Exception as e:
-        raise ValidationError(f"Error converting coordinates: {e}")
-
-
-class Country(LogAbstract):
-    """Model to represent a person's category.
-    not used: parentId
-    """
-    alpha2 = models.CharField(
-        _('Country'),
-        max_length=2, help_text=_("2-letter country code")
-    )
-    alpha3 = models.CharField(
-        _('Country'),
-        max_length=3, help_text=_("3-letter country code")
-    )
-    name = models.JSONField(
-        _('Name'),
-        help_text=_("The name of the country")
-    )
-    is_default = models.BooleanField(
-        _('Is default'), default=False,
-        help_text=_("Default for data entry"))
-
-    def get_default_id():
-        default = Country.objects.filter(is_default=True).first()
-        return default.id if default else None
-
-    def __str__(self):
-        return f'{self.alpha3}, {primary_language(self.name)}'
-
-    class Meta:
-        ordering = ['-is_default', 'alpha3']
-        verbose_name = _('Country')
-        verbose_name_plural = _('Countries')
-
-
 # App
 class App(LogAbstract, NotesAbstract):
     ''' all available Apps
@@ -164,6 +88,8 @@ class App(LogAbstract, NotesAbstract):
 
     class Meta:
         ordering = ['name']
+        verbose_name = _('App')
+        verbose_name_plural = '_' + _('Apps')
 
 
 # Tenant, User, Message
@@ -179,6 +105,7 @@ class Tenant(LogAbstract, NotesAbstract):
             'code of tenant / client, unique, max 32 characters, '
             'only small letters, should only contains characters that '
             'can be displayed in an url)'))
+    # App        
     is_app_time_trustee = models.BooleanField(
         _('Is AppTime Trustee'), default=False,
         help_text=_(
@@ -188,13 +115,56 @@ class Tenant(LogAbstract, NotesAbstract):
         related_name='%(class)s_apps',
         help_text=_('apps subscribed'))
 
+    # Accounting, currently only cashCtrl
+    cash_ctrl_org_name = models.CharField(
+        'org_name', max_length=100, blank=True, null=True,
+        help_text='name of organization as used in cashCtrl domain')
+    cash_ctrl_api_key = models.CharField(
+        _('api key'), max_length=100,  blank=True, null=True,
+        help_text=_('api key'))
+        
+    # General accounting    
+    language = models.CharField(
+        _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
+        help_text=_('The main language of the person. May be used for documents.')
+    )
+    encode_numbers = models.BooleanField(
+        _('Encode numbers in cashCtrl headings'), default=True,
+        help_text=_(
+            'e.g. 02 Allgemeinde Dienste'))
+    account_plan_loaded = models.BooleanField(
+        _('Account plan loaded'), default=False,
+        help_text=_(
+            'gets set to True if account plan uploaded to accounting system'))
+    
     def __str__(self):
         return self.name
+        
+    def clean(self):
+        # Ensure that both org_name and api_key are either both provided 
+        # or both not provided
+        # cashCtrl
+        if self.cash_ctrl_org_name: 
+            # Only check uniqueness if org_name is set
+            if Tenant.objects.filter(
+                        cash_ctrl_org_name=self.cash_ctrl_org_name
+                    ).exclude(pk=self.pk).exists():
+                raise ValidationError(
+                    {'cash_ctrl_org_name': _(
+                        "Organization name must be unique.")})
+        
+        if self.cash_ctrl_org_name or self.cash_ctrl_api_key:
+            if not self.org_name or not self.cash_ctrl_pi_key:
+                raise ValidationError(_("cashCtrl need Org Name and api-key"))
 
-    class Meta:
+    def save(self, *args, **kwargs):
+        self.clean()  # Ensure validation before saving
+        super().save(*args, **kwargs)
+
+    class Meta:     
         ordering = ['name']
-        verbose_name = _('tenant')
-        verbose_name_plural = _('tenants')
+        verbose_name = _('Tenant')
+        verbose_name_plural = '_' + _('Tenants')
 
 
 class TenantSetup(LogAbstract, NotesAbstract):
@@ -232,10 +202,15 @@ class TenantSetup(LogAbstract, NotesAbstract):
         null=True, blank=True,
         help_text=_('Type, add new one of no match'))
     zips = models.JSONField(
-        _('municipality zips'), null=True, blank=True,
+        _('municipality zips'), default=list,
         help_text=_(
-            'Zips that belong to the tenant, e.g. [4034]. '
+            'Zips that belong to the tenant, e.g. [4617]. '
             'We use it for importing the building addresses. '))
+    bdg_egids = models.JSONField(
+        _('EGIDS to include'), default=list,
+        help_text=_(
+            'Egids that belong to the tenant, e.g. [4617]. '
+            'We use it for importing the building addresses. '))            
     formats = models.JSONField(
         _('formats'), null=True, blank=True,
         help_text=_('Format definitions'))
@@ -302,7 +277,7 @@ class Message(LogAbstract, NotesAbstract):
             )]
         ordering = ['is_inactive', '-modified_at']
         verbose_name = _('Message')
-        verbose_name_plural = _('Messages')
+        verbose_name_plural = '_' + _('Messages')
 
 
 class TenantAbstract(LogAbstract, NotesAbstract):
@@ -391,12 +366,127 @@ class TenantLogo(TenantAbstract):
         verbose_name_plural =  _('tenant logos')
 
 
+# Accounting --------------------------------------------------------
+'''
+We use this for entities that may be connected to the accounting system
+if setup is not None
+'''
+
+
+class AcctApp(TenantAbstract):
+    '''
+    attributes to manage cashCtrl sync
+    '''
+    # CashCtrl
+    c_id = models.PositiveIntegerField(
+        _('CashCtrl id'), null=True, blank=True)
+    c_created = models.DateTimeField(
+        _('CashCtrl created'), null=True, blank=True)
+    c_created_by = models.CharField(
+        _('CashCtrl created_by'), max_length=100, null=True, blank=True)
+    c_last_updated = models.DateTimeField(
+        _('CashCtrl last_updated'), null=True, blank=True)
+    c_last_updated_by = models.CharField(
+        _('CashCtrl last_updated_by'), max_length=100, null=True, blank=True)
+    last_received = models.DateTimeField(
+        _('Last received'), null=True, blank=True,
+        help_text=_(
+            "Last time data has been received from cashCtrl. "
+            "Gets filled out in signals_cash_ctrl.get "))    
+    message = models.CharField(
+        _('Message'), max_length=200, null=True, blank=True,
+        help_text=_('Here we show error messages. Just be empty.'))
+    is_enabled_sync = models.BooleanField(
+        _("Enable Sync"), default=True,
+        help_text=_(
+            "Disable sync with cashCtrl; useful for admin tasks. "
+            "False if no accounting system is used."))
+    sync_to_accounting = models.BooleanField(
+        _("Sync to Accounting"), default=False,
+        help_text=(
+            "This records needs to be synched to cashctr, if the cycle is "
+            "over it gets reset to False"))
+
+    def clean(self):
+        if self.is_enabled_sync and not self.tenant.setup:
+            raise ValidationError(_("Cannot sync. No setup given."))
+
+    class Meta:
+        abstract = True
+
+
+
+# Official Address --------------------------------------------------------
+'''
+They are read only and provided centrally.
+See https://data.geo.admin.ch/ch.swisstopo.amtliches-gebaeudeadressverzeichnis/amtliches-gebaeudeadressverzeichnis_ch/amtliches-gebaeudeadressverzeichnis_ch_2056.csv.zip
+
+data = {
+    # City
+    "ZIP_LABEL": "4052 Basel",
+    "COM_FOSNR": 2701,
+    "COM_NAME": "Basel",
+    "COM_CANTON": "BS",
+
+    # Street
+    "STR_ESID": 10089624,
+    "STN_LABEL": "Christoph Merian-Platz",
+
+    # Building and Address
+    "BDG_EGID": 443930,
+    "BDG_CATEGORY": "residential",
+    "BDG_NAME": None,
+
+    "ADR_EDID": 0,  # not used
+    "ADR_EGAID": 100335354,
+    "ADR_NUMBER": "8",
+
+    "ADR_STATUS": "real",
+    "ADR_OFFICIAL": True,
+    "ADR_MODIFIED": "15.11.2024",
+    "ADR_EASTING": 2613090,
+    "ADR_NORTHING": 1266479
+}
+'''
+class Country(LogAbstract):
+    """Model to represent a person's category.
+    not used: parentId
+    """
+    alpha2 = models.CharField(
+        _('Country'),
+        max_length=2, help_text=_("2-letter country code")
+    )
+    alpha3 = models.CharField(
+        _('Country'),
+        max_length=3, help_text=_("3-letter country code")
+    )
+    name = models.JSONField(
+        _('Name'),
+        help_text=_("The name of the country")
+    )
+    is_default = models.BooleanField(
+        _('Is default'), default=False,
+        help_text=_("Default for data entry"))
+
+    def get_default_id():
+        default = Country.objects.filter(is_default=True).first()
+        return default.id if default else None
+
+    def __str__(self):
+        return f'{self.alpha3}, {primary_language(self.name)}'
+
+    class Meta:
+        ordering = ['-is_default', 'alpha3']
+        verbose_name = _('Country')
+        verbose_name_plural = '_' + _('Countries')
+
+
 # Area
 class Area(TenantAbstract):
     code = models.CharField(
-        _('Code'), max_length=50)    
+        _('Code'), max_length=50)
     name = models.CharField(
-        _('Name'), max_length=200, 
+        _('Name'), max_length=200,
         help_text=_("Area to categorize addresses"))
 
     def __str__(self):
@@ -414,7 +504,7 @@ class AddressMunicipal(TenantAbstract):
         we use it for inhabitants, tags and buildings
     '''
     # Municipality
-    com_fosnr = models.PositiveIntegerField(        
+    com_fosnr = models.PositiveIntegerField(
         help_text="Unique identifier for the municipality."
     )
     com_name = models.CharField(
@@ -433,11 +523,11 @@ class AddressMunicipal(TenantAbstract):
     )
 
     # Street
-    str_esid = models.PositiveBigIntegerField(        
+    str_esid = models.PositiveBigIntegerField(
         help_text="Unique identifier for the street."
     )
     stn_label = models.CharField(
-        _('Street'), max_length=255, 
+        _('Street'), max_length=255,
         help_text="Name of the street."
     )
 
@@ -492,10 +582,10 @@ class AddressMunicipal(TenantAbstract):
         null=True,
         help_text="Longitude (WGS84)"
     )
-    
+
     # Custom
     area = models.ForeignKey(
-        Area, on_delete=models.PROTECT, blank=True, null=True,        
+        Area, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Area'), related_name="%(class)s_area",
         help_text=_("Area"))
 
@@ -507,7 +597,7 @@ class AddressMunicipal(TenantAbstract):
                 self.adr_easting, self.adr_northing)
         super().save(*args, **kwargs)
 
-    def __str__(self):        
+    def __str__(self):
         return (
             f"{self.zip} {self.city}, {self.stn_label} {self.adr_number}"
             f", EGID {self.bdg_egid}"
@@ -519,7 +609,7 @@ class AddressMunicipal(TenantAbstract):
                 fields=['tenant', 'adr_egaid'],
                 name='unique_address_municipality'
             )
-        ]        
+        ]
         ordering = ['zip', 'stn_label', 'adr_number']
 
 
@@ -648,21 +738,8 @@ class BankAccount(TenantAbstract):
     def __str__(self):
         return f"{self.type} - {self.iban}"
 
-class Sync(TenantAbstract):
-    is_enabled_sync = models.BooleanField(
-        _("Enable Sync"), default=True,
-        help_text="Disable sync with Accounting; useful for admin tasks.")
-    sync_to_accounting = models.BooleanField(
-        _("Sync to Accounting"), default=False,
-        help_text=(
-            "This records needs to be synched to cashctr, if the cycle is "
-            "over it gets reset to False"))
 
-    class Meta:
-        abstract = True
-
-
-class Title(Sync):
+class Title(AcctApp):
     """
     Model to represent a person's title.
         this will trigger a create / update event to accounting
@@ -706,7 +783,7 @@ class Title(Sync):
         verbose_name_plural = _("Titles")
 
 
-class PersonCategory(Sync):
+class PersonCategory(AcctApp):
     """
     this will trigger a create / update event to accounting
     """
@@ -733,7 +810,7 @@ class PersonCategory(Sync):
         verbose_name_plural = _("Person Categories")
 
 
-class Person(Sync):
+class Person(AcctApp):
     '''
     this will trigger a create / update event to accounting
     '''
@@ -984,7 +1061,7 @@ class UserProfile(LogAbstract, NotesAbstract):
     class Meta:
         ordering = ['user__last_name', 'user__first_name']
         verbose_name = _('User')
-        verbose_name_plural =  _('Users')
+        verbose_name_plural =  _('Users') + ' (Scerp)'
 
 
 # Buildings, Rooms

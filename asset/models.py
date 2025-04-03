@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from core.models import (
-    TenantAbstract, Person, AddressMunicipal, Dwelling, Room)
+    TenantAbstract, AcctApp, Person, AddressMunicipal, Dwelling, Room)
 from scerp.mixins import primary_language
 
 
@@ -29,15 +29,47 @@ class DEVICE_STATUS(models.TextChoices):
     STOLEN = 'STN', _('Stolen')  # Device reported as stolen
 
 
-class AssetCategory(TenantAbstract):
+class Unit(AcctApp):
     '''
-    aligend to cashCtrl; we don't use parents
+    not aligend with cashCtrl yet
+    '''
+    code = models.CharField(
+        _('Code'), max_length=50, help_text=_("Code"))
+    name = models.JSONField(
+        _('Name'), blank=True,  null=True,  # null necessary to handle multi languages
+        help_text=_("The name of the unit ('hours', 'minutes', etc.)"))
+
+    def __str__(self):
+        return primary_language(self.name)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code'],
+                name='unique_asset_unit'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Unit")
+        verbose_name_plural = _("Units")
+
+
+class AssetCategory(AcctApp):
+    '''
+    not aligend with cashCtrl yet
     '''
     code = models.CharField(
         _('Code'), max_length=50, help_text=_("Code"))
     name = models.JSONField(
         _('Name'), blank=True,  null=True,  # null necessary to handle multi languages
         help_text=_("The name of the title (i.e. the actual title)."))
+    description = models.CharField(
+        _('Description'), max_length=200, blank=True, null=True,
+        help_text=_("Description"))
+    unit = models.ForeignKey(
+        Unit, on_delete=models.PROTECT,         
+        related_name='%(class)s_category',
+        verbose_name=_('Unit'), help_text=_("The asset's category."))
 
     class Meta:
         ordering = ['code']
@@ -45,13 +77,12 @@ class AssetCategory(TenantAbstract):
         verbose_name_plural = _('Asset Categories')
 
     def __str__(self):
-        name = primary_language(self.name)
-        return name if name else self.code
+        return primary_language(self.name)
 
 
-class Device(TenantAbstract):
+class Device(AcctApp):
     """ Device representing Asset in accounting,
-        financial data is set in accounting (if wanted)
+        currently no sync
     """
     # Base
     code = models.CharField(
@@ -68,6 +99,9 @@ class Device(TenantAbstract):
     date_added = models.DateField(
         _("Date added"),
         help_text=_("The date when the fixed asset has been added."))
+    purchase_price = models.DecimalField(
+        _('Price'), max_digits=20, decimal_places=2, blank=True, null=True,
+        help_text=_("Purchase price"))
     status = models.CharField(
         max_length=3, choices=DEVICE_STATUS.choices, null=True, blank=True,
         help_text='Gets updated automatically')
@@ -96,9 +130,6 @@ class Device(TenantAbstract):
         _("Batch"), max_length=50, null=True, blank=True,
         help_text=_("Batch or order id"),
     )
-    obiscode = models.CharField(
-        _('OBIS Code'), max_length=20, blank=True, null=True,
-        help_text='for counters, default: 8-0:1.0.0')
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
     def get_status(self, date=None):
@@ -121,7 +152,7 @@ class Device(TenantAbstract):
                 name='unique_device_per_tenant'
             )
         ]
-        ordering = ['name']
+        ordering = ['code', 'name']
         verbose_name = _("Device")
         verbose_name_plural = _("Devices")
 

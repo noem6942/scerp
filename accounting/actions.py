@@ -23,8 +23,7 @@ from .import_export import (
     LedgerBalanceImportExport, LedgerPLImportExport, LedgerICImportExport
 )
 from .models import (
-    APISetup, FiscalPeriod,
-    LedgerAccount, LedgerBalance, LedgerPL, LedgerIC
+    FiscalPeriod,LedgerAccount, LedgerBalance, LedgerPL, LedgerIC
 )
 
 from . import forms, models
@@ -290,7 +289,7 @@ def incoming_order_approve(modeladmin, request, queryset):
 
 
 @action_with_form(
-    forms.IncomingOrderForm, description=_('Scan banking data from invoice')
+    forms.IncomingOrderForm, description=_('Scan data from invoice')
 )
 def get_bank_data(modeladmin, request, queryset, data):
     ''' update is_enabled_sync to False '''

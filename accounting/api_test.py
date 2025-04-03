@@ -1,3 +1,4 @@
+from django.conf import settings
 from decimal import Decimal
 import yaml
 
@@ -7,15 +8,20 @@ from api_cash_ctrl import *
 if __name__ == "__main__":
     print("Testing.")
 
-    org = 'test167'
-    api = 'OCovoWksU32uCJZnXePEYRya08Na00uG'
+    org = 'bdo'
+    api = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'  # 'OCovoWksU32uCJZnXePEYRya08Na00uG'
+
+    if True:
+        conn = Unit(org, api, convert_dt=False)
+        data_list = conn.list()
+        print("*", data_list)
 
     if False:
         conn = PersonTitle(org, api, convert_dt=False)
         data_list = conn.list()
         print("*", data_list)
 
-    if True:
+    if False:
         conn = Person(org, api, convert_dt=False)
         data_list = conn.list()
         for data in data_list:
