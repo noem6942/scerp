@@ -28,11 +28,13 @@ from .models import (
 
 from . import forms, models
 from . import connector_cash_ctrl as conn
-from .signals_cash_ctrl import api_setup_post_save
+#from .signals_cash_ctrl import api_setup_post_save
 
 
 @admin.action(description=('Admin: Init setup'))
 def init_setup(modeladmin, request, queryset):
+    pass
+    '''
     # Check
     if action_check_nr_selected(request, queryset, 1):
         instance = queryset.first()
@@ -58,7 +60,7 @@ def init_setup(modeladmin, request, queryset):
             messages.error(request, f"APIRequestError: {str(e)}")
 
         messages.success(request, _("Accounting API initialized"))
-
+    '''
 
 @admin.action(description=_('15 Get balances from accounting system'))
 def download_balances(modeladmin, request, queryset):

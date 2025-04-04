@@ -17,13 +17,11 @@ from scerp.actions import export_excel, default_actions
 from scerp.admin import (
      BaseAdmin, BaseTabularInline, Display, 
      verbose_name_field, make_language_fields)
-from scerp.admin_base import (
-    TenantFilteringAdmin, FIELDS as BASE_FIELDS, FIELDSET as BASE_FIELDSET)
+from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 from scerp.mixins import primary_language, show_hidden
 
 from . import forms, models, actions as a
-from .admin_base import FIELDS, FIELDSET, CashCtrlAdmin
 from .api_cash_ctrl import URL_ROOT as cashControl_URL_ROOT
 from .resources import (
     LedgerBalanceResource, LedgerPLResource, LedgerICResource
@@ -59,8 +57,8 @@ class CustomFieldGroupAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': ('code', 'name', 'type'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -89,8 +87,8 @@ class CustomFieldAdmin(TenantFilteringAdmin, BaseAdmin):
                 'is_multi', 'values'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -105,7 +103,7 @@ class SettingAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = FIELDS.C_DISPLAY_SHORT
-    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
+    readonly_fields = ('display_name', 'display_json') + FIELDS.C_READ_ONLY
 
     # Actions
     actions = accounting_actions + default_actions
@@ -114,41 +112,18 @@ class SettingAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'csv_delimiter',
-                'thousand_separator',
-                'first_steps_logo',
-                'first_steps_account',
-                'first_steps_currency',
-                'first_steps_pro_demo',
-                'first_steps_tax_rate',
-                'first_steps_tax_type',
-                'order_mail_copy_to_me',
-                'tax_accounting_method',
-                'journal_import_force_sequence_number'
+                'display_json',
             ),
             'classes': ('expand',),
         }),
-        (_("Account Settings"), {
-            'fields': (
-                'default_debtor_account',
-                'default_opening_account',
-                'default_creditor_account',
-                'default_exchange_diff_account',
-                'default_profit_allocation_account',
-                'default_inventory_disposal_account',
-                'default_input_tax_adjustment_account',
-                'default_sales_tax_adjustment_account',
-                'default_inventory_depreciation_account',
-                'default_inventory_asset_revenue_account',
-                'default_inventory_article_expense_account',
-                'default_inventory_article_revenue_account',
-            ),
-            'classes': ('collapse',),
-        }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
+
+    @admin.display(description=_('Data'))
+    def display_json(self, obj):        
+        return Display.json(obj.data)
 
     @admin.display(description=_('Link'))
     def display_url(self, obj):
@@ -200,8 +175,8 @@ class Location(TenantFilteringAdmin, BaseAdmin):
             'fields': ('logo_file_id', 'footer'),
             'classes': ('collapse',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -237,8 +212,8 @@ class FiscalPeriodAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -269,8 +244,8 @@ class UnitAdmin(TenantFilteringAdmin, BaseAdmin):
                 'code', *make_language_fields('name')),
             'classes': ('collapse',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
     
@@ -307,8 +282,8 @@ class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )    
 
@@ -353,8 +328,8 @@ class TaxAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -387,8 +362,8 @@ class RoundingAdmin(TenantFilteringAdmin, BaseAdmin):
                 *make_language_fields('name'),),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -422,8 +397,8 @@ class SequenceNumberAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': ('code', 'pattern', 'name'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -454,8 +429,8 @@ class CostCenterCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
                 'number', 'parent', *make_language_fields('name')),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -486,8 +461,8 @@ class CostCenterAdmin(TenantFilteringAdmin, BaseAdmin):
                 'number', 'category', *make_language_fields('name')),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -524,8 +499,8 @@ class CurrencyAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (*make_language_fields('description'), ),
             'classes': ('collapse',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -558,8 +533,8 @@ class AccountCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': ('number', 'parent', *make_language_fields('name'),),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -613,8 +588,8 @@ class AccountAdmin(TenantFilteringAdmin, BaseAdmin):
                 'hrm'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -658,8 +633,8 @@ class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
             'classes': ('collapse',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -709,8 +684,8 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
                        'is_sales_price_gross', 'is_purchase_price_gross'),
             'classes': ('collapse',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -755,8 +730,8 @@ class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
             'classes': ('collapse',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
     
@@ -789,8 +764,8 @@ class BookTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
                 'credit_account', 'debit_account', 'tax'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -833,8 +808,8 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
             'classes': ('collapse',),
         }),        
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -879,8 +854,8 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -924,8 +899,8 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -969,8 +944,8 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
                 'responsible_person'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -1018,8 +993,8 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
                 'responsible_person', 'display_bank_account'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
     
@@ -1065,8 +1040,8 @@ class IncomingBookEntry(TenantFilteringAdmin, BaseAdmin):
             'fields': ('date', 'order', 'template_id'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -1114,8 +1089,8 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
                 'due_days', 'responsible_person'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
     
@@ -1152,8 +1127,8 @@ class LedgerAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': ('code', *make_language_fields('name'), 'period'),
             'classes': ('expand',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -1276,8 +1251,8 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
             'fields': ('opening_balance', 'increase', 'decrease', 'closing_balance'),
             'classes': ('collapse',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
@@ -1343,8 +1318,8 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
                 'expense_previous', 'revenue_previous'),
             'classes': ('collapse',),
         }),
-        BASE_FIELDSET.NOTES_AND_STATUS,
-        BASE_FIELDSET.LOGGING_TENANT,
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 

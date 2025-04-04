@@ -21,23 +21,22 @@ EXCLUDE_FIELDS = CASH_CTRL_FIELDS + [
     'id', 'tenant', 'sync_to_accounting', 'is_enabled_sync',
     'modified_at', 'modified_by', 'created_at', 'created_by',
     'is_protected', 'attachment', 'version',
-    'setup', 'last_received', 'message'
+    'last_received', 'message'
 ]
 
 
 class CashCtrl:
     api_class = None  # gets assigned with get, save or delete
 
-    def __init__(self, tenant, model=None, language=None):
+    def __init__(self, model=None, language=None):
         self.language = language
         self.model = model  # needed for get and fields with custom
-        self.tenant = tenant
         self.api = None  # store later for further usage
 
     def _get_api(self, tenant):
         self.api = self.api_class(
-            self.tenant.setup.org_name, 
-            self.tenant.setup.api_key, 
+            tenant.cash_ctrl_org_name, 
+            tenant.cash_ctrl_api_key, 
             language=self.language
         )
         return self.api
@@ -58,7 +57,7 @@ class CashCtrl:
         for field_name, custom_field__code in custom_fields:
             # Get field instance
             custom_field = models.CustomField.objects.filter(
-                setup=instance.setup, code=custom_field__code).first()
+                tenant=instance.tenant, code=custom_field__code).first()
 
             # Assign
             if custom_field:
@@ -78,9 +77,9 @@ class CashCtrl:
         except:
             raise ValueError(f"'{code}' not existing.")
 
-    def get(self, setup, created_by, params={}, overwrite_data=True,
+    def get(self, tenant, created_by, params={}, overwrite_data=True,
             delete_not_existing=True, **filter_kwargs):
-        api = self._get_api(setup)
+        api = self._get_api(tenant)
         data_list = api.list(params)
         c_ids = []
 
@@ -89,7 +88,7 @@ class CashCtrl:
             c_ids.append(id)
 
             # Get or create instances
-            instance = self.model.objects.filter(setup=setup, c_id=id).first()
+            instance = self.model.objects.filter(tenant=tenant, c_id=id).first()
             if instance:
                 if not overwrite_data:
                     continue  # no further update
@@ -97,8 +96,7 @@ class CashCtrl:
                 # create instance
                 instance = self.model(
                     c_id=id,
-                    tenant=setup.tenant,
-                    setup=setup,
+                    tenant=tenant,
                     created_by=created_by
                 )
 
@@ -120,7 +118,7 @@ class CashCtrl:
 
         if delete_not_existing:
             self.model.objects.filter(
-                ~Q(setup=setup), ~Q(c_id__in=c_ids), c_id__isnull=False
+                ~Q(tenant=tenant), ~Q(c_id__in=c_ids), c_id__isnull=False
             ).delete()
 
     def reload(self, instance):
@@ -137,7 +135,7 @@ class CashCtrl:
             raise ValueError('cashCtrl, read only entity. Only code saved.')
 
         # Get api
-        api = self._get_api(instance.setup)
+        api = self._get_api(instance.tenant)
 
         # Prepare data
         data = model_to_dict(instance, exclude=self.exclude)
@@ -173,7 +171,7 @@ class CashCtrl:
             _response = api.update(data)
 
     def delete(self, instance):
-        api = self._get_api(instance.setup)
+        api = self._get_api(instance.tenant)
         if instance.c_id:
             response = api.delete(instance.c_id)
             return response
@@ -184,10 +182,10 @@ class CustomFieldGroup(CashCtrl):
     api_class = api_cash_ctrl.CustomFieldGroup
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
 
-    def get(self, setup, created_by, params={}, update=True):
+    def get(self, tenant, created_by, params={}, update=True):
         for field in api_cash_ctrl.FIELD_TYPE:
             params = {'type': field.value}
-            super().get(setup, created_by, params, update)
+            super().get(tenant, created_by, params, update)
 
     def save_download(self, instance, data):
         if not instance.code:
@@ -198,10 +196,10 @@ class CustomField(CashCtrl):
     api_class = api_cash_ctrl.CustomField
     exclude = EXCLUDE_FIELDS + ['code', 'group_ref', 'notes', 'is_inactive']
 
-    def get(self, setup, created_by, params={}, update=True):
+    def get(self, tenant, created_by, params={}, update=True):
         for field in api_cash_ctrl.FIELD_TYPE:
             params = {'type': field.value}
-            super().get(setup, created_by, params, update)
+            super().get(tenant, created_by, params, update)
 
     def adjust_for_upload(self, instance, data, created=None):
         # Get foreign c_ids
@@ -231,7 +229,7 @@ class Location(CashCtrl):
 class FiscalPeriod(CashCtrl):
     api_class = api_cash_ctrl.FiscalPeriod
     exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
-
+        
 
 class Currency(CashCtrl):
     api_class = api_cash_ctrl.Currency
@@ -247,9 +245,8 @@ class Unit(CashCtrl):
     api_class = api_cash_ctrl.Unit
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
 
-    def save_download(self, instance, data):
-        if not instance.code:
-            instance.code = f"custom {data['id']}"
+    def get(self, *args, **kwargs):
+        raise ValueError("Units are only edited in scerp")
 
 
 class CostCenterCategory(CashCtrl):
@@ -303,7 +300,7 @@ class AccountCategory(CashCtrl):
             instance.parent.c_id if instance.parent else None)
 
         # name, encode numbers in headings
-        if instance.setup.encode_numbers and not instance.is_top_level_account:
+        if instance.tenant.encode_numbers and not instance.is_top_level_account:
             # Add numbers
             data['name'] = {
                 language: self.add_numbers(value, data['number'])
@@ -316,7 +313,7 @@ class AccountCategory(CashCtrl):
             c_id=data['parent_id']).first()
 
         # decode name
-        if instance.setup.encode_numbers:
+        if instance.tenant.encode_numbers:
             # Skip numbers
             if type(instance.name) == dict:
                 name_dict = {
@@ -418,36 +415,24 @@ class Setting(CashCtrl):
     api_class = api_cash_ctrl.Setting
     exclude = EXCLUDE_FIELDS + ['code' + 'is_inactive', 'notes']
 
-    def adjust_for_upload(self, instance, data, created=None):
-        return  # currently only get
+    def save(self, instance, created=None):
+        raise ValueError("Currently no save of Settings")
 
-    def save_download(self, instance, data):
-        instance.c_id = 1  # always
-        instance.modified_at = timezone.now()
-
-        # Add Accounts
-        for key, value in data.items():
-            if key.endswith('_account_id'):
-                foreign_key = models.Account.objects.filter(
-                    setup=self.setup, c_id=value).first()
-                setattr(instance, key, foreign_key)
-
-    def get(self, setup, created_by, params={}, update=True):
-        api = self._get_api(setup)
+    def get(self, tenant, created_by, params={}, update=True):
+        api = self._get_api(tenant)
         data = api.read()
         data['id'] = 1  # enforce settings to have an id
         data = {k.lower(): v for k, v in data.items()}  # convert cases
 
         if update:
-            action = self.model.objects.update_or_create
+            db_op = self.model.objects.update_or_create
         else:
-            action = self.model.objects.get_or_create
+            db_op = self.model.objects.get_or_create
 
-        obj, created = action(
-            setup=setup, c_id=data.pop('id'), defaults=dict(
-                tenant=setup.tenant,
+        obj, created = db_op(
+            tenant=tenant, c_id=data.pop('id'), defaults=dict(
                 created_by=created_by,
-                **data
+                data=data
             )
         )
 
@@ -720,7 +705,8 @@ class IncomingOrder(Order):
         for attachment in instance.attachments.all():
             # upload file
             conn = api_cash_ctrl.File(
-                instance.setup.org_name, instance.setup.api_key)
+                instance.tenant.cash_ctrl_org_name, 
+                instance.tenant.cash_ctrl_api_key)
             data = {
                 'name': attachment.file.name,
                 'category_id': 1,
@@ -729,7 +715,8 @@ class IncomingOrder(Order):
 
             # update OrderDocument
             conn = api_cash_ctrl.OrderDocument(
-                instance.setup.org_name, instance.setup.api_key)
+                instance.tenant.cash_ctrl_org_name, 
+                instance.tenant.cash_ctrl_api_key)
             document = self.api.read(instance.c_id)
             document['file_id'] = file_id
             response = conn.update(document)
@@ -829,6 +816,14 @@ class IncomingBookEntry(CashCtrl):
             data['currency_id'] = category.currency.c_id
 '''
 
+class AssetCategory(CashCtrl):
+    api_class = api_cash_ctrl.AssetCategory
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive', 'unit']
+
+    def get(self, *args, **kwargs):
+        raise ValueError("AssetCategory are only edited in scerp")
+
+
 class ArticleCategory(CashCtrl):
     api_class = api_cash_ctrl.ArticleCategory
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
@@ -887,28 +882,16 @@ class Title(CashCtrl):
     api_class = api_cash_ctrl.PersonTitle
     exclude = EXCLUDE_FIELDS + ['code']
 
-    def adjust_for_upload(self, instance, data, created=None):
-        return model_to_dict(instance, exclude=self.exclude)
-
-    def save_download(self, data):
-        # make code
-        item = next(
-            (x for x in TITLE if x.value == data['id']), None)
-        data['code'] = item.value if item else f"custom {data['id']}"
+    def get(self, *args, **kwargs):
+        raise ValueError("Titles are only edited in scerp")
 
 
 class PersonCategory(CashCtrl):
     api_class = api_cash_ctrl.PersonCategory
     exclude = EXCLUDE_FIELDS + ['code']
 
-    def adjust_for_upload(self, instance, data, created=None):
-        return model_to_dict(instance, exclude=self.exclude)
-
-    def save_download(self, data):
-        # make code
-        item = next(
-            (x for x in PERSON_CATEGORY if x.value == data['id']), None)
-        data['code'] = item.value if item else f"custom {data['id']}"
+    def get(self, *args, **kwargs):
+        raise ValueError("Person Categories are only edited in scerp")
 
 
 class Person(CashCtrl):
@@ -963,19 +946,16 @@ class Person(CashCtrl):
         # Make data
 
         # Category
-        data['category_id'] = models.PersonCategory.objects.get(
-            core=instance.category).c_id
+        if getattr(instance, 'category', None):
+            data['category_id'] = instance.category.c_id
 
         # superior
-        superior = models.Person.objects.filter(
-            core=instance.superior).first()
-        if superior:
-            data['superior_id'] = superior.c_id
+        if getattr(instance, 'superior', None):
+            data['category_id'] = instance.superior.c_id
 
-        # Add Title
-        title = models.Title.objects.filter(core=instance.title).first()
-        if title:
-            data['title_id'] = title.c_id
+        # Add Title        
+        if getattr(instance, 'title', None):
+            data['title_id'] = instance.title.c_id
 
         # Make Bank accounts
         bank_accounts = PersonBankAccount.objects.filter(person=instance)
@@ -1001,12 +981,11 @@ class Person(CashCtrl):
     def save(self, instance, created=None):
         '''
         Write back nr to Person if created
-        '''
+        '''        
         super().save(instance, created)
 
-        # get the full record to update status
-        self.instance_acct.refresh_from_db()
-        data = self.api.read(self.instance_acct.c_id)
+        # load the record again        
+        data = self.api.read(instance.c_id)
         instance.nr = data['nr']
 
         # save
@@ -1014,4 +993,4 @@ class Person(CashCtrl):
         instance.save()
 
     def get(self, *args, **kwargs):
-        raise ValueError("Not supported")
+        raise ValueError("Persons are only edited in scerp.")

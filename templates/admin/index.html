@@ -8,10 +8,12 @@
 {% block content %}
 <!-- Custom selection box for tenant selection -->
 {% if available_tenants|length == 0 %}
+  {% if not app_list %}
   <div class="warning" style="border: 1px solid red; background-color: #ffe6e6; padding: 10px; margin-bottom: 10px;">
     <strong>{% translate 'Warning:' %}</strong> {% translate 'No tenant available.' %}
   </div>
   <br>
+  {% endif %}
 {% elif available_tenants|length > 1 %}
   <form method="post" action=".">
       <label>

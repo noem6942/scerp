@@ -31,9 +31,9 @@ HOTWATER_COUNTER_IDS = [
 ]
 
 
-class AssetCategoryWater:
-    WATER = 'WA'
-    HOT_WATER = 'HWA'
+class OBIS_CODE:
+    WATER = '8-0:1.0.0'
+    HOT_WATER = '9-0:1.0.0'
 
 
 class ImportDevice:
@@ -93,10 +93,10 @@ class ImportDevice:
                 # get asset_category
                 if float(werk_nr) in HOTWATER_COUNTER_IDS:
                     asset_category = self.asset_category_query.filter(
-                        code=AssetCategoryWater.HOT_WATER).first()
+                        code=OBIS_CODE.HOT_WATER).first()
                 else:                    
                     asset_category = self.asset_category_query.filter(
-                        code=AssetCategoryWater.WATER).first()
+                        code=OBIS_CODE.WATER).first()
                 if not asset_category:
                     raise ValueError(f"no asset category found for {werk_nr}")
 
@@ -112,7 +112,8 @@ class ImportDevice:
                         date_disposed=(
                             dt.date() if status==DEVICE_STATUS.DISPOSED 
                             else None),
-                        number=werk_nr
+                        number=werk_nr,                        
+                        is_enabled_sync=False  # do not sync counters in accounting
                     )
                 )
                 logger.info(f"storing counter {werk_nr}, created: {created}")

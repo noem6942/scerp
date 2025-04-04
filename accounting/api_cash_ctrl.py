@@ -284,7 +284,7 @@ def str_to_dt(dt_string, timezone):
     naive_dt = datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S.%f')  # Naive datetime
     aware_dt = timezone.localize(naive_dt)
     return aware_dt
-    
+
 
 def slugify_filename(filename):
     """Converts a filename into a safe format."""
@@ -355,9 +355,10 @@ def convert_to_xml(value):
 def clean_dict(data, convert_dt=True, timezone=pytz.utc):
     ''' convert cashctrl data to python '''
     DATE_TIME_KEYS = (
-        'created',  'last_updated', 'start', 'end', 
-        'salary_start' 'salary_end')
-    
+        'created',  'last_updated', 'start', 'end',
+        'salary_start', 'salary_end'
+    )
+
     post_data = {}
     for key, value in data.items():
         key = camel_to_snake(key)
@@ -408,7 +409,7 @@ class CashCtrl():
     SLEEP_DURATION = 2  # Sleep duration between retries in second
 
     def __init__(
-            self, org, api_key, language='en', convert_dt=True, 
+            self, org, api_key, language='en', convert_dt=True,
             timezone=TIMEZONE):
         # Auth
         self.org = org
@@ -418,7 +419,7 @@ class CashCtrl():
         # Params
         self.language = language
         self.timezone = timezone
-        self.convert_dt = convert_dt        
+        self.convert_dt = convert_dt
 
         # Data
         self.data = None  # data can be loaded (list, read) or posted
@@ -582,7 +583,7 @@ class CashCtrl():
     def list(self, params={}, **filter_kwargs):
         ''' cash_ctrl list '''
         # special filters not supported by cashCtrl
-        created_by_system = filter_kwargs.pop('created_by_system', False)            
+        created_by_system = filter_kwargs.pop('created_by_system', False)
 
         if filter_kwargs:
             # e.g. categoryId=110,  camelCase!
@@ -599,11 +600,11 @@ class CashCtrl():
             clean_dict(x, self.convert_dt, self.timezone)
             for x in response.json()['data']
         ]
-        
+
         # special filters
         if created_by_system:
             self.data = [x for x in self.data if x['created_by'] == 'SYSTEM']
-            
+
         return self.data
 
     def read(self, id=None, params=None):
@@ -738,9 +739,9 @@ class FiscalPeriod(CashCtrl):
     '''see public api desc'''
     url = 'fiscalperiod/'
     actions = ['list', 'switch']
-    
+
     def set_as_current(id):
-        pass  # currently not implemented        
+        pass  # currently not implemented
 
 class Location(CashCtrl):
     '''see public api desc'''

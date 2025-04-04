@@ -7,7 +7,7 @@ from scerp.admin import BaseAdmin, make_language_fields
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 
-from . import forms
+from . import filters, forms
 from .models import AssetCategory, Device, EventLog
 
 
@@ -34,7 +34,9 @@ class AssetCategory(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'display_name', *make_language_fields('name')),
+                'code', 'display_name', *make_language_fields('name'),
+                'unit'
+            ),
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -56,7 +58,7 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('number', 'name', 'category__code')
-    list_filter = ('status', 'category__code', 'category')
+    list_filter = ('status', filters.CategoryFilter, 'category__code')
     
     # Actions
     actions = [export_excel] + default_actions

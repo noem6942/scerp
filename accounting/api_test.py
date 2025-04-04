@@ -8,10 +8,10 @@ from api_cash_ctrl import *
 if __name__ == "__main__":
     print("Testing.")
 
-    org = 'bdo'
-    api = 'cp5H9PTjjROadtnHso21Yt6Flt9s0M4P'  # 'OCovoWksU32uCJZnXePEYRya08Na00uG'
+    org = 'test167'
+    api = 'OCovoWksU32uCJZnXePEYRya08Na00uG'  # ''
 
-    if True:
+    if False:
         conn = Unit(org, api, convert_dt=False)
         data_list = conn.list()
         print("*", data_list)
@@ -20,6 +20,11 @@ if __name__ == "__main__":
         conn = PersonTitle(org, api, convert_dt=False)
         data_list = conn.list()
         print("*", data_list)
+
+    if True:
+        conn = Setting(org, api, convert_dt=False)
+        data = conn.read()
+        print("*", data)
 
     if False:
         conn = Person(org, api, convert_dt=False)

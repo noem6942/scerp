@@ -69,7 +69,7 @@ class AssetCategory(AcctApp):
     unit = models.ForeignKey(
         Unit, on_delete=models.PROTECT,         
         related_name='%(class)s_category',
-        verbose_name=_('Unit'), help_text=_("The asset's category."))
+        verbose_name=_('Unit'), help_text=_("The asset's unit."))
 
     class Meta:
         ordering = ['code']

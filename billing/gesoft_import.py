@@ -12,15 +12,17 @@ from pathlib import Path
 from django.conf import settings
 from django.utils import timezone
 
-from accounting.models import APISetup, ArticleCategory, Article
-from asset.models import DEVICE_STATUS, AssetCategory, Device, EventLog
-from billing.models import Period, Route, Measurement, Subscription
+from accounting.models import ArticleCategory, Article
+from asset.models import (
+    DEVICE_STATUS, Unit, AssetCategory, Device, EventLog)
+from billing.models import (
+    Period, Route, Measurement, Subscription, SubscriptionArchive)
+
 from core.models import (
-     AddressMunicipal, Area, Address, PersonCategory,
+     Tenant, AddressMunicipal, Area, Address, PersonCategory,
      Person, PersonAddress
 )
 from scerp.mixins import parse_gesoft_to_datetime
-from .models import ARTICLE
 
 logger = logging.getLogger(__name__)
 
@@ -121,9 +123,9 @@ BUILDING_MAP = {
     343: 'Mittelgäustrasse 49',
     417: 'Klärstrasse 12',
     205: 'Klärstrasse 12',
-    288: 502272780,    
-    404: 9041136,    
-    626.1: 2125744,    
+    288: 502272780,
+    404: 9041136,
+    626.1: 2125744,
     626.2: 502180980
 }
 
@@ -150,23 +152,143 @@ COMPANIES = [
     'STWEG'
 ]
 
-OBIS_CODE = [
-]
 
+ARTICLE_MAPPING = {
+    # Tarif, Ansatz
+    ('WATER_COLD', 1.1): {
+            'number': 'A-W-011',
+            'name': {'de': 'Gebühr Wasser'},
+            'category': 'water_cold',
+            'unit': 'volume'
+        },
+    ('WATER_HOT', 1.1): {
+            'number': 'A-WH-021',
+            'name': {'de': 'Gebühr Warmwasser'},
+            'category': 'water_hot',
+            'unit': 'volume'
+        },
+    (5, 22.5): {
+            'number': 'A-WA-051',
+            'name': {'de': 'Zählermiete Wasser'},
+            'category': 'water_cold',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (5, 35): {
+            'number': 'A-WA-052',
+            'name': {'de': 'Zählermiete Wasser Industrie'},
+            'category': 'water_cold',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (6, 1953): {
+            'number': 'A-WA-061',
+            'name': {'de': 'Sprinkleranlage'},
+            'category': 'water_cold',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (12, None): {
+            'number': 'A-WW-120',
+            'name': {'de': 'Grundgebühr Abwasser Wohnung - befreit'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (12, 60): {
+            'number': 'A-WW-121',
+            'name': {'de': 'Grundgebühr Abwasser Wohnung'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (13, 60): {
+            'number': 'A-WW-131',
+            'name': {'de': 'Grundgebühr Abwasser Industrie - T1'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (13, 180): {
+            'number': 'A-WW-132',
+            'name': {'de': 'Grundgebühr Abwasser Industrie - T2'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (13, 375): {
+            'number': 'A-WW-133',
+            'name': {'de': 'Grundgebühr Abwasser Industrie - T3'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (13, 555): {
+            'number': 'A-WW-134',
+            'name': {'de': 'Grundgebühr Abwasser Industrie - T4'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (13, 825): {
+            'number': 'A-WW-135',
+            'name': {'de': 'Grundgebühr Abwasser Industrie - T5'},
+            'category': 'water_waste'
+        },
+    (13, 840): {
+            'number': 'A-WW-136',
+            'name': {'de': 'Grundgebühr Abwasser Industrie - T6'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (13, 880): {
+            'number': 'A-WW-137',
+            'name': {'de': 'Grundgebühr Abwasser Industrie - T7'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (13, 1140): {
+            'number': 'A-WW-138',
+            'name': {'de': 'Grundgebühr Abwasser Industrie - T8'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (13, 2215): {
+            'number': 'A-WW-139',
+            'name': {'de': 'Grundgebühr Abwasser Industrie - T9'},
+            'category': 'water_waste',
+            'unit': 'period',
+            'notes': 'Einheit: Periode oder Tage'
+        },
+    (14, 1.4): {
+            'number': 'A-WW-141',
+            'name': {'de': 'Gebühr Abwasser'},
+            'category': 'water_waste',
+            'unit': 'volume'
+        },
+    (20, 2.45): {
+            'number': 'A-WW-201',
+            'name': {'de': 'Gebühr Abwasser T1.75x'},
+            'category': 'water_waste',
+            'unit': 'volume'
+        }
+}
 
 class Import:
 
-    def __init__(self, setup_id):
+    def __init__(self, tenant_id):
         '''
             datetime_default,e g. '2024-03-31'
         '''
-        # From setup
-        self.setup = APISetup.objects.get(id=setup_id)
-        self.tenant = self.setup.tenant
-        self.created_by = self.setup.created_by
+        # From tenant
+        self.tenant = Tenant.objects.get(id=tenant_id)
+        self.created_by = self.tenant.created_by
         self.person_category = PersonCategory.objects.get(
             tenant=self.tenant, code='subscriber')
-            
+
     @staticmethod
     def clean_address(address):
         if address:
@@ -241,10 +363,10 @@ class ImportAddress(Import):
 
 
 class AreaAssignment(ImportAddress):
-    
-    def __init__(self, setup_id):
-        super().__init__(setup_id)
-        
+
+    def __init__(self, tenant_id):
+        super().__init__(tenant_id)
+
     def assign(self):
         # Area
         area_obj = {}
@@ -254,17 +376,17 @@ class AreaAssignment(ImportAddress):
                 tenant=self.tenant,
                 code=area['code'],
                 defaults={
-                    'name': area['name'], 
+                    'name': area['name'],
                     'created_by': self.created_by
                 }
             )
             area_obj[obj.code] = obj
-            
-        # Assign Areas    
+
+        # Assign Areas
         for address in AddressMunicipal.objects.filter(tenant=self.tenant):
             if (address.stn_label == AREA.ALLMEND.value['name']
                     or address.bdg_egid in ALLMEND_EGIDS):
-                address.area = area_obj[AREA.ALLMEND.value['code']]            
+                address.area = area_obj[AREA.ALLMEND.value['code']]
             else:
                 address.area = area_obj[AREA.GUNZGEN.value['code']]
             address.save()
@@ -272,27 +394,22 @@ class AreaAssignment(ImportAddress):
 
 class ImportData(ImportAddress):
 
-    def __init__(self, setup_id, route_id, datetime_default):
+    def __init__(self, tenant_id, route_id, datetime_default):
         '''
             datetime_default,e g. '2024-03-31'
         '''
-        super().__init__(setup_id)
+        super().__init__(tenant_id)
 
         # From route
         self.route = Route.objects.get(
             tenant=self.tenant, id=route_id)
         self.period = self.route.period
-        self.asset_categories = self.period.asset_categories.all()  # WA + HWA
+        self.asset_categories = self.route.asset_categories.all()
 
         # Time
         self.datetime = timezone.make_aware(
             datetime.strptime(datetime_default, "%Y-%m-%d"))
         self.date = self.datetime.date()
-        
-        # Const, discontinue as we encoded VAT etc. in categories
-        # --> do it later in cashCtrl manually
-        #self.article_category = ArticleCategory.objects.filter(
-        #    setup=self.setup, code='water').first()
 
     @staticmethod
     def convert_to_date(date_string):
@@ -360,28 +477,6 @@ class ImportData(ImportAddress):
 
         return person
 
-    @staticmethod
-    def make_article(tarif, anr, name, price):
-        '''
-        e.g.
-            tarif = 1
-            anr = 1
-            price = 1.1
-        '''
-        tarif_str = str(tarif).zfill(2)  # leading 0
-        praefix = (
-            ARTICLE.TYPE.WATER if tarif_str[0] == '0'
-            else ARTICLE.TYPE.SEWAGE
-        )
-        nr = f"{praefix}-{tarif_str}_{anr or '0'}"
-        name = name
-
-        return {
-            'nr': nr,
-            'name': name,
-            'price': price
-        }
-
     # Models
 
     # Core
@@ -412,7 +507,7 @@ class ImportData(ImportAddress):
                 last_name=data['last_name'],
                 first_name=data['first_name'],
             )
-                
+
         if query_set:
             # update
             query_set.update(
@@ -432,11 +527,12 @@ class ImportData(ImportAddress):
                 notes=data['notes'],
                 category=self.person_category,
                 is_customer=True,
+                is_enabled_sync=False,  # currently
                 sync_to_accounting=False,
                 created_by=self.created_by
             )
             created = True
-            
+
         return person, created
 
     def add_person_address(
@@ -456,13 +552,13 @@ class ImportData(ImportAddress):
 
     # Asset
     def add_device(self, data):
-        device = Device.objects.filter(            
+        device = Device.objects.filter(
             tenant=self.tenant,
             code=data.pop('code')
         ).first()
         if device:
             return device
-            
+
         raise ValueError(f"counter {obj.code} does not exist.")
 
     def add_event(self, device, dt, status, data):
@@ -477,23 +573,27 @@ class ImportData(ImportAddress):
         return obj, created
 
     # Accounting
-    def add_article(self, data):
-        # Prepare data
-        data.update({
-            'sales_price': data.pop('price'),
-            'created_by': self.created_by,
-            'is_enabled_sync': True,
-            'sync_to_accounting': True
-        })
-
+    def add_article(self, tarif, price):
+        # Init
+        article = ARTICLE_MAPPING[tarif, price]
+        category = ArticleCategory.objects.get(
+            tenant=self.tenant, code=article['category'])
+            
         # Save data
         obj, created = Article.objects.get_or_create(
             tenant=self.tenant,
-            setup=self.setup,
-            nr=data.pop('nr'),
-            defaults=data
+            nr=article['number'],
+            defaults={
+                'name': article['name'],
+                'category': category,
+                'sales_price': price or 0,
+                'unit': Unit.objects.get(
+                    tenant=self.tenant, code=article['unit']),
+                'created_by': self.created_by,
+                'is_enabled_sync': True,
+                'sync_to_accounting': True
+            }
         )
-
         return obj, created
 
     # Billing
@@ -549,7 +649,7 @@ class ImportData(ImportAddress):
         building_address_excel = building_address
 
         if subscriber_number in BUILDING_MAP:
-            building_address_c = BUILDING_MAP[subscriber_number]            
+            building_address_c = BUILDING_MAP[subscriber_number]
         elif building_address:
             building_address, *building_category = (
                 building_address.split(',', 1))   # sometime in one cell
@@ -575,7 +675,7 @@ class ImportData(ImportAddress):
         if isinstance(building_address_c, int):
             addr_building = AddressMunicipal.objects.filter(
                 tenant=self.tenant, bdg_egid=building_address_c
-            ).first()            
+            ).first()
         elif stn_label:
             addr_building = AddressMunicipal.objects.filter(
                 tenant=self.tenant, zip=ZIP,
@@ -599,7 +699,7 @@ class ImportData(ImportAddress):
         subscriber, _created = self.add_person(data)
 
         # Partner
-        if person['partner_last_name']:            
+        if person['partner_last_name']:
             data = {
                 'company': None,
                 'last_name': person['partner_last_name'],
@@ -682,7 +782,7 @@ class ImportData(ImportAddress):
                 data['notes'] += ', '
             data['notes'] += invoice_note
         if building_category:
-            data['notes'] += f'building: {building_category}' 
+            data['notes'] += f'building: {building_category}'
 
         subscription, _created = self.add_subscription(
             subscriber_number, data)
@@ -772,11 +872,7 @@ class ImportData(ImportAddress):
             measurement.save()
 
         # Article
-        name = {'de': p_text}
-        price = ansatz
-        data = self.make_article(tarif, anr, name, price)
-
-        article, _created = self.add_article(data)
+        article, _created = self.add_article(tarif, ansatz)
 
         # Add article
         self.add_subscription_article(subscription, article)
@@ -791,6 +887,10 @@ class ImportData(ImportAddress):
         wb = load_workbook(file_path)
         ws = wb.active  # Or wb['SheetName']
         rows = [row for row in ws.iter_rows(values_only=True)]
+
+        # Make water articles if not done
+        article_water_cold, _created = self.add_article('WATER_COLD', 1.1)
+        article_water_hot, _created = self.add_article('WATER_HOT', 1.1)
 
         # Pre-Load
         for row_nr, row in enumerate(rows):
@@ -808,14 +908,14 @@ class ImportData(ImportAddress):
                 # Load intro
                 result = self.load_block_intro(row_nr, rows, address_data)
                 subscriber_number, addr_building, subscription = result
-                
-                # check if 
+
+                # check if
                 if not addr_building:
                     logger.warning(
                         f"No building address found for {subscriber_number}. "
                         "Cannot continue processing."
                     )
-                
+
                 measurements = []
                 tarif_water = None
             elif isinstance(first_cell, (int, float)) and addr_building:
@@ -825,18 +925,15 @@ class ImportData(ImportAddress):
                         row, addr_building, subscription)
                     tarif_water, counter, measurement = result
 
+                    # Add water article
+                    if counter.category.code == '9-0:1.0.0':
+                        article = article_water_hot
+                    else:
+                        article = article_water_cold
+                    self.add_subscription_article(subscription, article)
+
                     # Add measurement
                     measurements.append(measurement)
-
-                    # Add water
-                    water = self.make_article(
-                        tarif_water,
-                        ARTICLE.WATER.anr,
-                        ARTICLE.WATER.name,
-                        ARTICLE.WATER.price
-                    )
-                    article, _created = self.add_article(water)
-                    self.add_subscription_article(subscription, article)
 
                 else:
                     # Load pricing
@@ -857,24 +954,24 @@ class ImportData(ImportAddress):
                         msg = f"Row nr {row_nr}: no measurement created for {row}"
                         logger.warning(msg)
 
-class ImportArchive(Import):
 
+class ImportArchive(Import):
+    '''class for archiving, load after actual Subscriptions have been loaded
+    '''
     def load(self, file_name):
         '''get Archive data
 
 
         file_name = 'Abonnenten Archiv Gebühren einzeilig.xlsx'
-        creates Periods, Route, Subscriptons, Measurements, Articles
         '''
         file_path = Path(
             settings.BASE_DIR) / 'billing' / 'fixtures' / file_name
         wb = load_workbook(file_path)
         ws = wb.active  # Or wb['SheetName']
-        rows = [row for row in ws.iter_rows(values_only=True)]
 
         # Read
-        address_data = {}  # key name
-        for row_nr, row in enumerate(rows, start=1):
+        count = 0
+        for row in ws.iter_rows(values_only=True):
             cells = row
             if cells[0] and isinstance(cells[0], (int, float)):
                 # Get data
@@ -885,40 +982,24 @@ class ImportArchive(Import):
                  berechnungscode_gebuehren, gebuehrentext,
                  gebuehren_zusatztext, *_) = row
 
-                # abo_nr
-                # create subscription if not existing
-                # leave building null if not existing
-                # leave invoice address null if not existing
+                obj, created = SubscriptionArchive.objects.get_or_create(
+                    subscriber_number=abo_nr,
+                    tarif=tarif,
+                    period=periode,
+                    defaults={
+                        'subscriber_name': name_vorname,
+                        'street_name': strasse,
+                        'zip_city': plz_ort,
+                        'tarif_name': tarif_bez,
+                        'consumption': basis,
+                        'amount': betrag,
+                        'amount_gross': inkl_mw_st,
+                        'tenant': self.tenant,
+                        'created_by': self.tenant.created_by
+                    }
+                )
+                if created:
+                    count += 1
 
-                # Subscriber
-                subscriber_number = abo_nr
-                alt_name = name_vorname
-                subscriber_address = strasse
-                subscriber_zip, subscriber_city = plz_ort.split(' ', 1)
-
-                # Article
-                article_nr = f"{tarif}_{ansatz_nr}"
-
-                # Period
-                year = 2000 + int(periode[:2])
-                month = 4 if periode[-1] == '1' else 10
-                day = 1
-                start = date(year, month, day)
-
-                if tage:
-                    end = start + timedelta(days=tage)
-                else:
-                    year = year if periode[-1] == '1' else year + 1
-                    month = 9 if periode[-1] == '1' else 3
-                    day = 30 if periode[-1] == '1' else 31
-
-                # Route
-                # period = period
-
-                # Make address
-                if not strasse:
-                    # e.g. Autobahnraststätte Gunzgen Nord AG
-                    strasse = namevorname.strip()
-
-                # Measurement
-                # get counter
+        logger.info(f"archived {count} positions")
+        return count

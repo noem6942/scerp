@@ -25,6 +25,26 @@ class FIELDS:
         'display_is_protected', 'display_is_inactive', 'display_notes')
     LINK_ATTACHMENT = ('display_attachment_icon',)
 
+    # accounting
+    SUPER_USER_EDITABLE_FIELDS = (
+        'message',
+        'is_enabled_sync',
+        'sync_to_accounting',
+    )
+    C_FIELDS = (
+        'c_id',
+        'c_created',
+        'c_created_by',
+        'c_last_updated',
+        'c_last_updated_by',
+        'last_received',
+    )    
+    C_DISPLAY = (
+        'display_last_update', 'c_id', 'message', 'is_enabled_sync')
+    C_DISPLAY_SHORT = ('c_id', 'is_enabled_sync')
+    C_ALL = C_FIELDS + C_DISPLAY
+    C_READ_ONLY = LOGGING_SETUP + C_FIELDS
+
 
 class FIELDSET:
     NOTES_AND_STATUS = (
@@ -45,6 +65,11 @@ class FIELDSET:
     LOGGING_SETUP = (
         _('Logging'), {
             'fields': FIELDS.LOGGING_SETUP,
+            'classes': ('collapse',),
+        })
+    CASH_CTRL = (
+        'cashCtrl', {
+            'fields': FIELDS.C_FIELDS + FIELDS.SUPER_USER_EDITABLE_FIELDS,
             'classes': ('collapse',),
         })
 
@@ -257,11 +282,12 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         self.has_errors = True
 
         # debug
-        """
+        #"""
         with transaction.atomic():
             super().save_model(request, instance, form, change)
             self.has_errors = False
-        """
+        return
+        #"""
 
         try:
             with transaction.atomic():

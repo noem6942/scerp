@@ -16,7 +16,7 @@ from django.contrib.auth.models import User, Group, Permission
 from django.db import transaction
 
 from scerp.mixins import get_admin, read_yaml_file
-from .models import App, Country, TenantSetup, AddressMunicipal
+from .models import App, Country, TenantSetup, Address, AddressMunicipal
 
 # Get logging
 logger = logging.getLogger('core')
@@ -51,7 +51,7 @@ def update_or_create_apps(update=True):
     if update:
         db_op = App.objects.update_or_create
     else:
-        db_op = App.objects.get_or_create    
+        db_op = App.objects.get_or_create
 
     # Create
     for app_config in apps.get_app_configs():
@@ -138,7 +138,7 @@ def update_or_create_countries(update=True):
         db_op = Country.objects.update_or_create
     else:
         db_op = Country.objects.get_or_create
-        
+
     with transaction.atomic():
         for alpha3, country in alpha3_dict.items():
             # Use update_or_create to store data
@@ -170,7 +170,7 @@ def update_or_create_groups(update=True):
         db_op = Group.objects.update_or_create
     else:
         db_op = Group.objects.get_or_create
-        
+
     # Init
     group_data = init_data['groups']
     created, updated, deleted = 0, 0, 0
@@ -199,45 +199,48 @@ def update_or_create_base_buildings(tenant_id=None, update=True):
     '''
     Load actual Buildings, currently per tenant, not grouped
     see https://data.geo.admin.ch/ch.swisstopo.amtliches-gebaeudeadressverzeichnis/amtliches-gebaeudeadressverzeichnis_ch/amtliches-gebaeudeadressverzeichnis_ch_2056.csv.zip
-    
+
     deleted not implemented yet
     '''
     # Init
     file_path = Path(settings.BASE_DIR / 'core' / 'fixtures' / BUILDING_CSV)
-    admin = get_admin()      
+    admin = get_admin()
+    country = Country.objects.get(alpha3=COUNTRY_DEFAULT)
     created, updated, deleted = 0, 0, 0
-    
+
     # db_op
     if update:
         db_op = AddressMunicipal.objects.update_or_create
+        db_op_a = Address.objects.update_or_create
     else:
         db_op = AddressMunicipal.objects.get_or_create
-    
+        db_op_a = Address.objects.get_or_create
+
     # Get tenants
     queryset = TenantSetup.objects.filter(is_inactive=False)
     if tenant_id:
         queryset = queryset.filter(tenant__id=tenant_id)
-    
+
     for tenant_setup in queryset.all():
         # Open the CSV file
         with open(file_path, mode='r', encoding='utf-8-sig') as csv_file:
             csv_reader = csv.DictReader(csv_file, delimiter=';')
             logger.info(f"Starting {tenant_setup.tenant}")
 
-            # Iterate over each row in the CSV            
+            # Iterate over each row in the CSV
             for row in csv_reader:
                 # Prepare data dictionary with relevant fields
-                zip, label = row.pop('ZIP_LABEL').split(' ', 1)
+                zip, city = row.pop('ZIP_LABEL').split(' ', 1)
 
                 # Check scope
-                if (int(zip) not in tenant_setup.zips and 
+                if (int(zip) not in tenant_setup.zips and
                         int(row['BDG_EGID']) not in tenant_setup.bdg_egids):
                     continue
 
                 address_data = {
                     # import
                     'zip': zip,
-                    'city': label,
+                    'city': city,
                     'com_fosnr': row['COM_FOSNR'],  # Include COM_FOSNR here
                     'com_name': row['COM_NAME'],
                     'com_canton': row['COM_CANTON'],
@@ -256,22 +259,30 @@ def update_or_create_base_buildings(tenant_id=None, update=True):
                         if row['BDG_NAME'].strip() else None),
                     'adr_egaid': row['ADR_EGAID'],
                     'str_esid': row['STR_ESID'],
-                    
+
                     # custom
-                    'tenant': tenant_setup.tenant,
                     'created_by': admin
                 }
 
                 # AddressMunicipal
                 address, _created = db_op(
+                    tenant=tenant_setup.tenant,
                     adr_egaid=address_data.pop('adr_egaid'),
                     defaults=address_data
                 )
-                
+
+                # Address, we save it as well for further use
+                address_a, _created_a = db_op_a(
+                    tenant=tenant_setup.tenant,
+                    address=f"{row['STN_LABEL']} {row['ADR_NUMBER']}",
+                    zip=zip, city=city, country=country,
+                    defaults={'created_by': admin}
+                )
+
                 # Maintain
                 if _created:
                     created += 1
                 else:
-                    updated += 1                
+                    updated += 1
 
         return created, updated, deleted

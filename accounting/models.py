@@ -691,101 +691,23 @@ class Allocation(AcctApp):
 class Setting(AcctApp):
     """
     Represents the system's configuration for financial and accounting settings.
-    """
-    # Format Settings
-    csv_delimiter = models.CharField(
-        _("CSV Delimiter"), max_length=5, default=";")
-    thousand_separator = models.CharField(
-        _("Thousand Separator"), max_length=1, blank=True, null=True)
-
-    # Account Settings
-    default_debtor_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='debtor_accounts',
-        verbose_name=_("Default Debtor Account"))
-    default_opening_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='opening_accounts',
-        verbose_name=_("Default Opening Account"))
-    default_creditor_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='creditor_accounts',
-        verbose_name=_("Default Creditor Account"))
-    default_exchange_diff_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='exchange_diff_accounts',
-        verbose_name=_("Default Exchange Difference Account"))
-    default_profit_allocation_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='profit_allocation_accounts',
-        verbose_name=_("Default Profit Allocation Account"))
-    default_inventory_disposal_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='inventory_disposal_accounts',
-        verbose_name=_("Default Inventory Disposal Account"))
-    default_input_tax_adjustment_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='input_tax_adjustment_accounts',
-        verbose_name=_("Default Input Tax Adjustment Account"))
-    default_sales_tax_adjustment_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='sales_tax_adjustment_accounts',
-        verbose_name=_("Default Sales Tax Adjustment Account"))
-    default_inventory_depreciation_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='inventory_depreciation_accounts',
-        verbose_name=_("Default Inventory Depreciation Account"))
-    default_inventory_asset_revenue_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='inventory_asset_revenue_accounts',
-        verbose_name=_("Default Inventory Asset Revenue Account"))
-    default_inventory_article_expense_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='inventory_article_expense_accounts',
-        verbose_name=_("Default Inventory Article Expense Account"))
-    default_inventory_article_revenue_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='inventory_article_revenue_accounts',
-        verbose_name=_("Default Inventory Article Revenue Account"))
-    default_sequence_number_inventory_asset = models.IntegerField(
-        _("Default Sequence Number for Inventory Asset"), default=4)
-    default_sequence_number_inventory_article = models.IntegerField(
-        _("Default Sequence Number for Inventory Article"), default=2)
-    default_sequence_number_person = models.IntegerField(
-        verbose_name=_("Default Sequence Number for Person"), default=5)
-    default_sequence_number_journal = models.IntegerField(
-        verbose_name=_("Default Sequence Number for Journal"), default=6)
-
-    # General Settings
-    first_steps_logo = models.BooleanField(
-        _("Show Logo in First Steps"), default=True)
-    first_steps_account = models.BooleanField(
-        _("Enable First Steps Account Setup"), default=True)
-    first_steps_currency = models.BooleanField(
-        _("Enable First Steps Currency Setup"), default=True)
-    first_steps_pro_demo = models.BooleanField(
-        _("Enable Pro Demo First Steps"), default=True)
-    first_steps_tax_rate = models.BooleanField(
-        _("Enable First Steps Tax Rate Setup"), default=True)
-    first_steps_tax_type = models.BooleanField(
-        _("Enable First Steps Tax Type Setup"), default=True)
-    order_mail_copy_to_me = models.BooleanField(
-        _("Copy Order Mails to Me"), default=True)
-    tax_accounting_method = models.CharField(
-        _("Tax Accounting Method"), max_length=50, default="AGREED")
-    journal_import_force_sequence_number = models.BooleanField(
-        _("Force Sequence Number for Journal Import"), default=False)
-    first_steps_opening_entries = models.BooleanField(
-        _("First steps opening entries done"), default=False)
-    journal_import_force_sequence_number = models.BooleanField(
-        _("Force Sequence Number for Journal Import"), default=False)
-    first_steps_two_factor_auth = models.BooleanField(
-        _("First steps two factor auth"), default=False)
+    we just save it as json to be flexible
+    currently we do not use it actively
+    """            
+    data = models.JSONField(
+        _('name'), blank=True, null=True,
+        help_text=_("Setting data"))
 
     def __str__(self):
         return f"Configuration {self.pk}"
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'c_id'],
+                name='unique_setting'
+            )
+        ]        
         verbose_name = _("Settings - Config")
         verbose_name_plural = _("Settings - Configs")
 

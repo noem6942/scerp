@@ -65,7 +65,7 @@ PersonCategory:
       it: "Assicurazioni"
 
   # own
-  - code: subscribers
+  - code: subscriber
     name:
       de: "Abonnenten"
       en: "Subscribers"
@@ -114,10 +114,10 @@ Unit:
   # own
   - code: contract
     name:
-      de: Stk.
-      en: pcs.
-      fr: pcs.
-      it: pz.
+      de: Vertrag
+      en: Contract
+      fr: Contract
+      it: Contract
   - code: volume
     name:
       de: m³
@@ -148,6 +148,12 @@ Unit:
       en: m³/h
       fr: m³/h
       it: m³/h
+  - code: period
+    name:
+      de: Periode
+      en: Period
+      fr: Period
+      it: Period     
 
 AssetCategory:
   - code: notebook

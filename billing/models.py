@@ -69,7 +69,7 @@ class Route(TenantAbstract):
     asset_categories = models.ManyToManyField(
         AssetCategory, verbose_name=_('Categories'),
         help_text=_(
-            "Categories of counters to be included. Leave empty if all."))
+            "Categories of counters to be included. Leave empty if all. "))
     start = models.DateField(
         _("Start"), blank=True, null=True,
         help_text=_("Leave empty if period start"))
@@ -217,6 +217,31 @@ class Subscription(TenantAbstract):
             'subscriber__last_name', 'subscriber__first_name']
         verbose_name = _('Subscription')
         verbose_name_plural = _('Subscriptions')
+
+
+class SubscriptionArchive(TenantAbstract):    
+    subscriber_number = models.CharField(
+        _('Abo Nr'), max_length=50)
+    subscriber_name = models.CharField(
+        _('Name'), max_length=200, blank=True, null=True)        
+    street_name = models.CharField(
+        _('Strasse'), max_length=200, blank=True, null=True)
+    zip_city = models.CharField(
+        _('PLZ Ort'), max_length=200, blank=True, null=True)
+    tarif = models.PositiveSmallIntegerField(
+        _('Tarif'), blank=True, null=True)
+    period = models.PositiveSmallIntegerField(
+        _('Period'), blank=True, null=True)
+    tarif_name = models.CharField(
+        _('Bez.'), max_length=200, blank=True, null=True)
+    consumption = models.FloatField(
+        _('Base'), blank=True, null=True)
+    amount = models.DecimalField(
+        _('Amount'), max_digits=10, decimal_places=2,
+        blank=True, null=True)
+    amount_gross = models.DecimalField(
+        _('Amount incl. VAT'), max_digits=10, decimal_places=2,
+        blank=True, null=True)
 
 
 # Counters

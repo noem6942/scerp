@@ -18,14 +18,6 @@ from scerp.admin_site import admin_site
 from . import actions as a
 from . import filters, forms, models
 
-FIELDSET_SYNC = (
-    _('Sync'), {
-        'fields': (
-            'sync_to_accounting', 'is_enabled_sync'),
-        'classes': ('collapse',),
-    }
-)
-
 
 # Generic Attachments
 class AttachmentInline(GenericTabularInline):
@@ -108,14 +100,14 @@ class UserProfileAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.Tenant, site=admin_site)
 class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
-    list_display = ('code', 'name', 'created_at')
+    list_display = ('code', 'name', 'cash_ctrl_org_name', 'created_at')
     readonly_fields = FIELDS.LOGGING
 
     # Search, filter
     search_fields = ('name', 'code')
 
     # Actions
-    actions = [a.init_setup]
+    actions = [a.init_setup, a.init_accounting_setup] + default_actions
 
     # Fieldsets
     fieldsets = (
@@ -130,11 +122,6 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING,
     )
-
-    # Actions
-    actions = [
-        a.init_setup,
-    ] + default_actions
 
     @admin.display(description=_('API Key'))
     def display_api_key(self, obj):
@@ -298,7 +285,7 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdmin):
     form = forms.TitleAdminForm
 
     # Display these fields in the list view
-    list_display = ('code', 'display_name', 'is_enabled_sync')
+    list_display = ('code', 'display_name') + FIELDS.C_DISPLAY_SHORT
     list_display_links = ('code', 'display_name')
     readonly_fields = (
         'display_name', 'display_sentence') + FIELDS.LOGGING_TENANT
@@ -325,7 +312,7 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdmin):
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
-        FIELDSET_SYNC
+        FIELDSET.CASH_CTRL
     )
     
     @admin.display(description=_('Sentence'))
@@ -345,7 +332,7 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     form = forms.PersonCategoryAdminForm
 
     # Display these fields in the list view
-    list_display = ('code', 'display_name', 'is_enabled_sync')
+    list_display = ('code', 'display_name') + FIELDS.C_DISPLAY_SHORT
     list_display_links = ('code', 'display_name')
     readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
 
@@ -363,7 +350,7 @@ class PersonCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
-        FIELDSET_SYNC
+        FIELDSET.CASH_CTRL
     )
 
 
@@ -443,7 +430,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display = (
         'company', 'first_name', 'last_name', 'alt_name', 'category',
         'display_photo'
-    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
+    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT + FIELDS.C_DISPLAY_SHORT
     list_display_links = (
         'company', 'first_name', 'last_name', 'alt_name'
     ) + FIELDS.LINK_ATTACHMENT
@@ -460,7 +447,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (_('Basic Information'), {
             'fields': (
-                'category', 'title', 'company', 'first_name', 'last_name',
+                'nr', 'category', 'title', 'company', 'first_name', 'last_name',
                 'alt_name',
             ),
         }),
@@ -483,7 +470,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
-        FIELDSET_SYNC
+        FIELDSET.CASH_CTRL
     )
 
     inlines = [
@@ -513,6 +500,5 @@ class PersonAddressAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING_TENANT,
-        FIELDSET_SYNC
+        FIELDSET.LOGGING_TENANT        
     )

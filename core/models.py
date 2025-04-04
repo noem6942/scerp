@@ -117,7 +117,7 @@ class Tenant(LogAbstract, NotesAbstract):
 
     # Accounting, currently only cashCtrl
     cash_ctrl_org_name = models.CharField(
-        'org_name', max_length=100, blank=True, null=True,
+        'Org Name (cashCtrl)', max_length=100, blank=True, null=True,
         help_text='name of organization as used in cashCtrl domain')
     cash_ctrl_api_key = models.CharField(
         _('api key'), max_length=100,  blank=True, null=True,
@@ -154,7 +154,7 @@ class Tenant(LogAbstract, NotesAbstract):
                         "Organization name must be unique.")})
         
         if self.cash_ctrl_org_name or self.cash_ctrl_api_key:
-            if not self.org_name or not self.cash_ctrl_pi_key:
+            if not self.cash_ctrl_org_name or not self.cash_ctrl_api_key:
                 raise ValidationError(_("cashCtrl need Org Name and api-key"))
 
     def save(self, *args, **kwargs):
@@ -406,10 +406,6 @@ class AcctApp(TenantAbstract):
         help_text=(
             "This records needs to be synched to cashctr, if the cycle is "
             "over it gets reset to False"))
-
-    def clean(self):
-        if self.is_enabled_sync and not self.tenant.setup:
-            raise ValidationError(_("Cannot sync. No setup given."))
 
     class Meta:
         abstract = True

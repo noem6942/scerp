@@ -108,6 +108,7 @@ def set_tenant(request, tenant_id):
             'code': tenant_setup.tenant.code,
             'name': tenant_setup.tenant.name,
             'language': tenant_setup.language,
+            'cash_ctrl_org_name': tenant_setup.tenant.cash_ctrl_org_name,
             'show_only_primary_language': (
                 tenant_setup.show_only_primary_language),
             'logo': (

@@ -144,10 +144,10 @@ APP_MODEL_ORDER = {
         'is_mandatory': False,
         'needs_tenant': True,
         'models': {
-            'Period': ('1', ''),
-            'Route': ('2', ''),
-            'Measurement': ('3', ''),
-            'Subscriptions': ('4', ''),
+            'Period': ('', ''),
+            'Route': ('', ''),
+            'Measurement': ('', ''),
+            'Subscriptions': ('', ''),
         }
     },
     'time_app': {

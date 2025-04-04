@@ -8,10 +8,11 @@ import time
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models.signals import post_save, pre_save
-from django.db.models.signals import pre_delete, post_delete
+from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
+from asset.models import Unit, AssetCategory, Device
 from core.models import Tenant
 from core.models import Title, PersonCategory, Person  # we sync them here
 from scerp.mixins import read_yaml_file
@@ -24,175 +25,246 @@ from .ledger import LedgerBalanceUpdate, LedgerPLUpdate, LedgerICUpdate
 logger = logging.getLogger(__name__)
 
 
+ACCOUNT_SETUP_YAML = 'init_tenant.yaml'
+
 # Helpers
-def setup_data_add_logging(setup, data):
+def setup_data_add_logging(tenant, data):
     ''' Add logging data to cashCtrl instances '''
     data.update({
-        'tenant': setup.tenant,
-        'created_by': setup.created_by,
+        'created_by': tenant.created_by,
         'sync_to_accounting': True,  # send to cashCtrl
     })
 
 
+def sync(instance):
+    return (
+        instance.is_enabled_sync and instance.sync_to_accounting
+        and instance.tenant.cash_ctrl_org_name
+    )
+
+
+def sync_delete(instance):
+    return (
+        instance.is_enabled_sync and instance.c_id
+        and instance.tenant.cash_ctrl_org_name
+    )
+
+
 # Signal Handlers
 
-# APISetup ----------------------------------------------------------------
+# Tenant Setup --------------------------------------------------------------
 
 @receiver(post_save, sender=Tenant)
-def api_setup_post_save(sender, instance, created=False, **kwargs):
-    '''Post action for Tenant:
-        - init accounting instances
-
-    params
-    :kwargs: request for getting user
+def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
+    '''Post action for Tenant
     '''
-    # Init
-    YAML_FILENAME = 'init_setup.yaml'
-    
-    if not instance.cash_ctrl_org_name:
-        return  # No cashCtrl accounting setup 
+    # Check no action
+    tenant = instance
+    if not created and not kwargs.get('init'):
+        return
+    if not tenant.cash_ctrl_org_name:
+        return
 
-    if created or kwargs.get('init', False):
-        # Get request from init
-        request = kwargs.get('request')
+    # Intro ---------------------------------------------------------------
 
-        # Open yaml
-        init_data = read_yaml_file('accounting', YAML_FILENAME)
+    # shift core data to accounting
+    for model in (Title, PersonCategory, Person, Unit, AssetCategory, Device):
+        queryset = model.objects.filter(tenant=tenant, is_enabled_sync=False)
+        for obj in queryset.all():
+            obj.is_enabled_sync = True
+            obj.sync_to_accounting = True
+            obj.save()
 
-        # Make data -----------------------------------------------
-        setup = instance
+    # Open yaml
+    init_data = read_yaml_file('accounting', ACCOUNT_SETUP_YAML)
 
-        # Create ArticleCategory
-        for data in init_data['ArticleCategory']:
-            setup_data_add_logging(setup, data)
-            _obj, _created = models.ArticleCategory.objects.update_or_create(
-                setup=setup, code=data.pop('code'), defaults=data)
-            print("*_obj", _obj.__dict__)
-        return 
+    # Create CustomFieldGroups
+    for data in init_data['CustomFieldGroup']:
+        setup_data_add_logging(tenant, data)
+        _obj, _created = models.CustomFieldGroup.objects.update_or_create(
+            tenant=tenant, code=data.pop('code'), defaults=data)
 
-        # update_or_create data ------------------------------------
-        # Create CustomFieldGroups
-        for data in init_data['CustomFieldGroup']:
-            setup_data_add_logging(setup, data)
-            _obj, _created = models.CustomFieldGroup.objects.update_or_create(
-                setup=setup, code=data.pop('code'), defaults=data)
+    # Create CustomFields
+    for data in init_data['CustomField']:
+        data['group'] = models.CustomFieldGroup.objects.filter(
+            tenant=tenant, code=data.get('group_ref')).first()
+        if not data['group']:
+            raise ValueError(f"{data}: no group given")
+        setup_data_add_logging(tenant, data)
+        _obj, _created = models.CustomField.objects.update_or_create(
+            tenant=tenant, code=data.pop('code'), defaults=data)
 
-        # Create CustomFields
-        for data in init_data['CustomField']:
-            data['group'] = models.CustomFieldGroup.objects.filter(
-                setup=setup, code=data.get('group_ref')).first()
-            if not data['group']:
-                raise ValueError(f"{data}: no group given")
-            setup_data_add_logging(setup, data)
-            _obj, _created = models.CustomField.objects.update_or_create(
-                setup=setup, code=data.pop('code'), defaults=data)
+    # Create ArticleCategory
+    for data in init_data['ArticleCategory']:
+        setup_data_add_logging(tenant, data)
+        _obj, _created = models.ArticleCategory.objects.update_or_create(
+            tenant=tenant, code=data.pop('code'), defaults=data)
 
-        # Create ArticleCategory
-        for data in init_data['ArticleCategory']:
-            setup_data_add_logging(setup, data)
-            _obj, _created = models.ArticleCategory.objects.update_or_create(
-                setup=setup, code=data.pop('code'), defaults=data)
+    # Create FileCategory
+    for data in init_data['FileCategory']:
+        setup_data_add_logging(tenant, data)
+        _obj, _created = models.FileCategory.objects.update_or_create(
+            tenant=tenant, code=data.pop('code'), defaults=data)
 
-        # Create FileCategory
-        for data in init_data['FileCategory']:
-            setup_data_add_logging(setup, data)
-            _obj, _created = models.FileCategory.objects.update_or_create(
-                setup=setup, code=data.pop('code'), defaults=data)
+    # Create Order Layout
+    for data in init_data['OrderLayout']:
+        setup_data_add_logging(tenant, data)
+        _obj, _created = models.OrderLayout.objects.update_or_create(
+            tenant=tenant, name=data.pop('name'), defaults=data)
 
-        # Unit
-        for data in init_data['Unit']:
-            setup_data_add_logging(setup, data)
-            _obj, _created = models.Unit.objects.update_or_create(
-                setup=setup, code=data.pop('code'), defaults=data)
+    # Get Location
+    api = conn.Location(models.Location)
+    api.get(tenant, tenant.created_by)
 
-        # Order Layout
-        for data in init_data['OrderLayout']:
-            setup_data_add_logging(setup, data)
-            _obj, _created = models.OrderLayout.objects.update_or_create(
-                setup=setup, name=data.pop('name'), defaults=data)
+    # Get FiscalPeriod
+    api = conn.FiscalPeriod(models.FiscalPeriod)
+    api.get(tenant, tenant.created_by)
 
-        # get core data ----------------------------------------------
+    # Get Currency
+    api = conn.Currency(models.Currency)
+    api.get(tenant, tenant.created_by)
 
-        # Get titles
-        sync = conn.Title(Title)
-        sync.get(setup, request.user, created_by_system=True)
+    # Get SequenceNumber
+    api = conn.SequenceNumber(models.SequenceNumber)
+    api.get(tenant, tenant.created_by)
 
-        # Get Person Categories
-        sync = conn.PersonCategory(PersonCategory)
-        sync.get(setup, request.user, created_by_system=True)
+    # Get CostCenterCategory
+    api = conn.CostCenterCategory(models.CostCenterCategory)
+    api.get(tenant, tenant.created_by)
 
-        # Read data -----------------------------------------------
-        # we use default params, currently:
-        #   overwrite_data=True,
-        #   delete_not_existing=True
+    # Get CostCenter
+    api = conn.CostCenter(models.CostCenter)
+    api.get(tenant, tenant.created_by)
 
-        # Location
-        sync = conn.Location(models.Location)
-        sync.get(setup, request.user)
+    # Get AccountCategory
+    api = conn.AccountCategory(models.AccountCategory)
+    api.get(tenant, tenant.created_by)
 
-        # FiscalPeriod
-        sync = conn.FiscalPeriod(models.FiscalPeriod)
-        sync.get(setup, request.user)
+    # Get Account
+    api = conn.Account(models.Account)
+    api.get(tenant, tenant.created_by)
 
-        # Currency
-        sync = conn.Currency(models.Currency)
-        sync.get(setup, request.user)
+    # Get Setting
+    api = conn.Setting(models.Setting)
+    api.get(tenant, tenant.created_by)
 
-        # SequenceNumber
-        sync = conn.SequenceNumber(models.SequenceNumber)
-        sync.get(setup, request.user)
+    # Get Tax
+    api = conn.Tax(models.Tax)
+    api.get(tenant, tenant.created_by)
 
-        # Unit
-        sync = conn.Unit(models.Unit)
-        sync.get(setup, request.user)
+    # Create AccountCategory, ER / IR categories like 3.1, 4.1 etc.
+    for data in init_data['AccountCategory']:
+        setup_data_add_logging(tenant, data)
+        data['parent'] = models.AccountCategory.objects.filter(
+            number=data.pop('parent_number')).first()
+        _obj, _created = models.AccountCategory.objects.update_or_create(
+            tenant=tenant, number=data.pop('number'), defaults=data)
 
-        # CostCenterCategory
-        sync = conn.CostCenterCategory(models.CostCenterCategory)
-        sync.get(setup, request.user)
 
-        # CostCenter
-        sync = conn.CostCenter(models.CostCenter)
-        sync.get(setup, request.user)
+# core.models ----------------------------------------------------------
 
-        # AccountCategory
-        sync = conn.AccountCategory(models.AccountCategory)
-        sync.get(setup, request.user)
+# Title
+@receiver(post_save, sender=Title)
+def title_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Title. '''
+    if sync(instance):
+        api = conn.Title(sender)
+        api.save(instance, created)
 
-        # Account
-        sync = conn.Account(models.Account)
-        sync.get(setup, request.user)
 
-        # Setting
-        sync = conn.Setting(models.Setting)
-        sync.get(setup, request.user)
+@receiver(pre_delete, sender=Title)
+def title_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Title. '''
+    if sync_delete(instance):
+        api = conn.Title()
+        api.delete(instance)
 
-        # Tax
-        sync = conn.Tax(models.Tax)
-        sync.get(setup, request.user)
 
-        # Create data -----------------------------------------------
+# PersonCategory
+@receiver(post_save, sender=PersonCategory)
+def person_category_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on PersonCategory. '''
+    if sync(instance):
+        api = conn.PersonCategory(sender)
+        api.save(instance, created)
 
-        # AccountCategory, ER / IR categories like 3.1, 4.1 etc.
-        for data in init_data['AccountCategory']:
-            setup_data_add_logging(setup, data)
-            data['parent'] = models.AccountCategory.objects.filter(
-                number=data.pop('parent_number')).first()
-            _obj, _created = models.AccountCategory.objects.update_or_create(
-                setup=setup, number=data.pop('number'), defaults=data)
 
-        # Tax
-        # Take first 2000 account
-        account = models.Account.objects.filter(
-            number__startswith='2'
-        ).first()
-        print("*account", account)
+@receiver(pre_delete, sender=PersonCategory)
+def person_category_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on PersonCategory. '''
+    if sync_delete(instance):
+        api = conn.PersonCategory()
+        api.delete(instance)
 
-        # Add
-        for data in init_data['Tax']:
-            data['account'] = account
-            setup_data_add_logging(setup, data)
-            _obj, _created = models.Tax.objects.update_or_create(
-                setup=setup, code=data.pop('code'), defaults=data)
+
+# Person
+@receiver(post_save, sender=Person)
+def person_category_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Person. '''
+    if sync(instance):
+        api = conn.Person(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=Person)
+def person_category_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Person. '''
+    if sync_delete(instance):
+        api = conn.Person()
+        api.delete(instance)
+
+
+# asset.models ----------------------------------------------------------
+
+# Unit
+@receiver(post_save, sender=Unit)
+def unit_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Unit. '''
+    if sync(instance):
+        api = conn.Unit(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=Unit)
+def unit_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Unit. '''
+    if sync_delete(instance):
+        api = conn.Unit(sender)
+        api.delete(instance)
+
+
+# AssetCategory
+@receiver(post_save, sender=AssetCategory)
+def unit_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on AssetCategory. '''
+    if sync(instance):
+        api = conn.AssetCategory(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=AssetCategory)
+def unit_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on AssetCategory. '''
+    if sync_delete(instance):
+        api = conn.AssetCategory(sender)
+        api.delete(instance)
+
+
+# Device
+@receiver(post_save, sender=Device)
+def unit_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Device. '''
+    if sync(instance):
+        api = conn.Device(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=Device)
+def unit_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Device. '''
+    if sync_delete(instance):
+        api = conn.Device(sender)
+        api.delete(instance)
 
 
 # accounting.models ----------------------------------------------------------
@@ -200,11 +272,6 @@ def api_setup_post_save(sender, instance, created=False, **kwargs):
 Note that instances only get synced if saved in scerp (
     i.e. self.received_from_scerp() is True
 '''
-# Helper
-def sync(instance):
-    return instance.is_enabled_sync and instance.sync_to_accounting
-
-
 # CustomFieldGroup
 @receiver(post_save, sender=models.CustomFieldGroup)
 def custom_field_group_post_save(sender, instance, created, **kwargs):
@@ -217,7 +284,7 @@ def custom_field_group_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.CustomFieldGroup)
 def custom_field_group_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CustomFieldGroup. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.CustomFieldGroup(sender)
         api.delete(instance)
 
@@ -234,7 +301,7 @@ def custom_field_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.CustomField)
 def custom_field_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CustomField. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.CustomField(sender)
         api.delete(instance)
 
@@ -251,7 +318,7 @@ def file_category_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.FileCategory)
 def file_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on FileCategory. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.FileCategory(sender)
         api.delete(instance)
 
@@ -278,7 +345,7 @@ def currency_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.Currency)
 def currency_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Currency. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.Currency(sender)
         api.delete(instance)
 
@@ -301,7 +368,7 @@ def cost_center_category_pre_delete(sender, instance, **kwargs):
         cost_center.delete()  # This will cascade the delete,
 
     # Send the external API request
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.CostCenterCategory(sender)
         api.delete(instance)
 
@@ -318,7 +385,7 @@ def cost_center_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.CostCenter)
 def cost_center_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on CostCenter. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.CostCenter(sender)
         api.delete(instance)
 
@@ -345,7 +412,7 @@ def account_category_pre_delete(sender, instance, **kwargs):
         account.delete()  # This will cascade the delete
 
     # Send the external API request
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.AccountCategory(sender)
         api.delete(instance)
 
@@ -362,7 +429,7 @@ def account_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.Account)
 def account_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Account. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.Account(sender)
         api.delete(instance)
 
@@ -379,7 +446,7 @@ def bank_account_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.BankAccount)
 def bank_account_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Bank Account. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.BankAccount(sender)
         api.delete(instance)
 
@@ -396,7 +463,7 @@ def rounding_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.Rounding)
 def rounding_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Rounding. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.Rounding(sender)
         api.delete(instance)
 
@@ -413,7 +480,7 @@ def tax_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.Tax)
 def tax_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Tax. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.Tax(sender)
         api.delete(instance)
 
@@ -430,25 +497,8 @@ def sequence_number_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.SequenceNumber)
 def sequence_number_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on SequenceNumber. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.SequenceNumber(sender)
-        api.delete(instance)
-
-
-# Unit
-@receiver(post_save, sender=models.Unit)
-def unit_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on Unit. '''
-    if sync(instance):
-        api = conn.Unit(sender)
-        api.save(instance, created)
-
-
-@receiver(pre_delete, sender=models.Unit)
-def unit_pre_delete(sender, instance, **kwargs):
-    '''Signal handler for pre_delete signals on Unit. '''
-    if sync(instance) and instance.c_id:
-        api = conn.Unit(sender)
         api.delete(instance)
 
 
@@ -464,7 +514,7 @@ def article_category_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.ArticleCategory)
 def article_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on ArticleCategory. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.ArticleCategory(sender)
         api.delete(instance)
 
@@ -481,7 +531,7 @@ def article_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.Article)
 def article_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Article. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.Article(sender)
         api.delete(instance)
 
@@ -498,7 +548,7 @@ def order_layout_contract_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.OrderLayout)
 def order_layout_contract_post_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderLayout. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.OrderLayout(sender)
         api.delete(instance)
 
@@ -515,7 +565,7 @@ def order_category_contract_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.OrderCategoryContract)
 def order_category_contract_post_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderCategoryContract. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.OrderCategoryContract(sender)
         api.delete(instance)
 
@@ -532,7 +582,7 @@ def order_category_incoming_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.OrderCategoryIncoming)
 def order_category_incoming_post_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderCategoryIncoming. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.OrderCategoryIncoming(sender)
         api.delete(instance)
 
@@ -549,7 +599,7 @@ def order_category_outgoing_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.OrderCategoryOutgoing)
 def order_category_outgoing_post_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderCategoryOutgoing. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.OrderCategoryOutgoing(sender)
         api.delete(instance)
 
@@ -566,7 +616,7 @@ def order_contract_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.OrderContract)
 def order_contract_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OrderContract. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.OrderContract(sender)
         api.delete(instance)
 
@@ -583,7 +633,7 @@ def incoming_order_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.IncomingOrder)
 def incoming_order_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on IncomingOrder. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.IncomingOrder(sender)
         api.delete(instance)
 
@@ -600,7 +650,7 @@ def outgoing_order_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.OutgoingOrder)
 def outgoing_order_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on OutgoingOrder. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.OutgoingOrder(sender)
         api.delete(instance)
 
@@ -617,7 +667,7 @@ def incoming_book_entry_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=models.IncomingBookEntry)
 def incoming_book_entry_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on IncomingBookEntry. '''
-    if sync(instance) and instance.c_id:
+    if sync_delete(instance):
         api = conn.IncomingBookEntry(sender)
         api.delete(instance)
 """
@@ -648,83 +698,3 @@ def ledger_ic_post_save(sender, instance, created, **kwargs):
     handler = LedgerICUpdate(sender, instance)
     if handler.needs_update:
         handler.save()
-
-
-# core.models ----------------------------------------------------------
-# Helpers
-def get_or_create_accounting_instance(model, instance, created):
-    # Init
-    setup = APISetup.objects.filter(
-        tenant=instance.tenant, is_default=True).first()
-    create = created
-
-    # Check if existing
-    if not created:
-        account_instance = model.objects.filter(
-            core=instance, setup=setup).first()
-        if not account_instance:
-            create = True
-
-    # Create
-    if create:
-        account_instance = model.objects.create(
-            tenant=instance.tenant,
-            setup=setup,
-            core=instance,
-            is_enabled_sync=True,
-            sync_to_accounting=True,
-            created_by=instance.created_by
-        )
-
-    return account_instance, create
-
-
-# Title
-@receiver(post_save, sender=Title)
-def title_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on Title. '''
-    if sync(instance):
-        api = conn.Title(sender)
-        api.save(instance, created)
-
-
-@receiver(post_delete, sender=Title)
-def title_post_delete(sender, instance, **kwargs):
-    '''Signal handler for post_delete signals on Title. '''
-    if sync(instance) and instance.c_id:
-        api = conn.Title()
-        api.delete(instance)
-
-
-# PersonCategory
-@receiver(post_save, sender=PersonCategory)
-def person_category_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on PersonCategory. '''
-    if sync(instance):
-        api = conn.PersonCategory(sender)
-        api.save(instance, created)
-
-
-@receiver(pre_delete, sender=PersonCategory)
-def person_category_pre_delete(sender, instance, **kwargs):
-    '''Signal handler for pre_delete signals on PersonCategory. '''
-    if sync(instance) and instance.c_id:
-        api = conn.PersonCategory()
-        api.delete(instance)
-
-
-# Person
-@receiver(post_save, sender=Person)
-def person_category_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on Person. '''
-    if sync(instance):
-        api = conn.Person(sender)
-        api.save(instance, created)
-
-
-@receiver(pre_delete, sender=Person)
-def person_category_pre_delete(sender, instance, **kwargs):
-    '''Signal handler for pre_delete signals on Person. '''
-    if sync(instance) and instance.c_id:
-        api = conn.Person()
-        api.delete(instance)

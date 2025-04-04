@@ -10,7 +10,9 @@ from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 
 from . import filters, actions as a
-from .models import Period, Route, Measurement, Subscription
+from .models import (
+    Period, Route, Measurement, Subscription, SubscriptionArchive
+)
 
 
 @admin.register(Period, site=admin_site)
@@ -78,7 +80,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
         }),
         (_('Filters'), {
             'fields': (
-                'areas', 'addresses', 'start', 'end',
+                'areas', 'addresses', 'asset_categories', 'start', 'end',
             ),
             'classes': ('expand',),
         }),
@@ -125,7 +127,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         'display_subscriber', 'display_area', 'route', 'display_consumption'
     ) + FIELDS.ICON_DISPLAY
     list_display_links = ('id', 'datetime')
-    ordering = ('-consumption',)
+    ordering = ('-period__end', '-consumption')
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -262,3 +264,20 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('Invoice Address'))
     def display_invoice_address_list(self, obj):
         return obj.invoice_address
+
+
+@admin.register(SubscriptionArchive, site=admin_site)
+class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = ['tenant', 'version']
+    read_only = True
+
+    # Display these fields in the list view
+    list_display = (
+        'subscriber_number', 'subscriber_name', 'street_name', 'amount_gross'
+    )    
+
+    # Search, filter
+    search_fields = (
+        'subscriber_number', 'subscriber_name', 'street_name', 'amount_gross'
+    )    
