@@ -282,13 +282,6 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         self.has_errors = True
 
         # debug
-        #"""
-        with transaction.atomic():
-            super().save_model(request, instance, form, change)
-            self.has_errors = False
-        return
-        #"""
-
         try:
             with transaction.atomic():
                 super().save_model(request, instance, form, change)

@@ -824,6 +824,20 @@ class AssetCategory(CashCtrl):
         raise ValueError("AssetCategory are only edited in scerp")
 
 
+class Asset(CashCtrl):
+    api_class = api_cash_ctrl.Asset
+    exclude = EXCLUDE_FIELDS + [
+        'code', 'status', 'warranty_months', 'number', 'serial_number',
+        'tag', 'registration_number', 'batch', 'attachments'
+    ]
+    reload_keys = ['nr']
+
+    def adjust_for_upload(self, instance, data, created=None):
+        # Prepare category_id
+        if getattr(instance, 'category', None):
+            data['category_id'] = instance.category.c_id
+
+
 class ArticleCategory(CashCtrl):
     api_class = api_cash_ctrl.ArticleCategory
     exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
@@ -977,20 +991,6 @@ class Person(CashCtrl):
             self.make_address(addr)
             for addr in addresses.order_by('id')
        ]
-
-    def save(self, instance, created=None):
-        '''
-        Write back nr to Person if created
-        '''        
-        super().save(instance, created)
-
-        # load the record again        
-        data = self.api.read(instance.c_id)
-        instance.nr = data['nr']
-
-        # save
-        instance.sync_to_accounting = False
-        instance.save()
 
     def get(self, *args, **kwargs):
         raise ValueError("Persons are only edited in scerp.")

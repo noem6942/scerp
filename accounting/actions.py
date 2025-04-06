@@ -262,6 +262,7 @@ def sync_accounting(modeladmin, request, queryset):
         for instance in queryset.all():
             if not instance.is_enabled_sync:
                 instance.is_enabled_sync = True
+                instance.sync_accounting = True
                 instance.save()
 
 

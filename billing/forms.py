@@ -51,6 +51,12 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
         max_length=255,
         widget=forms.TextInput(attrs={'placeholder': _('Enter filename')})
     )
+    energy_type = forms.CharField(
+        label=_('Energy Type'),
+        required=True,
+        max_length=10,
+        widget=forms.TextInput(attrs={'placeholder': _('Enter symbol')})
+    )    
     key_enabled = forms.BooleanField(
         label=_('Test data'),
         required=False,
@@ -76,7 +82,8 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
                 'user__last_name', 'user__first_name')
         self.fields['responsible_user'].queryset = employees
         self.fields['route_date'].initial = datetime.date.today
-        self.fields['filename'].initial = f"route_{route.name}_{today}.json"
+        self.fields['energy_type'].initial = 'W'
+        self.fields['filename'].initial = f"route_{route.name}_{today}.json"        
 
 
 class RouteMeterImportJSONActionForm(AdminActionForm):

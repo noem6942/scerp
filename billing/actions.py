@@ -33,7 +33,8 @@ def export_counter_data_json(modeladmin, request, queryset, data):
         # Make and download json
         export = RouteMeterExport(
             modeladmin, request, queryset, route,
-            data['responsible_user'].user, data['route_date'], key)
+            data['responsible_user'].user, data['route_date'], 
+            data['energy_type'], key)
         data = export.get_data()
         response = export.make_response_json(data, filename)
 
@@ -60,13 +61,15 @@ def import_counter_data_json(modeladmin, request, queryset, data):
     forms.RouteMeterExportExcelActionForm,
     description=_('Export internal Excel Counter List for Routing'))
 def export_counter_data_excel(modeladmin, request, queryset, data):
-    if action_check_nr_selected(request, queryset, 1):
+    if action_check_nr_selected(request, queryset, 1):        
+        messages.warning(request, _("Not implemented yet."))
+        """
         # Prepare
         route = queryset.first()
         key = ENCRYPTION_KEY if data['key_enabled'] else None
         filename = data['filename']
 
-        # Make and download json
+        # Make and download excel
         export = RouteMeterExport(
             modeladmin, request, queryset, route, key=key)
         data = export.get_data(excel=True)
@@ -76,7 +79,7 @@ def export_counter_data_excel(modeladmin, request, queryset, data):
         response = export.make_response_excel(data, filename)
 
         return response
-
+        """
 
 
 @action_with_form(

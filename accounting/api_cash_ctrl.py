@@ -431,18 +431,39 @@ class CashCtrl():
     # REST API CashCtrl: post, get
     def get(self, url, params, timeout=10):
         '''
-        Get from CashCtrl with timeout handling.
+        Get from CashCtrl with timeout handling and rate-limiting retries.
         '''
-        # Ensure language parameter is always set
-        try:
-            response = requests.get(
-                url, params=params, auth=self.auth, timeout=timeout)
+        # Ensure language is always set
+        if not params.get('language'):
+            params['lang'] = self.language
 
-            # Raise an HTTPError for bad responses (4xx, 5xx)
-            response.raise_for_status()
-            return response
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Request failed: {e}")
+        for attempt in range(self.MAX_TRIES):
+            try:
+                response = requests.get(
+                    url, params=params, auth=self.auth, timeout=timeout
+                )
+
+                if response.status_code == 429:
+                    logging.info("GET rate limit hit. Retrying...")
+                    sleep(self.SLEEP_DURATION)
+                    continue
+
+                response.raise_for_status()
+                return response
+
+            except requests.exceptions.Timeout:
+                raise Exception(f"GET attempt {attempt + 1}/{self.MAX_TRIES} timed out.")
+            except requests.exceptions.RequestException as e:
+                raise Exception(f"GET request error: {e}")
+
+            if attempt < self.MAX_TRIES - 1:
+                logging.info(f"Retrying GET request to {url} (Attempt {attempt + 2})...")
+                sleep(self.SLEEP_DURATION)
+
+        raise Exception(
+            f"Maximum retry attempts ({self.MAX_TRIES}) reached for GET request to '{url}'."
+        )
+
 
     def post(self, url, data=None, params={}, timeout=10):
         """

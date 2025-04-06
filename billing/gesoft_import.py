@@ -26,6 +26,12 @@ from scerp.mixins import parse_gesoft_to_datetime
 
 logger = logging.getLogger(__name__)
 
+
+# Sync
+ARTICLE_IS_ENABLED_SYNC = True  # sync articles
+PERSON_IS_ENABLED_SYNC = True
+
+
 # Address default
 CITY = 'Gunzgen'
 ZIP = 4617
@@ -233,6 +239,7 @@ ARTICLE_MAPPING = {
     (13, 825): {
             'number': 'A-WW-135',
             'name': {'de': 'Grundgebühr Abwasser Industrie - T5'},
+            'unit': 'period',
             'category': 'water_waste'
         },
     (13, 840): {
@@ -383,6 +390,7 @@ class AreaAssignment(ImportAddress):
             area_obj[obj.code] = obj
 
         # Assign Areas
+        count = 0
         for address in AddressMunicipal.objects.filter(tenant=self.tenant):
             if (address.stn_label == AREA.ALLMEND.value['name']
                     or address.bdg_egid in ALLMEND_EGIDS):
@@ -390,6 +398,9 @@ class AreaAssignment(ImportAddress):
             else:
                 address.area = area_obj[AREA.GUNZGEN.value['code']]
             address.save()
+            count += 1
+        
+        logging.info(f"Updated {count} addresses")
 
 
 class ImportData(ImportAddress):
@@ -527,8 +538,8 @@ class ImportData(ImportAddress):
                 notes=data['notes'],
                 category=self.person_category,
                 is_customer=True,
-                is_enabled_sync=False,  # currently
-                sync_to_accounting=False,
+                is_enabled_sync=PERSON_IS_ENABLED_SYNC,
+                sync_to_accounting=PERSON_IS_ENABLED_SYNC,
                 created_by=self.created_by
             )
             created = True
@@ -578,7 +589,7 @@ class ImportData(ImportAddress):
         article = ARTICLE_MAPPING[tarif, price]
         category = ArticleCategory.objects.get(
             tenant=self.tenant, code=article['category'])
-            
+
         # Save data
         obj, created = Article.objects.get_or_create(
             tenant=self.tenant,
@@ -590,8 +601,8 @@ class ImportData(ImportAddress):
                 'unit': Unit.objects.get(
                     tenant=self.tenant, code=article['unit']),
                 'created_by': self.created_by,
-                'is_enabled_sync': True,
-                'sync_to_accounting': True
+                'is_enabled_sync': ARTICLE_IS_ENABLED_SYNC,
+                'sync_to_accounting': ARTICLE_IS_ENABLED_SYNC
             }
         )
         return obj, created
@@ -729,6 +740,9 @@ class ImportData(ImportAddress):
         address, _created = self.add_address(subscriber_address_data)
         subscriber_address, _created = self.add_person_address(
             subscriber, address, PersonAddress.TYPE.MAIN)
+        if partner:
+            partner_address, _created = self.add_person_address(
+                partner, address, PersonAddress.TYPE.MAIN)
 
         # Invoice address
         # Check if invoice_name == subscriber_name
@@ -961,13 +975,14 @@ class ImportArchive(Import):
     def load(self, file_name):
         '''get Archive data
 
-
         file_name = 'Abonnenten Archiv Gebühren einzeilig.xlsx'
         '''
         file_path = Path(
             settings.BASE_DIR) / 'billing' / 'fixtures' / file_name
         wb = load_workbook(file_path)
         ws = wb.active  # Or wb['SheetName']
+        category = ArticleCategory.objects.get(
+            tenant=self.tenant, code='archive')
 
         # Read
         count = 0
@@ -981,23 +996,111 @@ class ImportArchive(Import):
                  berechnungscode_zaehler, steuercode_gebuehren,
                  berechnungscode_gebuehren, gebuehrentext,
                  gebuehren_zusatztext, *_) = row
+                """
+                # Subscriber
+                subscription = Subscription.objects.filter(
+                    tenant=self.tenant, subscriber_number=abo_nr).first()
+                if not subscriber:
+                    # Person
+                    person = Person.objects.create(
+                        tenant=self.tenant,
+                        created_by=self.created_by,
+                        category=self.person_category,
+                        last_name=f'*archive {abo_nr}',
+                        notes = f'''
+                            Subscriber: {name_vorname}
+                            Addresse: {strasse}, {zip} {city}
+                            '''
+                    )
 
-                obj, created = SubscriptionArchive.objects.get_or_create(
-                    subscriber_number=abo_nr,
-                    tarif=tarif,
-                    period=periode,
+                    # Subscription
+                    subscription = Subscription.objects.create(
+                        tenant=self.tenant,
+                        created_by=self.created_by,
+                        subscriber_number=abo_nr,
+                        subscriber=person
+                    )
+
+                # Article
+                obj, created = Article.objects.get_or_create(
+                    tenant=self.tenant,
+                    nr='A-W-A99',
                     defaults={
-                        'subscriber_name': name_vorname,
+                        'name': f"{tarif}_{ansatz_nr}",
+                        'category': category,
+                        'sales_price': betrag or 0,
+                        'created_by': self.created_by,
+                        'is_enabled_sync': True,
+                        'sync_to_accounting': True
+                    }
+                )
+
+                if steuercode_gebuehren != 'A':
+                    continue  # no measurement
+                """
+                # Period                
+                period_str = str(periode)
+                if len(period_str) < 4:
+                    period_str = '0' + period_str
+                
+                year = 2000 + int(period_str[:2])
+                month = 4 if period_str[-1] == '1' else 10
+                day = 1
+                start = date(year, month, day)
+
+                if tage:
+                    end = start + timedelta(days=tage)
+                else:
+                    year = year if period_str[-1] == '1' else year + 1
+                    month = 9 if period_str[-1] == '1' else 3
+                    day = 30 if period_str[-1] == '1' else 31
+                    try:
+                        end = date(year, month, day)
+                    except ValueError as e:
+                        raise Exception(f"Invalid date created: {e}")
+
+                period_obj, created = Period.objects.get_or_create(
+                    tenant=self.tenant,
+                    code=period_str,
+                    defaults=dict(
+                        name=f"Wasser {period_str}",
+                        start=start,
+                        end=end,
+                        created_by=self.created_by
+                    ))
+                if created:
+                    logging.info(f"Created {period_obj}")
+
+                # Route
+                route_obj, created = Route.objects.get_or_create(
+                    tenant=self.tenant,
+                    period=period_obj,
+                    defaults=dict(
+                        name=f"Wasser, Route {period_str}",
+                        start=start,
+                        end=end,
+                        status=Route.STATUS.INVOICES_GENERATED,
+                        created_by=self.created_by
+                    ))
+                '''
+                # Measurement
+                obj, created = Measurement.objects.get_or_create(
+                    tenant=self.tenant,
+                    route=route_obj,
+                    subscription=subscription,
+                    defaults={
+                        'datetime': end,
+                        'consumption'
                         'street_name': strasse,
                         'zip_city': plz_ort,
                         'tarif_name': tarif_bez,
                         'consumption': basis,
                         'amount': betrag,
                         'amount_gross': inkl_mw_st,
-                        'tenant': self.tenant,
                         'created_by': self.tenant.created_by
                     }
                 )
+                '''
                 if created:
                     count += 1
 

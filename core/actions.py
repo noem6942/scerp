@@ -11,7 +11,8 @@ from accounting.signals_cash_ctrl import tenant_accounting_post_save
 from scerp.actions import action_check_nr_selected
 from scerp.mixins import generate_random_password
 from . import forms
-from .models import UserProfile
+from .models import Person, UserProfile
+from .safeguards import get_tenant_data
 from .signals import tenant_post_save
 
 
@@ -53,24 +54,37 @@ def init_accounting_setup(modeladmin, request, queryset):
 def tenant_setup_create_user(modeladmin, request, queryset, data):
     __ = modeladmin  # disable pylint warning
     if action_check_nr_selected(request, queryset, 1):
-        if data['username'] in [x.username for x in User.objects.all()]:
+        tenant_data = get_tenant_data(request)
+        tenant_id = tenant_data.get('id')
+        person = data['person']
+        if (data['username'] in [x.username for x in User.objects.all()]
+                or UserProfile.objects.filter(person=person)):
             messages.warning(request, _("User already existing"))
             return 
         
         # Add user
         groups = [group for group in data.pop('groups')]
-        data['password'] = generate_random_password()        
-        user = User.objects.create_user(**data)
+        password = generate_random_password()        
+        user = User.objects.create_user(
+            username=data['username'],
+            password=password,
+            first_name=person.first_name,
+            last_name=person.last_name
+        )
         
         # Register user
         setup = queryset.first()
         setup.users.add(user)
         
         # Add Profile
-        UserProfile.objects.create(user=user, created_by=request.user)
+        UserProfile.objects.create(
+            user=user, 
+            person=data['person'],
+            created_by=request.user
+        )
         
         # Add Groups        
         user.groups.add(*groups)
-        msg = _("Created {user} with password {password}").format(
-            user=data['username'], password=data['password'])
+        msg = _("Created {user} with password").format(
+            user=data['username'], password=password)
         messages.info(request, msg)

@@ -182,22 +182,6 @@ CustomField:
     values: []
 
 
-Tax:
-  - code: er_sf_wv_2024_normal
-    name:
-      de: MWST-Umsatzsteuer ER - SF WV - Normalsatz
-    percentage: 8.1
-    document_name:
-      de: CHE-112.793.129 MWST, 8.1%
-      
-  - code: er_sf_wv_2024_reduziert
-    name:
-      de: MWST-Umsatzsteuer ER - SF WV - reduziert
-    percentage: 2.6
-    document_name:
-      de: CHE-108.964.80 MWST, 2.6%
-
-
 # Config Data --------------------------------------------------------
 # Location:  # not working
   # - name: Hauptsitz
@@ -245,12 +229,18 @@ Rounding: []
 SequenceNumber: []
 
 ArticleCategory:
+  - code: archive
+    name:
+      de: Archive
+      en: Archive
+      fr: Archive
+      it: Archive   
   - code: fee
     name:
       de: Gebühren
       en: Fees
       fr: Fees
-      it: Fees   
+      it: Fees         
   - code: water_cold
     name:
       de: Kaltwasser

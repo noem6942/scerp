@@ -19,6 +19,10 @@ from . import actions as a
 from . import filters, forms, models
 
 
+admin_site.register(User, UserAdmin)
+admin_site.register(Group)
+
+
 # Generic Attachments
 class AttachmentInline(GenericTabularInline):
     model = models.Attachment
@@ -33,7 +37,6 @@ class AttachmentInline(GenericTabularInline):
         super().save_model(request, instance, form, change)
 
 
-# Base elements - no tenant needed
 @admin.register(models.App, site=admin_site)
 class AppAdmin(admin.ModelAdmin):
     ''' currently only a superuser function '''

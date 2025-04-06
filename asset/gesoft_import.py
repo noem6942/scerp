@@ -18,7 +18,7 @@ from .models import DEVICE_STATUS, AssetCategory, Device, EventLog
 
 logger = logging.getLogger(__name__)
 
-
+DEVICE_IS_ENABLED_SYNC = False  # do not sync devices, yet
 DATE_NULL = '01.01.1900'
 
 HOTWATER_COUNTER_IDS = [
@@ -113,7 +113,7 @@ class ImportDevice:
                             dt.date() if status==DEVICE_STATUS.DISPOSED 
                             else None),
                         number=werk_nr,                        
-                        is_enabled_sync=False  # do not sync counters in accounting
+                        is_enabled_sync=DEVICE_IS_ENABLED_SYNC
                     )
                 )
                 logger.info(f"storing counter {werk_nr}, created: {created}")

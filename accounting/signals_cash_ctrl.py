@@ -68,7 +68,15 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
     # Intro ---------------------------------------------------------------
 
     # shift core data to accounting
-    for model in (Title, PersonCategory, Person, Unit, AssetCategory, Device):
+    core_models = (
+        Title, 
+        PersonCategory, 
+        #Person,
+        Unit,
+        AssetCategory, 
+        #Device
+    ) 
+    for model in core_models:
         queryset = model.objects.filter(tenant=tenant, is_enabled_sync=False)
         for obj in queryset.all():
             obj.is_enabled_sync = True
@@ -184,6 +192,7 @@ def title_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=PersonCategory)
 def person_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on PersonCategory. '''
+    # BUG: seems not be synced !!!
     if sync(instance):
         api = conn.PersonCategory(sender)
         api.save(instance, created)
@@ -235,7 +244,7 @@ def unit_pre_delete(sender, instance, **kwargs):
 
 # AssetCategory
 @receiver(post_save, sender=AssetCategory)
-def unit_post_save(sender, instance, created, **kwargs):
+def asset_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on AssetCategory. '''
     if sync(instance):
         api = conn.AssetCategory(sender)
@@ -243,7 +252,7 @@ def unit_post_save(sender, instance, created, **kwargs):
 
 
 @receiver(pre_delete, sender=AssetCategory)
-def unit_pre_delete(sender, instance, **kwargs):
+def asset_category_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on AssetCategory. '''
     if sync_delete(instance):
         api = conn.AssetCategory(sender)
@@ -252,18 +261,20 @@ def unit_pre_delete(sender, instance, **kwargs):
 
 # Device
 @receiver(post_save, sender=Device)
-def unit_post_save(sender, instance, created, **kwargs):
+def device_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Device. '''
+    return
+    # disabeld for now
     if sync(instance):
-        api = conn.Device(sender)
+        api = conn.Asset(sender)
         api.save(instance, created)
 
 
 @receiver(pre_delete, sender=Device)
-def unit_pre_delete(sender, instance, **kwargs):
+def device_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Device. '''
     if sync_delete(instance):
-        api = conn.Device(sender)
+        api = conn.Asset(sender)
         api.delete(instance)
 
 

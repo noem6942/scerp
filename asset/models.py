@@ -67,7 +67,7 @@ class AssetCategory(AcctApp):
         _('Description'), max_length=200, blank=True, null=True,
         help_text=_("Description"))
     unit = models.ForeignKey(
-        Unit, on_delete=models.PROTECT,         
+        Unit, on_delete=models.PROTECT,
         related_name='%(class)s_category',
         verbose_name=_('Unit'), help_text=_("The asset's unit."))
 
@@ -90,8 +90,9 @@ class Device(AcctApp):
         help_text=_(
             'Internal code for scerp. '
             'This is also transferred to water counter software'))
-    name = models.CharField(
-        _('Name'), max_length=100, blank=True, null=True)
+    name = models.JSONField(
+        _('Name'), blank=True,  null=True,  # null necessary to handle multi languages
+        help_text=_("The name of the Device."))
     category = models.ForeignKey(
         AssetCategory, on_delete=models.PROTECT,
         related_name='%(class)s_category',
@@ -118,6 +119,8 @@ class Device(AcctApp):
         help_text=_("The date of the disposal."))
     number = models.CharField(
         _("Number or Id"), max_length=50, null=True, blank=True)
+    nr = models.CharField(
+        _("cashCtrl nr"), max_length=50, null=True, blank=True)
     serial_number = models.CharField(
         _("Serial Number"), max_length=50, null=True, blank=True)
     tag = models.CharField(
@@ -132,18 +135,18 @@ class Device(AcctApp):
     )
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
+    def __str__(self):
+        name = self.code
+        if self.name:
+            name += ' ' + (primary_language(self.name) or '')
+        return name
+
     def get_status(self, date=None):
         ''' returns last event <= date '''
         queryset = EventLog.objects.filter(device=self)
         if date:
             queryset = queryset.filter(date__lte=date)
-        return queryset.order_by('date').last()
-
-    def __str__(self):
-        name = self.code
-        if self.name:
-            name += ' ' + self.name
-        return name
+        return queryset.order_by('date').last()    
 
     class Meta:
         constraints = [
@@ -152,7 +155,7 @@ class Device(AcctApp):
                 name='unique_device_per_tenant'
             )
         ]
-        ordering = ['code', 'name']
+        ordering = ['code', 'category']
         verbose_name = _("Device")
         verbose_name_plural = _("Devices")
 

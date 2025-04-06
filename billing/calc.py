@@ -75,7 +75,7 @@ class RouteMeterExport:
 
     def __init__(
             self, modeladmin, request, queryset, route, responsible_user=None,
-            route_date=None, key=None):
+            route_date=None, energy_type='W', key=None):
         self.modeladmin = modeladmin
         self.request = request
         self.queryset = queryset
@@ -83,6 +83,7 @@ class RouteMeterExport:
         self.route = route
         self.username = responsible_user.username if responsible_user else None
         self.route_date = route_date
+        self.energy_type = energy_type
 
         # encryption
         self.key = key
@@ -193,7 +194,7 @@ class RouteMeterExport:
 
             meter = {
                 'id': counter.number,
-                'energytype': self.route.period.energy_type,
+                'energytype': self.energy_type,
                 'number': counter.number,
                 'hint': json.dumps({
                     'subscription_id': subscription.id,
@@ -212,7 +213,7 @@ class RouteMeterExport:
                     'hint': subscription.subscriber.notes
                 },
                 'value': {
-                    'obiscode': counter.obiscode,
+                    'obiscode': counter.category.code,
                     'dateOld': previous_date,
                     'old': round(value, 1),
                     'min': round(min, 1),

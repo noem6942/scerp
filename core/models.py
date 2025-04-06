@@ -783,6 +783,15 @@ class PersonCategory(AcctApp):
     """
     this will trigger a create / update event to accounting
     """
+    class CODE:
+        # default codes for init
+        ASSURANCE = 'assurance'
+        CLIENT = 'client'
+        EMPLOYEE = 'employee'
+        EMPLOYEE_EXTERNAL = 'employee_external'
+        SUBSCRIBER = 'subscriber'
+        VENDOR = 'vendor'
+    
     code = models.CharField(
         _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')

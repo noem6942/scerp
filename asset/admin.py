@@ -48,16 +48,20 @@ class AssetCategory(TenantFilteringAdmin, BaseAdmin):
 class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'category']
+    
+    # Helpers
+    form = forms.DeviceAdminForm
 
     # Display these fields in the list view
     list_display = (
-        'code', 'category', 'name', 'number', 'status'
+        'code', 'category', 'display_name', 'number', 'status'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
-    list_display_links = ('code', 'name') + FIELDS.LINK_ATTACHMENT
+    list_display_links = ('code', 'display_name') + FIELDS.LINK_ATTACHMENT
     readonly_fields = ('display_name', 'status') + FIELDS.LOGGING_TENANT
 
     # Search, filter
-    search_fields = ('number', 'name', 'category__code')
+    search_fields = (
+        'code' , 'name', 'number', 'nr', 'serial_number', 'category__code')
     list_filter = ('status', filters.CategoryFilter, 'category__code')
     
     # Actions
@@ -67,7 +71,9 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'name', 'category', 'purchase_price', 'description'),
+                'code', 'display_name', *make_language_fields('name'),
+                'category', 'purchase_price', 
+                *make_language_fields('description')),
         }),
         (_("Status & Dates"), {
             'fields': (

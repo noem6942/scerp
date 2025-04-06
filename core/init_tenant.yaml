@@ -56,6 +56,12 @@ PersonCategory:
       en: "Employees"
       fr: "Employés"
       it: "Dipendenti"
+  - code: employee_external  # and no c_id as new
+    name:
+      de: "Mitarbeiter (extern)"
+      en: "Employees (external)"
+      fr: "Employés (external)"
+      it: "Dipendenti (external)"
   - c_id: 8
     code: assurance
     name:

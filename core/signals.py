@@ -61,18 +61,18 @@ def tenant_post_save(sender, instance, created, **kwargs):
     init_data = read_yaml_file('core', YAML_FILENAME)
 
     # Title
+    '''
     for data in init_data['Title']:
         data.update({
             'created_by': instance.created_by,
-            'is_enabled_sync': False  # do not synchronize
+            'is_enabled_sync': False  # do not synchronize            
         })
         obj, _created = Title.objects.get_or_create(
-            tenant=instance,
-            c_id=data.pop('c_id', None),
+            tenant=instance,            
             code=data.pop('code'),
             defaults=data)
         logger.info(f"created {obj}")
-
+    '''
     # PersonCategory
     for data in init_data['PersonCategory']:
         data.update({
@@ -81,7 +81,6 @@ def tenant_post_save(sender, instance, created, **kwargs):
         })
         obj, _created = PersonCategory.objects.get_or_create(
             tenant=instance,
-            c_id=data.pop('c_id', None),
             code=data.pop('code'),
             defaults=data)
         logger.info(f"created {obj}")
@@ -95,7 +94,6 @@ def tenant_post_save(sender, instance, created, **kwargs):
         })
         obj, _created = Unit.objects.get_or_create(
             tenant=instance,
-            c_id=data.pop('c_id', None),
             code=data.pop('code'),
             defaults=data)
         units.append(obj)
@@ -116,7 +114,6 @@ def tenant_post_save(sender, instance, created, **kwargs):
         })
         obj, _created = AssetCategory.objects.update_or_create(
             tenant=instance,
-            c_id=data.pop('c_id', None),
             code=data.pop('code'),
             defaults=data)
         logger.info(f"created {obj}")                  

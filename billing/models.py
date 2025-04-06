@@ -67,7 +67,7 @@ class Route(TenantAbstract):
             "Addresses that should be included, "
             "leave empty to include all in scope"))
     asset_categories = models.ManyToManyField(
-        AssetCategory, verbose_name=_('Categories'),
+        AssetCategory, verbose_name=_('Categories'), blank=True,
         help_text=_(
             "Categories of counters to be included. Leave empty if all. "))
     start = models.DateField(
@@ -162,7 +162,7 @@ class Subscription(TenantAbstract):
         on_delete=models.PROTECT, related_name='%(class)s_address',
         help_text=_("May be null at the beginning but must be entered later"))
     start = models.DateField(
-        _('Start Date'))
+        _('Start Date'), blank=True, null=True)
     end = models.DateField(
         _('Exit Date'), blank=True, null=True)
     counters = models.ManyToManyField(
@@ -248,6 +248,7 @@ class SubscriptionArchive(TenantAbstract):
 class Measurement(TenantAbstract):
     counter = models.ForeignKey(
         Device, verbose_name=_('Counter'),
+        blank=True, null=True,  # only for archive
         on_delete=models.PROTECT, related_name='%(class)s_counter')
     route = models.ForeignKey(
         Route, verbose_name=_('Route'),
