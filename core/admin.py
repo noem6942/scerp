@@ -138,7 +138,8 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'tenant', 'display_users', 'group_names', 'display_apps', 'created_at')
+        'tenant', 'display_users', 'group_names', 'zips', 'bdg_egids',
+        'display_apps', 'created_at')
     readonly_fields = ('display_users', ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
