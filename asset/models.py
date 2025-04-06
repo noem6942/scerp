@@ -77,7 +77,7 @@ class AssetCategory(AcctApp):
         verbose_name_plural = _('Asset Categories')
 
     def __str__(self):
-        return primary_language(self.name)
+        return str(self.tenant) + primary_language(self.name)
 
 
 class Device(AcctApp):
