@@ -238,7 +238,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'subscriber', 'partner', 'display_invoice_address',
-                'start', 'end', 'address', 'articles'
+                'start', 'end', 'address', 'articles', 'counters'
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,
