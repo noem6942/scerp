@@ -131,17 +131,42 @@ class TenantFilteringAdmin(admin.ModelAdmin):
 
         return queryset
 
+    """    
     def get_readonly_fields(self, request, obj=None):
-        if obj and getattr(obj, 'is_protected', False):
-            return [field.name for field in obj._meta.fields]
+        ''' open change_form in read_only mode in default '''
+        if is_form_read_only(self) or (
+                is_change_view(request) and not edit_is_set(request)):
+
+            # Base readonly fields
+            declared = super().get_readonly_fields(request, obj)
+            if isinstance(declared, list):
+                declared = tuple(declared)
+
+            # Model fields
+            model_fields = tuple(f.name for f in self.model._meta.fields)
+
+            # Manually build multilingual field variants
+            multilingual_dynamic = []
+            for base in getattr(self, 'multilingual_fields', []):
+                for lang_code, _ in languages:
+                    multilingual_dynamic.append(f'{base}_{lang_code}')
+
+            # Combine and deduplicate
+            all_fields = set(declared + model_fields + tuple(multilingual_dynamic))
+            return tuple(all_fields)
 
         return super().get_readonly_fields(request, obj)
-
+    """
+    
     def has_change_permission(self, request, obj=None):
+        # turn back as before
+        return super().has_change_permission(request, obj)
+        '''
         if is_form_read_only(self) or (
                 is_change_view(request) and not edit_is_set(request)):
             return False  # Disable editing
         return super().has_change_permission(request, obj)
+        '''
 
     def has_delete_permission(self, request, obj=None):
         if is_form_read_only(self) or (
@@ -153,17 +178,14 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         '''
         Filter ForeignKey choices by tenant.
         '''
-        if db_field.name in self.protected_foreigns:
-            tenant_id = self.get_tenant_id(request)
+        tenant_id = self.get_tenant_id(request)
 
-            fields = {
-                field.name for field in self.model._meta.get_fields()
-            }  # Fast lookup
+        if db_field.name in self.protected_foreigns and tenant_id:
+            related_model = db_field.related_model
 
-            if (db_field.name == 'tenant' and
-                    'tenant' in fields and tenant_id):
-                kwargs['queryset'] = db_field.related_model.objects.filter(
-                    id=tenant_id)
+            # Only filter if the related model has a 'tenant' field
+            if 'tenant' in {f.name for f in related_model._meta.get_fields()}:
+                kwargs['queryset'] = related_model.objects.filter(tenant_id=tenant_id)
 
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
@@ -171,20 +193,14 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         '''
         Filter and optimize ManyToMany choices by tenant.
         '''
-        if db_field.name in self.protected_many_to_many:
-            # Fetch cached tenant
-            tenant_id = self.get_tenant_id(request)
+        tenant_id = self.get_tenant_id(request)
 
-            fields = {
-                field.name
-                for field in self.model._meta.get_fields()
-            }  # Use a set for fast lookup
+        if db_field.name in self.protected_many_to_many and tenant_id:
+            related_model = db_field.related_model
 
-            # Prefer filtering by 'tenant' if available
-            if (db_field.name == 'tenant' and 'tenant' in fields
-                    and tenant_id):
-                kwargs['queryset'] = db_field.related_model.objects.filter(
-                    id=tenant_id)
+            # Only filter if the related model has a 'tenant' field
+            if 'tenant' in {f.name for f in related_model._meta.get_fields()}:
+                kwargs['queryset'] = related_model.objects.filter(tenant_id=tenant_id)
 
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 

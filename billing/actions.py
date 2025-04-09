@@ -94,6 +94,9 @@ def route_copy(modeladmin, request, queryset, data):
         route.previous_period = route.period
         route.period = data['period']
         route.status = Route.STATUS.INITIALIZED
+        route.number_of_addresses = None
+        route.number_of_subscriptions = None
+        route.number_of_counters = None
         route.save()
 
         # Copy many-to-many relationships explicitly

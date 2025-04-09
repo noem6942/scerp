@@ -765,7 +765,7 @@ class Title(AcctApp):
 
 
     def __str__(self):
-        return str(self.tenant) + primary_language(self.name)
+        return primary_language(self.name)
 
     class Meta:
         constraints = [
@@ -801,7 +801,7 @@ class PersonCategory(AcctApp):
     )
 
     def __str__(self):
-        return f"{self.tenant} {primary_language(self.name)})"
+        return primary_language(self.name)
 
     class Meta:
         constraints = [

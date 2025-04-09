@@ -6,7 +6,8 @@ import json
 import openpyxl
 from openpyxl.styles import Font
 
-from django.db.models import Q, Sum, Min, Max
+from django.contrib import messages
+from django.db.models import Count, Sum, Min, Max, Q
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -41,9 +42,9 @@ def convert_str_to_datetime(dt_string):
         naive_datetime = datetime.strptime(dt_string, '%Y-%m-%d')
     except:
         return None
-        
+
     # Convert the naive datetime to an aware datetime
-    return timezone.make_aware(naive_datetime)    
+    return timezone.make_aware(naive_datetime)
 
 
 def extract_datetime_from_route_filename(filename):
@@ -96,16 +97,67 @@ class RouteMeterExport:
         else:
             queryset = AddressMunicipal.objects.filter(
                 tenant=self.route.tenant)
-            if self.route.areas.exists():                
+            if self.route.areas.exists():
                 queryset = queryset.filter(area__in=areas)
             addresses = queryset.all()
 
         return addresses
 
+    def data_check(self, start, end, show_multiple=False):
+        # Check addresses
+        subs_without_address = Subscription.objects.filter(
+            tenant=self.route.tenant,
+            address=None,
+            start__lte=end,
+        ).filter(
+            Q(end__gte=start) | Q(end__isnull=True)
+        )
+        if subs_without_address:
+            messages.warning(
+                self.request,
+                _("Records having no address: %s") % subs_without_address
+            )
+
+        # Check counters
+        subs_without_counters = Subscription.objects.annotate(
+            counter_count=Count('counters')
+        ).filter(
+            tenant=self.route.tenant,
+            counter_count=0,
+            start__lte=end
+        ).filter(
+            Q(end__gte=start) | Q(end__isnull=True)
+        )
+        if subs_without_counters:
+            messages.warning(
+                self.request,
+                _("Records having no counters: %s") % subs_without_counters
+            )
+
+        if show_multiple:
+            subs_multiple_counters = Subscription.objects.annotate(
+                counter_count=Count('counters')
+            ).filter(
+                tenant=self.route.tenant,
+                counter_count__gte=1,
+                start__lte=end
+            ).filter(
+                Q(end__gte=start) | Q(end__isnull=True)
+            )
+            if subs_without_counters:
+                messages.warning(
+                    self.request,
+                    _("Records having multiple counters: %s") % (
+                        subs_multiple_counters)
+                )
+
     def get_subscriptions(self, addresses):
         # start, end
         start = self.route.get_start()
-        end = self.route.get_start()
+        end = self.route.get_end()
+
+        # check
+        self.data_check(start, end)
 
         # In scope
         queryset = Subscription.objects.filter(
@@ -115,6 +167,28 @@ class RouteMeterExport:
         ).filter(
             Q(end__gte=start) | Q(end__isnull=True)
         )
+
+        sub_ids = [x.id for x in queryset.all()]
+        not_included = Subscription.objects.exclude(id__in=sub_ids)
+        for sub in not_included:
+            yes = next((True for x in addresses if sub.address == x), False)
+            print(
+                f"NOT INCLUDED: {sub.id}, \n"
+                f"tenant={sub.tenant}, \n"
+                f"address={sub.address}, * {yes}\n"
+                f"start={sub.start}, vs. {end}\n"
+                f"end={sub.end}")
+
+        for sub in queryset.all():
+            yes = next((True for x in addresses if sub.address == x), False)
+            print(
+                f"INCLUDED: {sub.id}, \n"
+                f"tenant={sub.tenant}, \n"
+                f"address={sub.address}, * {yes}\n"
+                f"start={sub.start}, \n"
+                f"end={sub.end}, vs. {end}")
+            break
+
         return queryset.all()
 
     def get_consumption_previous(self, counter):
@@ -133,7 +207,7 @@ class RouteMeterExport:
                 tenant=self.route.tenant,
                 counter=counter,
                 period=self.route.previous_period
-            ).order_by('datetime').last()        
+            ).order_by('datetime').last()
         return measurement.value or 0 if measurement else 0
 
     def make_meter(self, subscription, counter, excel, start, end):
@@ -143,9 +217,9 @@ class RouteMeterExport:
         # last consumption
         value = self.get_last_value(counter)
         consumption_previous = self.get_consumption_previous(counter)
-        
+
         min, max = value, value
-        if consumption_previous:            
+        if consumption_previous:
             min += consumption_previous * float(self.route.confidence_min)
             max += consumption_previous * float(self.route.confidence_max)
 
@@ -201,7 +275,7 @@ class RouteMeterExport:
                     'address_id': address.id,
                     'consumption_previous': round(consumption_previous, 1)
                 }),
-                'address': {                    
+                'address': {
                     'street': street,
                     'housenr': nr,
                     'city': address.city,
@@ -242,14 +316,21 @@ class RouteMeterExport:
 
         # Get subscriptions
         addresses = self.get_addresses()
-        print("*addresses", len(addresses))
         subscriptions = self.get_subscriptions(addresses)
-        print("*subscriptions", len(subscriptions))
         number_of_counters = 0
-        # Fill in meters
 
+        # Fill in meters
         for subscription in subscriptions:
+            if subscription.subscriber.company:
+                if 'test' in subscription.subscriber.company:
+                    print("*", subscription.subscriber.company)
+                else:
+                    print("*company", subscription.subscriber.company)
             for counter in subscription.counters.all():
+                if 'test' in counter.code:
+                    print("*test")
+                elif '21522292' in counter.code:
+                    print("*21522292")
                 meter = self.make_meter(
                     subscription, counter, excel, start, end)
                 data['billing_mde']['meter'].append(meter)
@@ -406,78 +487,121 @@ class MeasurementAnalyse:
 
 
 class RouteMeterImport:
-    
+
     def __init__(self, request, route):
         self.route = route
+        self.tenant = route.tenant
+        self.request = request
         self.user = request.user
-        
+
     def process(self, json_file):
         # Load file
         file_data = json_file.read().decode('utf-8')
         data = json.loads(file_data)
 
-        # Check file    
+        # Check file
         try:
             measurements = data['billing_mde']['meter']
         except:
             raise ValueError(_("Not a valid file"))
-        
+
         # get meter data
         count = 0
         for meter in measurements:
             counter = Device.objects.filter(
-                tenant=self.route.tenant, code=meter['id']
+                tenant=self.tenant, code=meter['id']
             ).first()
             if not counter:
-                raise ValueError(_(f"counter {meter['id']} not found."))
+                messages.warning(
+                    self.request, _(f"counter {meter['id']} not found."))
+                continue
+
+            # Check data
+            value = meter['value']
+            if not value:
+                messages.warning(
+                    self.request, _(f"counter {meter['id']} has no value."))
+                continue
+
+            for key in ['key', 'dateKey', 'cur']:
+                if not value.get(key):
+                    messages.warning(
+                        self.request, _(f"counter {meter['id']} has no measurement."))
+                    continue
+
+            # References
+            maintenance = json.loads(meter['hint'])
+
+            address = AddressMunicipal.objects.filter(
+                tenant=self.tenant, id=maintenance['address_id']).first()
+            if not address:
+                messages.warning(
+                    self.request, _(f"Address {maintenance['address_id']} wrong."))
+                continue               
+            
+            subscription = Subscription.objects.filter(
+                tenant=self.tenant, id=maintenance['subscription_id']).first()
+            if not subscription:
+                messages.warning(
+                    self.request, _(f"Subscription {maintenance['subscription_id']} wrong."))
+                continue               
 
             # Prepare data
-            value = meter['value']
-            actual_value = (value['min'] + value['max']) / 2  # fake actual_value
-            maintenance = json.loads(meter['hint'])
-            
             data = {
                 # previous
                 'datetime_previous': convert_str_to_datetime(value['dateOld']),
-                'value_previous': value['old'],                
+                'value_previous': value['old'],
                 'value_max': value['max'],
                 'value_min': value['min'],
-                
-                # import
-                'datetime': convert_str_to_datetime(value['dateCur']),
-                'value': actual_value,
-                'consumption': actual_value - value['old'],
 
-                # maintenance
+                # measurement data used for bill
+                'datetime': value['dateKey'],
+                'value': value['key'],
+                'consumption': value['key'] - value['old'],
+ 
+                # latest data
+                'datetime':  value['dateCur'],
+                'value':  value['cur'],
+                'consumption_latest':  value['cur'] - value['old'],
+                'current_battery_level': value['batteryLevel'],
+
+                # efficiency analysi
+                'address': address,
                 'period': self.route.period,
-                'address_id': maintenance['address_id'],
-                'subscription_id': maintenance['subscription_id'],
+                'subscription': subscription,
                 'consumption_previous': maintenance['consumption_previous'],
-                'tenant': self.route.tenant,
+                        
+                # maintenance                        
                 'created_by': self.user,
             }
-            
-            # Store data
+
+            # Store data            
             obj, created = Measurement.objects.get_or_create(
-                counter=counter, route=self.route,
-                defaults=data)                
-            if created:    
+                tenant=self.tenant,
+                route=self.route, 
+                counter=counter, 
+                datetime=data.pop('datetime'),
+                defaults=data)
+            if created:
                 count += 1
+            else:
+                messages.warning(
+                    self.request, _(f"counter {meter['id']} already measured."))
 
         # Create an Attachment instance
         attachment = Attachment.objects.create(
-            tenant=self.route.tenant,  # Set the tenant
+            tenant=self.tenant,  # Set the tenant
             content_object=self.route,  # Set the associated route
-            file=json_file,  # The uploaded file
+            file=json_file,  # Uploaded the file
             created_by=self.user
         )
-        
+
         # Add the attachment to the route's attachments
         self.route.attachments.add(attachment)
-                
+
         # update route
         self.route.status = Route.STATUS.COUNTER_IMPORTED
         self.route.import_file_id = attachment.id
         self.route.save()
-                
+
         return count

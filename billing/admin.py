@@ -228,7 +228,8 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'subscriber__company', 
         'subscriber__last_name','subscriber__first_name', 
         'partner__last_name','partner__first_name', 
-        'address__stn_label', 'address__adr_number', 'start', 'end', 'notes')
+        'address__stn_label', 'address__adr_number', 'start', 'end', 
+        'counters__code', 'notes')
     list_filter = (
         filters.SubscriptionArticlesFilter,
         'number_of_counters', 'end', 'subscriber__company')

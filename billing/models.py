@@ -162,7 +162,7 @@ class Subscription(TenantAbstract):
         on_delete=models.PROTECT, related_name='%(class)s_address',
         help_text=_("May be null at the beginning but must be entered later"))
     start = models.DateField(
-        _('Start Date'), blank=True, null=True)
+        _('Start Date'), help_text=_("Start date of subscription."))
     end = models.DateField(
         _('Exit Date'), blank=True, null=True)
     counters = models.ManyToManyField(
@@ -219,11 +219,11 @@ class Subscription(TenantAbstract):
         verbose_name_plural = _('Subscriptions')
 
 
-class SubscriptionArchive(TenantAbstract):    
+class SubscriptionArchive(TenantAbstract):
     subscriber_number = models.CharField(
         _('Abo Nr'), max_length=50)
     subscriber_name = models.CharField(
-        _('Name'), max_length=200, blank=True, null=True)        
+        _('Name'), max_length=200, blank=True, null=True)
     street_name = models.CharField(
         _('Strasse'), max_length=200, blank=True, null=True)
     zip_city = models.CharField(
@@ -253,6 +253,8 @@ class Measurement(TenantAbstract):
     route = models.ForeignKey(
         Route, verbose_name=_('Route'),
         on_delete=models.PROTECT, related_name='%(class)s_counter')
+
+    # previous
     datetime_previous = models.DateTimeField(
         _('Previous Date and Time'), blank=True, null=True)
     value_previous = models.FloatField(
@@ -265,21 +267,30 @@ class Measurement(TenantAbstract):
         _('Max. Value'), blank=True, null=True,
         help_text=('Min counter value'))
 
-    # import
-    datetime = models.DateTimeField(
-        _('Date and time'))
-    datetime_reference = models.DateTimeField(
-        _('Date and time'), blank=True, null=True)
+    # measurement data used for bill
+    datetime = models.DateTimeField(        
+        _('Reference Date'), db_index=True,
+        help_text=_('Date and time, reference measurement'))
     value = models.FloatField(
         _('Value'), blank=True, null=True,
-        help_text=('Actual counter value'))
+        help_text=('Value at reference measurement'))
     consumption = models.FloatField(
         _('Consumption'), blank=True, null=True,
+        help_text=('Consumption = value - value_previous'))
+
+    # latest data
+    datetime_latest = models.DateTimeField(
+        _('Date and time, latest'), blank=True, null=True)
+    value_latest = models.FloatField(
+        _('Value'), blank=True, null=True,
+        help_text=('Actual counter value'))
+    consumption_latest = models.FloatField(
+        _('Consumption latest'), blank=True, null=True,
         help_text=('Consumption = value - value_previous'))
     current_battery_level = models.FloatField(
         _('Battery Level'), blank=True, null=True,
         help_text=_('number of recommended periods for using'))
-
+        
     # not used
     status = models.CharField(
         max_length=50, blank=True, null=True)
@@ -313,14 +324,12 @@ class Measurement(TenantAbstract):
         return f'{self.route}, {self.counter}, {self.datetime}'
 
     class Meta:
-        '''
         constraints = [
             models.UniqueConstraint(
                 fields=['tenant', 'counter', 'route', 'datetime'],
                 name='unique_measurement'
             )
-        ]
-        '''
+        ]        
         ordering = [
             '-route__period__end', 'counter__number']
         verbose_name = _('Measurement')
