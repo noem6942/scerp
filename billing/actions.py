@@ -35,7 +35,7 @@ def export_counter_data_json(modeladmin, request, queryset, data):
             modeladmin, request, queryset, route,
             data['responsible_user'].user, data['route_date'], 
             data['energy_type'], key)
-        data = export.get_data()
+        data = export.get_counter_data_json()
         response = export.make_response_json(data, filename)
 
         return response
@@ -53,8 +53,27 @@ def import_counter_data_json(modeladmin, request, queryset, data):
         route_import = RouteMeterImport(request, route)
         count = route_import.process(data['json_file'])
         
-        messages.info(request, _("{count} counters updated."))
+        messages.info(request, _("%s counters updated.") % count)
         messages.info(request, _("File uploaded and stored as attachment."))
+
+
+@admin.action(description=_("Create invoice preview"))    
+def create_invoice_preview(modeladmin, request, queryset):
+    if action_check_nr_selected(request, queryset, 1):
+        # Prepare
+        route = queryset.first()
+
+        # Import
+        invoicing = RouteMeterExport(
+            modeladmin, request, queryset, route)
+        invoices = invoicing.get_invoice_preview()
+        
+        # Make excel
+        data = invoices
+        filename = 'preview_invoices.xlsx'
+        response = invoicing.make_response_excel(data, filename)
+        
+        return response
 
 
 @action_with_form(

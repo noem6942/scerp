@@ -934,6 +934,32 @@ class Person(AcctApp):
         if not self.first_name and not self.last_name and not self.company:
             raise ValidationError(
                 _('Either First Name, Last Name or Company must be set.'))
+    
+    def get_full_name_title(self):
+        return {
+            'title': self.title.code if self.title else None,
+            'name': (
+                f"{self.first_name} {self.last_name}" if self.last_name 
+                else None
+            ),
+            'company': self.company  
+        }
+
+    def get_invoice_address(self):        
+        queryset = PersonAddress.objects.filter(person=self)
+        
+        # Try invoice
+        address = queryset.filter(type=PersonAddress.TYPE.INVOICE)
+        if address:
+            return address.first().address_invoice
+        
+        # Try main        
+        address = queryset.filter(type=PersonAddress.TYPE.MAIN)
+        if address:
+            return address.first().address_invoice
+            
+        # Return first
+        return queryset.first()
 
     def __str__(self):
         if self.is_employee:
@@ -956,7 +982,7 @@ class Person(AcctApp):
         # Ensure at least one value is returned
         if company and name:
             return f"{company}, {name}"
-        return company or name or "Unknown"  # Fallback if everything is empty
+        return company or name or "Unknown"  # Fallback if everything is empty    
 
     class Meta:
         ordering = ['company', 'last_name', 'first_name', 'alt_name']

@@ -67,7 +67,8 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     actions = [
         a.export_counter_data_json,
         a.import_counter_data_json,
-        a.export_counter_data_excel,
+        a.create_invoice_preview,
+        #a.export_counter_data_excel,
         a.route_copy
     ] + default_actions
 
@@ -132,7 +133,8 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = (
-        'subscription__company', 'subscription__last_name','datetime')
+        'subscription__subscriber__company',
+        'subscription__subscriber__last_name', 'counter__code', 'datetime')
     list_filter = (
         filters.MeasurementAreaFilter,
         filters.MeasurementPeriodFilter,
