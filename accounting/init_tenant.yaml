@@ -71,6 +71,17 @@ CustomField:
     is_multi: false
     values: []
 
+  - code: account_budget
+    group_ref: account
+    name:
+      de: Budget
+      en: Budget
+      fr: Budget
+      it: Budget
+    data_type: NUMBER
+    is_multi: false
+    values: []
+
   - code: order_incoming_approval
     group_ref: order_incoming
     name:

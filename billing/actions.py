@@ -19,12 +19,12 @@ ENCRYPTION_KEY = 3
 
 @action_with_form(
     forms.RouteMeterExportJSONActionForm,
-    description=_('Export external JSON Counter List for Routing'))
+    description='1. ' + _('Export JSON Counter List for Routing'))
 def export_counter_data_json(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, 1):
         # Prepare
         route = queryset.first()
-        if not route.previous_period:
+        if not route.period_previous:
             return
 
         key = 3 if data['key_enabled'] else None
@@ -33,7 +33,7 @@ def export_counter_data_json(modeladmin, request, queryset, data):
         # Make and download json
         export = RouteMeterExport(
             modeladmin, request, queryset, route,
-            data['responsible_user'].user, data['route_date'], 
+            data['responsible_user'].user, data['route_date'],
             data['energy_type'], key)
         data = export.get_counter_data_json()
         response = export.make_response_json(data, filename)
@@ -43,7 +43,7 @@ def export_counter_data_json(modeladmin, request, queryset, data):
 
 @action_with_form(
     forms.RouteMeterImportJSONActionForm,
-    description=_('Import JSON Counter List from Routing'))
+    description='2. ' + _('Import JSON Counter List from Routing'))
 def import_counter_data_json(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, 1):
         # Prepare
@@ -52,13 +52,12 @@ def import_counter_data_json(modeladmin, request, queryset, data):
         # Import
         route_import = RouteMeterImport(request, route)
         count = route_import.process(data['json_file'])
-        
+
         messages.info(request, _("%s counters updated.") % count)
         messages.info(request, _("File uploaded and stored as attachment."))
 
 
-@admin.action(description=_("Create invoice preview"))    
-def create_invoice_preview(modeladmin, request, queryset):
+def get_invoice_data(modeladmin, request, queryset, data=None):
     if action_check_nr_selected(request, queryset, 1):
         # Prepare
         route = queryset.first()
@@ -66,21 +65,26 @@ def create_invoice_preview(modeladmin, request, queryset):
         # Import
         invoicing = RouteMeterExport(
             modeladmin, request, queryset, route)
-        invoices = invoicing.get_invoice_preview()
+        invoices = invoicing.get_invoice_data_json()
         
         # Make excel
-        data = invoices
-        filename = 'preview_invoices.xlsx'
-        response = invoicing.make_response_excel(data, filename)
-        
+        data_list = invoices
+        filename = f"preview_invoices_{route.name}.xlsx"
+        response = invoicing.make_response_excel(
+            data_list, filename)
         return response
+
+
+@admin.action(description='3. ' + _("Preview Export Invoice Data"))
+def create_invoice_preview(modeladmin, request, queryset):
+    return get_invoice_data(modeladmin, request, queryset)
 
 
 @action_with_form(
     forms.RouteMeterExportExcelActionForm,
     description=_('Export internal Excel Counter List for Routing'))
 def export_counter_data_excel(modeladmin, request, queryset, data):
-    if action_check_nr_selected(request, queryset, 1):        
+    if action_check_nr_selected(request, queryset, 1):
         messages.warning(request, _("Not implemented yet."))
         """
         # Prepare
@@ -110,7 +114,7 @@ def route_copy(modeladmin, request, queryset, data):
         route = queryset.first()
         route.pk = None  # Copy
         route.name = data['name']
-        route.previous_period = route.period
+        route.period_previous = route.period
         route.period = data['period']
         route.status = Route.STATUS.INITIALIZED
         route.number_of_addresses = None

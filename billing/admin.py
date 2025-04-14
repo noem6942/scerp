@@ -47,7 +47,7 @@ class PeriodAdmin(TenantFilteringAdmin, BaseAdmin):
 class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'period']
-    protected_many_to_many = ['addresses']
+    protected_many_to_many = ['addresses', 'comparison_periods']
 
     # Display these fields in the list view
     list_display = (
@@ -57,6 +57,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
         'number_of_subscriptions', 'number_of_counters',
         'number_of_addresses'
     )
+    list_display_links = ('name', 'period')
     readonly_fields = ('duration', 'status') + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -76,7 +77,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'name', 'period', 'previous_period',
+                'name', 'period', 'period_previous', 'comparison_periods'
             ),
         }),
         (_('Filters'), {
@@ -214,6 +215,9 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'subscriber', 'address']
     protected_many_to_many = ['articles']
+    help_text = _(
+        "Create a new subscription if owner changes, otherwise previous "
+        "values are shown at the bill which is against policies. ")
 
     # Display these fields in the list view
     list_display = (

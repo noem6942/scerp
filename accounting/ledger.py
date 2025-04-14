@@ -47,7 +47,6 @@ class Ledger:
         return value_str
 
     def update_account(self, instance):
-        print("*update_account")
         # type
         instance.type = self.model.TYPE.ACCOUNT
 
@@ -57,14 +56,14 @@ class Ledger:
             if self.model == LedgerBalance:
                 # derive from hrm
                 instance.parent = self.model.objects.filter(
-                    setup=instance.setup,
+                    tenant=instance.tenant,
                     type=self.model.TYPE.CATEGORY,
                     hrm__lte=hrm
                 ).order_by('hrm').last()
             else:
                 # take last ("best guess")
                 instance.parent = self.model.objects.filter(
-                    setup=instance.setup,
+                    tenant=instance.tenant,
                     type=self.model.TYPE.CATEGORY
                 ).last()
 
@@ -79,7 +78,7 @@ class Ledger:
         hrm_parent = instance.hrm[:-1]  # Removes the last character
         if not instance.parent:
             instance.parent = self.model.objects.filter(
-                setup=instance.setup,
+                tenant=instance.tenant,
                 type=self.model.TYPE.CATEGORY,
                 hrm=hrm_parent
             ).order_by('hrm').last()
@@ -152,13 +151,13 @@ class LedgeUpdate:
                     create, category = self.get_top_category(field_name)
 
                 # Step 2: Create AccountCategory if necessary
-                #   If setup, number is already existing we reuse the
+                #   If tenant, number is already existing we reuse the
                 #   category (most probably from the previous year)
                 if create and category:
                     # Create new category
                     category, _created = (
                         AccountCategory.objects.update_or_create(
-                            setup=self.instance.setup,
+                            tenant=self.instance.tenant,
                             number=self.get_number(field_name),
                             defaults=dict(
                                 tenant=self.instance.tenant,
@@ -195,7 +194,7 @@ class LedgeUpdate:
         else:
             # Update or create new
             account, created = Account.objects.update_or_create(
-                setup=self.instance.setup,
+                tenant=self.instance.tenant,
                 number=self.get_number(),
                 defaults=dict(
                     tenant=self.instance.tenant,
@@ -260,7 +259,7 @@ class LedgerBalanceUpdate(LedgeUpdate):
         number = int(self.get_number(field_name))
 
         parent = AccountCategory.objects.filter(
-            setup=self.instance.setup, number=number).first()
+            tenant=self.instance.tenant, number=number).first()
         return create, parent
 
     def get_account_category(self):
@@ -299,7 +298,7 @@ class LedgerFunctionalUpdate(LedgeUpdate):
 
         # parent
         queryset = AccountCategory.objects.filter(
-            setup=self.instance.setup)
+            tenant=self.instance.tenant)
         if field_name == 'category_expense':
             parent = queryset.filter(
                 number=self.top_level_expense).first()

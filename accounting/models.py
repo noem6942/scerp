@@ -640,7 +640,7 @@ class Account(AcctApp):
             function = ''  # do not display
         elif self.function:
             function = self.function + ' '
-        return f"{function}{self.hrm} {primary_language(self.name)}"
+        return f"{function}{self.hrm} {primary_language(self.name)} {self.c_id}"
 
     class Meta:
         constraints = [

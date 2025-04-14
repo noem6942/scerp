@@ -23,9 +23,9 @@ class ImportExport:
 
     def __init__(self, ledger, request, language=None):
         self.ledger = ledger
-        self.setup = ledger.setup
+        self.tenant = ledger.tenant
         self.request = request
-        self.language = language if language else self.setup.language
+        self.language = language if language else self.tenant.language
 
     def update_or_get(self, excel_file):
         # Load the workbook
@@ -89,7 +89,7 @@ class ImportExport:
                     msg = _(f"row {nr} merging name").format(nr=nr)
                     messages.info(request, msg)
                     continue
-            else:              
+            else:
                 # Append data
                 last_row = data
                 data_list.append(data)
@@ -106,8 +106,7 @@ class ImportExport:
             data.update({
                 'is_enabled_sync': False,
                 'name': name_json,
-                'tenant': self.setup.tenant,
-                'setup': self.setup,
+                'tenant': self.tenant,
                 'ledger': self.ledger,
                 'created_by': self.request.user,
                 'sync_to_accounting': True
@@ -163,11 +162,20 @@ class SyncLedger:
 
     def load(self, org_name, ledger_id, max_count=9999):
         queryset = self.model.objects.filter(
-            ledger__id=ledger_id, setup__org_name=org_name,
+            ledger__id=ledger_id, tenant__cash_ctrl_org_name=org_name,
             is_enabled_sync=False
         ).order_by('function', '-type', 'hrm')[:max_count]
 
         for position in queryset:
+            position.is_enabled_sync = True
+            position.sync_to_accounting = True
+            position.save(update_fields=[
+                'is_enabled_sync', 'sync_to_accounting'])
+
+            # Manually trigger signals if necessary (after save)
+            position.refresh_from_db()
+            logger.info(f"synched {position.hrm}.")
+
             try:
                 position.is_enabled_sync = True
                 position.sync_to_accounting = True

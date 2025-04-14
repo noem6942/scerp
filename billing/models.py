@@ -51,11 +51,19 @@ class Route(TenantAbstract):
         _('name'), max_length=50,
         help_text=_("name and period for route, e.g. Water, 24/1"))
     period = models.ForeignKey(
-        Period, verbose_name=_('Period'),
-        on_delete=models.PROTECT, related_name='%(class)s_period')
-    previous_period = models.ForeignKey(
-        Period, verbose_name=_('Previous Period'), blank=True, null=True,
-        on_delete=models.PROTECT, related_name='%(class)s_last_period')
+        Period, on_delete=models.PROTECT, 
+        verbose_name=_('Period'), related_name='%(class)s_period')
+    period_previous = models.ForeignKey(
+        Period, on_delete=models.PROTECT, blank=True, null=True,
+        verbose_name=_('Previous Period'),
+        related_name='%(class)s_last_period',
+        help_text=_("This is used to calculate the consumption."))
+    comparison_periods = models.ManyToManyField(
+        Period, blank=True, verbose_name=_('Comparison Periods'),
+        related_name='comparison_periods',
+        help_text=_(
+            "Periods' measurements used to report on all invoices. "
+            "If none is given, last one is taken."))
     areas = models.ManyToManyField(
         Area, verbose_name=_('Areas'), blank=True,
         help_text=_(
@@ -106,6 +114,12 @@ class Route(TenantAbstract):
         _('Number of Subscriptions'), blank=True, null=True, editable=False)
     number_of_counters = models.PositiveIntegerField(
         _('Number of Counters'), blank=True, null=True, editable=False)
+
+    def get_comparison_periods(self):
+        queryset = self.comparison_periods.all().order_by('-end')
+        if queryset:
+            return queryset
+        return [self.period_previous]  # take last period
 
     def get_start(self):
         return self.start if self.start else self.period.start
@@ -191,7 +205,7 @@ class Subscription(TenantAbstract):
 
     @property
     def number(self):
-        return f'S {self.id}'
+        return f'S-{self.id}'
 
 
     def save(self, *args, **kwargs):
@@ -259,7 +273,10 @@ class Measurement(TenantAbstract):
         _('Previous Date and Time'), blank=True, null=True)
     value_previous = models.FloatField(
         _('Previous Value'), blank=True, null=True,
-        help_text=('Previous counter value'))
+        help_text=('Previous counter value (reference)'))
+    value_previous_lastest = models.FloatField(
+        _('Previous Value Latest'), blank=True, null=True,
+        help_text=('Previous counter value lastest'))
     value_max = models.FloatField(
         _('Min. Value'), blank=True, null=True,
         help_text=('Max counter value'))
@@ -268,7 +285,7 @@ class Measurement(TenantAbstract):
         help_text=('Min counter value'))
 
     # measurement data used for bill
-    datetime = models.DateTimeField(        
+    datetime = models.DateTimeField(
         _('Reference Date'), db_index=True,
         help_text=_('Date and time, reference measurement'))
     value = models.FloatField(
@@ -290,7 +307,7 @@ class Measurement(TenantAbstract):
     current_battery_level = models.FloatField(
         _('Battery Level'), blank=True, null=True,
         help_text=_('number of recommended periods for using'))
-        
+
     # not used
     status = models.CharField(
         max_length=50, blank=True, null=True)
@@ -329,7 +346,7 @@ class Measurement(TenantAbstract):
                 fields=['tenant', 'counter', 'route', 'datetime'],
                 name='unique_measurement'
             )
-        ]        
+        ]
         ordering = [
             '-route__period__end', 'counter__number']
         verbose_name = _('Measurement')

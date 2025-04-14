@@ -9,6 +9,7 @@
         </div>
     {% endif %}
 
+    {% comment %}
     {% if not request.GET.edit == 'true' %}
       <!-- Add edit action button -->
       <div style="margin: 20px 0; text-align: left;">
@@ -18,6 +19,7 @@
         </a>
       </div>   
     {% endif %} 
+    {% endcomment %}
     
     {{ block.super }}
     

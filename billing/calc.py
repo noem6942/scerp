@@ -35,6 +35,18 @@ class METER:
 
 
 # Helpers
+def calculate_growth(consumption_now, consumption_previous):
+    """
+    Calculates the percentage growth between two consumption values.
+    Returns None if the previous consumption is zero (to avoid division by zero).
+    """
+    if consumption_previous == 0:
+        return None  # Avoid division by zero
+    return (
+        (consumption_now - consumption_previous) / consumption_previous
+    ) * 100
+
+
 def convert_datetime_to_date(dt):
     return dt.strftime('%Y-%m-%d')
 
@@ -71,12 +83,26 @@ def extract_datetime_from_route_filename(filename):
         return None
 
 
+def get_element_by_index(elements, index):
+    """
+    Safely returns the element at the given index from the list.
+    If the index is out of range, returns None.
+    """
+    return elements[index] if 0 <= index < len(elements) else None
+
+
 def shift_encode(text, shift=3):
     return ''.join(chr((ord(c) + shift) % 126) for c in text)
 
 
 class RouteMeterExport:
-
+    '''
+    use this class to
+    - get_counter_data_json:
+        create a json list that gets upload to GFT software
+    - get_invoice_data_json:
+        create a json list that gets used for invoicing
+    '''
     def __init__(
             self, modeladmin, request, queryset, route, responsible_user=None,
             route_date=None, energy_type='W', key=None):
@@ -174,32 +200,34 @@ class RouteMeterExport:
 
         return queryset.all()
 
-    def get_consumption_previous(self, counter):
-        if self.route.previous_period:
+    def get_consumption(self, counter):
+        if self.route.period_previous:
             total = Measurement.objects.filter(
                 tenant=self.tenant,
                 counter=counter,
-                period=self.route.previous_period
+                period=self.route.period_previous
             ).aggregate(Sum('consumption'))
             return total['consumption__sum'] or 0
         else:
             return 0
 
-    def get_last_value(self, counter):
+    def get_last_measurement(self, counter):
         measurement = Measurement.objects.filter(
                 tenant=self.tenant,
                 counter=counter,
-                period=self.route.previous_period
+                period=self.route.period_previous
             ).order_by('datetime').last()
-        return measurement.value or 0 if measurement else 0
+        return measurement
 
     def make_meter(self, subscription, counter, excel, start, end):
         ''' make meter dict for json / excel export
         if excel we optimize data to our needs
         '''
         # last consumption
-        value = self.get_last_value(counter)
+        last_measurement = self.get_last_measurement(counter)
+        value = last_measurement.value or 0 if measurement else 0
         consumption_previous = self.get_consumption_previous(counter)
+
 
         min, max = value, value
         if consumption_previous:
@@ -237,9 +265,9 @@ class RouteMeterExport:
                 current_date = None
 
             # previous date
-            if self.route.previous_period:
+            if self.route.period_previous:
                 previous_date = convert_datetime_to_date(
-                    self.route.previous_period.end)
+                    self.route.period_previous.end)
             else:
                 previous_date = None
 
@@ -329,40 +357,36 @@ class RouteMeterExport:
         # return data, if excel only meter records
         return data['billing_mde']['meter'] if excel else data
 
-    def get_invoice_measurements(self, reference_mode=True, excel=False):
-        # Start, end
+    def get_invoice_data_json(
+            self, reference_mode=True, incl_title=False,
+            title_line_break=False, max_history=4, max_articles=4):
+        # Init
+        invoices = []
         start = self.get_route_start()
         end = self.get_route_end()
 
-        # Get subscriptions
+        # Get subscriptions, use same as meter export
         addresses = self.get_addresses()
         subscriptions = self.get_subscriptions(addresses)
         number_of_counters = 0
+        comparison_periods = self.route.get_comparison_periods()
 
-        # Get subscriptions in scope
-        sub_ids = [x.id for x in subscriptions]
+        # Work through every subscription in scope
+        for index, subscription in enumerate(subscriptions, start=1):
+            # Get invoice address
+            address_type, invoice_address = (
+                subscription.subscriber.get_invoice_address())
 
-        # Get measurements
-        measurements = Measurement.objects.filter(
-            tenant=self.tenant, subscription_id__in=sub_ids).all()
-
-        # Return query
-        if excel is False:
-            return measurements  # We're done
-
-        # Return data for excel
-        for measurement in measurements:
-            # prepare
-            subscription = measurement.subscription
-            subscriber = subscription.subscriber.get_full_name_title()
-            partner = (
-                subscription.partner.get_full_name_title()
-                if subscription.partner else {}
-            )
+            # Get latest measurements
+            measurement = Measurement.objects.filter(
+                tenant=self.tenant,
+                subscription=subscription,
+                route=self.route
+            ).order_by('-datetime').first()
 
             data = {
                 # general
-                'id': measurement.id,
+                'id': index,
                 'reference_mode': reference_mode,
 
                 # period
@@ -378,39 +402,76 @@ class RouteMeterExport:
                 ),
 
                 # subscriber person
-                'subscriber_title': subscriber_title,
-                'subscriber_company': subscriber_company,
-                'subscriber_name': subscriber_name,
+                'subscriber': subscription.subscriber.display_name(
+                    self.tenant.language, incl_title, title_line_break),
 
                 # subscriber partner
-                'subscriber_title': partner.get('title'),
-                'subscriber_company': partner.get('company'),
-                'subscriber_name': partner.get('name'),
+                'partner': subscription.partner.display_name(
+                    self.tenant.language, incl_title, title_line_break
+                ) if subscription.partner else None,
 
                 # invoice address
-                'address': subscription.subscriber.get_invoice_address(),
+                'type': str(address_type.label),
+                'address': invoice_address,
 
                 # consumption
                 'value': (
                     measurement.value if reference_mode
                     else measurement.value_latest
-                ),
+                ) if measurement else None,
                 'consumption': (
                     measurement.consumption if reference_mode
                     else measurement.consumption_latest
-                ),
-                'value_previous': (
-                    measurement.value_previous if reference_mode
-                    else measurement.value_previous_lastest
-                ),
-
-                # articles
-                'articles': json.dumps([{
-                        'nr': article.nr,
-                        'name': article.name[self.tenant.language]
-                    } for article in subscription.articles.order_by('nr')
-                ])
+                ) if measurement else None,
             }
+
+            # Prepare history report
+            queryset_history = Measurement.objects.filter(
+                tenant=self.tenant,
+                subscription=subscription,
+                route__period__in=comparison_periods
+            ).order_by('-datetime')
+
+            # filter unique, only take latest measurement per period
+            history = {}
+            if data['value']:
+                value_last = data['value']
+                consumption_last = data['consumption']
+                for hist in queryset_history.all():
+                    period = hist.route.period                    
+                    if hist.consumption:
+                        growth = calculate_growth(
+                            consumption_last, hist.consumption)
+                        sign = '+' if growth > 0 else ''                            
+                        growth_str = f" ({sign}{round(growth)})"
+                    else:
+                        growth_str = ''
+                        
+                    # Report
+
+                    history[period] = (
+                        f"Vergleich Vorperiode:\n"                        
+                        f"Verbrauch: {hist.consumption}\n"
+                        f"Entwicklung: {growth_str}%)"
+                    )
+
+                    # adjust
+                    consumption_last = hist.consumption
+
+                # Make report
+                for index in range(max_history):
+                    key = f"history_{index + 1}"
+                    data[key] = get_element_by_index(
+                        list(history.values()), index)
+
+            # Prepare articles
+            articles = [
+                f"{article.nr} {article.name[self.tenant.language]}"
+                for article in subscription.articles.order_by('nr')]
+            for index in range(max_articles):
+                key = f"article_{index + 1}"
+                data[key] = get_element_by_index(articles, index)
+
             invoices.append(data)
 
         return invoices
@@ -568,7 +629,8 @@ class MeasurementAnalyse:
 
 
 class RouteMeterImport:
-
+    '''use this class to import GFT json list after tour is completed
+    '''
     def __init__(self, request, route):
         self.route = route
         self.tenant = route.tenant
@@ -645,7 +707,7 @@ class RouteMeterImport:
                 )
                 continue
 
-            # Prepare data
+            # Prepare Measurement data
             data = {
                 # previous
                 'datetime_previous': convert_str_to_datetime(value['dateOld']),
@@ -664,7 +726,7 @@ class RouteMeterImport:
                 'consumption_latest':  value['cur'] - value['old'],
                 'current_battery_level': value['batteryLevel'],
 
-                # efficiency analysi
+                # efficiency analysis
                 'address': address,
                 'period': self.route.period,
                 'subscription': subscription,

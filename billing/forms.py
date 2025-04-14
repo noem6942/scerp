@@ -72,7 +72,7 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
         tenant = route.tenant
         today = datetime.date.today()
         
-        if not route.previous_period:
+        if not route.period_previous:
             messages.warning(request, _('Warning: no previous period given'))        
             self.Meta.confirm_button_text = LABEL_BACK
             self.fields['responsible_user'].required = False
@@ -116,6 +116,27 @@ class RouteMeterExportExcelActionForm(AdminActionForm):
         route = queryset.first()
         today = datetime.date.today()
         self.fields['filename'].initial = f"route_{route.name}_{today}.xlsx"
+
+
+class RouteMeterInvoicingActionForm(AdminActionForm):
+    id = forms.CharField(
+        label=_('ID'),
+        required=False,
+        max_length=255,
+        widget=forms.TextInput(attrs={'placeholder': _('ID')}),
+        help_text=_("Leave empty if all records"),
+    )
+
+    filename = forms.CharField(
+        label=_('Filename'),
+        required=False,
+        initial='invoices_{route_id}',
+        widget=forms.TextInput(attrs={
+            'readonly': True,
+            'placeholder': _('invoices_{route_id}')
+        }),
+        help_text=_("Default format: invoices_{route_id}")
+    )     
 
 
 class AnaylseMeasurentExcelActionForm(AdminActionForm):

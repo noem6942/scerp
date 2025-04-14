@@ -763,8 +763,12 @@ class Title(AcctApp):
             "The letter salutation (e.g. 'Dear Mr.', etc.). May be used in "
             "mail."))
 
-
     def __str__(self):
+        return primary_language(self.name)
+
+    def display(self, language=None):
+        if language:
+            return self.name.get
         return primary_language(self.name)
 
     class Meta:
@@ -934,32 +938,38 @@ class Person(AcctApp):
         if not self.first_name and not self.last_name and not self.company:
             raise ValidationError(
                 _('Either First Name, Last Name or Company must be set.'))
-    
-    def get_full_name_title(self):
-        return {
-            'title': self.title.code if self.title else None,
-            'name': (
-                f"{self.first_name} {self.last_name}" if self.last_name 
-                else None
-            ),
-            'company': self.company  
-        }
+        
+    def display_name(
+            self, language=None, incl_title=False, title_line_break=False):
+        lines = []
+        if self.company:
+            lines.append(self.company)
+            
+        if incl_title and self.title:
+            title = self.title.display(language)
+            if title_line_break:
+                lines.append(title)
+                lines.append(f"{self.first_name} {self.last_name}")
+            else:
+                lines.append(f"{title} {self.first_name} {self.last_name}")
+        elif self.first_name or self.last_name:
+            lines.append(f"{self.first_name} {self.last_name}")            
+
+        return '\n'.join(lines)
 
     def get_invoice_address(self):        
         queryset = PersonAddress.objects.filter(person=self)
         
-        # Try invoice
-        address = queryset.filter(type=PersonAddress.TYPE.INVOICE)
-        if address:
-            return address.first().address_invoice
-        
-        # Try main        
-        address = queryset.filter(type=PersonAddress.TYPE.MAIN)
-        if address:
-            return address.first().address_invoice
+        # Try invoice, main
+        for address_type in (
+                PersonAddress.TYPE.INVOICE, PersonAddress.TYPE.MAIN):
+            address = queryset.filter(type=address_type)
+            if address:
+                return address_type, address.first().address_full
             
         # Return first
-        return queryset.first()
+        address = queryset.first()
+        return address.type, address.address_full
 
     def __str__(self):
         if self.is_employee:
@@ -1030,17 +1040,6 @@ class PersonAddress(TenantAbstract):
             value += '\n' + self.additional_information
 
         return value
-
-    @property
-    def address_invoice(self):
-        value = self.get_type_display() + ': '
-
-        if self.additional_information:
-            value += self.additional_information + ', '
-        if self.post_office_box:
-            value += self.post_office_box + ', '
-
-        return f"{value}{self.address}"
 
     def __str__(self):
         return f"{self.address} ({self.type})"
