@@ -160,13 +160,10 @@ class TenantFilteringAdmin(admin.ModelAdmin):
     
     def has_change_permission(self, request, obj=None):
         # turn back as before
-        return super().has_change_permission(request, obj)
-        '''
-        if is_form_read_only(self) or (
-                is_change_view(request) and not edit_is_set(request)):
+        if is_form_read_only(self):
+            # or (is_change_view(request) and not edit_is_set(request)):
             return False  # Disable editing
-        return super().has_change_permission(request, obj)
-        '''
+        return super().has_change_permission(request, obj)        
 
     def has_delete_permission(self, request, obj=None):
         if is_form_read_only(self) or (
@@ -297,6 +294,11 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         # Atomic save with error handling
         self.has_errors = True
 
+        with transaction.atomic():
+            super().save_model(request, instance, form, change)
+            self.has_errors = False
+        return
+        
         # debug
         try:
             with transaction.atomic():

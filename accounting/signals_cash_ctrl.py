@@ -152,12 +152,20 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
     api = conn.Account(models.Account)
     api.get(tenant, tenant.created_by)
 
+    # Get Rounding
+    api = conn.Rounding(models.Rounding)
+    api.get(tenant, tenant.created_by)
+
     # Get Setting
     api = conn.Setting(models.Setting)
     api.get(tenant, tenant.created_by)
 
     # Get Tax
     api = conn.Tax(models.Tax)
+    api.get(tenant, tenant.created_by)
+
+    # Get BankAccount
+    api = conn.BankAccount(models.BankAccount)
     api.get(tenant, tenant.created_by)
 
     # Create AccountCategory, ER / IR categories like 3.1, 4.1 etc.
@@ -697,9 +705,13 @@ def ledger_balance_post_save(sender, instance, created, **kwargs):
 def ledger_pl_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Unit. '''
     __ = created
+    print("*instance LedgerPL", instance)
     handler = LedgerPLUpdate(sender, instance)
     if handler.needs_update:
+        # creates or updates an Account in cashCtrl
+        print("*needs_update")
         handler.save()
+        print("*saved", handler.instance.__dict__)
 
 
 @receiver(post_save, sender=models.LedgerIC)

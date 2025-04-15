@@ -331,6 +331,7 @@ class Account(CashCtrl):
         # category_id
         data['category_id'] = (
             instance.category.c_id if instance.category else None)
+        print("*data['category_id']", data['category_id'])
 
         # currency_id
         data['currency_id'] = (

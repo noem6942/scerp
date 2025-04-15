@@ -152,24 +152,52 @@ class OrderCategoryAdminForm(NameAdminForm):
         model = OrderCategory
 """
 
-class LedgerAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class LedgerAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    # Dynamically create fields for each language
+    class Meta:
         model = Ledger
+        fields = '__all__'
+
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class LedgerBalanceAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class LedgerBalanceAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    # Dynamically create fields for each language
+    class Meta:
         model = LedgerBalance
+        fields = '__all__'
 
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
+    
 
-class LedgerPLAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class LedgerPLAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    # Dynamically create fields for each language
+    class Meta:
         model = LedgerPL
+        fields = '__all__'
+
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class LedgerICAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class LedgerICAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    # Dynamically create fields for each language
+    class Meta:
         model = LedgerIC
+        fields = '__all__'
+
+    # Dynamically create fields for each language
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
 # Other multilanguage forms

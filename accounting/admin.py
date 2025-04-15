@@ -255,7 +255,8 @@ class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
         'tenant', 'version', 'account', 'currency']
-
+    read_only = True  # as long as cashControl bug not resolved
+    
     # Helpers
     help_text = _("Read only model. Use cashControl for edits.")    
     form = forms.BankAccountAdminForm

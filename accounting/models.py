@@ -640,7 +640,7 @@ class Account(AcctApp):
             function = ''  # do not display
         elif self.function:
             function = self.function + ' '
-        return f"{function}{self.hrm} {primary_language(self.name)} {self.c_id}"
+        return f"{function}{self.hrm} {primary_language(self.name)}"
 
     class Meta:
         constraints = [
@@ -828,7 +828,10 @@ class BankAccount(AcctApp):
             raise ValidationError(_("Name must not be empty"))
 
     def __str__(self):
-        return f"{primary_language(self.name)}, {self.account}"
+        value = primary_language(self.name)
+        if self.account:
+            return f"{value}, {self.account}"
+        return value
 
     class Meta:
         constraints = [
@@ -1931,7 +1934,9 @@ class LedgerAccount(AcctLedger):
     parent = models.ForeignKey(
         'self', verbose_name=_('Parent'), blank=True, null=True,
         on_delete=models.SET_NULL, related_name='%(class)s_parent',
-        help_text=_('The parent category.'))
+        help_text=_(
+            "The parent category. Specify if it cannot be derived from the "
+            "HRM 2 code"))
     function = models.CharField(
          _('Function'), max_length=5, null=True, blank=True,
         help_text=_(

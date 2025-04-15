@@ -61,14 +61,20 @@ class Ledger:
                     hrm__lte=hrm
                 ).order_by('hrm').last()
             else:
-                # take last ("best guess")
+                # try same level
                 instance.parent = self.model.objects.filter(
                     tenant=instance.tenant,
-                    type=self.model.TYPE.CATEGORY
-                ).last()
+                    type=self.model.TYPE.ACCOUNT,
+                    hrm__lte=hrm
+                ).order_by('hrm').last().parent       
+                
+                if not instance.parent:
+                    raise ValueError(
+                        f"Could not derive parent. Please specify! ")
 
         # function
-        instance.function = self.make_function(instance.parent.hrm)
+        if not instance.function:  # otherwise we keep the existing
+            instance.function = self.make_function(instance.parent.hrm)
 
     def update_category(self, instance):
         # type
@@ -269,10 +275,10 @@ class LedgerBalanceUpdate(LedgeUpdate):
 class LedgerFunctionalUpdate(LedgeUpdate):
     category_fields = ['category_expense', 'category_revenue']
     accounts_expense  = [
-        TOP_LEVEL_ACCOUNT.EXPENSE.value, 
+        TOP_LEVEL_ACCOUNT.EXPENSE.value,
         TOP_LEVEL_ACCOUNT.BALANCE.value
     ]
-    
+
     def get_number(self, category_name=None):
         '''
         numbering:
@@ -297,23 +303,26 @@ class LedgerFunctionalUpdate(LedgeUpdate):
         create = True  # Functional categories do not exist
 
         # parent
-        queryset = AccountCategory.objects.filter(
-            tenant=self.instance.tenant)
+        queryset = AccountCategory.objects.filter(tenant=self.instance.tenant)
+        
         if field_name == 'category_expense':
             parent = queryset.filter(
                 number=self.top_level_expense).first()
-        else:
+        elif field_name == 'top_level_revenue':
             parent = queryset.filter(
                 number=self.top_level_revenue).first()
+        else:
+            raise ValueError(f"{field_name}: not a valid field name")
 
         return create, parent
 
     def get_account_category(self):
-        # Get all expense cases:
-        if (int(self.instance.hrm[0]) in self.accounts_expense
+        if (self.instance.hrm[0] in self.accounts_expense
                 or '9000.' in self.instance.hrm):
             return self.instance.parent.category_expense
+        print("*revenue", self.instance.hrm[0], self.accounts_expense)
         return self.instance.parent.category_revenue
+
 
 class LedgerPLUpdate(LedgerFunctionalUpdate):
     top_level_expense = TOP_LEVEL_ACCOUNT.PL_EXPENSE.value  # '3.1'
