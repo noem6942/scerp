@@ -20,6 +20,8 @@ class Ledger:
     '''
         Gets called before Ledger is saved
         updates category, parent and function
+        
+        model: LedgerBalance, LedgerPL, LedgerIC
     '''
     def __init__(self, model, instance, **kwargs):
         self.model = model
@@ -60,17 +62,25 @@ class Ledger:
                     type=self.model.TYPE.CATEGORY,
                     hrm__lte=hrm
                 ).order_by('hrm').last()
-            else:
+            elif self.instance.manual_creation:
                 # try same level
-                instance.parent = self.model.objects.filter(
+                sibling = self.model.objects.filter(
                     tenant=instance.tenant,
                     type=self.model.TYPE.ACCOUNT,
                     hrm__lte=hrm
-                ).order_by('hrm').last().parent       
-                
-                if not instance.parent:
+                ).order_by('hrm').last()
+
+                if sibling:
+                    instance.parent = sibling.parent
+                else:
                     raise ValueError(
                         f"Could not derive parent. Please specify! ")
+            else:
+                # take last ("best guess")
+                instance.parent = self.model.objects.filter(
+                    tenant=instance.tenant,
+                    type=self.model.TYPE.CATEGORY
+                ).order_by('id').last()
 
         # function
         if not instance.function:  # otherwise we keep the existing
@@ -174,7 +184,7 @@ class LedgeUpdate:
                                 is_scerp=True
                             )
                         ))
-                    # print("*Create new category", category)
+                    
                     # Ensure `pre_save` and `post_save` run and assign `c_id`
                     category.refresh_from_db()
 
@@ -223,7 +233,6 @@ class LedgeUpdate:
                     created_by=self.instance.created_by,
                     sync_to_accounting=True
                 ))
-
 
             # Ensure `pre_save` and `post_save` run and assign `c_id`
             account.refresh_from_db()  # Fetch updated values, including c_id
@@ -304,23 +313,27 @@ class LedgerFunctionalUpdate(LedgeUpdate):
 
         # parent
         queryset = AccountCategory.objects.filter(tenant=self.instance.tenant)
-        
+
         if field_name == 'category_expense':
             parent = queryset.filter(
                 number=self.top_level_expense).first()
-        elif field_name == 'top_level_revenue':
+        elif field_name == 'category_revenue':
             parent = queryset.filter(
                 number=self.top_level_revenue).first()
         else:
             raise ValueError(f"{field_name}: not a valid field name")
-
+            
+        if not parent:
+            raise ValueError(
+                f"No top category found for {self.instance} / {field_name}. "
+                f"Did you run the account setup?")
+                    
         return create, parent
 
-    def get_account_category(self):
+    def get_account_category(self):        
         if (self.instance.hrm[0] in self.accounts_expense
-                or '9000.' in self.instance.hrm):
-            return self.instance.parent.category_expense
-        print("*revenue", self.instance.hrm[0], self.accounts_expense)
+                or '9000.' in self.instance.hrm):            
+            return self.instance.parent.category_expense        
         return self.instance.parent.category_revenue
 
 

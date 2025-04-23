@@ -31,7 +31,7 @@ def ledger_balance_pre_delete(sender, instance, **kwargs):
 @receiver(pre_save, sender=LedgerPL)
 def ledger_pl_pre_save(sender, instance, **kwargs):
     '''Signal handler for pre_save signals on LedgerPL '''
-    # Assign    
+    # Assign
     if instance.sync_to_accounting:
         ledger = Ledger(sender, instance, **kwargs)
         instance = ledger.update()
@@ -39,7 +39,7 @@ def ledger_pl_pre_save(sender, instance, **kwargs):
 
 # LedgerIC
 @receiver(pre_save, sender=LedgerIC)
-def ledger_pl_pre_save(sender, instance, **kwargs):
+def ledger_ic_pre_save(sender, instance, **kwargs):
     '''Signal handler for pre_save signals on LedgerIC '''
     # Assign
     if instance.sync_to_accounting:

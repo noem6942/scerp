@@ -108,6 +108,7 @@ class ImportExport:
                 'name': name_json,
                 'tenant': self.tenant,
                 'ledger': self.ledger,
+                'manual_creation': False,  # important for getting parent
                 'created_by': self.request.user,
                 'sync_to_accounting': True
             })

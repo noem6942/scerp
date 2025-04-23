@@ -213,9 +213,8 @@ def get_data(modeladmin, request, queryset, update, delete_not_existing):
     language = None  # i.e. English
     if api:
         handler = api(modeladmin.model)        
-        setup = queryset.first().setup
-        tenant = setup.tenant
-        handler.get(setup, request.user, update, delete_not_existing)
+        tenant = queryset.first().tenant
+        handler.get(tenant, request.user, update, delete_not_existing)
     else:
         messages.warning(request, _("Cannot retrieve data for this list"))    
 
@@ -229,9 +228,9 @@ def accounting_get_data(modeladmin, request, queryset, data):
     language = None  # i.e. English
     if api:        
         handler = api(modeladmin.model, language=language)
-        setup = queryset.first().setup
+        tenant = queryset.first().tenant
         handler.get(
-            setup, request.user, 
+            tenant, request.user, 
             overwrite_data=data['overwrite_data'], 
             delete_not_existing=data['delete_not_existing']
         )        
@@ -270,7 +269,10 @@ def sync_accounting(modeladmin, request, queryset):
 def de_sync_accounting(modeladmin, request, queryset):
     ''' update is_enabled_sync to False '''
     if action_check_nr_selected(request, queryset, min_count=1):
-        queryset = queryset.update(is_enabled_sync=False)
+        queryset = queryset.update(
+            is_enabled_sync=False,
+            c_id=None, # we also deconnect c_id --> create a new object if needed
+        )
 
 
 @admin.action(description=_("Approve"))

@@ -917,7 +917,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     # Helpers
     help_text = _(
         'Every incoming invoice must be based on a contract. '
-        'Here you defined all the repeating supplier data. ')
+        'Here you define all repeating supplier data. ')
 
     # Display these fields in the list view
     list_display = (
@@ -1072,7 +1072,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display = (
         'date', 'display_category_type', 'description', 'display_customer',
         'category__currency', 'status'
-    )  + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
+    )  + FIELDS.C_DISPLAY_SHORT + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
     list_display_links = (
         'date', 'display_category_type', 'description'
     ) + CORE_FIELDS.LINK_ATTACHMENT
@@ -1087,7 +1087,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'category', 'contract', 'status', 'description', 'date',
-                'due_days', 'responsible_person'),
+                'associate', 'due_days', 'responsible_person'),
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,

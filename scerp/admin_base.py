@@ -5,6 +5,7 @@ Admin configuration for the scerp app.
 
 This module contains the configuration for models and views that manage the admin interface.
 """
+from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -294,11 +295,12 @@ class TenantFilteringAdmin(admin.ModelAdmin):
         # Atomic save with error handling
         self.has_errors = True
 
-        with transaction.atomic():
-            super().save_model(request, instance, form, change)
-            self.has_errors = False
-        return
-        
+        if settings.DEBUG:
+            with transaction.atomic():
+                super().save_model(request, instance, form, change)
+                self.has_errors = False
+            return
+
         # debug
         try:
             with transaction.atomic():

@@ -8,7 +8,7 @@ from django.utils.encoding import force_str
 from django.utils.translation import gettext_lazy as _
 
 from core.models import PersonBankAccount, PersonContact, PersonAddress
-from scerp.mixins import get_translations
+from scerp.mixins import get_translations, primary_language
 from . import api_cash_ctrl, models
 from .api_cash_ctrl import convert_to_xml, prepare_dict
 from .api_cash_ctrl import PERSON_CATEGORY, TITLE
@@ -331,7 +331,6 @@ class Account(CashCtrl):
         # category_id
         data['category_id'] = (
             instance.category.c_id if instance.category else None)
-        print("*data['category_id']", data['category_id'])
 
         # currency_id
         data['currency_id'] = (
@@ -581,7 +580,7 @@ class OrderCategoryOutgoing(OrderCategory):
                 'name': convert_to_xml(get_translations('Payment'))
             }
         else:
-            raise ErrorValue("Bank account has no booking account assigned")
+            raise ValueError("Bank account has no booking account assigned")
 
         # assign
         data['book_templates'] = [booking, payment]
@@ -601,8 +600,7 @@ class Order(CashCtrl):
         # Category, person
         data['category_id'] = instance.category.c_id
         if instance.responsible_person:
-            person = models.Person.objects.filter(
-                core=instance.responsible_person).first()
+            person = instance.responsible_person
             data['responsible_person_id'] = person.c_id if person else None
 
         # status_id - temp!!! Later with dynamic form
@@ -618,8 +616,7 @@ class OrderContract(Order):
         self.make_base(instance, data)
 
         # associate
-        person = models.Person.objects.filter(
-            core=instance.associate).first()
+        person = instance.associate
         if not person or not person.c_id:
             raise ValueError("OrderContract: No associate.id given.")
         data['associate_id'] = person.c_id
@@ -646,8 +643,7 @@ class BookEntry(CashCtrl):
 
         # associate
         if instance.associate:
-            person = models.Person.objects.filter(
-                core=instance.associate).first()
+            person = instance.associate
             data['associate_id'] = person.c_id if person else None
 
         # Create one item with total price
@@ -665,8 +661,7 @@ class IncomingOrder(Order):
 
         # associate
         if instance.contract.associate:
-            person = models.Person.objects.filter(
-                core=instance.contract.associate).first()
+            person = instance.contract.associate
             data['associate_id'] = person.c_id if person else None
 
         # Create one item with total price
@@ -730,27 +725,26 @@ class OutgoingOrder(Order):
 
         # associate
         if instance.contract.associate:
-            person = models.Person.objects.filter(
-                core=instance.contract.associate).first()
+            person = instance.contract.associate
             data['associate_id'] = person.c_id if person else None
 
         # Create one item with total price
         category = instance.category
-        bank_account = PersonBankAccount.objects.filter(
-            tenant=instance.tenant,
-            person=instance.contract.associate,
-            type=PersonBankAccount.TYPE.DEFAULT
-        ).first()
 
+        # Create items from articles
+        queryset_items = models.OutgoingItem.objects.filter(
+            order=instance).order_by('id')
         data['items'] = [{
-            'accountId': instance.category.expense_account.c_id,
-            'name': instance.description,
-            'description': (
-                f"{PersonBankAccount._meta.verbose_name}: "
-                f"{bank_account.bic}, {bank_account.iban}"),
-            'unitPrice': float(instance.price_incl_vat),
-            'taxId': category.tax.c_id if category.tax else None
-        }]
+            'accountId': item.article.category.sales_account.c_id,
+            'name': primary_language(item.article.name),
+            'description': primary_language(item.article.description),
+            'quantity': item.quantity,
+            'unitPrice': float(item.article.sales_price),
+            'taxId': (
+                item.article.category.tax.c_id 
+                if item.article.category.tax.category.tax else None
+            )
+        } for item in queryset_items.all()]
 
         # Rounding
         if getattr(instance.category, 'rounding', None):
@@ -760,43 +754,6 @@ class OutgoingOrder(Order):
         if getattr(instance, 'due_days', None):
             data['due_days'] = instance.due_days
 
-    def adjust_for_upload(self, instance, data, created=None):
-        self.make_base(instance, data)
-
-        # associate
-        if instance.contract.associate:
-            person = models.Person.objects.filter(
-                core=instance.contract.associate).first()
-            data['associate_id'] = person.c_id if person else None
-
-        # Create one item with total price
-        category = instance.category
-        bank_account = PersonBankAccount.objects.filter(
-            tenant=instance.tenant,
-            person=instance.contract.associate,
-            type=PersonBankAccount.TYPE.DEFAULT
-        ).first()
-
-        if not bank_account:
-            raise ValueError(_("No bank account for creditor specified."))
-
-        data['items'] = [{
-            'accountId': instance.category.expense_account.c_id,
-            'name': instance.description,
-            'description': (
-                f"{PersonBankAccount._meta.verbose_name}: "
-                f"{bank_account.bic}, {bank_account.iban}"),
-            'unitPrice': float(instance.price_incl_vat),
-            'taxId': category.tax.c_id if category.tax else None
-        }]
-
-        # Rounding
-        if getattr(instance.category, 'rounding', None):
-            data['rounding_id'] = instance.category.rounding.c_id
-
-        # Due days
-        if getattr(instance, 'due_days', None):
-            data['due_days'] = instance.due_days
 
 '''
 class IncomingBookEntry(CashCtrl):

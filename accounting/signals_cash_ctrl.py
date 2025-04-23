@@ -413,9 +413,9 @@ def cost_center_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.AccountCategory)
 def account_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on AccountCategory. '''
-    if sync(instance):
+    if sync(instance):          
         api = conn.AccountCategory(sender)
-        api.save(instance, created)
+        api.save(instance, created)        
 
 
 @receiver(pre_delete, sender=models.AccountCategory)
@@ -440,9 +440,9 @@ def account_category_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.Account)
 def account_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Account. '''
-    if sync(instance):
+    if sync(instance):        
         api = conn.Account(sender)
-        api.save(instance, created)
+        api.save(instance, created)        
 
 
 @receiver(pre_delete, sender=models.Account)
@@ -704,14 +704,11 @@ def ledger_balance_post_save(sender, instance, created, **kwargs):
 @receiver(post_save, sender=models.LedgerPL)
 def ledger_pl_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Unit. '''
-    __ = created
-    print("*instance LedgerPL", instance)
+    __ = created    
     handler = LedgerPLUpdate(sender, instance)
     if handler.needs_update:
-        # creates or updates an Account in cashCtrl
-        print("*needs_update")
-        handler.save()
-        print("*saved", handler.instance.__dict__)
+        # creates or updates an Account in cashCtrl        
+        handler.save()        
 
 
 @receiver(post_save, sender=models.LedgerIC)
