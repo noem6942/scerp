@@ -21,3 +21,17 @@ Libraries:
 
 Docu:
     sphinx-build -b html docs/source docs/build/html
+
+## Bugs
+
+### accounting
+- FiscalPeriod: current not set correctly
+- Re-do Ledger Account Setup: Aufwand (ER), Ausgaben (IV) have duplicates
+
+
+## To-do's
+
+### accounting
+- Plan through: copy of ledger accounts to new or old fiscal year
+
+
