@@ -51,7 +51,7 @@ class Route(TenantAbstract):
         _('name'), max_length=50,
         help_text=_("name and period for route, e.g. Water, 24/1"))
     period = models.ForeignKey(
-        Period, on_delete=models.PROTECT, 
+        Period, on_delete=models.PROTECT,
         verbose_name=_('Period'), related_name='%(class)s_period')
     period_previous = models.ForeignKey(
         Period, on_delete=models.PROTECT, blank=True, null=True,
@@ -171,6 +171,11 @@ class Subscription(TenantAbstract):
             "subscriber / inhabitant / owner"
             "invoice address may be different to subscriber, defined under "
             "address"))
+    recipient = models.ForeignKey(
+        Person, on_delete=models.PROTECT, blank=True, null=True,
+        verbose_name=_('Invoice recipient'), 
+        related_name='%(class)s_recipient',
+        help_text=_("Invoice recipient if not subscriber."))
     address = models.ForeignKey(
         AddressMunicipal, verbose_name=_('Building Address'), null=True,
         on_delete=models.PROTECT, related_name='%(class)s_address',
@@ -192,7 +197,15 @@ class Subscription(TenantAbstract):
 
     @property
     def invoice_address(self):
-        addresses = PersonAddress.objects.filter(person=self.subscriber)
+        # Get Field
+        if self.recipient:
+            # First check point, usually empty
+            addresses = PersonAddress.objects.filter(person=self.recipient)
+        else:
+            # Take subscriber
+            addresses = PersonAddress.objects.filter(person=self.subscriber)
+
+        # Get address    
         invoice = addresses.filter(type=PersonAddress.TYPE.INVOICE)
         if invoice:
             return invoice.first()
@@ -206,7 +219,6 @@ class Subscription(TenantAbstract):
     @property
     def number(self):
         return f'S-{self.id}'
-
 
     def save(self, *args, **kwargs):
         ''' Make number '''

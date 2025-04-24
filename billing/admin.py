@@ -213,7 +213,8 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(Subscription, site=admin_site)
 class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'subscriber', 'address']
+    protected_foreigns = [
+        'tenant', 'version', 'subscriber', 'recipient', 'address']
     protected_many_to_many = ['articles']
     help_text = _(
         "Create a new subscription if owner changes, otherwise previous "
@@ -244,7 +245,8 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'subscriber', 'partner', 'display_invoice_address',
+                'subscriber', 'partner', 'recipient', 
+                'display_invoice_address',
                 'start', 'end', 'address', 'articles', 'counters'
             ),
         }),
