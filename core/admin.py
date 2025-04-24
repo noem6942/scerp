@@ -201,7 +201,7 @@ class TenantLogoAdmin(TenantFilteringAdmin, BaseAdmin):
 
     @admin.display(description=_('logo'))
     def display_logo(self, obj):
-        return Display.photo_h(obj.logo)
+        return Display.photo(obj.logo)
 
 
 # MunicipalAdmin + Tag ----------------------------------------------------
