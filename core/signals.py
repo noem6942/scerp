@@ -61,7 +61,6 @@ def tenant_post_save(sender, instance, created, **kwargs):
     init_data = read_yaml_file('core', YAML_FILENAME)
 
     # Title
-    '''
     for data in init_data['Title']:
         data.update({
             'created_by': instance.created_by,
@@ -72,7 +71,7 @@ def tenant_post_save(sender, instance, created, **kwargs):
             code=data.pop('code'),
             defaults=data)
         logger.info(f"created {obj}")
-    '''
+    
     # PersonCategory
     for data in init_data['PersonCategory']:
         data.update({
