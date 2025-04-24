@@ -53,9 +53,9 @@ def get_available_tenants(request, recheck_from_db=False):
         queryset = TenantSetup.objects.filter(
             users=request.user).order_by('tenant__name')
         available_tenants = [{
-            'id': tenant.id,
-            'name': tenant.name
-        } for tenant in queryset]
+            'id': setup.tenant.id,
+            'name': setup.tenant.name
+        } for setup in queryset]
 
     # Store available tenants
     request.session['available_tenants'] = available_tenants
