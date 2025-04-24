@@ -16,19 +16,18 @@ class CategoryFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin): 
         '''Return all categories '''
+        tenant_id = get_tenant_data(request).get('id') 
+        
         return [
             (category.id, primary_language(category.name)) 
-            for category in AssetCategory.objects.all()  # Fetch all categories
+            for category in AssetCategory.objects.filter(
+                tenant__id=tenant_id)  # Fetch all categories by tenant
         ]
 
     def queryset(self, request, queryset):
         # Fetch tenant info
-        tenant_data = get_tenant_data(request)  
-        tenant_id = tenant_data.get('id')            
-        
         if self.value():
             return queryset.filter(
-                tenant__id=tenant_id,
                 category=self.value()
             )
         return queryset

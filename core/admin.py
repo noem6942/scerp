@@ -442,7 +442,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     readonly_fields = ('nr',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
-    list_filter = ('category',)
+    list_filter = (filters.PersonCategoryFilter,)
     search_fields = ('company', 'first_name', 'last_name', 'alt_name')
 
     # Actions

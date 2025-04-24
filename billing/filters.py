@@ -18,8 +18,7 @@ class SubscriptionArticlesFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         '''Return categories filtered by tenant'''
-        tenant_data = get_tenant_data(request)
-        tenant_id = tenant_data.get('id')
+        tenant_id = get_tenant_data(request).get('id') 
 
         articles = Article.objects.filter(
             tenant_id=tenant_id
@@ -32,8 +31,7 @@ class SubscriptionArticlesFilter(admin.SimpleListFilter):
         ]
 
     def queryset(self, request, queryset):
-        tenant_data = get_tenant_data(request)
-        tenant_id = tenant_data.get('id')
+        tenant_id = get_tenant_data(request).get('id') 
 
         if self.value():
             return queryset.filter(
@@ -50,8 +48,7 @@ class MeasurementPeriodFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         '''Return categories filtered by tenant'''
-        tenant_data = get_tenant_data(request)
-        tenant_id = tenant_data.get('id')
+        tenant_id = get_tenant_data(request).get('id') 
 
         categories = Period.objects.filter(
             tenant_id=tenant_id  # Add tenant filtering here
@@ -60,8 +57,7 @@ class MeasurementPeriodFilter(admin.SimpleListFilter):
         return categories
 
     def queryset(self, request, queryset):
-        tenant_data = get_tenant_data(request)
-        tenant_id = tenant_data.get('id')
+        tenant_id = get_tenant_data(request).get('id') 
 
         if self.value():
             return queryset.filter(
@@ -77,8 +73,7 @@ class MeasurementRouteFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         '''Return categories filtered by tenant'''
-        tenant_data = get_tenant_data(request)
-        tenant_id = tenant_data.get('id')
+        tenant_id = get_tenant_data(request).get('id') 
 
         categories = Route.objects.filter(
             tenant_id=tenant_id  # Add tenant filtering here
@@ -87,8 +82,7 @@ class MeasurementRouteFilter(admin.SimpleListFilter):
         return categories
 
     def queryset(self, request, queryset):
-        tenant_data = get_tenant_data(request)
-        tenant_id = tenant_data.get('id')
+        tenant_id = get_tenant_data(request).get('id') 
 
         if self.value():
             return queryset.filter(
@@ -104,8 +98,7 @@ class MeasurementAreaFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         '''Return categories filtered by tenant'''
-        tenant_data = get_tenant_data(request)
-        tenant_id = tenant_data.get('id')
+        tenant_id = get_tenant_data(request).get('id') 
 
         areas = Area.objects.filter(
             tenant_id=tenant_id  # Add tenant filtering here
@@ -114,8 +107,7 @@ class MeasurementAreaFilter(admin.SimpleListFilter):
         return areas
 
     def queryset(self, request, queryset):
-        tenant_data = get_tenant_data(request)
-        tenant_id = tenant_data.get('id')
+        tenant_id = get_tenant_data(request).get('id') 
 
         if self.value():
             return queryset.filter(
