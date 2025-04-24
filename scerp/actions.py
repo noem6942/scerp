@@ -14,7 +14,8 @@ from .forms import ExportExcelActionForm, ExportJSONActionForm
 
 
 # Helpers
-def action_check_nr_selected(request, queryset, count=None, min_count=None):
+def action_check_nr_selected(
+        request, queryset, count=None, min_count=None, max_count=None):
     """
     This checks that a user selects the appropriate number of items in admin.py
     """
@@ -26,11 +27,17 @@ def action_check_nr_selected(request, queryset, count=None, min_count=None):
             return False
     elif min_count is not None:
         if queryset.count() < min_count:
-            msg =  _('Please select more than {count - 1} record(s).').format(
+            msg =  _('Please select more than {min_count} record(s).').format(
                     count=min_count)
             messages.warning(request, msg)
             return False
-
+    elif max_count is not None:
+        if queryset.count() > max_count:
+            msg =  _('Please select not more than {max_count} record(s).').format(
+                    count=min_count)
+            messages.warning(request, msg)
+            return False
+            
     return True
 
 

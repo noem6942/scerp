@@ -88,3 +88,14 @@ def tenant_setup_create_user(modeladmin, request, queryset, data):
         msg = _("Created {user} with password").format(
             user=data['username'], password=password)
         messages.info(request, msg)
+
+
+@action_with_form(
+    forms.AssignTitleForm, description=_("Assign Title to Users"))
+def assign_title(modeladmin, request, queryset, data):
+    __ = modeladmin  # disable pylint warning
+    if action_check_nr_selected(request, queryset, max_count=10):
+        title = data['title']
+        for person in queryset.all():
+            person.title = title
+            person.save()

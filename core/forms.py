@@ -53,11 +53,7 @@ class CreateUserForm(AdminActionForm):
     username = forms.CharField(label=_('Username'))
     person = forms.ModelChoiceField(
         label=_('Person'),
-        queryset=Person.objects.filter(
-            category__code__in=[
-                PersonCategory.CODE.EMPLOYEE, 
-                PersonCategory.CODE.EMPLOYEE_EXTERNAL
-            ]).order_by('last_name', 'first_name'),
+        queryset=Person.objects.none(),  # default empty, override in __post_init__
         required=True,
         help_text=_(
             "Select the existing employee (internal or external) "
@@ -71,3 +67,30 @@ class CreateUserForm(AdminActionForm):
 
     class Meta:
         help_text = _("Add a user")
+
+    def __post_init__(self, modeladmin, request, queryset):
+        tenant = queryset.first().tenant
+        self.fields['person'].queryset = Person.objects.filter(
+            tenant=tenant,
+            category__code__in=[
+                PersonCategory.CODE.EMPLOYEE, 
+                PersonCategory.CODE.EMPLOYEE_EXTERNAL
+            ]).order_by('last_name', 'first_name')
+
+
+class AssignTitleForm(AdminActionForm):
+    '''needs some update for tenant restriction
+    '''    
+    title = forms.ModelChoiceField(
+        label=_('Title'),
+        queryset=Title.objects.none(),  # default empty, override in __post_init__
+        required=True,
+        help_text=_("Select the title to be applied to all records"))
+
+    class Meta:
+        help_text = _("Add a user")
+
+    def __post_init__(self, modeladmin, request, queryset):
+        tenant = queryset.first().tenant
+        self.fields['title'].queryset = Title.objects.filter(
+            tenant=tenant).order_by('code')

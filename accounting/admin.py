@@ -193,7 +193,9 @@ class FiscalPeriodAdmin(TenantFilteringAdmin, BaseAdmin):
     protected_foreigns = ['tenant', 'version']
 
     # Display these fields in the list view
-    list_display = ('name', 'start', 'end', 'is_current', 'display_last_update')
+    list_display = (
+        'name', 'start', 'end', 'is_current', 'display_last_update'
+    ) + FIELDS.C_DISPLAY_SHORT
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
     
     # Search, filter

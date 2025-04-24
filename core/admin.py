@@ -389,6 +389,7 @@ class AddressInline(BaseTabularInline):
     '''
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'address', 'person']
+    protected_foreigns = ['tenant', 'version', 'address', 'person']
 
     # Inline
     model = models.PersonAddress
@@ -432,7 +433,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'company', 'first_name', 'last_name', 'alt_name', 'category',
+        'company', 'title', 'first_name', 'last_name', 'alt_name', 'category',
         'display_photo'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT + FIELDS.C_DISPLAY_SHORT
     list_display_links = (
@@ -445,7 +446,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('company', 'first_name', 'last_name', 'alt_name')
 
     # Actions
-    actions = [de_sync_accounting, sync_accounting]
+    actions = [de_sync_accounting, sync_accounting, a.assign_title]
 
     #Fieldsets
     fieldsets = (
