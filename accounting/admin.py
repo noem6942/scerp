@@ -23,7 +23,6 @@ from scerp.mixins import primary_language, show_hidden
 
 from . import forms, models, actions as a
 from .api_cash_ctrl import URL_ROOT as cashControl_URL_ROOT
-from .formset import RequireOneOutgoingItemFormSet
 from .resources import (
     LedgerBalanceResource, LedgerPLResource, LedgerICResource
 )
@@ -656,7 +655,7 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'nr', 'display_name', 'category', 'sales_price', 'unit',
+        'nr', 'display_name', 'category', 'display_price', 'unit',
     ) + FIELDS.C_DISPLAY_SHORT
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
     list_display_links = ('nr', 'display_name')
@@ -692,6 +691,10 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
+
+    @admin.display(description=_('Price (Excl. VAT)'))
+    def display_price(self, obj):
+        return Display.big_number(obj.sales_price)
 
 
 # Order Management ---------------------------------------------------------
