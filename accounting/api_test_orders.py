@@ -60,7 +60,7 @@ if __name__ == "__main__":
         conn = Account(org, api, convert_dt=False)
         data_list = conn.list()
         for data in data_list:
-            print("*", data['id'], data['name'])
+            print("*", data['id'], data['name'], data)
 
     if False:
         conn = OrderTemplate(org, api, convert_dt=False)
@@ -167,9 +167,9 @@ if __name__ == "__main__":
         conn = Order(org, api, convert_dt=False)
         data_list = conn.list(params={'type': 'PURCHASE'})
         for data in data_list:
-            print("*data", data['id'], data['date'])
-            if data['id'] == 45:
-                order = data
+            print("*data", data['id'], data['date'])        
+            if data['id'] == 49:
+                order = data        
 
         # OrderDocument
         print("*order", order)
@@ -177,6 +177,20 @@ if __name__ == "__main__":
         document = conn.read(order['id'])
         print("*document", document)
 
+        # Update Order
+        """
+        document.update({
+            'id': document.pop('order_id'),
+            'org_address': 'Org Address\nPlace\nxxx',
+            'recipient_address': 'Recipient Address\nPlace\nxxx',
+            'header': '''<p>This is my header text.</p>''',
+            'footer': '''<p>This is my footer text.</p>'''
+        })
+        response = conn.update(document)
+        print("*r", response)
+        """
+
+        '''
         # OrderLayout
         conn = OrderLayout(org, api, convert_dt=False)
         layout = conn.read(document['layout_id'])
@@ -185,6 +199,8 @@ if __name__ == "__main__":
             yaml.dump(
                 layout, file, default_flow_style=False, allow_unicode=True, 
                 width=float('inf'))
+        '''
+        
     if False:
         '''order, get document take 42
         '''
@@ -216,7 +232,6 @@ if __name__ == "__main__":
         conn = File(org, api, convert_dt=False)
         data = {
             'category_id': 1,
-
         }
         filepath = 'C:/Users/micha/Documents/01_high_prio_bus/00 dev/python/django/env_3.10_projects/scerp/accounting/fixtures/appendix_3.pdf'
         response = conn.upload(filepath, data)

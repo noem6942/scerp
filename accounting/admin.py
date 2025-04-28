@@ -15,7 +15,7 @@ from core.models import Country, Address, Contact
 from core.safeguards import get_tenant, save_logging
 from scerp.actions import export_excel, default_actions
 from scerp.admin import (
-     BaseAdmin, BaseTabularInline, Display, 
+     BaseAdmin, BaseTabularInline, Display,
      verbose_name_field, make_language_fields)
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
@@ -23,6 +23,7 @@ from scerp.mixins import primary_language, show_hidden
 
 from . import forms, models, actions as a
 from .api_cash_ctrl import URL_ROOT as cashControl_URL_ROOT
+from .formset import RequireOneOutgoingItemFormSet
 from .resources import (
     LedgerBalanceResource, LedgerPLResource, LedgerICResource
 )
@@ -97,7 +98,7 @@ class CustomFieldAdmin(TenantFilteringAdmin, BaseAdmin):
 class SettingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
-    
+
     # Helpers
     help_text = _("Read only model. Use cashControl for edits.")
 
@@ -122,7 +123,7 @@ class SettingAdmin(TenantFilteringAdmin, BaseAdmin):
     )
 
     @admin.display(description=_('Data'))
-    def display_json(self, obj):        
+    def display_json(self, obj):
         return Display.json(obj.data)
 
     @admin.display(description=_('Link'))
@@ -136,7 +137,7 @@ class Location(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
     read_only = True
-    
+
     # Helpers
     help_text = _("Read only model. Use cashControl for edits.")
 
@@ -197,7 +198,7 @@ class FiscalPeriodAdmin(TenantFilteringAdmin, BaseAdmin):
         'name', 'start', 'end', 'is_current', 'display_last_update'
     ) + FIELDS.C_DISPLAY_SHORT
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
-    
+
     # Search, filter
     search_fields = ('name', 'start', 'end', 'is_current')
     list_filter = ('is_current',)
@@ -250,17 +251,17 @@ class UnitAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
-    
-    
+
+
 @admin.register(models.BankAccount, site=admin_site)
 class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
         'tenant', 'version', 'account', 'currency']
     read_only = True  # as long as cashControl bug not resolved
-    
+
     # Helpers
-    help_text = _("Read only model. Use cashControl for edits.")    
+    help_text = _("Read only model. Use cashControl for edits.")
     form = forms.BankAccountAdminForm
 
     # Display these fields in the list view
@@ -288,7 +289,7 @@ class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
-    )    
+    )
 
 
 @admin.register(models.Tax, site=admin_site)
@@ -380,9 +381,9 @@ class SequenceNumberAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
     read_only = True
-    
+
     # Helpers
-    help_text = _("Read only model. Use cashControl for edits.")    
+    help_text = _("Read only model. Use cashControl for edits.")
 
     # Display these fields in the list view
     list_display = ('display_name', 'pattern') + FIELDS.C_DISPLAY_SHORT
@@ -390,7 +391,7 @@ class SequenceNumberAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('name',)
-    
+
     # Actions
     actions = accounting_actions + default_actions
 
@@ -473,7 +474,7 @@ class CostCenterAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.Currency, site=admin_site)
 class CurrencyAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version']    
+    protected_foreigns = ['tenant', 'version']
     read_only = True
 
     # Helpers
@@ -525,7 +526,7 @@ class AccountCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     ordering = [Cast('number', CharField())]
 
     # Search, filter
-    search_fields = ('name', 'number')    
+    search_fields = ('name', 'number')
 
     # Actions
     actions = accounting_actions + default_actions
@@ -602,7 +603,7 @@ class AccountAdmin(TenantFilteringAdmin, BaseAdmin):
 class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'purchase_account',  'sales_account', 
+        'tenant', 'purchase_account',  'sales_account',
         'sequence_nr'
     ]
 
@@ -616,7 +617,7 @@ class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display_links = ('code', 'display_name',)
 
     # Search, filter
-    search_fields = ('code', 'name')    
+    search_fields = ('code', 'name')
 
     # Actions
     actions = accounting_actions + default_actions
@@ -646,7 +647,7 @@ class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
 class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'category', 'currency', 'location', 
+        'tenant', 'version', 'category', 'currency', 'location',
         'sequence_nr', 'unit'
     ]
 
@@ -661,7 +662,7 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display_links = ('nr', 'display_name')
 
     # Search, filter
-    search_fields = ('code', 'name')
+    search_fields = ('nr', 'name', 'unit__code', 'unit__name', 'sales_price')
     list_filter = ('category',)
 
     # Actions
@@ -672,7 +673,7 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'category', *make_language_fields('name'),
-                'sales_price', 'unit', 'sequence_nr', 'nr', 
+                'sales_price', 'unit', 'sequence_nr', 'nr',
                 *make_language_fields('description')),
             'classes': ('expand',),
         }),
@@ -698,7 +699,7 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
 class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
-    
+
     # Display these fields in the list view
     list_display = ('name', 'is_default') + FIELDS.C_DISPLAY_SHORT
     readonly_fields = FIELDS.C_READ_ONLY
@@ -713,21 +714,21 @@ class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'name', 'is_default', 
+                'name', 'is_default',
             ),
             'classes': ('expand',),
         }),
         (_('Layout'), {
             'fields': (
-                'elements', 'footer', 
-                'is_display_document_name', 'is_display_item_article_nr', 
-                'is_display_item_price_rounded', 'is_display_item_tax', 
-                'is_display_item_unit', 'is_display_logo', 
-                'is_display_org_address_in_window', 'is_display_page_nr', 
-                'is_display_payments', 'is_display_pos_nr', 
+                'elements', 'footer',
+                'is_display_document_name', 'is_display_item_article_nr',
+                'is_display_item_price_rounded', 'is_display_item_tax',
+                'is_display_item_unit', 'is_display_logo',
+                'is_display_org_address_in_window', 'is_display_page_nr',
+                'is_display_payments', 'is_display_pos_nr',
                 'is_display_recipient_nr', 'is_display_responsible_person',
-                'is_display_zero_tax', 'is_overwrite_css', 'is_overwrite_html', 
-                'is_qr_empty_amount', 'is_qr_no_lines', 
+                'is_display_zero_tax', 'is_overwrite_css', 'is_overwrite_html',
+                'is_qr_empty_amount', 'is_qr_no_lines',
                 'is_qr_no_reference_nr', 'letter_paper_file_id', 'logo_height',
                 'page_size'
             ),
@@ -737,7 +738,7 @@ class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
-    
+
 
 @admin.register(models.BookTemplate, site=admin_site)
 class BookTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
@@ -781,11 +782,11 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
     # Helpers
     form = forms.OrderCategoryContractAdminForm
     help_text = _("Template for Contracts.")
-    
+
     # Display these fields in the list view
     list_display = (
         'type', 'code', 'display_name_plural') + FIELDS.C_DISPLAY_SHORT
-    list_display_links = ('type', 'code', 'display_name_plural')        
+    list_display_links = ('type', 'code', 'display_name_plural')
     readonly_fields = (
         'display_name', 'status_data', 'book_template_data'
     ) + FIELDS.C_READ_ONLY
@@ -797,9 +798,9 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'type', 
+                'code', 'type',
                 *make_language_fields('name_singular'),
-                *make_language_fields('name_plural'), 
+                *make_language_fields('name_plural'),
                 'layout', 'is_display_prices', 'org_location',
                 'header', 'footer'
             ),
@@ -810,7 +811,7 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
                 'status_data', 'book_template_data'
             ),
             'classes': ('collapse',),
-        }),        
+        }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
@@ -821,7 +822,7 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
 class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'credit_account', 'expense_account', 
+        'tenant', 'version', 'credit_account', 'expense_account',
         'bank_account', 'tax', 'currency', 'layout'
     ]
 
@@ -830,7 +831,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'code', 'display_name_plural', 'credit_account', 'expense_account', 
+        'code', 'display_name_plural', 'credit_account', 'expense_account',
         'bank_account',
     ) + FIELDS.C_DISPLAY_SHORT
     list_display_links = ('code', 'display_name_plural')
@@ -843,7 +844,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 
+                'code',
                 *make_language_fields('name_singular'),
                 *make_language_fields('name_plural'), 'layout'
             ),
@@ -867,7 +868,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
 class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'debit_account', 'bank_account',  
+        'tenant', 'version', 'debit_account', 'bank_account',
         'currency', 'layout'
     ]
 
@@ -883,14 +884,16 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('code', 'name')
+    autocomplete_fields = [
+        'responsible_person', 'debit_account', 'bank_account']
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'code', 
+                'code',
                 *make_language_fields('name_singular'),
-                *make_language_fields('name_plural'), 
+                *make_language_fields('name_plural'),
                 'responsible_person', 'layout'
             ),
             'classes': ('expand',),
@@ -915,7 +918,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
         'tenant', 'version', 'associate', 'category', 'currency',
         'responsible_person'
     ]
-    
+
     # Helpers
     help_text = _(
         'Every incoming invoice must be based on a contract. '
@@ -923,11 +926,11 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'date', 'display_category_type', 'description', 'display_supplier',
+        'date', 'category', 'description', 'display_supplier',
         'price_excl_vat', 'currency', 'status'
     ) + FIELDS.C_DISPLAY_SHORT
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
-    list_display_links = ('date', 'display_category_type', 'description')
+    list_display_links = ('date', 'description')
 
     # Search, filter
     search_fields = ('supplier__company', 'description')
@@ -963,7 +966,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
 class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'contract', 'category', 
+        'tenant', 'version', 'contract', 'category',
         'responsible_person'
     ]
 
@@ -991,7 +994,7 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'category', 'contract', 'status', 'description', 'date',
+                'category', 'type', 'contract', 'status', 'description', 'date',
                 'price_incl_vat', 'due_days', 'reference',
                 'responsible_person', 'display_bank_account'),
             'classes': ('expand',),
@@ -1000,7 +1003,7 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
-    
+
     inlines = [AttachmentInline]
 
     @admin.display(description=_('Price (Incl. VAT)'))
@@ -1051,12 +1054,12 @@ class IncomingBookEntry(TenantFilteringAdmin, BaseAdmin):
 
 class OutgoingItemsInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
-    protected_foreigns = [
-        'tenant', 'version', 'article', 'order']
+    protected_foreigns = ['tenant', 'version', 'article', 'order']
 
     # Inline
     model = models.OutgoingItem
     fields = ['article', 'quantity']  # Only show these fields
+    #formset = RequireOneOutgoingItemFormSet  # Force at least one article
     extra = 1  # Number of empty forms displayed
     autocomplete_fields = ['article']  # Improves FK selection performance
     show_change_link = True  # Shows a link to edit the related model
@@ -1066,37 +1069,38 @@ class OutgoingItemsInline(BaseTabularInline):  # or admin.StackedInline
 class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'contract', 'category', 
-        'responsible_person'
+        'tenant', 'version', 'contract', 'category', 'responsible_person'
     ]
 
     # Display these fields in the list view
     list_display = (
-        'date', 'display_category_type', 'description', 'display_customer',
+        'date', 'category', 'description', 'display_customer',
         'category__currency', 'status'
     )  + FIELDS.C_DISPLAY_SHORT + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
     list_display_links = (
-        'date', 'display_category_type', 'description'
+        'date', 'description'
     ) + CORE_FIELDS.LINK_ATTACHMENT
-    readonly_fields = ('display_category_type',) + FIELDS.C_READ_ONLY
+    readonly_fields = FIELDS.C_READ_ONLY
 
     # Search, filter
     search_fields = ('contract__associate_company', 'description')
     list_filter = ('category', 'status', 'date')
+    autocomplete_fields = ['associate', 'responsible_person']
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
                 'category', 'contract', 'status', 'description', 'date',
-                'associate', 'due_days', 'responsible_person'),
+                'associate', 'due_days', 'responsible_person',
+                'header', 'footer'),
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
-    
+
     inlines = [OutgoingItemsInline, AttachmentInline]
 
     @admin.display(description=_('Supplier'))
@@ -1282,7 +1286,7 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
     """
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'ledger', 'parent', 'account', 
+        'tenant', 'version', 'ledger', 'parent', 'account',
         'category_expense', 'category_revenue'
     ]
 

@@ -1195,9 +1195,6 @@ class OrderCategory(AcctApp):
     code = models.CharField(
         _('Code'), max_length=50,
         help_text='Internal code for scerp')
-    type = models.CharField(
-        _('Type'), max_length=10,
-        choices=TYPE.choices, default=TYPE.PURCHASE)
     name_singular = models.JSONField(
         _('Name, singular'), blank=True, null=True,
         help_text=_(
@@ -1308,6 +1305,12 @@ class OrderCategoryContract(OrderCategory):
         STATUS.TERMINATION_CONFIRMED: COLOR.BROWN,
         STATUS.ARCHIVED: COLOR.GRAY,
     }
+
+    type = models.CharField(
+        _('type'), max_length=10,
+        choices=OrderCategory.TYPE.choices,
+        default=OrderCategory.TYPE.PURCHASE,
+        help_text=('Underlying contract aligend to purchases or sales'))
     org_location = models.ForeignKey(
         Location, verbose_name=_('Organisation'),
         on_delete=models.PROTECT, related_name='%(class)s_location',
@@ -1347,7 +1350,8 @@ class OrderCategoryContract(OrderCategory):
     '''
 
     def __str__(self):
-        return _('Contracts') + ': ' + primary_language(self.name_plural)
+        return (
+            f"{self.get_type_display()}: {primary_language(self.name_plural)}")
 
     class Meta:
         constraints = [
@@ -1401,8 +1405,8 @@ class OrderCategoryIncoming(OrderCategory):
         STATUS.ARCHIVED: False,
         STATUS.CANCELLED: True,
     }
-    is_display_item_gross = True
 
+    is_display_item_gross = True
     credit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_credit_account',
@@ -1516,8 +1520,9 @@ class OrderCategoryOutgoing(OrderCategory):
         STATUS.ARCHIVED: False,
         STATUS.CANCELLED: True,
     }
-    is_display_item_gross = True
 
+    is_display_item_gross = True
+    type = OrderCategory.TYPE.SALES
     debit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_debit_account',
@@ -1568,7 +1573,7 @@ class OrderCategoryOutgoing(OrderCategory):
     '''
 
     def __str__(self):
-        return _('Creditors') + ': ' + primary_language(self.name_plural)
+        return _('Debtors') + ': ' + primary_language(self.name_plural)
 
     class Meta:
         constraints = [
@@ -1759,7 +1764,7 @@ class OutgoingOrder(Order):
     responsible_person = models.ForeignKey(
         Person, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Clerk'), related_name='%(class)s_person',
-        help_text=_('Clerk, leave empty or defined in category'))
+        help_text=_('Clerk, leave empty if defined in category'))
     attachments = GenericRelation('core.Attachment')
 
     # custom
@@ -1769,13 +1774,13 @@ class OutgoingOrder(Order):
     header = models.TextField(
         _("Header Text"), blank=True, null=True,
         help_text=_(
-            "The text displayed above  the items list on the document used by "
-            "default for order objects. Leave empty if default."))
+            "The text displayed above the items list on the document. "
+            "Leave empty if default."))
     footer = models.TextField(
         _("Footer Text"), blank=True, null=True,
         help_text=_(
-            "The text displayed below the items list on the document used by "
-            "default for order objects. Leave empty if default."))
+            "The text displayed below the items list on the document. "
+            "Leave empty if default."))
 
     def __str__(self):
         return (f"{self.contract.associate.company}, {self.date}, "
@@ -1793,13 +1798,16 @@ class OutgoingItem(AcctApp):
     quantity = models.DecimalField(
         _('Quantity'), max_digits=11, decimal_places=2)
     order = models.ForeignKey(
-        OutgoingOrder, on_delete=models.PROTECT,
+        OutgoingOrder, on_delete=models.CASCADE,
         related_name='%(class)s_order',
         verbose_name=_('Order'))
 
+    def __str__(self):
+        return f"{self.quantity} * {primary_language(self.article.name)}"
+
     class Meta:
         verbose_name = _("Article")
-        verbose_name_plural = _("Articles")
+        verbose_name_plural = _("Articles")        
 
 
 class BookEntry(AcctApp):

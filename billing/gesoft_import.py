@@ -399,7 +399,7 @@ class AreaAssignment(ImportAddress):
                 address.area = area_obj[AREA.GUNZGEN.value['code']]
             address.save()
             count += 1
-        
+
         logging.info(f"Updated {count} addresses")
 
 
@@ -969,6 +969,42 @@ class ImportData(ImportAddress):
                         logger.warning(msg)
 
 
+class ArticleCopy(Import):
+
+    def make_daily(self):
+        '''
+        look for period articles and make day articles
+        '''
+        # Init
+        articles = Article.objects.filter(
+            tenant=self.tenant, unit__code='period')
+        article_nr_copies = [
+            article.nr
+            for article in Article.objects.filter(
+                tenant=self.tenant, nr__endswith='-D')
+        ]
+        unit = Unit.objects.filter(
+            tenant=self.tenant, code='day').first()
+
+        # Copy
+        count = 0
+        for article in articles:
+            # assign and check nr
+            article.nr += '-D'
+            if article.nr not in article_nr_copies:
+                # make a copy
+                article.pk = None
+                article.c_id = None
+                article.sync_to_accounting = True
+                article.sales_price = float(article.sales_price / 180)
+                article.unit = unit                
+                article.save()
+                count += 1
+                logger.info(f"saving {article.nr}")
+                
+        return count
+
+
 class ImportArchive(Import):
     '''class for archiving, load after actual Subscriptions have been loaded
     '''
@@ -1038,11 +1074,11 @@ class ImportArchive(Import):
                 if steuercode_gebuehren != 'A':
                     continue  # no measurement
                 """
-                # Period                
+                # Period
                 period_str = str(periode)
                 if len(period_str) < 4:
                     period_str = '0' + period_str
-                
+
                 year = 2000 + int(period_str[:2])
                 month = 4 if period_str[-1] == '1' else 10
                 day = 1

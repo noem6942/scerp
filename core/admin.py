@@ -384,7 +384,7 @@ class AddressAdmin(TenantFilteringAdmin, BaseAdmin):
         return {'country': get_object_or_404(models.Country, alpha3='CHE')}
 
 
-class AddressInline(BaseTabularInline):
+class PersonAddressInline(BaseTabularInline):
     ''' slow, inlines need improvment --> read-only
     '''
     # Safeguards
@@ -393,7 +393,6 @@ class AddressInline(BaseTabularInline):
 
     # Inline
     model = models.PersonAddress
-    form = forms.PersonAddressForm
     fields = ['type', 'address', 'post_office_box', 'additional_information']
     extra = 0  # Number of empty forms displayed
     autocomplete_fields = ['address']  # Enables a searchable dropdown
@@ -479,7 +478,7 @@ class PersonAdmin(TenantFilteringAdmin, BaseAdmin):
     )
 
     inlines = [
-        AddressInline, ContactInline, BankAccountInline, AttachmentInline
+        PersonAddressInline, ContactInline, BankAccountInline, AttachmentInline
     ]
 
 
@@ -493,6 +492,7 @@ class PersonAddressAdmin(TenantFilteringAdmin, BaseAdmin):
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
+    search_fields = ('address__address', 'address__zip', 'address__city')
 
     # Actions
 

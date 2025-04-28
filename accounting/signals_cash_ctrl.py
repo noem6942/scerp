@@ -69,13 +69,13 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
 
     # shift core data to accounting
     core_models = (
-        Title, 
-        PersonCategory, 
+        Title,
+        PersonCategory,
         #Person,
         Unit,
-        AssetCategory, 
+        AssetCategory,
         #Device
-    ) 
+    )
     for model in core_models:
         queryset = model.objects.filter(tenant=tenant, is_enabled_sync=False)
         for obj in queryset.all():
@@ -413,9 +413,9 @@ def cost_center_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.AccountCategory)
 def account_category_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on AccountCategory. '''
-    if sync(instance):          
+    if sync(instance):
         api = conn.AccountCategory(sender)
-        api.save(instance, created)        
+        api.save(instance, created)
 
 
 @receiver(pre_delete, sender=models.AccountCategory)
@@ -440,9 +440,9 @@ def account_category_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.Account)
 def account_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Account. '''
-    if sync(instance):        
+    if sync(instance):
         api = conn.Account(sender)
-        api.save(instance, created)        
+        api.save(instance, created)
 
 
 @receiver(pre_delete, sender=models.Account)
@@ -660,10 +660,23 @@ def incoming_order_pre_delete(sender, instance, **kwargs):
 # OutgoingOrder
 @receiver(post_save, sender=models.OutgoingOrder)
 def outgoing_order_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on OutgoingOrder. '''
+    '''
+    Signal handler for post_save signals on OutgoingOrder.
+
+    We need this because we want to delay that the add operations to
+    manytomany fields are done
+    '''
+    def handle_sync(instance, created):
+        '''Perform API sync after the transaction is committed.'''
+        if sync(instance):
+            api = conn.OutgoingOrder(sender)
+            print("*save")
+            api.save(instance, created)
+
     if sync(instance):
-        api = conn.OutgoingOrder(sender)
-        api.save(instance, created)
+        # Delay the sync call until after the transaction commits
+        print("*syn")
+        transaction.on_commit(lambda: handle_sync(instance, created))
 
 
 @receiver(pre_delete, sender=models.OutgoingOrder)
@@ -704,11 +717,11 @@ def ledger_balance_post_save(sender, instance, created, **kwargs):
 @receiver(post_save, sender=models.LedgerPL)
 def ledger_pl_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Unit. '''
-    __ = created    
+    __ = created
     handler = LedgerPLUpdate(sender, instance)
     if handler.needs_update:
-        # creates or updates an Account in cashCtrl        
-        handler.save()        
+        # creates or updates an Account in cashCtrl
+        handler.save()
 
 
 @receiver(post_save, sender=models.LedgerIC)

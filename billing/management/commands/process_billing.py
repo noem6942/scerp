@@ -3,6 +3,7 @@
     python manage.py process_billing gesoft --tenant_id=12 --route_id=1 --date=2024-09-30
     python manage.py process_billing gesoft_area --tenant_id=12
     python manage.py process_billing gesoft_archive --tenant_id=12
+    python manage.py process_billing article_import --tenant_id=12
 '''
 import json
 from django.core.management.base import BaseCommand
@@ -15,7 +16,9 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             'action',  # Positional argument
-            choices=['gesoft', 'gesoft_area', 'gesoft_archive'],
+            choices=[
+                'gesoft', 'gesoft_area', 'gesoft_archive', 'article_import'
+            ],
             help='Specify the action: gesoft'
         )
         parser.add_argument(
@@ -64,6 +67,14 @@ class Command(BaseCommand):
             # Load subscribers + counters
             handler = AreaAssignment(tenant_id)
             handler.assign()
+
+        elif action == 'article_import':
+            # Import library
+            from billing.gesoft_import import ArticleCopy
+
+            # Make daily articles
+            handler = ArticleCopy(tenant_id)
+            handler.make_daily()
 
         elif action == 'gesoft_archive':
             # Import library

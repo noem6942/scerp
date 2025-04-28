@@ -35,8 +35,8 @@ class CashCtrl:
 
     def _get_api(self, tenant):
         self.api = self.api_class(
-            tenant.cash_ctrl_org_name, 
-            tenant.cash_ctrl_api_key, 
+            tenant.cash_ctrl_org_name,
+            tenant.cash_ctrl_api_key,
             language=self.language
         )
         return self.api
@@ -163,12 +163,17 @@ class CashCtrl:
             reload_keys = getattr(self, 'reload_keys', [])
             if reload_keys:
                 self.reload(instance)
+
+            # Save
             update_fields = CASH_CTRL_FIELDS + reload_keys
             instance.save(
                 update_fields=['c_id', 'sync_to_accounting'] + reload_keys)
         else:
             data['id'] = instance.c_id
             _response = api.update(data)
+
+        if getattr(self, 'post_save', None):
+            self.post_save(instance)
 
     def delete(self, instance):
         api = self._get_api(instance.tenant)
@@ -229,7 +234,7 @@ class Location(CashCtrl):
 class FiscalPeriod(CashCtrl):
     api_class = api_cash_ctrl.FiscalPeriod
     exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
-        
+
 
 class Currency(CashCtrl):
     api_class = api_cash_ctrl.Currency
@@ -603,8 +608,11 @@ class Order(CashCtrl):
             person = instance.responsible_person
             data['responsible_person_id'] = person.c_id if person else None
 
-        # status_id - temp!!! Later with dynamic form
-        for index, status in enumerate(models.OrderCategoryIncoming.STATUS):
+        # model is in [OrderCategoryIncoming, OrderCategoryOutgoing]
+        category_model = instance.category._meta.model
+
+        # Get status
+        for index, status in enumerate(category_model.STATUS):
             if instance.status == status:
                 break
         data['status_id'] = instance.category.status_data[index]['id']
@@ -634,6 +642,7 @@ class OrderContract(Order):
             'name': description,
             'unitPrice': float(instance.price_excl_vat)
         }]
+        print("*data", data)
 
 
 class BookEntry(CashCtrl):
@@ -701,7 +710,7 @@ class IncomingOrder(Order):
         for attachment in instance.attachments.all():
             # upload file
             conn = api_cash_ctrl.File(
-                instance.tenant.cash_ctrl_org_name, 
+                instance.tenant.cash_ctrl_org_name,
                 instance.tenant.cash_ctrl_api_key)
             data = {
                 'name': attachment.file.name,
@@ -711,7 +720,7 @@ class IncomingOrder(Order):
 
             # update OrderDocument
             conn = api_cash_ctrl.OrderDocument(
-                instance.tenant.cash_ctrl_org_name, 
+                instance.tenant.cash_ctrl_org_name,
                 instance.tenant.cash_ctrl_api_key)
             document = self.api.read(instance.c_id)
             document['file_id'] = file_id
@@ -723,27 +732,44 @@ class OutgoingOrder(Order):
     def adjust_for_upload(self, instance, data, created=None):
         self.make_base(instance, data)
 
-        # associate
-        if instance.contract.associate:
-            person = instance.contract.associate
-            data['associate_id'] = person.c_id if person else None
+        # category, associate
+        data.update({
+            'category': instance.category.c_id,
+            'associate_id': instance.associate.c_id,
+        })
+        
+        # currency
+        if instance.category.currency:
+            data['currency_id'] = instance.category.currency.c_id
 
-        # Create one item with total price
-        category = instance.category
+        # responsible_person
+        if instance.category.responsible_person:
+            person = instance.category.responsible_person
+        elif instance.responsible_person:
+            person = instance.responsible_person
+        else:
+            person = None
+
+        if person:
+            data['responsible_person_id'] = person.c_id
 
         # Create items from articles
         queryset_items = models.OutgoingItem.objects.filter(
             order=instance).order_by('id')
+        if not queryset_items:
+            raise ValueError('No items in order')
+
         data['items'] = [{
             'accountId': item.article.category.sales_account.c_id,
             'name': primary_language(item.article.name),
             'description': primary_language(item.article.description),
-            'quantity': item.quantity,
+            'quantity': float(item.quantity),
             'unitPrice': float(item.article.sales_price),
+            'unitId': item.article.unit.c_id,
             'taxId': (
-                item.article.category.tax.c_id 
-                if item.article.category.tax.category.tax else None
-            )
+                item.article.category.tax.c_id
+                if item.article.category.tax else None
+            )            
         } for item in queryset_items.all()]
 
         # Rounding
@@ -751,9 +777,45 @@ class OutgoingOrder(Order):
             data['rounding_id'] = instance.category.rounding.c_id
 
         # Due days
-        if getattr(instance, 'due_days', None):
-            data['due_days'] = instance.due_days
+        data['due_days'] = (
+            instance.due_days if getattr(instance, 'due_days', None)           
+            else instance.category.due_days
+        )
+            
+    def post_save(self, instance):
+        # get and update order document
+        conn = api_cash_ctrl.OrderDocument(
+            instance.tenant.cash_ctrl_org_name,
+            instance.tenant.cash_ctrl_api_key)
+        document = self.api.read(instance.c_id)
 
+        # get location
+        location = instance.contract.category.org_location
+        org_address = (
+            f'{location.address}\n'
+            f'{location.zip} {location.city}')
+
+        # get recipient data
+        bank_account = instance.category.bank_account
+
+        # layout
+        header = (
+            instance.header if instance.header
+            else instance.contract.category.header)
+        footer = (
+            instance.footer if instance.footer
+            else instance.contract.category.footer)
+
+        # update document
+        document.update({
+            'org_location_id': location.c_id,
+            'org_address': org_address,
+            'org_bank_account_id': bank_account.c_id,
+            'header': instance.header,
+            'footer': instance.contract.category.footer
+        })
+        response = conn.update(document)
+        print("*document", response)
 
 '''
 class IncomingBookEntry(CashCtrl):
@@ -869,7 +931,7 @@ class PersonCategory(CashCtrl):
 class Person(CashCtrl):
     api_class = api_cash_ctrl.Person
     exclude = EXCLUDE_FIELDS + ['photo']  # for now
-    reload_keys = ['nr']    
+    reload_keys = ['nr']
 
     @staticmethod
     def make_address(addr):
@@ -925,7 +987,7 @@ class Person(CashCtrl):
         if getattr(instance, 'superior', None):
             data['category_id'] = instance.superior.c_id
 
-        # Add Title        
+        # Add Title
         if getattr(instance, 'title', None):
             data['title_id'] = instance.title.c_id
 

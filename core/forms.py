@@ -9,17 +9,6 @@ from .models import Title, PersonCategory, Person, PersonAddress, PersonContact
 
 
 # Address and person forms
-class PersonAddressForm(forms.ModelForm):
-    class Meta:
-        model = PersonAddress
-        fields = ['type', 'address']
-        widgets = {
-            'address': forms.Select(attrs={'style': 'width: 300px;'}),
-            'post_office_box': forms.TextInput(attrs={'size': 10}),  
-            'additional_information': forms.TextInput(attrs={'size': 30}),             
-        }
-
-
 class PersonContactForm(forms.ModelForm):
     class Meta:
         model = PersonContact
