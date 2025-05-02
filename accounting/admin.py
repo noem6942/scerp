@@ -272,7 +272,8 @@ class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = ('code', 'name')
     list_filter = ('type',)
-
+    autocomplete_fields = ['account']
+    
     # Actions
     actions = accounting_actions + default_actions
 
@@ -575,6 +576,7 @@ class AccountAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = ('name', 'number', 'function', 'hrm')
     list_filter = ('function', 'hrm')
+    autocomplete_fields = ['category']
 
     # Actions
     actions = accounting_actions + default_actions
@@ -617,6 +619,7 @@ class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('code', 'name')
+    autocomplete_fields = ['purchase_account',  'sales_account']
 
     # Actions
     actions = accounting_actions + default_actions
@@ -762,6 +765,7 @@ class BookTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('code', 'name')
+    autocomplete_fields = ['credit_account', 'debit_account']
 
     #Fieldsets
     fieldsets = (
@@ -842,6 +846,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('code', 'name')
+    autocomplete_fields = ['credit_account', 'expense_account']
 
     #Fieldsets
     fieldsets = (
@@ -938,6 +943,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = ('supplier__company', 'description')
     list_filter = ('category', 'status', 'date')
+    autocomplete_fields = ['associate', 'responsible_person']
 
     #Fieldsets
     fieldsets = (
@@ -987,8 +993,9 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     ) + FIELDS.C_READ_ONLY
 
     # Search, filter
-    search_fields = ('contract__associate_company', 'description')
+    search_fields = ('contract__associate__company', 'description')
     list_filter = ('category', 'status', 'date')
+    autocomplete_fields = ['responsible_person']
 
     # Actions
     actions = accounting_actions + [a.get_bank_data, a.incoming_order_approve]
@@ -1086,7 +1093,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     readonly_fields = FIELDS.C_READ_ONLY
 
     # Search, filter
-    search_fields = ('contract__associate_company', 'description')
+    search_fields = ('contract__associate__company', 'description')
     list_filter = ('category', 'status', 'date')
     autocomplete_fields = ['associate', 'responsible_person']
 
@@ -1096,7 +1103,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (
                 'category', 'contract', 'status', 'description', 'date',
                 'associate', 'due_days', 'responsible_person',
-                'header', 'footer'),
+                'header', 'footer', 'recipient_address'),
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -1245,6 +1252,7 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
 
     # Search, filter
     list_filter = ('side', 'is_enabled_sync', 'type')
+    autocomplete_fields = ['account']
 
     # Actions
     actions = accounting_actions + [export_excel] + default_actions
@@ -1309,6 +1317,9 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
 
     # Enable filtering options
     list_filter = ('is_enabled_sync', 'type', 'function')
+    autocomplete_fields = [
+        'parent', 'account', 'category_expense', 'category_revenue'
+    ]
 
     # Actions
     actions = accounting_actions + default_actions

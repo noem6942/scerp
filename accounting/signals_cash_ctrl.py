@@ -216,15 +216,26 @@ def person_category_pre_delete(sender, instance, **kwargs):
 
 # Person
 @receiver(post_save, sender=Person)
-def person_category_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on Person. '''
+def person_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Person. 
+    
+    We need handle_sync because we want to delay that the add operations to
+    manytomany fields are done
+    '''
+    def handle_sync(instance, created):
+        '''Perform API sync after the transaction is committed.'''
+        if sync(instance):
+            api = conn.Person(sender)
+            api.save(instance, created)
+
     if sync(instance):
-        api = conn.Person(sender)
-        api.save(instance, created)
+        # Delay the sync call until after the transaction commits 
+        # (addresses, contacts)
+        transaction.on_commit(lambda: handle_sync(instance, created))       
 
 
 @receiver(pre_delete, sender=Person)
-def person_category_pre_delete(sender, instance, **kwargs):
+def person_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Person. '''
     if sync_delete(instance):
         api = conn.Person()
@@ -670,12 +681,10 @@ def outgoing_order_post_save(sender, instance, created, **kwargs):
         '''Perform API sync after the transaction is committed.'''
         if sync(instance):
             api = conn.OutgoingOrder(sender)
-            print("*save")
             api.save(instance, created)
 
     if sync(instance):
         # Delay the sync call until after the transaction commits
-        print("*syn")
         transaction.on_commit(lambda: handle_sync(instance, created))
 
 

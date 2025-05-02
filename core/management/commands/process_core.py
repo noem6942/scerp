@@ -4,6 +4,7 @@
     python manage.py process_core update_or_create_countries --update
     python manage.py process_core update_or_create_groups --update
     python manage.py process_core update_or_create_base_buildings --update
+    python manage.py process_core sync_person_again --tenant_id=4
 '''
 import logging
 from django.core.management.base import BaseCommand
@@ -11,7 +12,7 @@ from django.core.management import CommandError
 
 from core.process import (
     update_or_create_apps, update_or_create_countries, update_or_create_groups,
-    update_or_create_base_buildings
+    update_or_create_base_buildings, sync_person_again
 )
 
 # Set up logging
@@ -28,28 +29,29 @@ class Command(BaseCommand):
                 'update_or_create_apps',
                 'update_or_create_countries',
                 'update_or_create_groups',
-                'update_or_create_base_buildings'
+                'update_or_create_base_buildings',
+                'sync_person_again'
             ],
             help='Specify the action: gesoft'
         )
-        
+
         # Optional argument 'update', defaulting to False
         parser.add_argument(
             '--update',  # Optional flag
             action='store_true',  # Store true if flag is provided
             help='Specify if update is true (default is false)'
-        ) 
+        )
 
         # Optional argument 'tenant_id', which expects a string or integer
         parser.add_argument(
             '--tenant_id',  # Optional argument
             type=int,  # Make it an integer, or type=str if you need a string
             help='Specify the tenant ID'
-        )      
+        )
 
     def handle(self, *args, **options):
         action = options['action']
-        update = options.get('update', False)        
+        update = options.get('update', False)
 
         if action == 'update_or_create_apps':
             # Import library
@@ -64,19 +66,25 @@ class Command(BaseCommand):
             logger.info(
                 f"Countries: {created} created, {updated} updated, "
                 f"{deleted} deleted.")
-                
+
         elif action == 'update_or_create_groups':
             # Import library
             created, updated, deleted = update_or_create_groups(update)
             logger.info(
                 f"Groups: {created} created, {updated} updated, "
                 f"{deleted} deleted.")
-                
+
         elif action == 'update_or_create_base_buildings':
-            # Import library            
-            tenant_id = options.get('tenant_id', None) 
+            # Import library
+            tenant_id = options.get('tenant_id', None)
             created, updated, deleted = update_or_create_base_buildings(
                 tenant_id, update)
             logger.info(
                 f"Buildings: {created} created, {updated} updated, "
                 f"{deleted} deleted.")
+
+        elif action == 'sync_person_again':
+            # sync person, necessary as for some reason addresses were missing
+            tenant_id = options.get('tenant_id', None)
+            count = sync_person_again(tenant_id)
+            logger.info(f"Synced {count} records.")

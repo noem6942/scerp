@@ -16,22 +16,22 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         # Required positional argument
         parser.add_argument(
-            'action', type=str, 
+            'action', type=str,
             choices=['sync'],
             help='Sync ledger')
-        
+
         # Optional arguments
         parser.add_argument(
-            '--category', type=str, 
+            '--category', type=str,
             choices=['balance', 'pl', 'ic'],
-            help='Optional code, ')        
+            help='Optional code, ')
         parser.add_argument(
             '--org_name', type=str, help='org_name')
         parser.add_argument(
-            '--ledger_id', type=int, help='ledger_id')        
+            '--ledger_id', type=int, help='ledger_id')
         parser.add_argument(
-            '--max_count', type=int, help='max number of records (< 100)')     
-            
+            '--max_count', type=int, help='max number of records (< 100)')
+
     def handle(self, *args, **options):
         # Retrieve action
         action = options['action']

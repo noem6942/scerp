@@ -17,6 +17,7 @@ from django.db import transaction
 
 from scerp.mixins import get_admin, read_yaml_file
 from .models import App, Country, TenantSetup, Address, AddressMunicipal
+from .models import Person
 
 # Get logging
 logger = logging.getLogger('core')
@@ -285,4 +286,14 @@ def update_or_create_base_buildings(tenant_id=None, update=True):
                 else:
                     updated += 1
 
-        return created, updated, deleted
+# temp
+def sync_person_again(tenant_id):
+    ''' sync person, necessary as for some reason addresses were missing '''
+    count = 0
+    for person in Person.objects.filter(tenant__id=tenant_id).all():
+        person.sync_to_accounting = True
+        person.save()
+        logging.info(f"saving {person}")
+        count += 1
+
+    return count

@@ -56,6 +56,7 @@ class TOP_LEVEL_ACCOUNT(models.TextChoices):
 TOP_LEVEL_ACCOUNT_NRS = [x.value for x in TOP_LEVEL_ACCOUNT]
 
 
+# helpers
 def rank(nr):
     diff = 4 - nr
     return ' ' * (diff if diff > 0 else 0)
@@ -1754,7 +1755,12 @@ class OutgoingOrder(Order):
         help_text=_('Client'))
     description = models.TextField(
         _('Description'), blank=True, null=True,
-        help_text=_("e.g. Services May"))
+        help_text=_("internal note, e.g. Services May"))
+    recipient_address = models.TextField(
+        _('Recipient Address'), blank=True, null=True,
+        help_text=_(
+            "Enter specific address text, otherwise person addresss is "
+            "selected"))
     status = models.CharField(
         _('Status'), max_length=50,
         choices=OrderCategoryOutgoing.STATUS.choices)
@@ -1807,7 +1813,7 @@ class OutgoingItem(AcctApp):
 
     class Meta:
         verbose_name = _("Article")
-        verbose_name_plural = _("Articles")        
+        verbose_name_plural = _("Articles")
 
 
 class BookEntry(AcctApp):

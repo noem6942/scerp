@@ -1,6 +1,7 @@
 '''
 accounting/connector_cash_ctrl_2.py
 '''
+import re
 from django.db.models import Q
 from django.forms.models import model_to_dict
 from django.utils import timezone
@@ -23,6 +24,17 @@ EXCLUDE_FIELDS = CASH_CTRL_FIELDS + [
     'is_protected', 'attachment', 'version',
     'last_received', 'message'
 ]
+
+
+# helpers
+def is_html(text):
+    return bool(re.search(r'<[^>]+>', text))
+
+
+def convert_text_to_html(text):        
+    if text and not is_html(text):
+        text = text.replace('\n', '<br>')
+    return text    
 
 
 class CashCtrl:
@@ -642,7 +654,6 @@ class OrderContract(Order):
             'name': description,
             'unitPrice': float(instance.price_excl_vat)
         }]
-        print("*data", data)
 
 
 class BookEntry(CashCtrl):
@@ -728,6 +739,7 @@ class IncomingOrder(Order):
 
 
 class OutgoingOrder(Order):
+    exclude = EXCLUDE_FIELDS + ['recipient_address']
 
     def adjust_for_upload(self, instance, data, created=None):
         self.make_base(instance, data)
@@ -737,7 +749,7 @@ class OutgoingOrder(Order):
             'category': instance.category.c_id,
             'associate_id': instance.associate.c_id,
         })
-        
+
         # currency
         if instance.category.currency:
             data['currency_id'] = instance.category.currency.c_id
@@ -769,7 +781,7 @@ class OutgoingOrder(Order):
             'taxId': (
                 item.article.category.tax.c_id
                 if item.article.category.tax else None
-            )            
+            )
         } for item in queryset_items.all()]
 
         # Rounding
@@ -778,10 +790,10 @@ class OutgoingOrder(Order):
 
         # Due days
         data['due_days'] = (
-            instance.due_days if getattr(instance, 'due_days', None)           
+            instance.due_days if getattr(instance, 'due_days', None)
             else instance.category.due_days
         )
-            
+
     def post_save(self, instance):
         # get and update order document
         conn = api_cash_ctrl.OrderDocument(
@@ -810,12 +822,19 @@ class OutgoingOrder(Order):
         document.update({
             'org_location_id': location.c_id,
             'org_address': org_address,
-            'org_bank_account_id': bank_account.c_id,
-            'header': instance.header,
-            'footer': instance.contract.category.footer
+            'org_bank_account_id': bank_account.c_id,            
+            'header': convert_text_to_html(instance.header),
+            'footer': convert_text_to_html(instance.contract.category.footer)
         })
+
+        # update address
+        if instance.recipient_address:
+            document.update({
+                'recipient_address': instance.recipient_address,
+                'recipient_address_id': None
+            })
+
         response = conn.update(document)
-        print("*document", response)
 
 '''
 class IncomingBookEntry(CashCtrl):
@@ -1010,7 +1029,7 @@ class Person(CashCtrl):
         data['addresses'] = [
             self.make_address(addr)
             for addr in addresses.order_by('id')
-       ]
+        ]
 
     def get(self, *args, **kwargs):
         raise ValueError("Persons are only edited in scerp.")

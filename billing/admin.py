@@ -142,6 +142,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         filters.MeasurementRouteFilter,
         filters.MeasurementConsumptionFilter,
         'datetime')
+    autocomplete_fields = ['counter', 'address', 'subscription']
 
     # Actions
     actions = [
@@ -214,7 +215,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'subscriber', 'recipient', 'address']
+        'tenant', 'version', 'subscriber', 'partner', 'recipient', 'address']
     protected_many_to_many = ['articles']
     help_text = _(
         "Create a new subscription if owner changes, otherwise previous "
@@ -240,6 +241,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     list_filter = (
         filters.SubscriptionArticlesFilter,
         'number_of_counters', 'end', 'subscriber__company')
+    autocomplete_fields = ['subscriber', 'partner', 'recipient', 'address']
 
     #Fieldsets
     fieldsets = (
