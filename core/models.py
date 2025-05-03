@@ -105,7 +105,7 @@ class Tenant(LogAbstract, NotesAbstract):
             'code of tenant / client, unique, max 32 characters, '
             'only small letters, should only contains characters that '
             'can be displayed in an url)'))
-    # App        
+    # App
     is_app_time_trustee = models.BooleanField(
         _('Is AppTime Trustee'), default=False,
         help_text=_(
@@ -122,8 +122,8 @@ class Tenant(LogAbstract, NotesAbstract):
     cash_ctrl_api_key = models.CharField(
         _('api key'), max_length=100,  blank=True, null=True,
         help_text=_('api key'))
-        
-    # General accounting    
+
+    # General accounting
     language = models.CharField(
         _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
         help_text=_('The main language of the person. May be used for documents.')
@@ -136,15 +136,15 @@ class Tenant(LogAbstract, NotesAbstract):
         _('Account plan loaded'), default=False,
         help_text=_(
             'gets set to True if account plan uploaded to accounting system'))
-    
+
     def __str__(self):
         return self.name
-        
+
     def clean(self):
-        # Ensure that both org_name and api_key are either both provided 
+        # Ensure that both org_name and api_key are either both provided
         # or both not provided
         # cashCtrl
-        if self.cash_ctrl_org_name: 
+        if self.cash_ctrl_org_name:
             # Only check uniqueness if org_name is set
             if Tenant.objects.filter(
                         cash_ctrl_org_name=self.cash_ctrl_org_name
@@ -152,7 +152,7 @@ class Tenant(LogAbstract, NotesAbstract):
                 raise ValidationError(
                     {'cash_ctrl_org_name': _(
                         "Organization name must be unique.")})
-        
+
         if self.cash_ctrl_org_name or self.cash_ctrl_api_key:
             if not self.cash_ctrl_org_name or not self.cash_ctrl_api_key:
                 raise ValidationError(_("cashCtrl need Org Name and api-key"))
@@ -161,7 +161,7 @@ class Tenant(LogAbstract, NotesAbstract):
         self.clean()  # Ensure validation before saving
         super().save(*args, **kwargs)
 
-    class Meta:     
+    class Meta:
         ordering = ['name']
         verbose_name = _('Tenant')
         verbose_name_plural = '_' + _('Tenants')
@@ -210,7 +210,7 @@ class TenantSetup(LogAbstract, NotesAbstract):
         _('EGIDS to include'), default=list,
         help_text=_(
             'Egids that belong to the tenant, e.g. [4617]. '
-            'We use it for importing the building addresses. '))            
+            'We use it for importing the building addresses. '))
     formats = models.JSONField(
         _('formats'), null=True, blank=True,
         help_text=_('Format definitions'))
@@ -392,7 +392,7 @@ class AcctApp(TenantAbstract):
         _('Last received'), null=True, blank=True,
         help_text=_(
             "Last time data has been received from cashCtrl. "
-            "Gets filled out in signals_cash_ctrl.get "))    
+            "Gets filled out in signals_cash_ctrl.get "))
     message = models.CharField(
         _('Message'), max_length=200, null=True, blank=True,
         help_text=_('Here we show error messages. Just be empty.'))
@@ -795,7 +795,7 @@ class PersonCategory(AcctApp):
         EMPLOYEE_EXTERNAL = 'employee_external'
         SUBSCRIBER = 'subscriber'
         VENDOR = 'vendor'
-    
+
     code = models.CharField(
         _('Code'), max_length=50, null=True, blank=True,
         help_text='Internal code for scerp')
@@ -938,13 +938,13 @@ class Person(AcctApp):
         if not self.first_name and not self.last_name and not self.company:
             raise ValidationError(
                 _('Either First Name, Last Name or Company must be set.'))
-        
+
     def display_name(
             self, language=None, incl_title=False, title_line_break=False):
         lines = []
         if self.company:
             lines.append(self.company)
-            
+
         if incl_title and self.title:
             title = self.title.display(language)
             if title_line_break:
@@ -953,20 +953,20 @@ class Person(AcctApp):
             else:
                 lines.append(f"{title} {self.first_name} {self.last_name}")
         elif self.first_name or self.last_name:
-            lines.append(f"{self.first_name} {self.last_name}")            
+            lines.append(f"{self.first_name} {self.last_name}")
 
         return '\n'.join(lines)
 
-    def get_invoice_address(self):        
+    def get_invoice_address(self):
         queryset = PersonAddress.objects.filter(person=self)
-        
+
         # Try invoice, main
         for address_type in (
                 PersonAddress.TYPE.INVOICE, PersonAddress.TYPE.MAIN):
             address = queryset.filter(type=address_type)
             if address:
                 return address_type, address.first().address_full
-            
+
         # Return first
         address = queryset.first()
         return address.type, address.address_full
@@ -992,7 +992,7 @@ class Person(AcctApp):
         # Ensure at least one value is returned
         if company and name:
             return f"{company}, {name}"
-        return company or name or "Unknown"  # Fallback if everything is empty    
+        return company or name or "Unknown"  # Fallback if everything is empty
 
     class Meta:
         ordering = ['company', 'last_name', 'first_name', 'alt_name']
@@ -1032,12 +1032,12 @@ class PersonAddress(TenantAbstract):
 
     @property
     def address_full(self):
-        value = self.address.address
-
+        value = ''
         if self.post_office_box:
-            value += '\n' + self.post_office_box
+            value += self.post_office_box + '\n'
         if self.additional_information:
-            value += '\n' + self.additional_information
+            value += self.additional_information + '\n'
+        value += f"self.address.address "
 
         return value
 

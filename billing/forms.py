@@ -5,11 +5,13 @@ import datetime
 
 from django import forms
 from django.contrib import messages
+from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from django_admin_action_forms import action_with_form, AdminActionForm
 
+from accounting.models import OrderCategoryOutgoing
 from core.models import UserProfile
-from .models import Period
+from .models import Period, Measurement
 
 LABEL_BACK = _("Back")
 
@@ -29,10 +31,10 @@ class RouteCopyActionForm(AdminActionForm):
 
     def __post_init__(self, modeladmin, request, queryset):
         route = queryset.first()
-        tenant = route.tenant        
+        tenant = route.tenant
         self.fields['period'].queryset = Period.objects.filter(
-            tenant=tenant).order_by('-end')        
-        
+            tenant=tenant).order_by('-end')
+
 
 class RouteMeterExportJSONActionForm(AdminActionForm):
     route_date = forms.DateField(
@@ -56,14 +58,14 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
         required=True,
         max_length=10,
         widget=forms.TextInput(attrs={'placeholder': _('Enter symbol')})
-    )    
+    )
     key_enabled = forms.BooleanField(
         label=_('Test data'),
         required=False,
         initial=False,
         help_text=_("Generate Test Data"),
     )
-    
+
     class Meta:
         list_objects = True
 
@@ -71,19 +73,19 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
         route = queryset.first()
         tenant = route.tenant
         today = datetime.date.today()
-        
+
         if not route.period_previous:
-            messages.warning(request, _('Warning: no previous period given'))        
+            messages.warning(request, _('Warning: no previous period given'))
             self.Meta.confirm_button_text = LABEL_BACK
             self.fields['responsible_user'].required = False
-            
+
         employees = UserProfile.objects.filter(
             person__tenant=tenant).order_by(
                 'user__last_name', 'user__first_name')
         self.fields['responsible_user'].queryset = employees
         self.fields['route_date'].initial = datetime.date.today
         self.fields['energy_type'].initial = 'W'
-        self.fields['filename'].initial = f"route_{route.name}_{today}.json"        
+        self.fields['filename'].initial = f"route_{route.name}_{today}.json"
 
 
 class RouteMeterImportJSONActionForm(AdminActionForm):
@@ -93,12 +95,12 @@ class RouteMeterImportJSONActionForm(AdminActionForm):
         widget=forms.ClearableFileInput(attrs={'class': 'file-upload'}),
         help_text=_("JSON File with the collected data"),
     )
-    
+
     class Meta:
         list_objects = True
 
 
-class RouteMeterExportExcelActionForm(AdminActionForm):    
+class RouteMeterExportExcelActionForm(AdminActionForm):
     filename = forms.CharField(
         label=_('Filename'),
         required=True,
@@ -136,10 +138,10 @@ class RouteMeterInvoicingActionForm(AdminActionForm):
             'placeholder': _('invoices_{route_id}')
         }),
         help_text=_("Default format: invoices_{route_id}")
-    )     
+    )
 
 
-class AnaylseMeasurentExcelActionForm(AdminActionForm):
+class AnalyseMeasurentExcelActionForm(AdminActionForm):
     filename = forms.CharField(
         label=_('Filename'),
         required=False,
@@ -151,12 +153,38 @@ class AnaylseMeasurentExcelActionForm(AdminActionForm):
         required=False,
         max_length=255,
         widget=forms.TextInput(attrs={'placeholder': _('Enter filename')})
-    )    
+    )
 
     def __post_init__(self, modeladmin, request, queryset):
-        measurement = queryset.first()        
+        measurement = queryset.first()
         today = datetime.date.today()
 
         self.fields['filename'].initial = (
             f"analysis_{measurement.route.name}_{today}.xlsx")
         self.fields['ws_title'].initial = (f"{measurement.route.name}")
+
+
+class RouteBillingForm(AdminActionForm):
+    measurements = forms.ModelMultipleChoiceField(
+        label=_('Subscribers'),
+        required=True,
+        queryset=Measurement.objects.none()
+    )
+    status = forms.ChoiceField(
+        label=_('Invoice Status'),
+        required=True,
+        choices=OrderCategoryOutgoing.STATUS.choices
+    )
+    date = forms.DateField(
+        label=_('Invoice Date'),
+        required=True,
+        initial=now,  # or initial=now().date() if you only want the date
+        widget=forms.DateInput(format='%d.%m.%Y'),  # optional formatting
+        input_formats=['%d.%m.%Y'],  # optional parsing format
+    )
+
+    def __post_init__(self, modeladmin, request, queryset):
+        route = queryset.first()
+        measurements = Measurement.objects.filter(
+            route=route).order_by('subscription')
+        self.fields['measurements'].queryset = measurements

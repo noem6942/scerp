@@ -6,16 +6,20 @@ import json
 import logging
 import openpyxl
 from openpyxl.styles import Font
+from django.db import transaction
 
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Count, Sum, Min, Max, Q
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from accounting.models import OutgoingOrder, OutgoingItem
 from asset.models import Device
 from core.models import Area, AddressMunicipal, PersonAddress, Attachment
 from scerp.admin import ExportExcel
+from scerp.mixins import format_date, primary_language
 from .models import Period, Route, Measurement, Subscription
 
 logger = logging.getLogger(__name__)
@@ -438,19 +442,19 @@ class RouteMeterExport:
                 value_last = data['value']
                 consumption_last = data['consumption']
                 for hist in queryset_history.all():
-                    period = hist.route.period                    
+                    period = hist.route.period
                     if hist.consumption:
                         growth = calculate_growth(
                             consumption_last, hist.consumption)
-                        sign = '+' if growth > 0 else ''                            
+                        sign = '+' if growth > 0 else ''
                         growth_str = f" ({sign}{round(growth)})"
                     else:
                         growth_str = ''
-                        
+
                     # Report
 
                     history[period] = (
-                        f"Vergleich Vorperiode:\n"                        
+                        f"Vergleich Vorperiode:\n"
                         f"Verbrauch: {hist.consumption}\n"
                         f"Entwicklung: {growth_str}%)"
                     )
@@ -766,3 +770,82 @@ class RouteMeterImport:
         self.route.save()
 
         return count
+
+
+class MeasurementCalc:
+
+    def __init__(self, status, request, date):
+        self.status = status
+        self.created_by = request.user
+        self.date = date
+
+    def get_quantity(self, measurement, article):
+        ''' quantity, not considered: individual from, to                
+        '''
+        print("*article.unit.code", article.unit.code)
+        if article.unit.code == 'volume':
+            return measurement.consumption 
+        return 1
+
+    def bill(self, measurement):
+        # init
+        setup = measurement.route.setup
+        subscription = measurement.subscription
+
+        # billing base
+        invoice = {
+            'tenant': measurement.tenant,
+            'category': setup.order_category,
+            'contract': setup.order_contract,
+            'description': measurement.route.__str__(),
+            'responsible_person': setup.contact,
+            'date': self.date,
+            'status': self.status,
+            'sync_to_accounting': False,  # immediately sync with cashCtrl
+            'created_by': self.created_by
+        }
+
+        # associate
+        associate = (
+            subscription.recipient if subscription.recipient
+            else subscription.subscriber
+        )
+        invoice['associate'] = associate
+                
+        # address text
+        name = ''
+        if associate.title:
+            name += primary_language(associate.title.name) + ' '
+        if associate.last_name:
+            name += f"{associate.first_name} {associate.last_name}"
+        if associate.company:
+            if address:
+                name += ', ' 
+            name += associate.company
+            
+        type, address = associate.get_invoice_address()
+        invoice['recipient_address'] = f"{name}\n{address}"
+        print("*address", invoice['recipient_address'])
+
+        # header
+        building = (
+            f"{measurement.address.stn_label} {measurement.address.adr_number}"
+        )
+        start = format_date(measurement.route.get_start())
+        end = format_date(measurement.route.get_end())
+        consumption = ''
+        invoice['header'] = setup.header.format(
+            building=building, start=start, end=end, consumption=consumption)
+
+        # create as atomic so signals work correctly
+        with transaction.atomic():
+            order = OutgoingOrder.objects.create(**invoice)
+            # add items
+            for article in subscription.articles.all():
+                item = OutgoingItem.objects.create(
+                    tenant=measurement.tenant,
+                    article=article,
+                    quantity=self.get_quantity(measurement, article),
+                    order=order,
+                    created_by=self.created_by
+                )

@@ -80,6 +80,11 @@ def convert_ch1903_to_wgs84(easting, northing):
         raise ValidationError(f"Error converting coordinates: {e}")
 
 
+def format_date(date, format='%d.%m.%Y'):
+    formatted_date = date.strftime(format)
+    return formatted_date
+
+
 # Models
 def get_admin():
     '''

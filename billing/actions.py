@@ -10,7 +10,9 @@ from scerp.actions import action_check_nr_selected
 from . import forms
 
 from asset.models import Device
-from .calc import RouteMeterExport, RouteMeterImport, MeasurementAnalyse
+from .calc import (
+    RouteMeterExport, RouteMeterImport, MeasurementAnalyse, MeasurementCalc
+)
 from .models import Route, Subscription
 
 
@@ -66,7 +68,7 @@ def get_invoice_data(modeladmin, request, queryset, data=None):
         invoicing = RouteMeterExport(
             modeladmin, request, queryset, route)
         invoices = invoicing.get_invoice_data_json()
-        
+
         # Make excel
         data_list = invoices
         filename = f"preview_invoices_{route.name}.xlsx"
@@ -78,6 +80,21 @@ def get_invoice_data(modeladmin, request, queryset, data=None):
 @admin.action(description='3. ' + _("Preview Export Invoice Data"))
 def create_invoice_preview(modeladmin, request, queryset):
     return get_invoice_data(modeladmin, request, queryset)
+
+
+@action_with_form(
+    forms.RouteBillingForm,
+    description='4. ' + _('Route Billing'))
+def route_billing(modeladmin, request, queryset, data):
+    if action_check_nr_selected(request, queryset, 1):
+        m = MeasurementCalc(data['status'], request, data['date'])
+        for measurement in data['measurements']:
+            m.bill(measurement)
+
+        # output
+        count = len(data['measurements'])
+        messages.info(
+            request, _("{count} bills created").format(count=count))
 
 
 @action_with_form(
@@ -161,7 +178,7 @@ def analyse_measurment(modeladmin, request, queryset):
 
 
 @action_with_form(
-    forms.AnaylseMeasurentExcelActionForm,
+    forms.AnalyseMeasurentExcelActionForm,
     description=_('Export Analysis to Excel'))
 def anaylse_measurent_excel(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, min_count=1):

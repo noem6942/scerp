@@ -4,13 +4,59 @@ from django.db.models import UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from accounting.models import Article
+from accounting.models import Article, OrderCategoryOutgoing, OrderContract
 from core.models import (
     TenantAbstract, AddressMunicipal, Area, Person, PersonAddress)
 from asset.models import AssetCategory, Device, Unit
 
 
-# Timing
+SETUP_HEADER = _(
+    "Objekt: {building}\n"
+    "Periode: {start} bis {end}\n"
+    "Verbrauch letzte Periode: {consumption}m³"
+)
+
+
+class Setup(TenantAbstract):
+    code = models.CharField(
+        _('Code'), max_length=50,
+        help_text=_("e.g. water, semi annual"))
+    name = models.CharField(
+        _('Name'), max_length=50, help_text=_("name"))
+    header = models.TextField(
+        _('Header'), default=SETUP_HEADER,
+        help_text=_("name"))
+    show_partner = models.BooleanField(
+        _('Show partner'), default=True,
+        help_text=_("Show partner on invoice bill"))
+    order_contract = models.ForeignKey(
+        OrderContract, on_delete=models.PROTECT, null=True,
+        verbose_name=_('Invoice Contract'), 
+        related_name='%(class)s_order_contract')        
+    order_category = models.ForeignKey(
+        OrderCategoryOutgoing, on_delete=models.PROTECT,
+        verbose_name=_('Order Category'), null=True,
+        related_name='%(class)s_order_category')   
+    contact = models.ForeignKey(
+        Person, on_delete=models.PROTECT, null=True,
+        verbose_name=_('Clerk'), related_name='%(class)s_person',
+        help_text=_('Clerk, leave empty if defined in category'))        
+
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code'],
+                name='unique_billing_setup'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _('Setup')
+        verbose_name_plural = _('Setups')
+
+
 class Period(TenantAbstract):
     code = models.CharField(
         _('Code'), max_length=50,
@@ -53,6 +99,9 @@ class Route(TenantAbstract):
     period = models.ForeignKey(
         Period, on_delete=models.PROTECT,
         verbose_name=_('Period'), related_name='%(class)s_period')
+    setup = models.ForeignKey(
+        Setup, on_delete=models.PROTECT, null=True,
+        verbose_name=_('Setup'), related_name='%(class)s_setup')        
     period_previous = models.ForeignKey(
         Period, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Previous Period'),
@@ -173,7 +222,7 @@ class Subscription(TenantAbstract):
             "address"))
     recipient = models.ForeignKey(
         Person, on_delete=models.PROTECT, blank=True, null=True,
-        verbose_name=_('Invoice recipient'), 
+        verbose_name=_('Invoice recipient'),
         related_name='%(class)s_recipient',
         help_text=_("Invoice recipient if not subscriber."))
     address = models.ForeignKey(
@@ -205,7 +254,7 @@ class Subscription(TenantAbstract):
             # Take subscriber
             addresses = PersonAddress.objects.filter(person=self.subscriber)
 
-        # Get address    
+        # Get address
         invoice = addresses.filter(type=PersonAddress.TYPE.INVOICE)
         if invoice:
             return invoice.first()
@@ -350,7 +399,10 @@ class Measurement(TenantAbstract):
         _('Consumption'), blank=True, null=True)
 
     def __str__(self):
-        return f'{self.route}, {self.counter}, {self.datetime}'
+        return (
+            f'{self.subscription}: {self.route}, {self.counter}, '
+            f'{self.datetime}'
+        )
 
     class Meta:
         constraints = [

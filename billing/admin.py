@@ -11,8 +11,40 @@ from scerp.admin_site import admin_site
 
 from . import filters, actions as a
 from .models import (
-    Period, Route, Measurement, Subscription, SubscriptionArchive
+    Setup, Period, Route, Measurement, Subscription, SubscriptionArchive
 )
+
+
+
+@admin.register(Setup, site=admin_site)
+class SetupAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = [
+        'tenant', 'version', 'order_contract', 'order_category', 'contact']
+
+    # Display these fields in the list view
+    list_display = ('code', 'name',) + FIELDS.ICON_DISPLAY
+    readonly_fields = FIELDS.LOGGING_TENANT
+
+    # Search, filter
+    search_fields = ('code', 'name')
+    autocomplete_fields = ['contact']
+
+    # Actions
+    actions = default_actions
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', 'name', 'header',
+                'order_contract', 'order_category', 'contact', 
+                'show_partner'),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+    )
+
 
 
 @admin.register(Period, site=admin_site)
@@ -53,10 +85,10 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display = (
         'name', 'period', 'display_start', 'display_end',
         'duration', 'display_filters', 'is_default', 'status'
-    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT + (
+    ) + (
         'number_of_subscriptions', 'number_of_counters',
         'number_of_addresses'
-    )
+    ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = ('name', 'period')
     readonly_fields = ('duration', 'status') + FIELDS.LOGGING_TENANT
 
@@ -69,6 +101,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
         a.export_counter_data_json,
         a.import_counter_data_json,
         a.create_invoice_preview,
+        a.route_billing,
         #a.export_counter_data_excel,
         a.route_copy
     ] + default_actions
@@ -77,7 +110,8 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'name', 'period', 'period_previous', 'comparison_periods'
+                'name', 'period', 'period_previous', 'comparison_periods',
+                'setup'
             ),
         }),
         (_('Filters'), {
@@ -224,7 +258,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
         'display_subscriber', 'partner', 'address', 'display_invoice_address_list',
-        'start', 'end', 'display_abo_nr', 'number_of_counters', 
+        'start', 'end', 'display_abo_nr', 'number_of_counters',
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = ('display_subscriber', 'address')
     readonly_fields = (
@@ -233,10 +267,10 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = (
-        'subscriber__company', 
-        'subscriber__last_name','subscriber__first_name', 
-        'partner__last_name','partner__first_name', 
-        'address__stn_label', 'address__adr_number', 'start', 'end', 
+        'subscriber__company',
+        'subscriber__last_name','subscriber__first_name',
+        'partner__last_name','partner__first_name',
+        'address__stn_label', 'address__adr_number', 'start', 'end',
         'counters__code', 'notes')
     list_filter = (
         filters.SubscriptionArticlesFilter,
@@ -247,7 +281,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'subscriber', 'partner', 'recipient', 
+                'subscriber', 'partner', 'recipient',
                 'display_invoice_address',
                 'start', 'end', 'address', 'articles', 'counters'
             ),
@@ -286,9 +320,9 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
         'subscriber_number', 'subscriber_name', 'street_name', 'amount_gross'
-    )    
+    )
 
     # Search, filter
     search_fields = (
         'subscriber_number', 'subscriber_name', 'street_name', 'amount_gross'
-    )    
+    )
