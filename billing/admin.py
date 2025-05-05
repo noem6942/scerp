@@ -93,7 +93,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     readonly_fields = ('duration', 'status') + FIELDS.LOGGING_TENANT
 
     # Search, filter
-    search_fields = ('name', 'period')
+    search_fields = ('name', 'period__name')
     list_filter = ('is_default', 'status')
 
     # Actions

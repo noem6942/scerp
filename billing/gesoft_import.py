@@ -15,14 +15,15 @@ from django.utils import timezone
 from accounting.models import ArticleCategory, Article
 from asset.models import (
     DEVICE_STATUS, Unit, AssetCategory, Device, EventLog)
-from billing.models import (
-    Period, Route, Measurement, Subscription, SubscriptionArchive)
-
 from core.models import (
      Tenant, AddressMunicipal, Area, Address, PersonCategory,
      Person, PersonAddress
 )
 from scerp.mixins import parse_gesoft_to_datetime
+from .models import (
+    ARTICLE_NR_POSTFIX_DAY, Period, Route, Measurement, Subscription, 
+    SubscriptionArchive
+)
 
 logger = logging.getLogger(__name__)
 
@@ -981,7 +982,7 @@ class ArticleCopy(Import):
         article_nr_copies = [
             article.nr
             for article in Article.objects.filter(
-                tenant=self.tenant, nr__endswith='-D')
+                tenant=self.tenant, nr__endswith=ARTICLE_NR_POSTFIX_DAY)
         ]
         unit = Unit.objects.filter(
             tenant=self.tenant, code='day').first()
@@ -990,7 +991,7 @@ class ArticleCopy(Import):
         count = 0
         for article in articles:
             # assign and check nr
-            article.nr += '-D'
+            article.nr += ARTICLE_NR_POSTFIX_DAY
             if article.nr not in article_nr_copies:
                 # make a copy
                 article.pk = None

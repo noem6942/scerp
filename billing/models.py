@@ -10,10 +10,14 @@ from core.models import (
 from asset.models import AssetCategory, Device, Unit
 
 
+# use this postfix to specify article_nr for unit = Day
+ARTICLE_NR_POSTFIX_DAY = '-D'  
+
+# use this to default header for billing invoices
 SETUP_HEADER = _(
     "Objekt: {building}\n"
     "Periode: {start} bis {end}\n"
-    "Verbrauch letzte Periode: {consumption}m³"
+    "Verbrauch letzte Periode: {consumption} m³"
 )
 
 
@@ -31,16 +35,19 @@ class Setup(TenantAbstract):
         help_text=_("Show partner on invoice bill"))
     order_contract = models.ForeignKey(
         OrderContract, on_delete=models.PROTECT, null=True,
-        verbose_name=_('Invoice Contract'), 
-        related_name='%(class)s_order_contract')        
+        verbose_name=_('Invoice Contract'),
+        related_name='%(class)s_order_contract')
     order_category = models.ForeignKey(
         OrderCategoryOutgoing, on_delete=models.PROTECT,
         verbose_name=_('Order Category'), null=True,
-        related_name='%(class)s_order_category')   
+        related_name='%(class)s_order_category')
     contact = models.ForeignKey(
         Person, on_delete=models.PROTECT, null=True,
         verbose_name=_('Clerk'), related_name='%(class)s_person',
-        help_text=_('Clerk, leave empty if defined in category'))        
+        help_text=_('Clerk, leave empty if defined in category'))
+    rounding_digits = models.PositiveSmallIntegerField(
+        _('Rounding Digits'), default=0,
+        help_text=_('Rounding consumption on invoice'))
 
     def __str__(self):
         return self.code
@@ -101,7 +108,7 @@ class Route(TenantAbstract):
         verbose_name=_('Period'), related_name='%(class)s_period')
     setup = models.ForeignKey(
         Setup, on_delete=models.PROTECT, null=True,
-        verbose_name=_('Setup'), related_name='%(class)s_setup')        
+        verbose_name=_('Setup'), related_name='%(class)s_setup')
     period_previous = models.ForeignKey(
         Period, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Previous Period'),
@@ -396,7 +403,7 @@ class Measurement(TenantAbstract):
         Subscription, verbose_name=_('Subscription'),
         on_delete=models.PROTECT, related_name='%(class)s_subscriber')
     consumption_previous = models.FloatField(
-        _('Consumption'), blank=True, null=True)
+        _('Consumption previous'), blank=True, null=True)
 
     def __str__(self):
         return (

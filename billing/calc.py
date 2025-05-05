@@ -15,12 +15,14 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from accounting.models import OutgoingOrder, OutgoingItem
+from accounting.models import Article, OutgoingOrder, OutgoingItem
 from asset.models import Device
 from core.models import Area, AddressMunicipal, PersonAddress, Attachment
 from scerp.admin import ExportExcel
 from scerp.mixins import format_date, primary_language
-from .models import Period, Route, Measurement, Subscription
+from .models import (
+    ARTICLE_NR_POSTFIX_DAY, Period, Route, Measurement, Subscription
+)
 
 logger = logging.getLogger(__name__)
 
@@ -779,18 +781,34 @@ class MeasurementCalc:
         self.created_by = request.user
         self.date = date
 
-    def get_quantity(self, measurement, article):
-        ''' quantity, not considered: individual from, to                
+    def get_quantity(
+            self, measurement, article, rounding_digits, days=None):
+        ''' quantity, not considered: individual from, to
         '''
-        print("*article.unit.code", article.unit.code)
         if article.unit.code == 'volume':
-            return measurement.consumption 
+            return round(measurement.consumption, rounding_digits)
+        elif article.unit.code == 'day' and days:
+            return days
         return 1
 
     def bill(self, measurement):
         # init
         setup = measurement.route.setup
         subscription = measurement.subscription
+        start = measurement.route.get_start()
+        end = measurement.route.get_end()
+
+        # check day vs. period
+        unit_code = (
+            'day' if (
+                measurement.route.start
+                or measurement.route.end
+                or subscription.start > measurement.period.start
+                or (subscription.end 
+                    and subscription.end < measurement.period.end)
+            ) else 'period'
+        )
+        days = (end - start).days + 1 if unit_code == 'day' else None
 
         # billing base
         invoice = {
@@ -801,7 +819,7 @@ class MeasurementCalc:
             'responsible_person': setup.contact,
             'date': self.date,
             'status': self.status,
-            'sync_to_accounting': False,  # immediately sync with cashCtrl
+            'sync_to_accounting': True,  # immediately sync with cashCtrl
             'created_by': self.created_by
         }
 
@@ -811,41 +829,58 @@ class MeasurementCalc:
             else subscription.subscriber
         )
         invoice['associate'] = associate
-                
-        # address text
+
+        # address name
         name = ''
         if associate.title:
             name += primary_language(associate.title.name) + ' '
         if associate.last_name:
             name += f"{associate.first_name} {associate.last_name}"
         if associate.company:
-            if address:
-                name += ', ' 
+            if name:
+                name += ', '
             name += associate.company
-            
+        if subscription.partner:
+            partner = subscription.partner
+            if partner.title:
+                name += primary_language(partner.title.name) + ' '
+            name += f"\n{partner.first_name} {partner.last_name}"
+
+        # add address
         type, address = associate.get_invoice_address()
         invoice['recipient_address'] = f"{name}\n{address}"
-        print("*address", invoice['recipient_address'])
 
         # header
         building = (
             f"{measurement.address.stn_label} {measurement.address.adr_number}"
         )
-        start = format_date(measurement.route.get_start())
-        end = format_date(measurement.route.get_end())
-        consumption = ''
+        consumption = (
+            round(measurement.consumption_previous, setup.rounding_digits)
+            if measurement.consumption_previous else '')
         invoice['header'] = setup.header.format(
-            building=building, start=start, end=end, consumption=consumption)
+            building=building,
+            start=format_date(start),
+            end=format_date(end),
+            consumption=consumption
+        )
 
         # create as atomic so signals work correctly
         with transaction.atomic():
             order = OutgoingOrder.objects.create(**invoice)
             # add items
-            for article in subscription.articles.all():
+            for article in subscription.articles.all():                                
+                if unit_code == 'day' and article.unit.code == 'period':
+                    # Replace article by daily 
+                    article = Article.objects.filter(
+                        tenant=article.tenant,
+                        nr=article.nr + ARTICLE_NR_POSTFIX_DAY,                        
+                    ).first()
+                    
                 item = OutgoingItem.objects.create(
                     tenant=measurement.tenant,
                     article=article,
-                    quantity=self.get_quantity(measurement, article),
+                    quantity=self.get_quantity(
+                        measurement, article, setup.rounding_digits, days),
                     order=order,
                     created_by=self.created_by
                 )

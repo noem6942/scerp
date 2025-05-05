@@ -1084,8 +1084,8 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'date', 'category', 'description', 'display_customer',
-        'category__currency', 'status'
+        'date', 'category', 'description', 'associate',
+        'category__currency', 'status', 'display_cash_ctrl_url'
     )  + FIELDS.C_DISPLAY_SHORT + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
     list_display_links = (
         'date', 'description'
@@ -1116,6 +1116,10 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('Supplier'))
     def display_customer(self, obj):
         return self.display_link_to_company(obj.contract.associate)
+
+    @admin.display(description=_('url'))
+    def display_cash_ctrl_url(self, obj):
+        return Display.link(obj.url, '🧾', 'new')
 
 
 # Ledger -------------------------------------------------------------------

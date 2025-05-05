@@ -741,13 +741,25 @@ class IncomingOrder(Order):
 class OutgoingOrder(Order):
     exclude = EXCLUDE_FIELDS + ['recipient_address']
 
+    @staticmethod
+    def correct_cash_ctrl_article_price(item):
+        ''' 
+        should be:
+        return float(item.article.sales_price)
+        but cashCtrl  interpretes bruttopreise as nettopreis
+        '''
+        tax_factor = (
+            1 + item.article.category.tax.percentage / 100
+        ) if item.article.category.tax else 1
+        return float(item.article.sales_price * tax_factor)
+
     def adjust_for_upload(self, instance, data, created=None):
         self.make_base(instance, data)
 
         # category, associate
         data.update({
             'category': instance.category.c_id,
-            'associate_id': instance.associate.c_id,
+            'associate_id': instance.associate.c_id
         })
 
         # currency
@@ -771,17 +783,18 @@ class OutgoingOrder(Order):
         if not queryset_items:
             raise ValueError('No items in order')
 
+        # Tax
         data['items'] = [{
             'accountId': item.article.category.sales_account.c_id,
             'name': primary_language(item.article.name),
             'description': primary_language(item.article.description),
             'quantity': float(item.quantity),
-            'unitPrice': float(item.article.sales_price),
+            'unitPrice': self.correct_cash_ctrl_article_price(item),
             'unitId': item.article.unit.c_id,
             'taxId': (
                 item.article.category.tax.c_id
                 if item.article.category.tax else None
-            )
+            ),
         } for item in queryset_items.all()]
 
         # Rounding

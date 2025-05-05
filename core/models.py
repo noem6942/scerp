@@ -137,6 +137,12 @@ class Tenant(LogAbstract, NotesAbstract):
         help_text=_(
             'gets set to True if account plan uploaded to accounting system'))
 
+    @property
+    def cash_ctrl_url(self):
+        if self.cash_ctrl_org_name:
+            return f"https://{self.cash_ctrl_org_name}.cashctrl.com/"
+        return None
+
     def __str__(self):
         return self.name
 
@@ -1037,7 +1043,9 @@ class PersonAddress(TenantAbstract):
             value += self.post_office_box + '\n'
         if self.additional_information:
             value += self.additional_information + '\n'
-        value += f"self.address.address "
+        if self.address.address:
+            value += f"{self.address.address}\n"
+        value += f"{self.address.zip} {self.address.city}"
 
         return value
 
