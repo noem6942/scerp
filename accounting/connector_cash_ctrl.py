@@ -788,7 +788,7 @@ class OutgoingOrder(Order):
         # Check sales account
         for item in queryset_items.all():
             if not item.article.category.sales_account:
-                raise ValueError("No account defined for {item.article}")
+                raise ValueError(f"No account defined for {item.article}")
 
         # Fill in items
         data['items'] = [{
