@@ -575,6 +575,13 @@ class BaseAdmin:
     def display_last_update(self, obj):
         return obj.modified_at
 
+    @admin.display(description=_('Name'))
+    def display_name_singular(self, obj):
+        try:
+            return primary_language(obj.name_singular)
+        except:
+            return ''
+
     @admin.display(description=_('Name Plural'))
     def display_name_plural(self, obj):
         try:

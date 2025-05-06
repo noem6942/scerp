@@ -720,7 +720,7 @@ class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'name', 'is_default',
+                'display_name', 'is_default',
             ),
             'classes': ('expand',),
         }),
@@ -808,8 +808,8 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
                 'code', 'type',
                 *make_language_fields('name_singular'),
                 *make_language_fields('name_plural'),
-                'layout', 'is_display_prices', 'org_location',
-                'header', 'footer'
+                'org_location', 'is_display_prices', 
+                'layout', 'header', 'footer'
             ),
             'classes': ('expand',),
         }),
@@ -902,16 +902,28 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
                 'code',
                 *make_language_fields('name_singular'),
                 *make_language_fields('name_plural'),
-                'responsible_person', 'layout'
+                'responsible_person', 
+            ),
+            'classes': ('expand',),
+        }),
+        (_('Layout'), {
+            'fields': (
+                'layout', 'header', 'footer'
             ),
             'classes': ('expand',),
         }),
         (_('Booking'), {
             'fields': (
                 'address_type', 'debit_account', 'bank_account', 'rounding',
-                'currency', 'due_days', 'status_data', 'book_template_data'
+                'currency', 'due_days'
             ),
             'classes': ('expand',),
+        }),
+        (_('Status and Booking Codes'), {
+            'fields': (
+                'status_data', 'book_template_data'
+            ),
+            'classes': ('collapse',),
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
@@ -1096,6 +1108,9 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('contract__associate__company', 'description')
     list_filter = ('category', 'status', 'date')
     autocomplete_fields = ['associate', 'responsible_person']
+
+    # Actions
+    actions = accounting_actions + default_actions
 
     #Fieldsets
     fieldsets = (

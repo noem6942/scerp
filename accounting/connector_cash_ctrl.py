@@ -826,10 +826,10 @@ class OutgoingOrder(Order):
         # layout
         header = (
             instance.header if instance.header
-            else instance.contract.category.header)
+            else instance.category.header)
         footer = (
             instance.footer if instance.footer
-            else instance.contract.category.footer)
+            else instance.category.footer)
 
         # update document
         document.update({

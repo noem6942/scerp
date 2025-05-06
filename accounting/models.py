@@ -1197,15 +1197,14 @@ class OrderCategory(AcctApp):
         _('Code'), max_length=50,
         help_text='Internal code for scerp')
     name_singular = models.JSONField(
-        _('Name, singular'), blank=True, null=True,
+        _('Name, invoice'), blank=True, null=True,
         help_text=_(
-            "The singular name of the category (e.g. 'Invoices'). "
-            "Fill if for at least one language."))
+            "The name as shown on the invoice. e.g. 'Rechnung'). "
+            "Fill if for at least one language. "))
     name_plural = models.JSONField(
-        _('Name, plural'), blank=True, null=True,
+        _('Name, internal'), blank=True, null=True,
         help_text=_(
-            "The plural name of the category (e.g. 'Invoices'). "
-            "Fill if for at least one language."))
+            "The name internally used (e.g. 'Rechnungen Wasser'). "))
     status_data = models.JSONField(
         blank=True, null=True,
         help_text="Internal use for storing status_ids")
@@ -1217,7 +1216,9 @@ class OrderCategory(AcctApp):
     layout = models.ForeignKey(
         OrderLayout, on_delete=models.PROTECT, blank=True, null=True,
         related_name='%(class)s_order_template',
-        verbose_name=_('Order Layout'))
+        verbose_name=_('Order Layout'),
+        help_text=_(
+            "Layout of invoice (use Swiss QR for outgoing invoices)"))
     is_display_prices = models.BooleanField(
         _('Display prices'), default=True,
         help_text=_(
@@ -1254,9 +1255,11 @@ class OrderCategory(AcctApp):
         missing_fields = []
 
         if not self.name_singular:
-            missing_fields.append("singular name")
+            verbose_name = self._meta.get_field('name_singular').verbose_name
+            missing_fields.append(verbose_name)
         if not self.name_plural:
-            missing_fields.append("plural name")
+            verbose_name = self._meta.get_field('name_plural').verbose_name
+            missing_fields.append(verbose_name)
 
         if missing_fields:
             raise ValidationError(
@@ -1352,7 +1355,8 @@ class OrderCategoryContract(OrderCategory):
 
     def __str__(self):
         return (
-            f"{self.get_type_display()}: {primary_language(self.name_plural)}")
+            f"{self.get_type_display()}: - "
+            f"{primary_language(self.name_plural)}")
 
     class Meta:
         constraints = [
@@ -1574,7 +1578,7 @@ class OrderCategoryOutgoing(OrderCategory):
     '''
 
     def __str__(self):
-        return _('Debtors') + ': ' + primary_language(self.name_plural)
+        return f"{_('Debtors')} - {primary_language(self.name_plural)}"
 
     class Meta:
         constraints = [
