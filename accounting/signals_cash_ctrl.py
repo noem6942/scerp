@@ -7,14 +7,19 @@ import time
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.db.models.signals import post_save, pre_save
-from django.db.models.signals import pre_delete
+from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_delete, post_delete
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
 from asset.models import Unit, AssetCategory, Device
 from core.models import Tenant
-from core.models import Title, PersonCategory, Person  # we sync them here
+from core.models import (
+    # we sync them here
+    Title, PersonCategory, Person, PersonAddress, PersonContact,
+    PersonBankAccount
+)
+
 from scerp.mixins import read_yaml_file
 from . import connector_cash_ctrl as conn
 from . import models
@@ -217,29 +222,80 @@ def person_category_pre_delete(sender, instance, **kwargs):
 # Person
 @receiver(post_save, sender=Person)
 def person_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on Person. 
-    
+    '''Signal handler for post_save signals on Person.
+
     We need handle_sync because we want to delay that the add operations to
     manytomany fields are done
-    '''
-    def handle_sync(instance, created):
-        '''Perform API sync after the transaction is committed.'''
-        if sync(instance):
-            api = conn.Person(sender)
-            api.save(instance, created)
-
+    '''    
     if sync(instance):
-        # Delay the sync call until after the transaction commits 
-        # (addresses, contacts)
-        transaction.on_commit(lambda: handle_sync(instance, created))       
+        api = conn.Person(sender)
+        api.save(instance, created)
 
 
 @receiver(pre_delete, sender=Person)
 def person_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Person. '''
-    if sync_delete(instance):
+    if sync_delete(instance):      
         api = conn.Person()
         api.delete(instance)
+        instance._predeleted = True
+
+
+# Person-related entities
+def person_save(instance, created=None):
+    # Gets called whenever something changes with person    
+    instance.sync_to_accounting = True
+    if sync(instance):
+        api = conn.Person(instance)
+        api.save(instance, created)
+
+
+def person_related_delete(instance):
+    # Gets called whenever some deletes are in action
+    person_id = instance.person_id  # still valid
+
+    def sync_if_person_exists():
+        try:
+            person = Person.objects.get(pk=person_id)
+        except Person.DoesNotExist:
+            return  # Person was deleted, do nothing
+        person.sync_to_accounting = True
+        if sync(person):
+            api = conn.Person(person)
+            api.save(person)
+
+    transaction.on_commit(sync_if_person_exists)
+
+
+@receiver(post_save, sender=PersonAddress)
+def person_address_post_save(sender, instance, created, **kwargs):    
+    person_save(instance.person)
+
+
+@receiver(post_delete, sender=PersonAddress)
+def person_address_post_delete(sender, instance, **kwargs):
+    person_related_delete(instance)
+
+
+@receiver(post_save, sender=PersonContact)
+def person_contact_post_save(sender, instance, created, **kwargs):
+    person_save(instance.person)
+
+
+@receiver(post_delete, sender=PersonContact)
+def person_contact_post_delete(sender, instance, **kwargs):    
+    person_related_delete(instance)
+
+
+
+@receiver(post_save, sender=PersonBankAccount)
+def person_bank_account_post_save(sender, instance, created, **kwargs):
+    person_save(instance.person)
+
+
+@receiver(post_delete, sender=PersonBankAccount)
+def person_bank_account_post_delete(sender, instance, **kwargs):    
+    person_related_delete(instance)
 
 
 # asset.models ----------------------------------------------------------
@@ -694,6 +750,42 @@ def outgoing_order_pre_delete(sender, instance, **kwargs):
     if sync_delete(instance):
         api = conn.OutgoingOrder(sender)
         api.delete(instance)
+
+
+# OutgoingItem, related to OutgoingOrder
+def order_save(instance, created=None):
+    # Gets called whenever something changes with OutgoingOrder    
+    instance.sync_to_accounting = True
+    if sync(instance):
+        api = conn.OutgoingOrder(instance)
+        api.save(instance, created)
+
+
+def order_related_delete(instance):
+    # Gets called whenever some deletes are in action
+    order_id = instance.order_id  # still valid
+
+    def sync_if_order_exists():
+        try:
+            order = models.OutgoingOrder.objects.get(pk=order_id)
+        except models.OutgoingOrder.DoesNotExist:
+            return  # OutgoingOrder was deleted, do nothing
+        order.sync_to_accounting = True
+        if sync(order):
+            api = conn.OutgoingOrder(order)
+            api.save(order)
+
+    transaction.on_commit(sync_if_order_exists)
+
+
+@receiver(post_save, sender=models.OutgoingItem)
+def outgoing_item_post_save(sender, instance, created, **kwargs):    
+    order_save(instance.order)
+
+
+@receiver(post_delete, sender=models.OutgoingItem)
+def outgoing_item_post_delete(sender, instance, **kwargs):
+    order_related_delete(instance)
 
 
 """ do not use
