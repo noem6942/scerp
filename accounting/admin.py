@@ -1117,7 +1117,11 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'category', 'contract', 'status', 'description', 'date',
-                'associate', 'due_days', 'responsible_person',
+                'associate', 'due_days', 'responsible_person'),
+            'classes': ('expand',),
+        }),
+        (_('Layout'), {
+            'fields': (
                 'header', 'footer', 'recipient_address'),
             'classes': ('expand',),
         }),
