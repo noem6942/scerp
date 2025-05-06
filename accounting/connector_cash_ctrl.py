@@ -843,8 +843,8 @@ class OutgoingOrder(Order):
             'org_location_id': location.c_id,
             'org_address': org_address,
             'org_bank_account_id': bank_account.c_id,            
-            'header': convert_text_to_html(instance.header),
-            'footer': convert_text_to_html(instance.contract.category.footer)
+            'header': convert_text_to_html(header),
+            'footer': convert_text_to_html(footer)
         })
 
         # update address

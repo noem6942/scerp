@@ -1044,7 +1044,7 @@ class PersonAddress(TenantAbstract):
         if self.additional_information:
             value += self.additional_information + '\n'
         if self.address.address:
-            value += f"{self.address.address}\n"
+            value += self.address.address + '\n'
         value += f"{self.address.zip} {self.address.city}"
 
         return value
