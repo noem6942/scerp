@@ -1037,6 +1037,18 @@ class PersonAddress(TenantAbstract):
         help_text=_("e.g. c/o or company name for invoice addresses"))
 
     @property
+    def address_address_full(self):
+        value = ''
+        if self.post_office_box:
+            value += self.post_office_box + '\n'
+        if self.additional_information:
+            value += self.additional_information + '\n'
+        if self.address.address:
+            value += self.address.address + '\n'        
+
+        return value
+
+    @property
     def address_full(self):
         value = ''
         if self.post_office_box:

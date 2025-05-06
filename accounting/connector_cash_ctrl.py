@@ -31,10 +31,10 @@ def is_html(text):
     return bool(re.search(r'<[^>]+>', text))
 
 
-def convert_text_to_html(text):        
+def convert_text_to_html(text):
     if text and not is_html(text):
         text = text.replace('\n', '<br>')
-    return text    
+    return text
 
 
 class CashCtrl:
@@ -743,7 +743,7 @@ class OutgoingOrder(Order):
 
     @staticmethod
     def correct_cash_ctrl_article_price(item):
-        ''' 
+        '''
         should be:
         return float(item.article.sales_price)
         but cashCtrl  interpretes bruttopreise as nettopreis
@@ -782,9 +782,9 @@ class OutgoingOrder(Order):
             order=instance).order_by('id')
         if not queryset_items:
             raise ValueError('No items in order')
-        
+
         # Tax
-        
+
         # Check sales account
         for item in queryset_items.all():
             if not item.article.category.sales_account:
@@ -842,7 +842,7 @@ class OutgoingOrder(Order):
         document.update({
             'org_location_id': location.c_id,
             'org_address': org_address,
-            'org_bank_account_id': bank_account.c_id,            
+            'org_bank_account_id': bank_account.c_id,
             'header': convert_text_to_html(header),
             'footer': convert_text_to_html(footer)
         })
@@ -996,7 +996,7 @@ class Person(CashCtrl):
             }))
         else:
             # add post_office_box and additional_information
-            data['address'] = addr.address_full
+            data['address'] = addr.address_address_full
 
         return data
 
