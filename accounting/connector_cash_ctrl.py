@@ -782,8 +782,15 @@ class OutgoingOrder(Order):
             order=instance).order_by('id')
         if not queryset_items:
             raise ValueError('No items in order')
-
+        
         # Tax
+        
+        # Check sales account
+        for item in queryset_items.all():
+            if not item.article.category.sales_account:
+                raise ValueError("No account defined for {item.article}")
+
+        # Fill in items
         data['items'] = [{
             'accountId': item.article.category.sales_account.c_id,
             'name': primary_language(item.article.name),
