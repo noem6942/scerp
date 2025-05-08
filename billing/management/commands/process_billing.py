@@ -4,6 +4,7 @@
     python manage.py process_billing gesoft_area --tenant_id=12
     python manage.py process_billing gesoft_archive --tenant_id=12
     python manage.py process_billing article_import --tenant_id=12
+    python manage.py process_billing article_daily_rename --tenant_id=12
 '''
 import json
 from django.core.management.base import BaseCommand
@@ -17,7 +18,8 @@ class Command(BaseCommand):
         parser.add_argument(
             'action',  # Positional argument
             choices=[
-                'gesoft', 'gesoft_area', 'gesoft_archive', 'article_import'
+                'gesoft', 'gesoft_area', 'gesoft_archive',
+                'article_import', 'article_daily_rename'
             ],
             help='Specify the action: gesoft'
         )
@@ -75,6 +77,14 @@ class Command(BaseCommand):
             # Make daily articles
             handler = ArticleCopy(tenant_id)
             handler.make_daily()
+
+        elif action == 'article_daily_rename':
+            # Import library
+            from billing.gesoft_import import ArticleCopy
+
+            # Make daily articles
+            handler = ArticleCopy(tenant_id)
+            handler.rename_daily()
 
         elif action == 'gesoft_archive':
             # Import library

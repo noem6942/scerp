@@ -991,7 +991,12 @@ class ArticleCopy(Import):
         count = 0
         for article in articles:
             # assign and check nr
-            article.nr += ARTICLE_NR_POSTFIX_DAY
+            article.nr += ARTICLE_NR_POSTFIX_DAY            
+            article.name = {
+                lang: name + ARTICLE_NR_POSTFIX_DAY
+                for lang, name in article.name.items()
+            }
+            
             if article.nr not in article_nr_copies:
                 # make a copy
                 article.pk = None
@@ -1004,6 +1009,30 @@ class ArticleCopy(Import):
                 logger.info(f"saving {article.nr}")
                 
         return count
+
+    def rename_daily(self):
+        '''
+        rename day articles
+        '''
+        # Init
+        articles = Article.objects.filter(
+            tenant=self.tenant, unit__code='day')        
+
+        # Copy
+        count = 0
+        for article in articles:            
+            # new name
+            article.name = {
+                lang: name + ARTICLE_NR_POSTFIX_DAY
+                for lang, name in article.name.items()
+            }
+            
+            # save
+            article.save()            
+            count += 1
+            logger.info(f"saving {article.nr}")
+                
+        return count        
 
 
 class ImportArchive(Import):

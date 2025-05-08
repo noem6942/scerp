@@ -180,7 +180,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Actions
     actions = [
-        a.analyse_measurment,
+        a.analyse_measurement,
         a.anaylse_measurent_excel,
     ] + [export_excel] + default_actions
 
@@ -188,14 +188,19 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'counter', 'route', 'datetime', 'datetime_previous',
-                'value', 'value_previous',
-                'consumption', 'value_max', 'value_min'
+                'counter', 'route', 
+                'datetime', 'value', 'consumption', 'current_battery_level',
             ),
         }),
+        (_('Last'), {
+            'fields': (
+                'datetime_latest', 'value_latest', 'consumption_latest',
+            ),
+            'classes': ('collapse',),
+        }),        
         (_('References'), {
             'fields': (
-                'address', 'period', 'subscription', 'consumption_previous'
+                'address', 'period', 'subscription'
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -257,12 +262,16 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_subscriber', 'partner', 'address', 'display_invoice_address_list',
+        'display_subscriber', 'partner', 'address', 
+        'display_invoice_address_list',
         'start', 'end', 'display_abo_nr', 'number_of_counters',
+        'last_route_out', 'last_measurement'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = ('display_subscriber', 'address')
     readonly_fields = (
-        'display_invoice_address', 'display_invoice_address_list'
+        'display_invoice_address', 'display_invoice_address_list',
+        'display_counters', 'display_articles', 'last_route_out',
+        'routes_out', 'invoices'
     ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -283,8 +292,16 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (
                 'subscriber', 'partner', 'recipient',
                 'display_invoice_address',
-                'start', 'end', 'address', 'articles', 'counters'
+                'start', 'end', 'address', 
+                'articles', 'counters'
             ),
+        }),
+        (_('Controlling'), {
+            'fields': (
+                'display_articles', 'display_counters',
+                'routes_out', 'invoices'
+            ),
+            'classes': ('collapse',),
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
@@ -310,6 +327,26 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     def display_invoice_address_list(self, obj):
         return obj.invoice_address
 
+    @admin.display(description=_('Articles'))
+    def display_articles(self, obj):
+        return ','.join([x.__str__() for x in obj.articles.order_by('nr')])
+
+    @admin.display(description=_('Counters'))
+    def display_counters(self, obj):
+        return ','.join([x.__str__() for x in obj.counters.order_by('nr')])
+ 
+    @admin.display(description=_('Last Route'))
+    def last_route_out(self, obj):
+        route = obj.routes_out.last() 
+        return str(route.id) if route else None
+ 
+    @admin.display(description=_('Last Route / Measurement'))
+    def last_measurement(self, obj):
+        measurement = obj.measurements.last() 
+        return (
+            f"{measurement.route.id} / {round(measurement.consumption)}"
+            if measurement and measurement.consumption else None
+        )
 
 @admin.register(SubscriptionArchive, site=admin_site)
 class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):

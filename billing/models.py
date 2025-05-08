@@ -4,7 +4,9 @@ from django.db.models import UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from accounting.models import Article, OrderCategoryOutgoing, OrderContract
+from accounting.models import (
+    Article, OrderCategoryOutgoing, OrderContract, OutgoingOrder
+)
 from core.models import (
     TenantAbstract, AddressMunicipal, Area, Person, PersonAddress)
 from asset.models import AssetCategory, Device, Unit
@@ -251,6 +253,16 @@ class Subscription(TenantAbstract):
         help_text=_('Gets updated automatically by signals'))
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
+    # Maintenance
+    routes_out = models.ManyToManyField(
+        Route, blank=True, verbose_name=_('Routes out'),
+        related_name='subscription_routes_out',
+        help_text=_("Routes included in json files"))
+    invoices = models.ManyToManyField(
+        OutgoingOrder, blank=True, verbose_name=_('Invoices'),
+        related_name='subscription_invoices',
+        help_text=_("Invoices"))
+
     @property
     def invoice_address(self):
         # Get Field
@@ -275,6 +287,11 @@ class Subscription(TenantAbstract):
     @property
     def number(self):
         return f'S-{self.id}'
+
+    @property
+    def measurements(self):
+        return Measurement.objects.filter(
+            subscription=self).order_by('datetime')
 
     def save(self, *args, **kwargs):
         ''' Make number '''
@@ -336,22 +353,6 @@ class Measurement(TenantAbstract):
         Route, verbose_name=_('Route'),
         on_delete=models.PROTECT, related_name='%(class)s_counter')
 
-    # previous
-    datetime_previous = models.DateTimeField(
-        _('Previous Date and Time'), blank=True, null=True)
-    value_previous = models.FloatField(
-        _('Previous Value'), blank=True, null=True,
-        help_text=('Previous counter value (reference)'))
-    value_previous_lastest = models.FloatField(
-        _('Previous Value Latest'), blank=True, null=True,
-        help_text=('Previous counter value lastest'))
-    value_max = models.FloatField(
-        _('Min. Value'), blank=True, null=True,
-        help_text=('Max counter value'))
-    value_min = models.FloatField(
-        _('Max. Value'), blank=True, null=True,
-        help_text=('Min counter value'))
-
     # measurement data used for bill
     datetime = models.DateTimeField(
         _('Reference Date'), db_index=True,
@@ -402,8 +403,6 @@ class Measurement(TenantAbstract):
     subscription = models.ForeignKey(
         Subscription, verbose_name=_('Subscription'),
         on_delete=models.PROTECT, related_name='%(class)s_subscriber')
-    consumption_previous = models.FloatField(
-        _('Consumption previous'), blank=True, null=True)
 
     def __str__(self):
         return (

@@ -729,19 +729,11 @@ def incoming_order_pre_delete(sender, instance, **kwargs):
 def outgoing_order_post_save(sender, instance, created, **kwargs):
     '''
     Signal handler for post_save signals on OutgoingOrder.
-
-    We need this because we want to delay that the add operations to
-    manytomany fields are done
+    OutgoingItem gets own signal (see below)
     '''
-    def handle_sync(instance, created):
-        '''Perform API sync after the transaction is committed.'''
-        if sync(instance):
-            api = conn.OutgoingOrder(sender)
-            api.save(instance, created)
-
     if sync(instance):
-        # Delay the sync call until after the transaction commits
-        transaction.on_commit(lambda: handle_sync(instance, created))
+        api = conn.OutgoingOrder(sender)
+        api.save(instance, created)
 
 
 @receiver(pre_delete, sender=models.OutgoingOrder)

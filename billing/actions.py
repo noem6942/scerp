@@ -11,7 +11,8 @@ from . import forms
 
 from asset.models import Device
 from .calc import (
-    RouteMeterExport, RouteMeterImport, MeasurementAnalyse, MeasurementCalc
+    RouteCounterExport, RouteCounterImport, RouteCounterInvoicing,
+    MeasurementAnalyse
 )
 from .models import Route, Subscription
 
@@ -33,10 +34,9 @@ def export_counter_data_json(modeladmin, request, queryset, data):
         filename = data['filename']
 
         # Make and download json
-        export = RouteMeterExport(
-            modeladmin, request, queryset, route,
-            data['responsible_user'].user, data['route_date'],
-            data['energy_type'], key)
+        export = RouteCounterExport(
+            modeladmin, request, route, data['responsible_user'].user, 
+            data['route_date'], data['energy_type'], key)
         data = export.get_counter_data_json()
         response = export.make_response_json(data, filename)
 
@@ -52,7 +52,7 @@ def import_counter_data_json(modeladmin, request, queryset, data):
         route = queryset.first()
 
         # Import
-        route_import = RouteMeterImport(request, route)
+        route_import = RouteCounterImport(modeladmin, request, route)
         count = route_import.process(data['json_file'])
 
         messages.info(request, _("%s counters updated.") % count)
@@ -61,12 +61,13 @@ def import_counter_data_json(modeladmin, request, queryset, data):
 
 def get_invoice_data(modeladmin, request, queryset, data=None):
     if action_check_nr_selected(request, queryset, 1):
+        pass
+        ''' old
         # Prepare
         route = queryset.first()
 
         # Import
-        invoicing = RouteMeterExport(
-            modeladmin, request, queryset, route)
+        invoicing = RouteCounterInvoicing(modeladmin, queryset, request, route)
         invoices = invoicing.get_invoice_data_json()
 
         # Make excel
@@ -75,9 +76,9 @@ def get_invoice_data(modeladmin, request, queryset, data=None):
         response = invoicing.make_response_excel(
             data_list, filename)
         return response
+        '''
 
-
-@admin.action(description='3. ' + _("Preview Export Invoice Data"))
+@admin.action(description='3. ' + _("Generate Draft Invoice Data"))
 def create_invoice_preview(modeladmin, request, queryset):
     return get_invoice_data(modeladmin, request, queryset)
 
@@ -87,9 +88,11 @@ def create_invoice_preview(modeladmin, request, queryset):
     description='4. ' + _('Route Billing'))
 def route_billing(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, 1):
-        m = MeasurementCalc(data['status'], request, data['date'])
+        route = queryset.first()
+        invoice = RouteCounterInvoicing(
+            modeladmin, request, route, data['status'], data['date'])
         for measurement in data['measurements']:
-            m.bill(measurement)
+            invoice.bill(measurement)
 
         # output
         count = len(data['measurements'])
@@ -145,7 +148,7 @@ def route_copy(modeladmin, request, queryset, data):
 
 
 @admin.action(description=_("Consumption Analysis"))
-def analyse_measurment(modeladmin, request, queryset):
+def analyse_measurement(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, min_count=1):
         template = 'billing/measurement_consumption.html'
 
