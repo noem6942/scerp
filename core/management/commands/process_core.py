@@ -5,6 +5,7 @@
     python manage.py process_core update_or_create_groups --update
     python manage.py process_core update_or_create_base_buildings --update
     python manage.py process_core sync_person_again --tenant_id=4
+    python manage.py process_core clear_company_addresses
 '''
 import logging
 from django.core.management.base import BaseCommand
@@ -12,7 +13,7 @@ from django.core.management import CommandError
 
 from core.process import (
     update_or_create_apps, update_or_create_countries, update_or_create_groups,
-    update_or_create_base_buildings, sync_person_again
+    update_or_create_base_buildings, sync_person_again, clear_company_addresses
 )
 
 # Set up logging
@@ -30,7 +31,8 @@ class Command(BaseCommand):
                 'update_or_create_countries',
                 'update_or_create_groups',
                 'update_or_create_base_buildings',
-                'sync_person_again'
+                'sync_person_again',
+                'clear_company_addresses'
             ],
             help='Specify the action: gesoft'
         )
@@ -82,6 +84,11 @@ class Command(BaseCommand):
             logger.info(
                 f"Buildings: {created} created, {updated} updated, "
                 f"{deleted} deleted.")
+
+        elif action == 'clear_company_addresses':
+            # necessary as company addresses often double
+            count = clear_company_addresses()
+            logger.info(f"{count} itmes updated.")
 
         elif action == 'sync_person_again':
             # sync person, necessary as for some reason addresses were missing

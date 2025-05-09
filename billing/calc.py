@@ -667,27 +667,32 @@ class RouteCounterInvoicing(RouteManagement):
         invoice['recipient_address'] = f"{name}\n{address}"
 
         # Get comparison consumption
+        value_new = measurement.value
+        value_old = '-'
         comparison = self.get_comparison_measurements(
             measurement.counter).last()
         if comparison and comparison.consumption:
+            value_old = comparison.value
             if setup.rounding_digits == 0:
-                consumption = int(round(comparison.consumption, 0))
+                consumption = int(round(comparison.consumption, 0))                                
             else:
                 consumption = round(
                     comparison.consumption, setup.rounding_digits)        
         else:
             consumption = ''
-        print("*consumption", consumption)
 
         # header
         building = (
             f"{measurement.address.stn_label} {measurement.address.adr_number}"
-        )
+        )        
         invoice['header'] = setup.header.format(
             building=building,
+            building_notes = measurement.address.notes,
             start=format_date(self.start),
             end=format_date(self.end),
-            consumption=consumption
+            consumption=consumption,
+            counter_new=value_new,
+            counter_old=value_old
         )
 
         # create as atomic so signals work correctly        

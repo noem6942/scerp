@@ -17,7 +17,8 @@ from django.db import transaction
 
 from scerp.mixins import get_admin, read_yaml_file
 from .models import App, Country, TenantSetup, Address, AddressMunicipal
-from .models import Person
+from .models import Person, PersonAddress
+
 
 # Get logging
 logger = logging.getLogger('core')
@@ -286,6 +287,27 @@ def update_or_create_base_buildings(tenant_id=None, update=True):
                 else:
                     updated += 1
 
+
+def clear_company_addresses():
+    '''
+    Billing set too many additional_information
+    '''    
+    queryset = PersonAddress.objects.exclude(
+        additional_information=None
+    )
+    count = 0
+    
+    for item in queryset.all():
+        if item.additional_information == item.person.company:
+            item.additional_information = None
+            item.sync_accounting = True
+            item.save()
+            count += 1
+            logger.info(f"{item} updated.")                
+
+    return count
+
+
 # temp
 def sync_person_again(tenant_id):
     ''' sync person, necessary as for some reason addresses were missing '''
@@ -297,3 +319,5 @@ def sync_person_again(tenant_id):
         count += 1
 
     return count
+
+
