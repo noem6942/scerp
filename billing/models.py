@@ -44,7 +44,7 @@ class Setup(TenantAbstract):
         verbose_name=_('Order Category'), null=True,
         related_name='%(class)s_order_category')
     contact = models.ForeignKey(
-        Person, on_delete=models.PROTECT, null=True,
+        Person, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Clerk'), related_name='%(class)s_person',
         help_text=_('Clerk, leave empty if defined in category'))
     rounding_digits = models.PositiveSmallIntegerField(
