@@ -406,7 +406,7 @@ class Measurement(TenantAbstract):
 
     def __str__(self):
         return (
-            f'{self.subscription}: {self.route}, {self.counter}, '
+            f'{self.subscription.subscriber}, {self.address}: {self.route}, {self.counter}, '
             f'{self.datetime}'
         )
 

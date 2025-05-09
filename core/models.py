@@ -600,9 +600,10 @@ class AddressMunicipal(TenantAbstract):
         super().save(*args, **kwargs)
 
     def __str__(self):
+        notes_str = f", {self.notes}" if self.notes else ''
         return (
             f"{self.zip} {self.city}, {self.stn_label} {self.adr_number}"
-            f", EGID {self.bdg_egid}"
+            f", EGID {self.bdg_egid}{notes_str}"
         )
 
     class Meta:

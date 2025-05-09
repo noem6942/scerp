@@ -101,6 +101,13 @@ def shift_encode(text, shift=3):
     return ''.join(chr((ord(c) + shift) % 126) for c in text)
 
 
+def round_to_zero(value, digits):
+    if digits == 0:
+        return int(round(value, 0))                                
+    else:
+        return round(value, digits) 
+
+
 class RouteManagement:
     '''
     base class to handle Route management
@@ -667,27 +674,30 @@ class RouteCounterInvoicing(RouteManagement):
         invoice['recipient_address'] = f"{name}\n{address}"
 
         # Get comparison consumption
-        value_new = measurement.value
+        value_new = round_to_zero(measurement.value, setup.rounding_digits)
         value_old = '-'
         comparison = self.get_comparison_measurements(
             measurement.counter).last()
         if comparison and comparison.consumption:
-            value_old = comparison.value
-            if setup.rounding_digits == 0:
-                consumption = int(round(comparison.consumption, 0))                                
-            else:
-                consumption = round(
-                    comparison.consumption, setup.rounding_digits)        
+            value_old = round_to_zero(comparison.value, setup.rounding_digits)
+            consumption = round_to_zero(
+                comparison.consumption, setup.rounding_digits)
         else:
             consumption = ''
 
-        # header
+        # building
         building = (
             f"{measurement.address.stn_label} {measurement.address.adr_number}"
-        )        
+        )   
+        if measurement.address.notes:
+            building_notes = ', ' + measurement.address.notes
+        else:    
+            building_notes = ''
+          
+        # header
         invoice['header'] = setup.header.format(
             building=building,
-            building_notes = measurement.address.notes,
+            building_notes = building_notes,
             start=format_date(self.start),
             end=format_date(self.end),
             consumption=consumption,

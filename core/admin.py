@@ -220,7 +220,7 @@ class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):
     list_per_page = 1000
 
     # Search, filter
-    search_fields = ('zip', 'city', 'stn_label')
+    search_fields = ('zip', 'city', 'stn_label', 'bdg_egid')
     list_filter = (filters.AreaFilter, 'zip', 'bdg_category', 'adr_status')
 
     # Fieldsets
