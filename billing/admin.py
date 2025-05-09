@@ -125,6 +125,8 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
             'classes': ('expand',),
         }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT        
     )
 
     inlines = [AttachmentInline]
