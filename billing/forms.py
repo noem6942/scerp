@@ -168,7 +168,8 @@ class RouteBillingForm(AdminActionForm):
     measurements = forms.ModelMultipleChoiceField(
         label=_('Subscribers'),
         required=True,
-        queryset=Measurement.objects.none()
+        queryset=Measurement.objects.none(),
+        help_text=_("Leave empty for generating all invoices.")
     )
     status = forms.ChoiceField(
         label=_('Invoice Status'),
@@ -181,6 +182,11 @@ class RouteBillingForm(AdminActionForm):
         initial=now,  # or initial=now().date() if you only want the date
         widget=forms.DateInput(format='%d.%m.%Y'),  # optional formatting
         input_formats=['%d.%m.%Y'],  # optional parsing format
+    )
+    is_enabled_sync = forms.BooleanField(
+        label=_('Sync with cashCtrl'),
+        required=False,
+        help_text=_("Enable for draft invoices.")
     )
 
     def __post_init__(self, modeladmin, request, queryset):

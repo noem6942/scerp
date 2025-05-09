@@ -99,8 +99,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     # Actions
     actions = [
         a.export_counter_data_json,
-        a.import_counter_data_json,
-        a.create_invoice_preview,
+        a.import_counter_data_json,        
         a.route_billing,
         #a.export_counter_data_excel,
         a.route_copy

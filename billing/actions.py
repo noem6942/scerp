@@ -35,7 +35,7 @@ def export_counter_data_json(modeladmin, request, queryset, data):
 
         # Make and download json
         export = RouteCounterExport(
-            modeladmin, request, route, data['responsible_user'].user, 
+            modeladmin, request, route, data['responsible_user'].user,
             data['route_date'], data['energy_type'], key)
         data = export.get_counter_data_json()
         response = export.make_response_json(data, filename)
@@ -78,10 +78,6 @@ def get_invoice_data(modeladmin, request, queryset, data=None):
         return response
         '''
 
-@admin.action(description='3. ' + _("Generate Draft Invoice Data"))
-def create_invoice_preview(modeladmin, request, queryset):
-    return get_invoice_data(modeladmin, request, queryset)
-
 
 @action_with_form(
     forms.RouteBillingForm,
@@ -89,8 +85,10 @@ def create_invoice_preview(modeladmin, request, queryset):
 def route_billing(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, 1):
         route = queryset.first()
+        is_enabled_sync = data.get('is_enabled_sync', False)
         invoice = RouteCounterInvoicing(
-            modeladmin, request, route, data['status'], data['date'])
+            modeladmin, request, route, data['status'], data['date'],
+            is_enabled_sync)
         for measurement in data['measurements']:
             invoice.bill(measurement)
 

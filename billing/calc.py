@@ -591,12 +591,16 @@ class RouteCounterImport(RouteManagement):
 
 class RouteCounterInvoicing(RouteManagement):
     '''use this to invoice route data
+    
+    is_enabled_sync: set true for drafts, set false for others
     '''
     def __init__(
-            self, modeladmin, request, route, status, invoice_date):
+            self, modeladmin, request, route, status, invoice_date,
+            is_enabled_sync):
         super().__init__(modeladmin, request, route)
         self.status = status
         self.date = invoice_date
+        self.is_enabled_sync = is_enabled_sync
 
     def get_quantity(
             self, measurement, article, rounding_digits, days=None):
@@ -634,6 +638,7 @@ class RouteCounterInvoicing(RouteManagement):
             'responsible_person': setup.contact,
             'date': self.date,
             'status': self.status,
+            'is_enabled_sync': self.is_enabled_sync,
             'sync_to_accounting': True,  # immediately sync with cashCtrl
             'created_by': self.created_by
         }

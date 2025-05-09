@@ -3,12 +3,13 @@ accounting/management/commands/process_accounting.py
 
 usage:
    python manage.py process_accounting sync --org_name=test167 --ledger_id=1 --category=ic --max_count=100
+   python manage.py process_accounting sync_outgoing_order --days_back=5
 
 '''
 from django.core.management.base import BaseCommand
 
 from accounting.import_export import SyncLedger
-
+from accounting.process import sync_outgoing_order
 
 class Command(BaseCommand):
     help = 'Init accounting'
@@ -17,7 +18,7 @@ class Command(BaseCommand):
         # Required positional argument
         parser.add_argument(
             'action', type=str,
-            choices=['sync'],
+            choices=['sync', 'sync_outgoing_order'],
             help='Sync ledger')
 
         # Optional arguments
@@ -31,7 +32,9 @@ class Command(BaseCommand):
             '--ledger_id', type=int, help='ledger_id')
         parser.add_argument(
             '--max_count', type=int, help='max number of records (< 100)')
-
+        parser.add_argument(
+            '--days_back', type=int, help='sync days back')
+            
     def handle(self, *args, **options):
         # Retrieve action
         action = options['action']
@@ -43,3 +46,8 @@ class Command(BaseCommand):
             ledger_id = options.get('ledger_id')
             max_count = options.get('max_count', 100)
             sync.load(org_name, ledger_id, max_count)
+            
+        if action == 'sync_outgoing_order':            
+            days_back = options.get('days_back') or 5
+            count = sync_outgoing_order(days_back)
+
