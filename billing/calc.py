@@ -436,10 +436,6 @@ class RouteCounterImport(RouteManagement):
     def create_measurement(self, meter):
         # Get counter
         code = meter['id']
-
-        # Temp !!!
-        code = code.lstrip('0')  # delete leading 0
-
         counter = Device.objects.filter(
             tenant=self.tenant, code=code
         ).first()
@@ -474,7 +470,7 @@ class RouteCounterImport(RouteManagement):
             return None
 
         # Check subscription
-        subscription_id = maintenance['subscription_id'] + 496  # temp !!!
+        subscription_id = maintenance['subscription_id']
         subscription = Subscription.objects.filter(
             tenant=self.tenant, id=subscription_id).first()
         if not subscription:
