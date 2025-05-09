@@ -167,7 +167,7 @@ class AnalyseMeasurentExcelActionForm(AdminActionForm):
 class RouteBillingForm(AdminActionForm):
     measurements = forms.ModelMultipleChoiceField(
         label=_('Subscribers'),
-        required=True,
+        required=False,
         queryset=Measurement.objects.none(),
         help_text=_("Leave empty for generating all invoices.")
     )
@@ -186,7 +186,8 @@ class RouteBillingForm(AdminActionForm):
     is_enabled_sync = forms.BooleanField(
         label=_('Sync with cashCtrl'),
         required=False,
-        help_text=_("Enable for draft invoices.")
+        help_text=_(
+            "Enable for draft invoices. Disable for hundreds of invoices")
     )
 
     def __post_init__(self, modeladmin, request, queryset):

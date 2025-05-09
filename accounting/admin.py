@@ -1105,12 +1105,14 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     readonly_fields = FIELDS.C_READ_ONLY
 
     # Search, filter
-    search_fields = ('contract__associate__company', 'description')
+    search_fields = (        
+        'associate__company', 'associate__first_name', 'associate__last_name', 
+        'description')
     list_filter = ('category', 'status', 'date')
     autocomplete_fields = ['associate', 'responsible_person']
 
     # Actions
-    actions = accounting_actions + default_actions
+    actions = accounting_actions + [a.order_status_update]+ default_actions
 
     #Fieldsets
     fieldsets = (

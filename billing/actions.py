@@ -14,7 +14,7 @@ from .calc import (
     RouteCounterExport, RouteCounterImport, RouteCounterInvoicing,
     MeasurementAnalyse
 )
-from .models import Route, Subscription
+from .models import Route, Subscription, Measurement
 
 
 ENCRYPTION_KEY = 3
@@ -84,12 +84,19 @@ def get_invoice_data(modeladmin, request, queryset, data=None):
     description='4. ' + _('Route Billing'))
 def route_billing(modeladmin, request, queryset, data):
     if action_check_nr_selected(request, queryset, 1):
+        # Prepare variables
         route = queryset.first()
         is_enabled_sync = data.get('is_enabled_sync', False)
+
+        measurements = data['measurements']
+        if not measurements:
+            measurements = Measurement.objects.filter(route=route)
+
+        # Process
         invoice = RouteCounterInvoicing(
             modeladmin, request, route, data['status'], data['date'],
             is_enabled_sync)
-        for measurement in data['measurements']:
+        for measurement in measurements:
             invoice.bill(measurement)
 
         # output

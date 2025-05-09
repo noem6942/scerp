@@ -102,6 +102,8 @@ def shift_encode(text, shift=3):
 
 
 def round_to_zero(value, digits):
+    if value is None:
+        return '-'
     if digits == 0:
         return int(round(value, 0))                                
     else:

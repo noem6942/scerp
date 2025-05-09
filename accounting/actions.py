@@ -284,6 +284,18 @@ def incoming_order_approve(modeladmin, request, queryset):
         invoice.save()
 
 
+@action_with_form(
+    forms.OrderUpdateForm, description=_("Status Update")
+)
+def order_status_update(modeladmin, request, queryset, data):
+    ''' update order status '''
+    status = data['status']
+    for order in queryset.all():
+        order.status = status
+        order.sync_to_accounting = True
+        order.save()
+    
+
 @admin.action(description=_("Submit for booking"))
 def incoming_order_approve(modeladmin, request, queryset):
     ''' update is_enabled_sync to False '''

@@ -174,7 +174,7 @@ class LedgerBalanceAdminForm(MultilanguageForm):
 
     # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
-    
+
 
 class LedgerPLAdminForm(MultilanguageForm):
     multi_lang_fields = ['name']
@@ -286,7 +286,7 @@ class IncomingOrderForm(AdminActionForm):
             self.fields['qr_iban'].initial = bank_account.qr_iban
             self.fields['bic'].initial = bank_account.bic
             self.fields['reference'].initial = bank_account.reference
-            
+
             self.fields['iban'].help_text = f"{label}: {bank_account.iban}"
             self.fields['qr_iban'].help_text = (
                 f"{label}: {bank_account.qr_iban}")
@@ -568,3 +568,13 @@ class LedgerICUploadForm(AdminActionForm):
             '''))
 
 
+# Update forms
+class OrderUpdateForm(AdminActionForm):
+    status = forms.ChoiceField(
+        label=_('Status'),
+        choices=[], required=True,
+        help_text=_("New Status"))
+
+    def __post_init__(self, modeladmin, request, queryset):        
+        self.fields['status'].choices = [
+            (x.value, x.label) for x in queryset.first().category.STATUS]

@@ -780,7 +780,7 @@ class OutgoingOrder(Order):
         # Create items from articles
         queryset_items = models.OutgoingItem.objects.filter(
             order=instance).order_by('id')
-            
+
         # if not queryset_items:  # disable as we do this in two steps
         #    raise ValueError('No items in order')
 
