@@ -117,7 +117,9 @@ def generate_random_password(length=settings.PASSWORD_LENGTH):
 
 
 def get_translations(text):
-    ''' return language map for text if existing '''
+    ''' return language map for text if existing
+    does not work! shows always german
+    '''
     name = {}
     current_language = get_language()  # Store the currently active language
 

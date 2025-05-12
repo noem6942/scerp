@@ -940,8 +940,9 @@ class Article(AcctApp):
          "BUG: currently nr is mandatory and must be unique"))
     name = models.JSONField(
         _('Name'),
-        help_text=_("The name of the article. For localized text, use XML format: "
-                    "<values><de>German text</de><en>English text</en></values>."),
+        help_text=_(
+            "The name of the article. For localized text, use XML format: "
+            "<values><de>German text</de><en>English text</en></values>."),
         null=True,
         blank=True,
     )
@@ -1490,10 +1491,9 @@ class OrderCategoryOutgoing(OrderCategory):
     '''Category for outgoing invoices,
         use this to define all booking details
         replace by article category
-    '''
+    '''        
     class STATUS(models.TextChoices):
         DRAFT = 'Draft', _('Draft')
-        OPEN = 'Open', _('Open')  # Erfasst
         BOOKED = 'Booked', _('Booked')
         SENT = 'Sent', _('Sent')  # Versendet
         REMINDER_1 = 'Reminder 1', _('Reminder 1')  # Mahnstufe 1
@@ -1504,7 +1504,6 @@ class OrderCategoryOutgoing(OrderCategory):
 
     COLOR_MAPPING = {
         STATUS.DRAFT: COLOR.GRAY,
-        STATUS.OPEN: COLOR.BLUE,
         STATUS.BOOKED: COLOR.BLUE,
         STATUS.SENT: COLOR.YELLOW,
         STATUS.REMINDER_1: COLOR.ORANGE,
@@ -1516,7 +1515,6 @@ class OrderCategoryOutgoing(OrderCategory):
 
     BOOKING_MAPPING = {
         STATUS.DRAFT: False,
-        STATUS.OPEN: False,
         STATUS.BOOKED: True,
         STATUS.SENT: False,
         STATUS.REMINDER_1: False,
@@ -1525,7 +1523,12 @@ class OrderCategoryOutgoing(OrderCategory):
         STATUS.ARCHIVED: False,
         STATUS.CANCELLED: True,
     }
-
+    
+    BOOKING_STEP = {
+        STATUS.BOOKED: _('Booking'), 
+        STATUS.PAID: _('Payment')
+    }
+    
     is_display_item_gross = True
     type = OrderCategory.TYPE.SALES
     debit_account = models.ForeignKey(

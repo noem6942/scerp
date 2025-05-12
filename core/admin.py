@@ -95,7 +95,7 @@ class UserProfileAdmin(TenantFilteringAdmin, BaseAdmin):
     def group_names(self, obj):
         return Display.list([x.name for x in obj.groups])
 
-    @admin.display(description=_(''))
+    @admin.display(description=_('Photo'))
     def person_photo(self, obj):
         return Display.photo(obj.person.photo)
 

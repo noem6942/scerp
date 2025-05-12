@@ -22,6 +22,11 @@ Libraries:
 Docu:
     sphinx-build -b html docs/source docs/build/html
 
+
+## Translation
+django-admin makemessages -l de --ignore="fixtures/*" --ignore="asset/ignore/*"
+django-admin compilemessages
+
 ## Bugs
 
 ### accounting

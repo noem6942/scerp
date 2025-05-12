@@ -693,7 +693,7 @@ class BaseAdmin:
     def display_previous(self, obj):
         return Display.big_number(obj.previous)
 
-    @admin.display(description=_(''))
+    @admin.display(description=_('cashCtrl'))
     def display_cashctrl(self, obj):
         if obj.c_id or obj.c_rev_id:
             return '🪙'  # (Coin): \U0001FA99

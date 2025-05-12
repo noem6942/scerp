@@ -3,13 +3,12 @@
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
-#: .\accounting\admin.py:969
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-01 20:32+0100\n"
+"POT-Creation-Date: 2025-05-12 22:29+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -19,971 +18,418 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\accounting\actions.py:29
-msgid "Load actual data from Accounting System"
-msgstr ""
-
-#: .\accounting\actions.py:70
-msgid "No accounting system defined."
-msgstr ""
-
-#: .\accounting\actions.py:84
-msgid "API Error: cannot retrieve data"
-msgstr ""
-
-#: .\accounting\actions.py:96
-msgid "Cannot retrieve data for this list"
-msgstr ""
-
-#: .\accounting\actions.py:107
-msgid "No account setup found"
-msgstr ""
-
-#: .\accounting\actions.py:124 .\scerp\admin.py:515
-msgid "Unique constraints violated"
-msgstr ""
-
-#: .\accounting\actions.py:132
-msgid "Accounting API initialized"
-msgstr ""
-
-#: .\accounting\actions.py:155 .\accounting\actions.py:173
-#, python-brace-format
-msgid "Deleted {count} accounts"
-msgstr ""
-
-#: .\accounting\actions.py:158 .\accounting\actions.py:176
-#: .\accounting\actions.py:191
-#, python-brace-format
-msgid "An error occurred while deleting accounts: {error}"
-msgstr ""
-
-#: .\accounting\actions.py:188
-#, python-brace-format
-msgid "Deleted {count} categories"
-msgstr ""
-
-#: .\accounting\actions.py:212
-msgid "12 Check accounting positions"
-msgstr ""
-
-#: .\accounting\actions.py:222
-msgid "Accounting positons checked. No errors found."
-msgstr ""
-
-#: .\accounting\actions.py:224
-#, python-brace-format
-msgid "Check result: {e}"
-msgstr ""
-
-#: .\accounting\actions.py:228
-msgid "13 Convert names from upper to title case"
-msgstr ""
-
-#: .\accounting\actions.py:236
-msgid "No changes. All good."
-msgstr ""
-
-#: .\accounting\actions.py:239
-#, python-brace-format
-msgid "Converted '{number} {name}'."
-msgstr ""
-
-#: .\accounting\actions.py:244
-msgid "14 Upload accounting positions"
-msgstr ""
-
-#: .\accounting\actions.py:252
-msgid "Mixed account types found"
-msgstr ""
-
-#: .\accounting\actions.py:261
-msgid "Accounting positons uploaded"
-msgstr ""
-
-#: .\accounting\actions.py:264
+#: .\accounting\actions.py:65
 msgid "15 Get balances from accounting system"
 msgstr ""
 
-#: .\accounting\actions.py:275
+#: .\accounting\actions.py:76
 #, python-brace-format
 msgid "{count} balances downloaded."
 msgstr ""
 
-#: .\accounting\actions.py:282
+#: .\accounting\actions.py:83
 msgid "16 Get current balances from accounting system"
 msgstr ""
 
-#: .\accounting\actions.py:298
+#: .\accounting\actions.py:99
 #, python-brace-format
 msgid "{count} positions updated."
 msgstr ""
 
-#: .\accounting\actions.py:308
+#: .\accounting\actions.py:109
 msgid "17 Upload opening balances to accounting system"
 msgstr ""
 
-#: .\accounting\actions.py:324
+#: .\accounting\actions.py:125
 #, python-brace-format
 msgid "Balances uploaded, {response}"
 msgstr ""
 
-#: .\accounting\actions.py:331
-msgid "> Insert copy of record below"
-msgstr ""
-
-#: .\accounting\actions.py:352
-msgid "Copied record."
-msgstr ""
-
-#: .\accounting\actions.py:354
-#, python-brace-format
-msgid "Not allowed to copy this record. {e}"
-msgstr ""
-
-#: .\accounting\actions.py:400
-#, python-brace-format
-msgid "successfully checked {count} accounts."
-msgstr ""
-
-#: .\accounting\actions.py:416
-msgid "> Check Excel file for validity"
-msgstr ""
-
-#: .\accounting\actions.py:427
-msgid "> Create canton account positions"
-msgstr ""
-
-#: .\accounting\actions.py:503 .\accounting\actions.py:614
-#, python-brace-format
-msgid "successfully created {count} accounts. "
-msgstr ""
-
-#: .\accounting\actions.py:507 .\accounting\actions.py:618
-#, python-brace-format
-msgid "successfully updated {count} accounts. "
-msgstr ""
-
-#: .\accounting\actions.py:511
-#, python-brace-format
-msgid "Go to '{verbose}' to see the results."
-msgstr ""
-
-#: .\accounting\actions.py:518
-msgid "> Export selected balance positions to own balance"
-msgstr ""
-
-#: .\accounting\actions.py:532
-msgid "> Export selected function positions to own income"
-msgstr ""
-
-#: .\accounting\actions.py:546
-msgid "> Export selected function positions to own invest"
-msgstr ""
-
-#: .\accounting\actions.py:566
-msgid "Select only one function."
-msgstr ""
-
-#: .\accounting\actions.py:625
-msgid "10. Add income positions to function"
-msgstr ""
-
-#: .\accounting\actions.py:637
-msgid "11 Add invest positions to function"
-msgstr ""
-
-#: .\accounting\actions.py:650
+#: .\accounting\actions.py:135
 msgid "17 Assign a responsible group to the selected account positions."
 msgstr ""
 
-#: .\accounting\actions.py:660
+#: .\accounting\actions.py:145
 #, python-brace-format
 msgid "Successfully assigned '{group}' to {count} records."
 msgstr ""
 
-#: .\accounting\admin.py:41
-msgid "Read only model. <i>Use cashControl for edits!</i>"
+#: .\accounting\actions.py:163
+msgid "No file uploaded."
 msgstr ""
 
-#: .\accounting\admin.py:89 .\accounting\admin.py:222 .\accounting\admin.py:224
-#: .\accounting\admin.py:226
-msgid "settings"
+#: .\accounting\actions.py:174
+msgid "Excel file processed successfully."
 msgstr ""
 
-#: .\accounting\admin.py:159 .\accounting\admin.py:174
-msgid "last update"
+#: .\accounting\actions.py:181
+msgid "20 Insert or update into Balance"
 msgstr ""
 
-#: .\accounting\admin.py:163 .\accounting\admin.py:467
-#: .\accounting\admin.py:492 .\accounting\admin.py:518
-#: .\accounting\admin.py:755
-#: .\accounting\fixtures\code\scerp\accounting\models.py:27
-#: .\accounting\fixtures\code\scerp\billing\models.py:30
-#: .\accounting\fixtures\code\scerp\billing\models.py:84
-#: .\accounting\models.py:202 .\accounting\models.py:243
-#: .\accounting\models.py:326 .\accounting\models.py:580
-#: .\accounting\models.py:616 .\accounting\models.py:644
-#: .\accounting\models.py:692 .\accounting\models.py:729
-#: .\accounting\models.py:838 .\accounting\models.py:1325 .\crm\admin.py:34
-#: .\crm\models.py:24 .\crm\models.py:49 .\crm\models.py:88
-#: .\time_app\admin.py:17 .\time_app\admin.py:31 .\time_app\admin.py:46
-#: .\time_app\admin.py:61 .\time_app\admin.py:77 .\time_app\admin.py:99
-#: .\vault\models.py:30
-msgid "Name"
+#: .\accounting\actions.py:191
+msgid "21 Insert or update into P&L"
 msgstr ""
 
-#: .\accounting\admin.py:170 .\accounting\models.py:621
-#: .\accounting\models.py:696 .\accounting\models.py:1569
-msgid "Parent"
+#: .\accounting\actions.py:201
+msgid "22 Insert or update into IC"
 msgstr ""
 
-#: .\accounting\admin.py:183
-msgid "Setup"
+#: .\accounting\actions.py:219 .\accounting\actions.py:238
+msgid "Cannot retrieve data for this list"
 msgstr ""
 
-#: .\accounting\admin.py:299
-msgid "Accounting Information"
+#: .\accounting\actions.py:222
+msgid "Get data from account system"
 msgstr ""
 
-#: .\accounting\admin.py:307
+#: .\accounting\actions.py:257
+msgid "Sync with Accounting"
+msgstr ""
+
+#: .\accounting\actions.py:268
+msgid "De-sync from Accounting"
+msgstr ""
+
+#: .\accounting\actions.py:278
+msgid "Approve"
+msgstr ""
+
+#: .\accounting\actions.py:288
+msgid "Status Update"
+msgstr ""
+
+#: .\accounting\actions.py:299
+msgid "Submit for booking"
+msgstr ""
+
+#: .\accounting\actions.py:309
+msgid "Scan data from invoice"
+msgstr ""
+
+#: .\accounting\admin.py:102 .\accounting\admin.py:141
+#: .\accounting\admin.py:263 .\accounting\admin.py:386
+#: .\accounting\admin.py:481
+msgid "Read only model. Use cashControl for edits."
+msgstr ""
+
+#: .\accounting\admin.py:124
+msgid "Data"
+msgstr ""
+
+#: .\accounting\admin.py:128
+msgid "Link"
+msgstr ""
+
+#: .\accounting\admin.py:174 .\accounting\admin.py:727
+#: .\accounting\admin.py:909 .\accounting\admin.py:1125
 msgid "Layout"
 msgstr ""
 
-#: .\accounting\admin.py:313
+#: .\accounting\admin.py:183
 msgid "Applikation link"
 msgstr ""
 
-#: .\accounting\admin.py:356 .\accounting\models.py:256
-#: .\accounting\models.py:327 .\accounting\models.py:477
-#: .\accounting\models.py:1359 .\accounting\models.py:1566 .\asset\models.py:88
-#: .\asset\models.py:298 .\asset\models.py:327 .\asset\models.py:328
-#: .\vault\models.py:91 .\vault\models.py:111 .\vault\models.py:131
-#: .\vault\models.py:151
-msgid "Description"
-msgstr ""
-
-#: .\accounting\admin.py:362 .\asset\models.py:120
-msgid "description"
-msgstr ""
-
-#: .\accounting\admin.py:384
-msgid "Texts"
-msgstr ""
-
-#: .\accounting\admin.py:430 .\accounting\models.py:592
+#: .\accounting\admin.py:328 .\accounting\models.py:424
 msgid "Text"
 msgstr ""
 
-#: .\accounting\admin.py:438 .\accounting\models.py:1166
-msgid "Percentage"
+#: .\accounting\admin.py:374 .\accounting\admin.py:1240
+#: .\accounting\models.py:76 .\accounting\models.py:118
+#: .\accounting\models.py:172 .\accounting\models.py:289
+#: .\accounting\models.py:413 .\accounting\models.py:448
+#: .\accounting\models.py:476 .\accounting\models.py:526
+#: .\accounting\models.py:575 .\accounting\models.py:884
+#: .\accounting\models.py:942 .\accounting\models.py:1055
+#: .\accounting\models.py:1097 .\accounting\models.py:1885
+#: .\accounting\models.py:1943 .\asset\models.py:39 .\asset\models.py:64
+#: .\asset\models.py:94 .\billing\models.py:31 .\billing\models.py:325
+#: .\core\models.py:466 .\core\models.py:491 .\core\models.py:758
+#: .\core\models.py:810 .\core\models.py:1121 .\core\models.py:1138
+#: .\scerp\admin.py:532 .\scerp\admin.py:578 .\vault\models.py:30
+msgid "Name"
 msgstr ""
 
-#: .\accounting\admin.py:442
-msgid "Percentage Flat"
+#: .\accounting\admin.py:502 .\accounting\models.py:131
+#: .\accounting\models.py:351 .\accounting\models.py:963
+#: .\accounting\models.py:1640 .\accounting\models.py:1694
+#: .\accounting\models.py:1762 .\accounting\models.py:2251 .\asset\models.py:67
+#: .\asset\models.py:68 .\asset\models.py:110 .\vault\models.py:91
+#: .\vault\models.py:111 .\vault\models.py:131 .\vault\models.py:151
+msgid "Description"
 msgstr ""
 
-#: .\accounting\admin.py:522
-msgid "Stati"
+#: .\accounting\admin.py:636
+msgid "Extra"
 msgstr ""
 
-#: .\accounting\admin.py:708
-msgid "Account Settings"
+#: .\accounting\admin.py:682
+msgid "Stock Management"
 msgstr ""
 
-#: .\accounting\admin.py:748
-msgid "Advanced"
+#: .\accounting\admin.py:688
+msgid "Pricing"
 msgstr ""
 
-#: .\accounting\admin.py:759
-msgid "price in CHF"
+#: .\accounting\admin.py:698 .\accounting\models.py:1643
+msgid "Price (Excl. VAT)"
 msgstr ""
 
-#: .\accounting\admin.py:779
-msgid "Content"
+#: .\accounting\admin.py:791
+msgid "Template for Contracts."
 msgstr ""
 
-#: .\accounting\admin.py:789
-msgid "Type - display positions"
+#: .\accounting\admin.py:816
+msgid "Status Definitions"
 msgstr ""
 
-#: .\accounting\admin.py:818 .\vault\admin.py:86
-msgid "Others"
+#: .\accounting\admin.py:861 .\accounting\admin.py:915
+#: .\accounting\models.py:1528
+msgid "Booking"
+msgstr "Rechnung"
+
+#: .\accounting\admin.py:922
+msgid "Status and Booking Codes"
 msgstr ""
 
-#: .\accounting\admin.py:824
-msgid "Subject Nr."
+#: .\accounting\admin.py:944
+msgid ""
+"Every incoming invoice must be based on a contract. Here you define all "
+"repeating supplier data. "
 msgstr ""
 
-#: .\accounting\admin.py:828 .\accounting\admin.py:855
-msgid "Position Nr."
+#: .\accounting\admin.py:968
+msgid "Contractual"
 msgstr ""
 
-#: .\accounting\admin.py:859
-msgid "Show positions"
+#: .\accounting\admin.py:981 .\billing\models.py:227
+msgid "Partner"
 msgstr ""
 
-#: .\accounting\admin.py:899
-msgid "Edit"
+#: .\accounting\admin.py:1031 .\accounting\forms.py:247
+#: .\accounting\models.py:1697
+msgid "Price (Incl. VAT)"
 msgstr ""
 
-#: .\accounting\admin.py:924
-msgid "position nr."
+#: .\accounting\admin.py:1035
+msgid "Supplier IBAN"
 msgstr ""
 
-#: .\accounting\admin.py:928
-msgid "actual +"
+#: .\accounting\admin.py:1040 .\accounting\admin.py:1137
+msgid "Supplier"
 msgstr ""
 
-#: .\accounting\admin.py:935
-msgid "actual -"
+#: .\accounting\admin.py:1141 .\accounting\models.py:814
+msgid "url"
 msgstr ""
 
-#: .\accounting\admin.py:942
-msgid "balance +"
+#: .\accounting\admin.py:1182
+msgid "Current"
 msgstr ""
 
-#: .\accounting\admin.py:949
-msgid "balance -"
+#: .\accounting\admin.py:1186 .\accounting\models.py:54
+#: .\accounting\models.py:2346 .\scerp\admin.py:608 .\scerp\admin.py:639
+msgid "Balance"
+msgstr "Bilanz"
+
+#: .\accounting\admin.py:1191
+msgid "P&L"
 msgstr ""
 
-#: .\accounting\admin.py:956
-msgid "balance"
+#: .\accounting\admin.py:1196
+msgid "IC"
 msgstr ""
 
-#: .\accounting\admin.py:961
-msgid "budget"
+#: .\accounting\admin.py:1225 .\accounting\models.py:618
+#: .\accounting\models.py:1954 .\accounting\models.py:2326
+msgid "Function"
 msgstr ""
 
-#: .\accounting\admin.py:965
-msgid "previous"
+#: .\accounting\admin.py:1234 .\accounting\models.py:621
+#: .\accounting\models.py:1940
+msgid "HRM 2"
 msgstr ""
 
-#: .\accounting\apps.py:8 .\time_app\admin.py:83
+#: .\accounting\admin.py:1249
+msgid "C-ids"
+msgstr ""
+
+#: .\accounting\admin.py:1302 .\accounting\admin.py:1372
+#: .\accounting\models.py:2005
+msgid "Opening Balance"
+msgstr ""
+
+#: .\accounting\admin.py:1306 .\accounting\admin.py:1376
+#: .\accounting\models.py:2010
+msgid "Closing Balance"
+msgstr ""
+
+#: .\accounting\admin.py:1310 .\accounting\admin.py:1380
+#: .\accounting\models.py:2015
+msgid "Increase"
+msgstr ""
+
+#: .\accounting\admin.py:1314 .\accounting\admin.py:1384
+#: .\accounting\models.py:2019
+msgid "Decrease"
+msgstr ""
+
+#: .\accounting\apps.py:8
 msgid "Accounting"
 msgstr ""
 
-#: .\accounting\fixtures\code\scerp\accounting\admin.py:10
-#: .\accounting\fixtures\code\scerp\address\admin.py:10
-#: .\accounting\fixtures\code\scerp\app\admin.py:9
-#: .\accounting\fixtures\code\scerp\billing\admin.py:9
-#: .\accounting\fixtures\code\scerp\building\admin.py:8
-#: .\accounting\fixtures\code\scerp\citizen\admin.py:8
-#: .\accounting\fixtures\code\scerp\minutes\admin.py:8
-#: .\accounting\fixtures\code\scerp\scerp\admin.py:6
-#: .\accounting\fixtures\code\scerp\social\admin.py:8
-#: .\accounting\fixtures\code\scerp\time_mgmt\admin.py:8
-#: .\accounting\fixtures\code\scerp\workflow\admin.py:9 .\scerp\locales.py:11
-#: .\scerp\locales.py:13
-msgid "SC-ERP - das Schweizer City ERP"
+#: .\accounting\connector_cash_ctrl.py:697
+msgid "No bank account for creditor specified."
 msgstr ""
 
-#: .\accounting\fixtures\code\scerp\accounting\admin.py:14
-#: .\accounting\fixtures\code\scerp\address\admin.py:14
-#: .\accounting\fixtures\code\scerp\app\admin.py:13
-#: .\accounting\fixtures\code\scerp\billing\admin.py:13
-#: .\accounting\fixtures\code\scerp\building\admin.py:12
-#: .\accounting\fixtures\code\scerp\citizen\admin.py:12
-#: .\accounting\fixtures\code\scerp\minutes\admin.py:12
-#: .\accounting\fixtures\code\scerp\social\admin.py:12
-#: .\accounting\fixtures\code\scerp\time_mgmt\admin.py:12
-#: .\accounting\fixtures\code\scerp\workflow\admin.py:13 .\scerp\locales.py:12
-msgid "Willkommen!"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\admin.py:15
-#: .\accounting\fixtures\code\scerp\address\admin.py:15
-#: .\accounting\fixtures\code\scerp\app\admin.py:14
-#: .\accounting\fixtures\code\scerp\billing\admin.py:14
-#: .\accounting\fixtures\code\scerp\building\admin.py:13
-#: .\accounting\fixtures\code\scerp\citizen\admin.py:13
-#: .\accounting\fixtures\code\scerp\minutes\admin.py:13
-#: .\accounting\fixtures\code\scerp\social\admin.py:13
-#: .\accounting\fixtures\code\scerp\time_mgmt\admin.py:13
-#: .\accounting\fixtures\code\scerp\workflow\admin.py:14
-msgid "SC-ERP admin"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:9
-msgid "Earliest"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:10
-msgid "Latest"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:15
-msgid "Ende"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:16
-msgid ""
-"The end date of the fiscal period, if isCustom is set to true, ignored "
-"otherwise."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:19
-msgid "Start"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:20
-msgid ""
-"The start date of the fiscal period, if isCustom is set to true, ignored "
-"otherwise."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:24
-msgid ""
-"If true, create a custom fiscal period with start and end date. type will be "
-"ignored. Defaults to false."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:28
-msgid ""
-"The name of the fiscal period, if isCustom is set to true, ignored otherwise."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:33
-msgid ""
-"Creation type for creating a calendar year, if isCustom is not set. Either "
-"LATEST, which will create the next year after the latest existing year, or "
-"EARLIEST, which will create the year before the earliest existing year. "
-"Defaults to LATEST."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:44
-msgid "Rechnungsperiode"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:45
-msgid "Rechnungsperioden"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:60
-#: .\accounting\fixtures\code\scerp\accounting\models.py:61
-#: .\accounting\models.py:138 .\accounting\models.py:162
-#: .\accounting\models.py:295
-msgid "Accounting Setup"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:71
-#: .\accounting\fixtures\code\scerp\accounting\models.py:72
-msgid "Runden"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:82
-#: .\accounting\fixtures\code\scerp\accounting\models.py:83
-msgid "Mehrwertsteuer"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:91
-msgid "Ertragskonto"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:92
-msgid "Ertragskonti"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:104
-msgid "System"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\accounting\models.py:105
-msgid "Systeme"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:21
-msgid "Main address"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:22
-msgid "Invoice address"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:23
-msgid "Delivery address"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:24 .\core\models.py:250
-#: .\crm\models.py:184
-msgid "Other"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:27 .\scerp\locales.py:182
-msgid "Schweiz"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:33 .\crm\models.py:470
-msgid "Type of address"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:34
-msgid ""
-"The type of address. Possible values: Main address, Invoice address, "
-"Delivery address, Other."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:39
-#: .\accounting\models.py:362 .\crm\models.py:138 .\crm\models.py:188
-msgid "Address"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:40
-msgid ""
-"The address (street, house number, additional info). Can contain multiple "
-"lines."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:46
-msgid "Gebäudebeschreibung"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:47
-msgid "Hausbeschreibung, z.B. wie 12-MFH für Wasser- oder Stromzählung"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:52
-msgid "Hinweise"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:53
-msgid "Hinweise wie z.B. zur Wasser- oder Stromzählung"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:59
-msgid "Postal Code"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:60
-msgid "The postal code of the address."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:66
-msgid "City/Town"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:67
-msgid "The town/city of the address."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:75
-#: .\accounting\models.py:372 .\crm\models.py:20 .\crm\models.py:40
-#: .\crm\models.py:151 .\crm\models.py:152
-msgid "Country"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:76
-msgid "The country of the address in ISO Alpha-3 Codes."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:88
-#: .\accounting\fixtures\code\scerp\billing\models.py:25
-msgid "Adresse"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:89
-#: .\accounting\fixtures\code\scerp\billing\models.py:26
-msgid "Adressen"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:97 .\crm\models.py:226
-msgid "Company"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:98
-msgid ""
-"The name of the organization/company. Either firstName, lastName or company "
-"must be set."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:104 .\crm\models.py:233
-msgid "First Name"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:105
-msgid ""
-"The person's first (given) name. Either firstName, lastName or company must "
-"be set."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:111 .\crm\models.py:240
-msgid "Last Name"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:112
-msgid ""
-"The person's last (family) name. Either firstName, lastName or company must "
-"be set."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:118 .\crm\models.py:252
-msgid "Alternative Name"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:119 .\crm\models.py:253
-msgid ""
-"An alternative name for this person (for organizational chart). Can contain "
-"localized text."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:124
-msgid "Custom field values"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:125
-msgid "Custom field values. Stored as JSON."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:129 .\crm\models.py:195
-#: .\crm\models.py:283 .\crm\models.py:481
-msgid "Contacts"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:131
-msgid "A list of contact information (e-mail, phone, url, etc.)."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:136 .\crm\models.py:289
-msgid "Date of Birth"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:137
-msgid "The person's date of birth (Format: DD.MM.YYYY)."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:142
-#: .\accounting\fixtures\code\scerp\address\models.py:186
-#: .\accounting\models.py:1412
-msgid "Notes"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:143
-#: .\accounting\fixtures\code\scerp\address\models.py:187
-msgid "Some optional notes. This can contain limited HTML for styling."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:148 .\crm\models.py:295
-msgid "Department"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:149
-msgid "The department of the person within the company."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:156
-msgid "Discount Percentage"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:157
-msgid "Discount percentage for this person, which may be used for orders."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:163
-#: .\accounting\models.py:386 .\crm\models.py:314
-msgid "IBAN"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:164
-msgid "The IBAN (International Bank Account Number) of the person."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:170 .\crm\models.py:321
-msgid "Industry"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:171
-msgid "The industry of the company or the trade/vocation of the person."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:175
-#: .\accounting\models.py:1366
-msgid "Is Inactive"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:176
-msgid ""
-"Mark the person as inactive. The person will be greyed out and no longer "
-"suggested."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:193 .\crm\models.py:334
-msgid "Person Number"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:194
-msgid "The person number (e.g., customer no.)."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:200
-msgid "Position"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:201 .\crm\models.py:341
-msgid "The position (job title) of the person within the company."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:206
-#: .\accounting\models.py:1434
-msgid "Sequence Number ID"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:207
-msgid ""
-"The ID of the sequence number used to generate the person number (see nr)."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:212
-msgid "Superior ID"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:213 .\crm\models.py:350
-msgid "The superior of this person (for organizational chart)."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:218
-msgid "Title ID"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:219 .\crm\models.py:357
-msgid "The person's title (e.g. 'Mr.', 'Mrs.', 'Dr.')."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:240 .\crm\models.py:392
-msgid "Person"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:241
-msgid "Personen"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:262
-#: .\accounting\fixtures\code\scerp\address\models.py:263
-msgid "2.1 Mitarbeitende"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:281
-#: .\accounting\fixtures\code\scerp\address\models.py:282
-#: .\accounting\fixtures\code\scerp\address\models.py:308
-#: .\accounting\fixtures\code\scerp\address\models.py:309
-msgid "2.2 Externe"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:293
-#: .\accounting\fixtures\code\scerp\address\models.py:294
-#: .\accounting\fixtures\code\scerp\citizen\models.py:14
-#: .\accounting\fixtures\code\scerp\citizen\models.py:15
-msgid "Einwohner"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:316
-msgid "Schweizerische Eidgenossenschaft - map.geo.admin.ch"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:320
-#: .\accounting\fixtures\code\scerp\app\models.py:131
-#: .\accounting\models.py:204 .\accounting\models.py:325
-#: .\accounting\models.py:357 .\accounting\models.py:832
-#: .\accounting\models.py:1482 .\accounting\models.py:1488 .\core\models.py:208
-#: .\core\models.py:255 .\vault\models.py:170
-msgid "Type"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\models.py:331
-#: .\accounting\fixtures\code\scerp\address\models.py:332
-msgid "1.2 Geo Einstellungen"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\address\validations.py:7
-msgid "Either First Name, Last Name or Company must be set."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:40
-msgid "Notizen"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:81
-#: .\accounting\fixtures\code\scerp\app\models.py:84
-msgid "FiBu Upload"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:91
-msgid "1 Organisation"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:92
-msgid "1 Organisationen"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:116
-msgid "0 Admin Setup"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:117
-msgid "0 Admin Setups"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:125
-msgid "Hauptsitz"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:126
-msgid "Nebensitz"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:127
-msgid "MwSt"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:128
-msgid "Lager"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:153
-msgid "1.1 Standort, UID"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\app\models.py:154
-msgid "1.1 Standorte, UIDs"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:11
-msgid "Name der Route"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:12
-msgid "Name der Route für den Brunnenmeister"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:15
-msgid "Benutzer"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:16
-msgid "Brunnenmeister, Zählmeister etc."
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:17
-#: .\accounting\fixtures\code\scerp\billing\models.py:33
-msgid "Notiz"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:31
-msgid "Start-Datum"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:32
-msgid "End-Datum"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:36
-msgid "Abrechnungsperiode"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:37
-msgid "Abrechnungsperioden"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:85
-#: .\accounting\models.py:478
-msgid "Rate"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:89
-msgid "Rechnungssetup"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\billing\models.py:90
-msgid "Rechnungen - Setup"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\building\models.py:16
-#: .\accounting\fixtures\code\scerp\building\models.py:17
-msgid "Bauverwaltung"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\minutes\models.py:16
-#: .\accounting\fixtures\code\scerp\minutes\models.py:17
-msgid "Vorlagen, Protokolle"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\social\models.py:16
-#: .\accounting\fixtures\code\scerp\social\models.py:17
-msgid "Sozialwesen"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\time_mgmt\models.py:16
-#: .\accounting\fixtures\code\scerp\time_mgmt\models.py:17
-msgid "Zeit-Management"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\workflow\models.py:16
-msgid "Geschäft"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\workflow\models.py:17
-msgid "Geschäfte"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\workflow\models.py:29
-msgid "Aufgabe"
-msgstr ""
-
-#: .\accounting\fixtures\code\scerp\workflow\models.py:30
-msgid "Aufgaben"
-msgstr ""
-
-#: .\accounting\forms.py:21
+#: .\accounting\forms.py:31 .\billing\forms.py:16
 msgid "Back"
 msgstr ""
 
-#: .\accounting\forms.py:147
+#: .\accounting\forms.py:222
 msgid "Are you sure you want proceed with this action?"
 msgstr ""
 
-#: .\accounting\forms.py:156
+#: .\accounting\forms.py:232
+msgid "Overwrite existing data with values from accounting system."
+msgstr ""
+
+#: .\accounting\forms.py:238
+msgid "Delete items that do not exist in accounting system."
+msgstr ""
+
+#: .\accounting\forms.py:252 .\accounting\models.py:587
+#: .\accounting\models.py:796 .\accounting\models.py:961
+#: .\accounting\models.py:1440 .\accounting\models.py:1549
+#: .\accounting\models.py:1646 .\accounting\models.py:2341
+msgid "Currency"
+msgstr ""
+
+#: .\accounting\forms.py:257 .\accounting\models.py:235
+#: .\accounting\models.py:802 .\core\models.py:719
+msgid "IBAN"
+msgstr ""
+
+#: .\accounting\forms.py:262
+msgid "QR IBAN"
+msgstr ""
+
+#: .\accounting\forms.py:267 .\accounting\models.py:799 .\core\models.py:723
+msgid "BIC Code"
+msgstr ""
+
+#: .\accounting\forms.py:272 .\accounting\models.py:1710
+#: .\accounting\models.py:1783
+msgid "QR Reference"
+msgstr ""
+
+#: .\accounting\forms.py:281
+msgid "from contract"
+msgstr ""
+
+#: .\accounting\forms.py:329
 msgid ""
 "Former chart positions get overwritten. Are you sure you want proceed with "
 "this action?"
 msgstr ""
 
-#: .\accounting\forms.py:166
+#: .\accounting\forms.py:339
 msgid "Select the appropriate chart for the municipality."
 msgstr ""
 
-#: .\accounting\forms.py:170
+#: .\accounting\forms.py:343
 msgid ""
 "Non existing positions will be created, existing positions will be updated."
 msgstr ""
 
-#: .\accounting\forms.py:193
+#: .\accounting\forms.py:366
 msgid "mixed types are not allowed."
 msgstr ""
 
-#: .\accounting\forms.py:201
+#: .\accounting\forms.py:374
 msgid "Income or invest positions can only be created from functionals."
 msgstr ""
 
-#: .\accounting\forms.py:210
+#: .\accounting\forms.py:383
 #, python-brace-format
 msgid "not a type '{type_from}' selected."
 msgstr ""
 
-#: .\accounting\forms.py:257
+#: .\accounting\forms.py:434
 #, python-brace-format
 msgid "Postion selected must be type '{account_type}'."
 msgstr ""
 
-#: .\accounting\forms.py:265
+#: .\accounting\forms.py:442
 #, python-brace-format
 msgid "'{function.function} {function.name}' is not an account. "
 msgstr ""
 
-#: .\accounting\forms.py:267
+#: .\accounting\forms.py:444
 msgid "Postions can only be added to 4 digit accounts. "
 msgstr ""
 
-#: .\accounting\forms.py:295
+#: .\accounting\forms.py:472
 msgid "Enter the date shown in opening bookings. Must be within fiscal period"
+msgstr ""
+
+#: .\accounting\forms.py:496 .\accounting\forms.py:522
+#: .\accounting\forms.py:548
+msgid "Upload Excel File"
+msgstr ""
+
+#: .\accounting\forms.py:498
+msgid "Excel must contain the following colums:"
+msgstr ""
+
+#: .\accounting\forms.py:499
+msgid "optionally"
+msgstr ""
+
+#: .\accounting\forms.py:505
+msgid ""
+"Upload Excel File to Balance.\n"
+"                Excel must contain the following colums:<br>\n"
+"                - hrm<br>\n"
+"                - name<br><br>\n"
+"                Optionally:<br>\n"
+"                - opening_balance<br>\n"
+"                - closing_balance<br>\n"
+"                - increase<br>\n"
+"                - decrease<br>\n"
+"                - notes\n"
+"            "
+msgstr ""
+
+#: .\accounting\forms.py:524 .\accounting\forms.py:550
+msgid ""
+"Excel must contain the following columns: 'hrm', 'name', optionally: "
+"'expense', 'revenue', 'expense_budget', 'revenue_budget', "
+"'expense_previous', 'revenue_previous', 'notes'."
+msgstr ""
+
+#: .\accounting\forms.py:531 .\accounting\forms.py:557
+msgid ""
+"Upload Excel File to Balance.\n"
+"                Excel must contain the following colums:<br>\n"
+"                - hrm<br>\n"
+"                - name<br><br>\n"
+"                Optionally:<br>\n"
+"                - expense<br>\n"
+"                - revenue<br>\n"
+"                - expense_budget<br>\n"
+"                - revenue_budget<br>\n"
+"                - expense_previous<br>\n"
+"                - revenue_previous\n"
+"            "
+msgstr ""
+
+#: .\accounting\forms.py:574 .\accounting\models.py:1636
+#: .\accounting\models.py:1699 .\accounting\models.py:1770
+msgid "Status"
+msgstr ""
+
+#: .\accounting\forms.py:576
+msgid "New Status"
 msgstr ""
 
 #: .\accounting\ignore\_old_connector_cash_ctrl.py:120
@@ -1023,20 +469,24 @@ msgid "Could not find opening account"
 msgstr ""
 
 #: .\accounting\ignore\_old_connector_cash_ctrl.py:762
+#: .\accounting\models.py:41
 msgid "Liability"
 msgstr ""
 
 #: .\accounting\ignore\_old_connector_cash_ctrl.py:763
-#: .\accounting\models.py:902 .\accounting\models.py:939
+#: .\accounting\models.py:44 .\accounting\models.py:2062
+#: .\accounting\models.py:2104
 msgid "Expense"
 msgstr ""
 
 #: .\accounting\ignore\_old_connector_cash_ctrl.py:775
+#: .\accounting\models.py:1993
 msgid "Asset"
 msgstr ""
 
 #: .\accounting\ignore\_old_connector_cash_ctrl.py:776
-#: .\accounting\models.py:906 .\accounting\models.py:943
+#: .\accounting\models.py:49 .\accounting\models.py:2066
+#: .\accounting\models.py:2108
 msgid "Revenue"
 msgstr ""
 
@@ -1053,6 +503,30 @@ msgstr ""
 msgid "no valid function given"
 msgstr ""
 
+#: .\accounting\import_export.py:78
+#, python-brace-format
+msgid "row {nr} skipping, has no name"
+msgstr ""
+
+#: .\accounting\import_export.py:89
+#, python-brace-format
+msgid "row {nr} merging name"
+msgstr ""
+
+#: .\accounting\ledger.py:34
+#, python-brace-format
+msgid "{hrm} not a valid hrm"
+msgstr ""
+
+#: .\accounting\ledger.py:41
+#, python-brace-format
+msgid "{name} more than 100 chars"
+msgstr ""
+
+#: .\accounting\ledger.py:125
+msgid "Title in upper letters"
+msgstr ""
+
 #: .\accounting\mixins.py:107
 #, python-brace-format
 msgid "'{number} {name}' only contains upper letters"
@@ -1067,334 +541,338 @@ msgstr ""
 msgid "Positions '{number} {name}' has no parents"
 msgstr ""
 
-#: .\accounting\models.py:39
-msgid "Credit"
-msgstr ""
-
 #: .\accounting\models.py:40
-msgid "Debit"
+msgid "ASSET"
 msgstr ""
 
 #: .\accounting\models.py:45
-msgid "Bilanz"
+msgid "IV - Aufwand"
 msgstr ""
 
 #: .\accounting\models.py:46
-msgid "Funktionale Gliederung"
+msgid "IV - Ausgaben"
 msgstr ""
 
-#: .\accounting\models.py:47
-msgid "Erfolgsrechnung"
+#: .\accounting\models.py:50
+msgid "Ertrag"
 msgstr ""
 
-#: .\accounting\models.py:48
-msgid "Investitionsrechnung"
+#: .\accounting\models.py:51
+msgid "Einnahmen"
 msgstr ""
 
-#: .\accounting\models.py:91
-msgid "api key"
-msgstr ""
-
-#: .\accounting\models.py:93
-msgid "application"
-msgstr ""
-
-#: .\accounting\models.py:96
-msgid "initialized"
-msgstr ""
-
-#: .\accounting\models.py:97
-msgid "date and time when initialized"
-msgstr ""
-
-#: .\accounting\models.py:99 .\core\models.py:204 .\crm\models.py:327
-msgid "Language"
-msgstr ""
-
-#: .\accounting\models.py:100 .\core\models.py:205
-msgid "The main language of the person. May be used for documents."
-msgstr ""
-
-#: .\accounting\models.py:103
-msgid "Account plan loaded"
-msgstr ""
-
-#: .\accounting\models.py:105
-msgid "gets set to True if account plan uploaded to accounting system"
-msgstr ""
-
-#: .\accounting\models.py:107
-msgid "Default setup"
-msgstr ""
-
-#: .\accounting\models.py:108 .\accounting\models.py:584
-msgid "use this setup for adding accounting data"
-msgstr ""
-
-#: .\accounting\models.py:139
-msgid "Accounting Setups"
-msgstr ""
-
-#: .\accounting\models.py:147
-msgid "CashCtrl id"
-msgstr ""
-
-#: .\accounting\models.py:149
-msgid "CashCtrl created"
-msgstr ""
-
-#: .\accounting\models.py:151
-msgid "CashCtrl created_by"
-msgstr ""
-
-#: .\accounting\models.py:153
-msgid "CashCtrl last_updated"
-msgstr ""
-
-#: .\accounting\models.py:155
-msgid "CashCtrl last_updated_by"
-msgstr ""
-
-#: .\accounting\models.py:157
-msgid "Last received"
-msgstr ""
-
-#: .\accounting\models.py:159
-msgid ""
-"Last time data has been received from cashCtrl. Gets filled out in "
-"signals_cash_ctrl.get "
-msgstr ""
-
-#: .\accounting\models.py:164 .\accounting\models.py:297
-msgid "Account Setup used"
-msgstr ""
-
-#: .\accounting\models.py:166 .\core\models.py:146
-msgid "Message"
-msgstr ""
-
-#: .\accounting\models.py:167
-msgid "Here we show error messages. Just be empty."
-msgstr ""
-
-#: .\accounting\models.py:169
-msgid "Enable Sync"
-msgstr ""
-
-#: .\accounting\models.py:200 .\accounting\models.py:238
-#: .\accounting\models.py:507 .\accounting\models.py:551
-#: .\accounting\models.py:1156 .\accounting\models.py:1213 .\asset\models.py:85
-#: .\asset\models.py:295 .\asset\models.py:324 .\crm\models.py:86
+#: .\accounting\models.py:73 .\accounting\models.py:112
+#: .\accounting\models.py:170 .\accounting\models.py:715
+#: .\accounting\models.py:779 .\accounting\models.py:844
+#: .\accounting\models.py:882 .\accounting\models.py:1050
+#: .\accounting\models.py:1198 .\accounting\models.py:1883 .\asset\models.py:37
+#: .\asset\models.py:62 .\asset\models.py:89 .\billing\models.py:28
+#: .\billing\models.py:71 .\core\models.py:489 .\core\models.py:756
+#: .\core\models.py:807
 msgid "Code"
 msgstr ""
 
-#: .\accounting\models.py:221 .\accounting\models.py:240
-#: .\accounting\models.py:259
+#: .\accounting\models.py:78 .\accounting\models.py:206
+#: .\accounting\models.py:785 .\accounting\models.py:1053
+#: .\accounting\models.py:1945 .\accounting\models.py:2165
+#: .\accounting\models.py:2171 .\core\models.py:207 .\core\models.py:353
+#: .\core\models.py:1022 .\vault\models.py:170
+msgid "Type"
+msgstr ""
+
+#: .\accounting\models.py:95
+msgid "Setup - Custom Field Group"
+msgstr ""
+
+#: .\accounting\models.py:96
+msgid "Setup - Custom Field Groups"
+msgstr ""
+
+#: .\accounting\models.py:115 .\accounting\models.py:134
 msgid "Custom Field Group"
 msgstr ""
 
-#: .\accounting\models.py:222
-msgid "Custom Field Groups"
-msgstr ""
-
-#: .\accounting\models.py:245
+#: .\accounting\models.py:120
 msgid "Field Type"
 msgstr ""
 
-#: .\accounting\models.py:251
+#: .\accounting\models.py:126
 msgid "Data Type"
 msgstr ""
 
-#: .\accounting\models.py:262 .\accounting\models.py:733
+#: .\accounting\models.py:137 .\accounting\models.py:580
 msgid "Internal reference"
 msgstr ""
 
-#: .\accounting\models.py:264
+#: .\accounting\models.py:139
 msgid "Is multi"
 msgstr ""
 
-#: .\accounting\models.py:267
+#: .\accounting\models.py:142
 msgid "Values"
 msgstr ""
 
-#: .\accounting\models.py:286 .\accounting\models.py:287
-msgid "Custom Field"
+#: .\accounting\models.py:162 .\accounting\models.py:163
+msgid "Setup - Custom Field"
 msgstr ""
 
-#: .\accounting\models.py:293
-msgid "Index"
+#: .\accounting\models.py:170 .\accounting\models.py:882
+#: .\accounting\models.py:1051
+msgid "internal code"
 msgstr ""
 
-#: .\accounting\models.py:310
-msgid "Settings"
+#: .\accounting\models.py:174 .\accounting\models.py:453
+#: .\accounting\models.py:533 .\accounting\models.py:886
+#: .\accounting\models.py:1161 .\accounting\models.py:1452
+#: .\accounting\models.py:1561 .\accounting\models.py:1948
+#: .\accounting\models.py:2254 .\scerp\admin.py:592 .\scerp\admin.py:635
+msgid "Parent"
 msgstr ""
 
-#: .\accounting\models.py:340
-msgid "Mapping Id"
+#: .\accounting\models.py:176
+msgid "The parent category. Do not use"
 msgstr ""
 
-#: .\accounting\models.py:341
-msgid "Mapping Ids"
+#: .\accounting\models.py:190
+msgid "Setup - File Category"
 msgstr ""
 
-#: .\accounting\models.py:349
+#: .\accounting\models.py:191
+msgid "Setup - File Categories"
+msgstr ""
+
+#: .\accounting\models.py:198
 msgid "Headquarters"
 msgstr ""
 
-#: .\accounting\models.py:350
+#: .\accounting\models.py:199
 msgid "Branch Office"
 msgstr ""
 
-#: .\accounting\models.py:351
+#: .\accounting\models.py:200
 msgid "Storage Facility"
 msgstr ""
 
-#: .\accounting\models.py:352
+#: .\accounting\models.py:201
 msgid "Other / Tax"
 msgstr ""
 
-#: .\accounting\models.py:358
+#: .\accounting\models.py:207
 msgid "The type of location. Defaults to MAIN."
 msgstr ""
 
-#: .\accounting\models.py:363
+#: .\accounting\models.py:211 .\asset\models.py:186 .\billing\models.py:398
+#: .\core\admin.py:241 .\core\admin.py:256 .\core\models.py:626
+#: .\core\models.py:1026 .\core\models.py:1030 .\core\models.py:1081
+#: .\core\models.py:1091 .\crm\models.py:25
+msgid "Address"
+msgstr ""
+
+#: .\accounting\models.py:212
 msgid "The address of the location (street, house number, additional info)."
 msgstr ""
 
-#: .\accounting\models.py:366
+#: .\accounting\models.py:215 .\core\models.py:630
 msgid "ZIP Code"
 msgstr ""
 
-#: .\accounting\models.py:367
+#: .\accounting\models.py:216
 msgid "The postal code of the location."
 msgstr ""
 
-#: .\accounting\models.py:369
+#: .\accounting\models.py:218 .\core\models.py:633 .\crm\models.py:54
 msgid "City"
 msgstr ""
 
-#: .\accounting\models.py:370
+#: .\accounting\models.py:219
 msgid "The town / city of the location."
 msgstr ""
 
-#: .\accounting\models.py:373
+#: .\accounting\models.py:221 .\core\models.py:458 .\core\models.py:462
+#: .\core\models.py:482 .\core\models.py:638 .\core\models.py:639
+#: .\crm\models.py:59 .\crm\models.py:60
+msgid "Country"
+msgstr ""
+
+#: .\accounting\models.py:222
 msgid "The country of the location, as an ISO 3166-1 alpha-3 code."
 msgstr ""
 
-#: .\accounting\models.py:377
+#: .\accounting\models.py:226
 msgid "Logo"
 msgstr ""
 
-#: .\accounting\models.py:379
+#: .\accounting\models.py:228
 msgid "Logo to be used for accounting"
 msgstr ""
 
-#: .\accounting\models.py:383
+#: .\accounting\models.py:232
 msgid "BIC"
 msgstr ""
 
-#: .\accounting\models.py:384
+#: .\accounting\models.py:233
 msgid "The BIC (Business Identifier Code) of your bank."
 msgstr ""
 
-#: .\accounting\models.py:387
+#: .\accounting\models.py:236
 msgid "The IBAN (International Bank Account Number)."
 msgstr ""
 
-#: .\accounting\models.py:389
+#: .\accounting\models.py:238 .\accounting\models.py:806
 msgid "QR First Digits"
 msgstr ""
 
-#: .\accounting\models.py:390
+#: .\accounting\models.py:239 .\accounting\models.py:807
 msgid ""
 "The first few digits of the Swiss QR reference. Specific to Switzerland."
 msgstr ""
 
-#: .\accounting\models.py:393
+#: .\accounting\models.py:242 .\accounting\models.py:810
 msgid "QR-IBAN"
 msgstr ""
 
-#: .\accounting\models.py:394
+#: .\accounting\models.py:243 .\accounting\models.py:811
 msgid "The QR-IBAN, used especially for QR invoices. Specific to Switzerland."
 msgstr ""
 
-#: .\accounting\models.py:397
+#: .\accounting\models.py:246
 msgid "VAT UID"
 msgstr ""
 
-#: .\accounting\models.py:398
+#: .\accounting\models.py:247
 msgid "The VAT UID of the company."
 msgstr ""
 
-#: .\accounting\models.py:402
+#: .\accounting\models.py:251
 msgid "Logo File ID"
 msgstr ""
 
-#: .\accounting\models.py:403
+#: .\accounting\models.py:252
 msgid "File ID for the company logo. Supported types: JPG, GIF, PNG."
 msgstr ""
 
-#: .\accounting\models.py:405
+#: .\accounting\models.py:254 .\accounting\models.py:1234
+#: .\accounting\models.py:1791
 msgid "Footer Text"
 msgstr ""
 
-#: .\accounting\models.py:406
+#: .\accounting\models.py:255
 msgid "Footer text for order documents with limited HTML support."
 msgstr ""
 
-#: .\accounting\models.py:419
-msgid "Location: Logo, Address, VAT, Codes, Formats etc. "
+#: .\accounting\models.py:269
+msgid "Settings - Location, Logo"
 msgstr ""
 
-#: .\accounting\models.py:443
-msgid "Is closed"
+#: .\accounting\models.py:270
+msgid "Settings - Locations, Logos"
 msgstr ""
 
-#: .\accounting\models.py:446
+#: .\accounting\models.py:291
+msgid "The name of the fiscal period, required if isCustom is true."
+msgstr ""
+
+#: .\accounting\models.py:293
+msgid "Is Custom"
+msgstr ""
+
+#: .\accounting\models.py:296 .\billing\admin.py:140 .\billing\admin.py:145
+#: .\billing\models.py:76 .\billing\models.py:140
+msgid "Start"
+msgstr ""
+
+#: .\accounting\models.py:298 .\accounting\models.py:306
+msgid "Start date of the fiscal period, required if isCustom is true."
+msgstr ""
+
+#: .\accounting\models.py:300 .\billing\admin.py:142 .\billing\admin.py:149
+#: .\billing\models.py:78 .\billing\models.py:143
+msgid "End"
+msgstr ""
+
+#: .\accounting\models.py:302 .\accounting\models.py:310
+msgid "End date of the fiscal period, required if isCustom is true."
+msgstr ""
+
+#: .\accounting\models.py:304
+msgid "Salary Start"
+msgstr ""
+
+#: .\accounting\models.py:308
+msgid "Salary End"
+msgstr ""
+
+#: .\accounting\models.py:312
 msgid "Is current"
 msgstr ""
 
-#: .\accounting\models.py:455
+#: .\accounting\models.py:315 .\accounting\models.py:419
+#: .\accounting\models.py:857
+msgid "mode"
+msgstr ""
+
+#: .\accounting\models.py:317
+msgid ""
+"Creation type for creating a calendar year, if isCustom is not\n"
+"                set. Either LATEST, which will create the next year after "
+"the\n"
+"                latest existing year, or EARLIEST, which will create the "
+"year\n"
+"                before the earliest existing year. Defaults to LATEST.\n"
+"            "
+msgstr ""
+
+#: .\accounting\models.py:329
 msgid "Custom periods require both a start and an end date."
 msgstr ""
 
-#: .\accounting\models.py:457
+#: .\accounting\models.py:331
 msgid "Start date cannot be after end date."
 msgstr ""
 
-#: .\accounting\models.py:467 .\accounting\models.py:828
-msgid "Fiscal Period"
+#: .\accounting\models.py:342
+msgid "Settings - Fiscal Period"
 msgstr ""
 
-#: .\accounting\models.py:476
+#: .\accounting\models.py:343
+msgid "Settings - Fiscal Periods"
+msgstr ""
+
+#: .\accounting\models.py:350
 msgid "The 3-characters currency code, like CHF, EUR, etc."
 msgstr ""
 
-#: .\accounting\models.py:499 .\accounting\models.py:739
-#: .\accounting\models.py:1640
-msgid "Currency"
+#: .\accounting\models.py:352
+msgid "Rate"
 msgstr ""
 
-#: .\accounting\models.py:509 .\accounting\models.py:553
-#: .\accounting\models.py:1158 .\accounting\models.py:1215
-#: .\accounting\models.py:1250 .\accounting\models.py:1297
-#: .\accounting\models.py:1479 .\accounting\models.py:1522
-#: .\accounting\models.py:1563 .\asset\models.py:47 .\asset\models.py:83
-#: .\asset\models.py:115 .\asset\models.py:293 .\asset\models.py:322
-#: .\core\models.py:89 .\core\models.py:122 .\core\models.py:253
-#: .\meeting\models.py:85
+#: .\accounting\models.py:367
+msgid "Settings - Currency"
+msgstr ""
+
+#: .\accounting\models.py:368
+msgid "Settings - Currencies"
+msgstr ""
+
+#: .\accounting\models.py:377 .\accounting\models.py:689
+#: .\accounting\models.py:718 .\accounting\models.py:782
+#: .\accounting\models.py:847 .\accounting\models.py:2162
+#: .\accounting\models.py:2206 .\accounting\models.py:2248
+#: .\billing\models.py:31 .\billing\models.py:34 .\billing\models.py:74
+#: .\billing\models.py:106 .\core\models.py:101 .\core\models.py:261
+#: .\core\models.py:351 .\meeting\models.py:85
 msgid "name"
 msgstr ""
 
-#: .\accounting\models.py:509
+#: .\accounting\models.py:377
 msgid "The name of the sequence number."
 msgstr ""
 
-#: .\accounting\models.py:512
+#: .\accounting\models.py:380
 msgid "pattern"
 msgstr ""
 
-#: .\accounting\models.py:515
+#: .\accounting\models.py:383
 msgid ""
 "The sequence number pattern, which consists of variables and\n"
 "            arbitrary text from which a sequence number will be generated.\n"
@@ -1406,77 +884,73 @@ msgid ""
 "            generate 'RE-2007151' (on July 15, 2020)."
 msgstr ""
 
-#: .\accounting\models.py:543
-msgid "Sequence Number"
+#: .\accounting\models.py:404
+msgid "Settings - Sequence Number"
 msgstr ""
 
-#: .\accounting\models.py:554
-msgid "The name of the unit ('hours', 'minutes', etc.)."
+#: .\accounting\models.py:405
+msgid "Settings - Sequence Numbers"
 msgstr ""
 
-#: .\accounting\models.py:555 .\accounting\models.py:583 .\crm\models.py:28
+#: .\accounting\models.py:416 .\core\models.py:470
 msgid "Is default"
 msgstr ""
 
-#: .\accounting\models.py:570 .\asset\models.py:359
-msgid "Unit"
+#: .\accounting\models.py:417
+msgid "use this setup for adding accounting data"
 msgstr ""
 
-#: .\accounting\models.py:586 .\accounting\models.py:1225
-msgid "mode"
-msgstr ""
-
-#: .\accounting\models.py:589
+#: .\accounting\models.py:421
 msgid ""
 "The type of text template, meaning: Where the text template\n"
 "                can be used. Possible values."
 msgstr ""
 
-#: .\accounting\models.py:594
+#: .\accounting\models.py:426
 msgid "The actual text template. This can contain limited HTML for styling."
 msgstr ""
 
-#: .\accounting\models.py:608
-msgid "Text Block"
-msgstr ""
-
-#: .\accounting\models.py:618 .\accounting\models.py:646
-#: .\accounting\models.py:694 .\accounting\models.py:1577 .\vault\models.py:59
+#: .\accounting\models.py:450 .\accounting\models.py:478
+#: .\accounting\models.py:528 .\accounting\models.py:2262 .\scerp\admin.py:539
+#: .\vault\models.py:59
 msgid "Number"
 msgstr ""
 
-#: .\accounting\models.py:619
+#: .\accounting\models.py:451
 msgid "The number of the cost center category."
 msgstr ""
 
-#: .\accounting\models.py:623 .\accounting\models.py:698
+#: .\accounting\models.py:455 .\accounting\models.py:535
+#: .\accounting\models.py:888
 msgid "The parent category."
 msgstr ""
 
-#: .\accounting\models.py:636
-msgid "Cost Center Category"
+#: .\accounting\models.py:469
+msgid "Settings - Cost Center Category"
 msgstr ""
 
-#: .\accounting\models.py:637
-msgid "Cost Center Categories"
+#: .\accounting\models.py:470
+msgid "Settings - Cost Center Categories"
 msgstr ""
 
-#: .\accounting\models.py:648
+#: .\accounting\models.py:480
 msgid ""
 "The cost center number. Must be numeric but can contain\n"
 "               a decimal point."
 msgstr ""
 
-#: .\accounting\models.py:651 .\accounting\models.py:824 .\asset\models.py:106
-#: .\asset\models.py:354 .\crm\models.py:268
+#: .\accounting\models.py:483 .\accounting\models.py:957
+#: .\accounting\models.py:1604 .\accounting\models.py:1684
+#: .\accounting\models.py:1746 .\accounting\models.py:1936 .\asset\models.py:99
+#: .\core\filters.py:37 .\core\models.py:892 .\scerp\admin.py:615
 msgid "Category"
 msgstr ""
 
-#: .\accounting\models.py:654
+#: .\accounting\models.py:486
 msgid "Target Maximum"
 msgstr ""
 
-#: .\accounting\models.py:657
+#: .\accounting\models.py:489
 msgid ""
 "The target maximum balance the cost center should to stay beneath end of the "
 "fiscal period. This will be displayed in the Targets report, comparing your "
@@ -1484,11 +958,11 @@ msgid ""
 "period to set the target for that period."
 msgstr ""
 
-#: .\accounting\models.py:663
+#: .\accounting\models.py:495
 msgid "Target min"
 msgstr ""
 
-#: .\accounting\models.py:666
+#: .\accounting\models.py:498
 msgid ""
 "The target minimum balance you hope this cost center to hit by the end of "
 "the fiscal period. This will be displayed in the Targets report, comparing "
@@ -1496,44 +970,53 @@ msgid ""
 "period to set the target for that period."
 msgstr ""
 
-#: .\accounting\models.py:683
-msgid "Cost Center"
+#: .\accounting\models.py:516
+msgid "Settings - Cost Center"
 msgstr ""
 
-#: .\accounting\models.py:684
-msgid "Cost Centers"
+#: .\accounting\models.py:517
+msgid "Settings - Cost Centers"
 msgstr ""
 
-#: .\accounting\models.py:694
-msgid "The name of the account category."
+#: .\accounting\models.py:530
+msgid ""
+"The account category number. Must be numeric but can contain a decimal "
+"point. In cashCtrl it is string"
 msgstr ""
 
-#: .\accounting\models.py:710
-msgid "Account Categories"
+#: .\accounting\models.py:537
+msgid "Is scerp"
 msgstr ""
 
-#: .\accounting\models.py:731 .\accounting\models.py:850
-#: .\accounting\models.py:887 .\accounting\models.py:891
+#: .\accounting\models.py:538
+msgid "true if account created by scerp"
+msgstr ""
+
+#: .\accounting\models.py:559
+msgid "Ledger - Setup Account Categories"
+msgstr ""
+
+#: .\accounting\models.py:578 .\accounting\models.py:2000
 msgid "Account Category"
 msgstr ""
 
-#: .\accounting\models.py:735 .\accounting\models.py:1557
+#: .\accounting\models.py:582 .\accounting\models.py:2242
 msgid "Account Number"
 msgstr ""
 
-#: .\accounting\models.py:737
+#: .\accounting\models.py:584
 msgid "The account number. Must be numeric but can contain a decimal point."
 msgstr ""
 
-#: .\accounting\models.py:742
+#: .\accounting\models.py:589
 msgid "Link to currency. Defaults to the system currency if not specified."
 msgstr ""
 
-#: .\accounting\models.py:744
+#: .\accounting\models.py:591
 msgid "Target Maximum Balance"
 msgstr ""
 
-#: .\accounting\models.py:747
+#: .\accounting\models.py:594
 msgid ""
 "The target maximum balance (aka budget) you hope this account to stay "
 "beneath of by the end of the fiscal period. This will be displayed in the "
@@ -1541,11 +1024,11 @@ msgid ""
 "switch to the desired fiscal period to set the target for that period."
 msgstr ""
 
-#: .\accounting\models.py:755
+#: .\accounting\models.py:602
 msgid "Target Minimum Balance"
 msgstr ""
 
-#: .\accounting\models.py:758
+#: .\accounting\models.py:605
 msgid ""
 "The target minimum balance you hope this account to hit by the end of the "
 "fiscal period. This will be displayed in the Targets report, comparing your "
@@ -1553,1568 +1036,3089 @@ msgid ""
 "period to set the target for that period."
 msgstr ""
 
-#: .\accounting\models.py:766
-msgid "Tax"
+#: .\accounting\models.py:614
+msgid "Link to tax. Only used in cashCtrl."
 msgstr ""
 
-#: .\accounting\models.py:769
-msgid "Link to tax. Not used."
-msgstr ""
-
-#: .\accounting\models.py:773 .\accounting\models.py:884
-#: .\accounting\models.py:1625
-msgid "Function"
-msgstr ""
-
-#: .\accounting\models.py:774 .\accounting\models.py:885
+#: .\accounting\models.py:619
 msgid "Function code, e.g. 071"
 msgstr ""
 
-#: .\accounting\models.py:776 .\accounting\models.py:835
-msgid "HRM 2"
-msgstr ""
-
-#: .\accounting\models.py:777 .\accounting\models.py:836
+#: .\accounting\models.py:622 .\accounting\models.py:1941
 msgid "HRM 2 number, e.g. 3100.01"
 msgstr ""
 
-#: .\accounting\models.py:788
-msgid "Accounts"
+#: .\accounting\models.py:624 .\accounting\models.py:2356
+msgid "Budget"
 msgstr ""
 
-#: .\accounting\models.py:796
+#: .\accounting\models.py:626
+msgid "The budget as agreed."
+msgstr ""
+
+#: .\accounting\models.py:646
+msgid "Ledger - Setup Accounts"
+msgstr ""
+
+#: .\accounting\models.py:654
 msgid "Share"
 msgstr ""
 
-#: .\accounting\models.py:798
+#: .\accounting\models.py:656
 msgid "Allocation share. This can be a percentage or just a share number."
 msgstr ""
 
-#: .\accounting\models.py:802 .\accounting\models.py:807
-#: .\accounting\models.py:825 .\accounting\models.py:840
-#: .\accounting\models.py:1161 .\accounting\models.py:1218
+#: .\accounting\models.py:660 .\accounting\models.py:665
+#: .\accounting\models.py:722 .\accounting\models.py:789
+#: .\accounting\models.py:852 .\accounting\models.py:892
+#: .\accounting\models.py:899 .\accounting\models.py:1937
+#: .\accounting\models.py:1959
 msgid "Account"
 msgstr ""
 
-#: .\accounting\models.py:803
+#: .\accounting\models.py:661
 msgid "cost center to allocate to"
 msgstr ""
 
-#: .\accounting\models.py:819
+#: .\accounting\models.py:678
 msgid "Cost Center Allocations"
 msgstr ""
 
-#: .\accounting\models.py:830
-msgid "Fiscal period"
+#: .\accounting\models.py:690
+msgid "Setting data"
 msgstr ""
 
-#: .\accounting\models.py:833
-msgid "Category or account"
+#: .\accounting\models.py:702
+msgid "Settings - Config"
 msgstr ""
 
-#: .\accounting\models.py:854
-msgid "Opening Balance"
+#: .\accounting\models.py:703
+msgid "Settings - Configs"
 msgstr ""
 
-#: .\accounting\models.py:855
-msgid "The balance at the start of the year."
+#: .\accounting\models.py:711
+msgid "Net"
 msgstr ""
 
-#: .\accounting\models.py:858
-msgid "Closing Balance"
+#: .\accounting\models.py:712
+msgid "Gross"
 msgstr ""
 
-#: .\accounting\models.py:859
-msgid "The balance at the end of the year."
-msgstr ""
-
-#: .\accounting\models.py:862
-msgid "Increase"
-msgstr ""
-
-#: .\accounting\models.py:863
-msgid "The increase in value during the year."
-msgstr ""
-
-#: .\accounting\models.py:866
-msgid "Decrease"
-msgstr ""
-
-#: .\accounting\models.py:867
-msgid "The decrease in value during the year."
-msgstr ""
-
-#: .\accounting\models.py:879 .\accounting\models.py:1647
-msgid "Balance"
-msgstr "Bilanz"
-
-#: .\accounting\models.py:903 .\accounting\models.py:940
-msgid "The expense amount."
-msgstr ""
-
-#: .\accounting\models.py:907 .\accounting\models.py:944
-msgid "The revenue amount."
-msgstr ""
-
-#: .\accounting\models.py:910 .\accounting\models.py:947
-msgid "Expense Budget"
-msgstr ""
-
-#: .\accounting\models.py:911 .\accounting\models.py:948
-msgid "The budgeted expense amount."
-msgstr ""
-
-#: .\accounting\models.py:914 .\accounting\models.py:951
-msgid "Revenue Budget"
-msgstr ""
-
-#: .\accounting\models.py:915 .\accounting\models.py:952
-msgid "The budgeted revenue amount."
-msgstr ""
-
-#: .\accounting\models.py:918 .\accounting\models.py:955
-msgid "Previous Expense"
-msgstr ""
-
-#: .\accounting\models.py:919 .\accounting\models.py:956
-msgid "The previous expense amount."
-msgstr ""
-
-#: .\accounting\models.py:922 .\accounting\models.py:959
-msgid "Previous Revenue"
-msgstr ""
-
-#: .\accounting\models.py:923 .\accounting\models.py:960
-msgid "The previous revenue amount."
-msgstr ""
-
-#: .\accounting\models.py:934
-msgid "Profit/Loss"
-msgstr "Erfolgsrechnung"
-
-#: .\accounting\models.py:971
-msgid "Investment Calculations"
-msgstr "Investitionsrechnung"
-
-#: .\accounting\models.py:982
-msgid "CSV Delimiter"
-msgstr ""
-
-#: .\accounting\models.py:988
-msgid "Thousand Separator"
-msgstr ""
-
-#: .\accounting\models.py:998
-msgid "Default Debtor Account"
-msgstr ""
-
-#: .\accounting\models.py:1006
-msgid "Default Opening Account"
-msgstr ""
-
-#: .\accounting\models.py:1014
-msgid "Default Creditor Account"
-msgstr ""
-
-#: .\accounting\models.py:1022
-msgid "Default Exchange Difference Account"
-msgstr ""
-
-#: .\accounting\models.py:1030
-msgid "Default Profit Allocation Account"
-msgstr ""
-
-#: .\accounting\models.py:1038
-msgid "Default Inventory Disposal Account"
-msgstr ""
-
-#: .\accounting\models.py:1046
-msgid "Default Input Tax Adjustment Account"
-msgstr ""
-
-#: .\accounting\models.py:1054
-msgid "Default Sales Tax Adjustment Account"
-msgstr ""
-
-#: .\accounting\models.py:1062
-msgid "Default Inventory Depreciation Account"
-msgstr ""
-
-#: .\accounting\models.py:1070
-msgid "Default Inventory Asset Revenue Account"
-msgstr ""
-
-#: .\accounting\models.py:1078
-msgid "Default Inventory Article Expense Account"
-msgstr ""
-
-#: .\accounting\models.py:1086
-msgid "Default Inventory Article Revenue Account"
-msgstr ""
-
-#: .\accounting\models.py:1090
-msgid "Default Sequence Number for Inventory Asset"
-msgstr ""
-
-#: .\accounting\models.py:1094
-msgid "Default Sequence Number for Inventory Article"
-msgstr ""
-
-#: .\accounting\models.py:1098
-msgid "Default Sequence Number for Person"
-msgstr ""
-
-#: .\accounting\models.py:1102
-msgid "Default Sequence Number for Journal"
-msgstr ""
-
-#: .\accounting\models.py:1108
-msgid "Show Logo in First Steps"
-msgstr ""
-
-#: .\accounting\models.py:1112
-msgid "Enable First Steps Account Setup"
-msgstr ""
-
-#: .\accounting\models.py:1116
-msgid "Enable First Steps Currency Setup"
-msgstr ""
-
-#: .\accounting\models.py:1120
-msgid "Enable Pro Demo First Steps"
-msgstr ""
-
-#: .\accounting\models.py:1124
-msgid "Enable First Steps Tax Rate Setup"
-msgstr ""
-
-#: .\accounting\models.py:1128
-msgid "Enable First Steps Tax Type Setup"
-msgstr ""
-
-#: .\accounting\models.py:1132
-msgid "Copy Order Mails to Me"
-msgstr ""
-
-#: .\accounting\models.py:1137
-msgid "Tax Accounting Method"
-msgstr ""
-
-#: .\accounting\models.py:1141
-msgid "Force Sequence Number for Journal Import"
-msgstr ""
-
-#: .\accounting\models.py:1148
-msgid "Configuration"
-msgstr ""
-
-#: .\accounting\models.py:1149
-msgid "Configurations"
-msgstr ""
-
-#: .\accounting\models.py:1159
+#: .\accounting\models.py:719 .\accounting\models.py:783
 msgid "The name of the tax rate."
 msgstr ""
 
-#: .\accounting\models.py:1164
+#: .\accounting\models.py:724
 msgid "The account which collects the taxes."
 msgstr ""
 
-#: .\accounting\models.py:1168
+#: .\accounting\models.py:726 .\scerp\admin.py:600
+msgid "Percentage"
+msgstr ""
+
+#: .\accounting\models.py:728
 msgid ""
 "The tax rate percentage. This cannot be changed anymore if the tax rate has "
 "been used already."
 msgstr ""
 
-#: .\accounting\models.py:1171
+#: .\accounting\models.py:731
 msgid "Invoice tax name"
 msgstr ""
 
-#: .\accounting\models.py:1173
+#: .\accounting\models.py:733
 msgid ""
 "Invoice tax name as shown on the invoice. Use format like 'CHE-112.793.129 "
 "MWST, Abwasser, 8.1%'"
 msgstr ""
 
-#: .\accounting\models.py:1176
+#: .\accounting\models.py:736
 msgid "Calculation basis"
 msgstr ""
 
-#: .\accounting\models.py:1186
+#: .\accounting\models.py:746
 msgid "Percentage flat"
 msgstr ""
 
-#: .\accounting\models.py:1189
+#: .\accounting\models.py:749
 msgid "The flat tax rate percentage (Saldo-/Pauschalsteuersatz)."
 msgstr ""
 
-#: .\accounting\models.py:1204
-msgid "Tax Rate"
+#: .\accounting\models.py:753 .\accounting\models.py:819
+msgid "Name must not be empty"
 msgstr ""
 
-#: .\accounting\models.py:1216
+#: .\accounting\models.py:767
+msgid "Settings - Tax Rate"
+msgstr ""
+
+#: .\accounting\models.py:768
+msgid "Settings - Tax Rates"
+msgstr ""
+
+#: .\accounting\models.py:776 .\core\models.py:711
+msgid "Default"
+msgstr ""
+
+#: .\accounting\models.py:791
+msgid "The account associated with the banking account. Leave empty"
+msgstr ""
+
+#: .\accounting\models.py:797 .\accounting\models.py:1441
+#: .\accounting\models.py:1550 .\accounting\models.py:2342
+msgid "Leave empty for CHF"
+msgstr ""
+
+#: .\accounting\models.py:800
+msgid "The BIC (Business Identifier Code) of the person's bank."
+msgstr ""
+
+#: .\accounting\models.py:815
+msgid "URL for the bank's e-banking portal"
+msgstr ""
+
+#: .\accounting\models.py:836
+msgid "Settings - Bank Account"
+msgstr ""
+
+#: .\accounting\models.py:837
+msgid "Settings - Bank Accounts"
+msgstr ""
+
+#: .\accounting\models.py:848
 msgid "The name of the rounding."
 msgstr ""
 
-#: .\accounting\models.py:1221
+#: .\accounting\models.py:853
 msgid "The account which collects the roundings"
 msgstr ""
 
-#: .\accounting\models.py:1223
+#: .\accounting\models.py:855
 msgid "rounding"
 msgstr ""
 
-#: .\accounting\models.py:1227
+#: .\accounting\models.py:859
 msgid "The rounding mode. Defaults to HALF_UP."
 msgstr ""
 
-#: .\accounting\models.py:1242
-msgid "Rounding"
+#: .\accounting\models.py:873
+msgid "Settings - Rounding"
 msgstr ""
 
-#: .\accounting\models.py:1251
-msgid "he plural name of the category (e.g. 'Invoices')."
+#: .\accounting\models.py:874
+msgid "Settings - Roundings"
 msgstr ""
 
-#: .\accounting\models.py:1253
-msgid "Account Id"
-msgstr ""
-
-#: .\accounting\models.py:1255
+#: .\accounting\models.py:894
 msgid ""
-"The ID of the account, which is typically the debtors\n"
-"            account for sales and the creditors account for purchase. "
+"Purchase account, which will be used when purchasing articles. Leave empty"
 msgstr ""
 
-#: .\accounting\models.py:1258
-msgid "status"
-msgstr ""
-
-#: .\accounting\models.py:1260
+#: .\accounting\models.py:901
 msgid ""
-"The status list (like 'Draft', 'Open', 'Paid', etc.) for this order category."
+"Sales account, which will be used when selling articles. Mandatory for "
+"selling articles."
 msgstr ""
 
-#: .\accounting\models.py:1263
-msgid "address type"
+#: .\accounting\models.py:907 .\accounting\models.py:1069
+#: .\accounting\models.py:1431
+msgid "Tax"
 msgstr ""
 
-#: .\accounting\models.py:1269
-msgid "Due Days"
+#: .\accounting\models.py:907
+msgid "Applying tax rate"
 msgstr ""
 
-#: .\accounting\models.py:1271
+#: .\accounting\models.py:911 .\accounting\models.py:1008
+msgid "Sequence Number"
+msgstr ""
+
+#: .\accounting\models.py:913 .\accounting\models.py:1010
 msgid ""
-"The due days used by default for order objects in this category.\n"
-"            The order date + due days equals the due date."
+"The ID of the sequence number used for services in this category. Leave "
+"empty."
 msgstr ""
 
-#: .\accounting\models.py:1289
-msgid "Order Category"
+#: .\accounting\models.py:928
+msgid "Debtor - Article Category"
 msgstr ""
 
-#: .\accounting\models.py:1298
-msgid "The name to describe and identify the template."
+#: .\accounting\models.py:929
+msgid "Debtor - Article Categories"
 msgstr ""
 
-#: .\accounting\models.py:1300
-msgid "is default"
+#: .\accounting\models.py:937
+msgid "Article Number"
 msgstr ""
 
-#: .\accounting\models.py:1302
-msgid "Mark the template as the default template to use. Defaults to false.  "
+#: .\accounting\models.py:939
+msgid ""
+"The article number. Leave empty per default. BUG: currently nr is mandatory "
+"and must be unique"
 msgstr ""
 
-#: .\accounting\models.py:1316
-msgid "Order Template"
-msgstr ""
-
-#: .\accounting\models.py:1326
+#: .\accounting\models.py:944
 msgid ""
 "The name of the article. For localized text, use XML format: "
 "<values><de>German text</de><en>English text</en></values>."
 msgstr ""
 
-#: .\accounting\models.py:1332
+#: .\accounting\models.py:950
 msgid "Bin Location"
 msgstr ""
 
-#: .\accounting\models.py:1334
+#: .\accounting\models.py:952
 msgid ""
 "The place within the building (e.g., A15, B04, C11). Ignored unless "
 "isStockArticle is true."
 msgstr ""
 
-#: .\accounting\models.py:1340
-msgid "Category ID"
-msgstr ""
-
-#: .\accounting\models.py:1341
-msgid "The ID of the category. See Article category."
-msgstr ""
-
-#: .\accounting\models.py:1346
-msgid "Currency ID"
-msgstr ""
-
-#: .\accounting\models.py:1347
-msgid "The ID of the currency. Leave empty to use the default currency."
-msgstr ""
-
-#: .\accounting\models.py:1352
-msgid "Custom Fields"
-msgstr ""
-
-#: .\accounting\models.py:1353
-msgid ""
-"Custom field values in XML format: <values><customField1>My value</"
-"customField1></values>."
-msgstr ""
-
-#: .\accounting\models.py:1360
+#: .\accounting\models.py:965 .\asset\models.py:112
 msgid ""
 "A description of the article. For localized text, use XML format: "
 "<values><de>German text</de><en>English text</en></values>."
 msgstr ""
 
-#: .\accounting\models.py:1368
-msgid "Mark the article as inactive. Defaults to false."
-msgstr ""
-
-#: .\accounting\models.py:1371
+#: .\accounting\models.py:968
 msgid "Is Purchase Price Gross"
 msgstr ""
 
-#: .\accounting\models.py:1373
+#: .\accounting\models.py:969
 msgid "Defines the purchase price as gross (including tax). Defaults to false."
 msgstr ""
 
-#: .\accounting\models.py:1376
+#: .\accounting\models.py:972
 msgid "Is Sales Price Gross"
 msgstr ""
 
-#: .\accounting\models.py:1378
+#: .\accounting\models.py:973
 msgid "Defines the sales price as gross (including tax). Defaults to false."
 msgstr ""
 
-#: .\accounting\models.py:1381
+#: .\accounting\models.py:976
 msgid "Is Stock Article"
 msgstr ""
 
-#: .\accounting\models.py:1383
+#: .\accounting\models.py:977
 msgid "Whether the article has stock and should be tracked."
 msgstr ""
 
-#: .\accounting\models.py:1386
+#: .\accounting\models.py:980
 msgid "Last Purchase Price"
 msgstr ""
 
-#: .\accounting\models.py:1391
+#: .\accounting\models.py:983
 msgid ""
-"The last purchase price of the article. Defaults to net unless "
-"isPurchasePriceGross is true."
+"The last purchase price of the article. Defaults to net unless  "
+"isPurchasePriceGross is true. Leave empty"
 msgstr ""
 
-#: .\accounting\models.py:1394
-msgid "Location ID"
+#: .\accounting\models.py:989
+msgid "Location"
 msgstr ""
 
-#: .\accounting\models.py:1397
-msgid ""
-"The ID of the location (e.g., a warehouse). Ignored unless isStockArticle is "
-"true."
+#: .\accounting\models.py:990
+msgid "Location where the article can be found"
 msgstr ""
 
-#: .\accounting\models.py:1400
+#: .\accounting\models.py:992
 msgid "Max Stock"
 msgstr ""
 
-#: .\accounting\models.py:1403
+#: .\accounting\models.py:993
 msgid ""
 "The desired maximum stock of the article. Ignored unless isStockArticle is "
 "true."
 msgstr ""
 
-#: .\accounting\models.py:1406
+#: .\accounting\models.py:997
 msgid "Min Stock"
 msgstr ""
 
-#: .\accounting\models.py:1409
+#: .\accounting\models.py:998
 msgid ""
 "The desired minimum stock of the article. Ignored unless isStockArticle is "
 "true."
 msgstr ""
 
-#: .\accounting\models.py:1415
-msgid "Optional notes with limited HTML support. Allowed tags: a, p, div, etc."
-msgstr ""
-
-#: .\accounting\models.py:1419
-msgid "Article Number"
-msgstr ""
-
-#: .\accounting\models.py:1423
-msgid "The article number. Leave empty to auto-generate."
-msgstr ""
-
-#: .\accounting\models.py:1426
+#: .\accounting\models.py:1001
 msgid "Sales Price"
 msgstr ""
 
-#: .\accounting\models.py:1431
+#: .\accounting\models.py:1003
 msgid ""
 "The sales price of the article. Defaults to net unless isSalesPriceGross is "
 "true."
 msgstr ""
 
-#: .\accounting\models.py:1437
-msgid "The ID of the sequence number used to generate the article number."
-msgstr ""
-
-#: .\accounting\models.py:1440
+#: .\accounting\models.py:1013
 msgid "Stock"
 msgstr ""
 
-#: .\accounting\models.py:1443
+#: .\accounting\models.py:1014
 msgid ""
 "The current stock of the article. Ignored unless isStockArticle is true."
 msgstr ""
 
-#: .\accounting\models.py:1446
-msgid "Unit ID"
+#: .\accounting\models.py:1019 .\asset\models.py:53 .\asset\models.py:72
+msgid "Unit"
 msgstr ""
 
-#: .\accounting\models.py:1450
-msgid "The ID of the unit (like pcs., meters, liters)."
+#: .\accounting\models.py:1032
+msgid "Debtor - Article"
 msgstr ""
 
-#: .\accounting\models.py:1464
-msgid "Article"
+#: .\accounting\models.py:1033
+msgid "Debtor - Articles"
 msgstr ""
 
-#: .\accounting\models.py:1465
-msgid "Articles"
+#: .\accounting\models.py:1046
+msgid "Creditor Booked"
 msgstr ""
 
-#: .\accounting\models.py:1480 .\accounting\models.py:1523
-msgid "Enter the name of the chart of accounts."
+#: .\accounting\models.py:1047
+msgid "Creditor Paid"
 msgstr ""
 
-#: .\accounting\models.py:1483
-msgid "Select the type of chart (e.g., Balance, Functional)."
+#: .\accounting\models.py:1059 .\accounting\models.py:1419
+msgid "Credit Account"
 msgstr ""
 
-#: .\accounting\models.py:1485 .\vault\models.py:167
-msgid "Canton"
+#: .\accounting\models.py:1064
+msgid "Dedbt Account"
 msgstr ""
+
+#: .\accounting\models.py:1084 .\accounting\models.py:1085
+msgid "Booking Template"
+msgstr ""
+
+#: .\accounting\models.py:1102
+msgid "Elements"
+msgstr ""
+
+#: .\accounting\models.py:1104
+msgid ""
+"List of elements containing HTML/CSS snippets for the different parts of the "
+"layout."
+msgstr ""
+
+#: .\accounting\models.py:1107
+msgid "Footer"
+msgstr ""
+
+#: .\accounting\models.py:1112
+msgid "Default Template"
+msgstr ""
+
+#: .\accounting\models.py:1114
+msgid "Display Document Name"
+msgstr ""
+
+#: .\accounting\models.py:1116
+msgid "Display Item Article No."
+msgstr ""
+
+#: .\accounting\models.py:1118
+msgid "Display Rounded Item Prices"
+msgstr ""
+
+#: .\accounting\models.py:1120
+msgid "Display Item Tax"
+msgstr ""
+
+#: .\accounting\models.py:1122
+msgid "Display Item Unit"
+msgstr ""
+
+#: .\accounting\models.py:1124
+msgid "Display Logo"
+msgstr ""
+
+#: .\accounting\models.py:1126
+msgid "Display Org Address in Window"
+msgstr ""
+
+#: .\accounting\models.py:1128
+msgid "Display Page Numbers"
+msgstr ""
+
+#: .\accounting\models.py:1130
+msgid "Display Payments"
+msgstr ""
+
+#: .\accounting\models.py:1132
+msgid "Display Item Numbering"
+msgstr ""
+
+#: .\accounting\models.py:1134
+msgid "Display Recipient Number"
+msgstr ""
+
+#: .\accounting\models.py:1136
+msgid "Display Responsible Person"
+msgstr ""
+
+#: .\accounting\models.py:1138
+msgid "Display Zero Tax (0.00)"
+msgstr ""
+
+#: .\accounting\models.py:1140
+msgid "Overwrite Default CSS"
+msgstr ""
+
+#: .\accounting\models.py:1142
+msgid "Overwrite Default HTML"
+msgstr ""
+
+#: .\accounting\models.py:1144
+msgid "Leave Amount Empty in QR Code"
+msgstr ""
+
+#: .\accounting\models.py:1146
+msgid "QR Invoice Without Lines"
+msgstr ""
+
+#: .\accounting\models.py:1148
+msgid "QR Invoice Without Reference Number"
+msgstr ""
+
+#: .\accounting\models.py:1152
+msgid "Letter Paper File ID"
+msgstr ""
+
+#: .\accounting\models.py:1153
+msgid "ID of the letter paper file (PDF). Max size: 500KB."
+msgstr ""
+
+#: .\accounting\models.py:1155
+msgid "Logo Height"
+msgstr ""
+
+#: .\accounting\models.py:1156
+msgid "Height of the logo in cm. Min: 0.1, Max: 9.0."
+msgstr ""
+
+#: .\accounting\models.py:1158
+msgid "Page Size"
+msgstr ""
+
+#: .\accounting\models.py:1159
+msgid "Page size of the document. Defaults to A4."
+msgstr ""
+
+#: .\accounting\models.py:1163
+msgid "The parent category. We don't use it"
+msgstr ""
+
+#: .\accounting\models.py:1177 .\accounting\models.py:1178
+msgid "Order Settings - Layout"
+msgstr ""
+
+#: .\accounting\models.py:1194
+msgid "Purchase"
+msgstr ""
+
+#: .\accounting\models.py:1195
+msgid "Sales"
+msgstr ""
+
+#: .\accounting\models.py:1201
+msgid "Name, invoice"
+msgstr ""
+
+#: .\accounting\models.py:1203
+msgid ""
+"The name as shown on the invoice. e.g. 'Rechnung'). Fill if for at least one "
+"language. "
+msgstr ""
+
+#: .\accounting\models.py:1206
+msgid "Name, internal"
+msgstr ""
+
+#: .\accounting\models.py:1208
+msgid "The name internally used (e.g. 'Rechnungen Wasser'). "
+msgstr ""
+
+#: .\accounting\models.py:1220
+msgid "Order Layout"
+msgstr ""
+
+#: .\accounting\models.py:1222
+msgid "Layout of invoice (use Swiss QR for outgoing invoices)"
+msgstr ""
+
+#: .\accounting\models.py:1224
+msgid "Display prices"
+msgstr ""
+
+#: .\accounting\models.py:1226
+msgid ""
+"Whether prices and totals are displayed on the document. Set to True unless "
+"no price is shown on first page! "
+msgstr ""
+
+#: .\accounting\models.py:1229 .\accounting\models.py:1786
+msgid "Header Text"
+msgstr ""
+
+#: .\accounting\models.py:1231
+msgid ""
+"The text displayed above  the items list on the document used by default for "
+"order objects"
+msgstr ""
+
+#: .\accounting\models.py:1236
+msgid ""
+"The text displayed below the items list on the document used by default for "
+"order objects"
+msgstr ""
+
+#: .\accounting\models.py:1267
+#, python-format
+msgid "The following fields are mandatory: %s."
+msgstr ""
+
+#: .\accounting\models.py:1282 .\accounting\models.py:1496
+msgid "Draft"
+msgstr "Entwurf"
+
+#: .\accounting\models.py:1283
+msgid "Request"
+msgstr "Angefordert"
+
+#: .\accounting\models.py:1284
+msgid "Offer Received"
+msgstr "Offerte erhalten"
+
+#: .\accounting\models.py:1285
+msgid "Shortlisted"
+msgstr "Auf Shortlist"
+
+#: .\accounting\models.py:1286
+msgid "Awarded"
+msgstr "Zuschlag"
+
+#: .\accounting\models.py:1287
+msgid "Ruling"
+msgstr "Verfügt"
+
+#: .\accounting\models.py:1288
+msgid "Appeal"
+msgstr "Einspruch"
+
+#: .\accounting\models.py:1289
+msgid "On Going"
+msgstr "Laufend"
+
+#: .\accounting\models.py:1290
+msgid "Contract Received"
+msgstr "Vertrag erhalten"
+
+#: .\accounting\models.py:1291
+msgid "Contract Signed"
+msgstr "Vertrag unterzeichnet"
+
+#: .\accounting\models.py:1292 .\accounting\models.py:1387
+#: .\accounting\models.py:1503
+msgid "Cancelled"
+msgstr "Storniert"
+
+#: .\accounting\models.py:1293
+msgid "Terminated"
+msgstr "Beendet"
+
+#: .\accounting\models.py:1294
+msgid "Termination Confirmed"
+msgstr "Beendigung bestätigt"
+
+#: .\accounting\models.py:1295 .\accounting\models.py:1386
+#: .\accounting\models.py:1502 .\vault\models.py:24
+msgid "Archived"
+msgstr "Archiviert"
+
+#: .\accounting\models.py:1315
+msgid "type"
+msgstr ""
+
+#: .\accounting\models.py:1320
+msgid "Organisation"
+msgstr ""
+
+#: .\accounting\models.py:1323
+msgid "Responsible Internal Organisation, will be shown in invoicing documents"
+msgstr ""
+
+#: .\accounting\models.py:1341
+msgid "No credit account found."
+msgstr ""
+
+#: .\accounting\models.py:1369
+msgid "Contract - Category"
+msgstr ""
+
+#: .\accounting\models.py:1370
+msgid "Contract - Categories"
+msgstr ""
+
+#: .\accounting\models.py:1378
+msgid "Open"
+msgstr ""
+
+#: .\accounting\models.py:1379
+msgid "Approved 1"
+msgstr "Genehmigt 1"
+
+#: .\accounting\models.py:1380
+msgid "Approved 2"
+msgstr "Genehmigt 2"
+
+#: .\accounting\models.py:1381 .\accounting\models.py:1497
+msgid "Booked"
+msgstr "Verbucht"
+
+#: .\accounting\models.py:1382
+msgid "Transferred (pain.001)"
+msgstr ""
+
+#: .\accounting\models.py:1383 .\accounting\models.py:1499
+msgid "Reminder 1"
+msgstr "Mahnstufe 1"
+
+#: .\accounting\models.py:1384 .\accounting\models.py:1500
+msgid "Reminder 2"
+msgstr "Mahnstufe 2"
+
+#: .\accounting\models.py:1385 .\accounting\models.py:1501
+msgid "Paid"
+msgstr "Bezahlt"
+
+#: .\accounting\models.py:1423
+msgid "Expense Account"
+msgstr ""
+
+#: .\accounting\models.py:1427 .\core\models.py:738
+msgid "Bank Account"
+msgstr "Bankkonto"
+
+#: .\accounting\models.py:1436 .\accounting\models.py:1545
+msgid "Rounding"
+msgstr "Runden"
+
+#: .\accounting\models.py:1443 .\accounting\models.py:1552
+msgid "Default due days"
+msgstr ""
+
+#: .\accounting\models.py:1445 .\accounting\models.py:1554
+msgid "address type"
+msgstr ""
+
+#: .\accounting\models.py:1454 .\accounting\models.py:1563
+msgid "Paying Organisation"
+msgstr ""
+
+#: .\accounting\models.py:1456 .\core\models.py:285 .\core\models.py:403
+msgid "Message"
+msgstr ""
+
+#: .\accounting\models.py:1476
+msgid "Incoming Invoice"
+msgstr "Eingangsrechnung"
 
 #: .\accounting\models.py:1486
-msgid "Select the associated canton for this chart of accounts."
+msgid "Creditor - Category"
 msgstr ""
 
-#: .\accounting\models.py:1490
-msgid "Choose the type from the available city options."
-msgstr ""
-
-#: .\accounting\models.py:1492 .\accounting\models.py:1525
-msgid "Chart Version"
-msgstr ""
-
-#: .\accounting\models.py:1493 .\accounting\models.py:1526
-msgid "Specify the version of the chart of accounts."
-msgstr ""
-
-#: .\accounting\models.py:1495 .\asset\models.py:262 .\vault\models.py:36
-msgid "Date"
-msgstr ""
-
-#: .\accounting\models.py:1495
-msgid "Enter the date for this chart of accounts record."
-msgstr ""
-
-#: .\accounting\models.py:1497 .\vault\models.py:39
-msgid "Excel File"
+#: .\accounting\models.py:1487
+msgid "Creditor - Categories"
 msgstr ""
 
 #: .\accounting\models.py:1498
+msgid "Sent"
+msgstr "Versandt"
+
+#: .\accounting\models.py:1529
+msgid "Payment"
+msgstr "Zahlung"
+
+#: .\accounting\models.py:1537
+msgid "Debit Account"
+msgstr ""
+
+#: .\accounting\models.py:1541
+msgid "Bank Account (receiving)"
+msgstr ""
+
+#: .\accounting\models.py:1566 .\accounting\models.py:1649
+msgid "Responsible"
+msgstr ""
+
+#: .\accounting\models.py:1567
+msgid "Contact person mentioned in invoice."
+msgstr ""
+
+#: .\accounting\models.py:1594
+msgid "Debtor - Invoice Category"
+msgstr ""
+
+#: .\accounting\models.py:1595
+msgid "Debtor - Invoice Categories"
+msgstr ""
+
+#: .\accounting\models.py:1606
+msgid "Order category, here are all booking processes and status defined "
+msgstr ""
+
+#: .\accounting\models.py:1608 .\accounting\models.py:1827
+#: .\accounting\models.py:2178 .\vault\models.py:36
+msgid "Date"
+msgstr ""
+
+#: .\accounting\models.py:1610
+msgid "Order Number"
+msgstr ""
+
+#: .\accounting\models.py:1611
+msgid "The order number."
+msgstr ""
+
+#: .\accounting\models.py:1633
+msgid "Contract party"
+msgstr ""
+
+#: .\accounting\models.py:1634
+msgid "Supplier or Client, usually a company"
+msgstr ""
+
+#: .\accounting\models.py:1641
+msgid "e.g. Office contract from Jan 2022 to Dec. 2028 "
+msgstr ""
+
+#: .\accounting\models.py:1650
+msgid "Signer of the contract"
+msgstr ""
+
+#: .\accounting\models.py:1652
+msgid "Valid From"
+msgstr ""
+
+#: .\accounting\models.py:1654
+msgid "Valid Until"
+msgstr ""
+
+#: .\accounting\models.py:1656
+msgid "Notice Period (Months)"
+msgstr ""
+
+#: .\accounting\models.py:1663 .\accounting\models.py:1689
+#: .\accounting\models.py:1751
+msgid "Contract"
+msgstr ""
+
+#: .\accounting\models.py:1664
+msgid "Contracts"
+msgstr ""
+
+#: .\accounting\models.py:1685
+msgid "all booking details are defined in category"
+msgstr ""
+
+#: .\accounting\models.py:1691 .\accounting\models.py:1753
+msgid ""
+"Contract with booking instructions. Upload actual invoice as attachment."
+msgstr ""
+
+#: .\accounting\models.py:1695
+msgid "e.g. Services May"
+msgstr ""
+
+#: .\accounting\models.py:1702 .\accounting\models.py:1773
+msgid "Due Days"
+msgstr ""
+
+#: .\accounting\models.py:1703 .\accounting\models.py:1774
+msgid "Leave blank to calculate from contract"
+msgstr ""
+
+#: .\accounting\models.py:1706 .\accounting\models.py:1707
+#: .\accounting\models.py:1777 .\billing\models.py:48
+msgid "Clerk"
+msgstr ""
+
+#: .\accounting\models.py:1711 .\accounting\models.py:1784
+msgid "Reference in invoice"
+msgstr ""
+
+#: .\accounting\models.py:1725
+msgid "Creditor - Invoice"
+msgstr ""
+
+#: .\accounting\models.py:1726
+msgid "Creditor - Invoices"
+msgstr ""
+
+#: .\accounting\models.py:1747
+msgid "contact details and contractual base (if any)"
+msgstr ""
+
+#: .\accounting\models.py:1759 .\accounting\models.py:1760
+msgid "Client"
+msgstr ""
+
+#: .\accounting\models.py:1763
+msgid "internal note, e.g. Services May"
+msgstr ""
+
+#: .\accounting\models.py:1765
+msgid "Recipient Address"
+msgstr ""
+
+#: .\accounting\models.py:1767
+msgid "Enter specific address text, otherwise person addresss is selected"
+msgstr ""
+
+#: .\accounting\models.py:1778 .\billing\models.py:49
+msgid "Clerk, leave empty if defined in category"
+msgstr ""
+
+#: .\accounting\models.py:1788
+msgid ""
+"The text displayed above the items list on the document. Leave empty if "
+"default."
+msgstr ""
+
+#: .\accounting\models.py:1793
+msgid ""
+"The text displayed below the items list on the document. Leave empty if "
+"default."
+msgstr ""
+
+#: .\accounting\models.py:1801
+msgid "Debtor - Invoice"
+msgstr ""
+
+#: .\accounting\models.py:1802
+msgid "Debtor - Invoices"
+msgstr ""
+
+#: .\accounting\models.py:1808 .\accounting\models.py:1820
+#: .\billing\filters.py:16 .\billing\models.py:249
+msgid "Article"
+msgstr ""
+
+#: .\accounting\models.py:1810
+msgid "Quantity"
+msgstr ""
+
+#: .\accounting\models.py:1814 .\accounting\models.py:1845
+#: .\accounting\models.py:1864 .\core\models.py:712
+msgid "Order"
+msgstr ""
+
+#: .\accounting\models.py:1821 .\billing\admin.py:331
+msgid "Articles"
+msgstr ""
+
+#: .\accounting\models.py:1829
+msgid "Book Template Id"
+msgstr ""
+
+#: .\accounting\models.py:1830
+msgid "CashCtrl id, automatically filled out"
+msgstr ""
+
+#: .\accounting\models.py:1834
+msgid "Book Entry"
+msgstr ""
+
+#: .\accounting\models.py:1835
+msgid "Book Entries"
+msgstr ""
+
+#: .\accounting\models.py:1846 .\accounting\models.py:1865
+msgid "automatically generated"
+msgstr ""
+
+#: .\accounting\models.py:1887
+msgid "Fiscal Period"
+msgstr ""
+
+#: .\accounting\models.py:1889
+msgid "Fiscal period"
+msgstr ""
+
+#: .\accounting\models.py:1904 .\accounting\models.py:1909
+#: .\accounting\temp\_filters.py:46
+msgid "Ledger"
+msgstr ""
+
+#: .\accounting\models.py:1911
+msgid "Ledger assigned to the fiscal period"
+msgstr ""
+
+#: .\accounting\models.py:1946
+msgid "Category or account"
+msgstr ""
+
+#: .\accounting\models.py:1951
+msgid ""
+"The parent category. Specify if it cannot be derived from the HRM 2 code. "
+"Empty if top category (asset or functional)."
+msgstr ""
+
+#: .\accounting\models.py:1956
+msgid ""
+"Function code, e.g. 071, leave empty for Balance positions, as it gets "
+"filled automatically."
+msgstr ""
+
+#: .\accounting\models.py:1980
+msgid "No parent specified"
+msgstr ""
+
+#: .\accounting\models.py:1994
+msgid "Liabilities"
+msgstr ""
+
+#: .\accounting\models.py:1997
+msgid "Side"
+msgstr ""
+
+#: .\accounting\models.py:1998
+msgid "Assets or liabilities"
+msgstr ""
+
+#: .\accounting\models.py:2007
+msgid "The balance at the start of the year."
+msgstr ""
+
+#: .\accounting\models.py:2012
+msgid "The balance at the end of the year."
+msgstr ""
+
+#: .\accounting\models.py:2016
+msgid "The increase in value during the year."
+msgstr ""
+
+#: .\accounting\models.py:2020
+msgid "The decrease in value during the year."
+msgstr ""
+
+#: .\accounting\models.py:2035
+msgid "Ledger - Balances"
+msgstr ""
+
+#: .\accounting\models.py:2041
+msgid "Account Category Expense"
+msgstr ""
+
+#: .\accounting\models.py:2046
+msgid "Account Category Revenue"
+msgstr ""
+
+#: .\accounting\models.py:2063 .\accounting\models.py:2105
+msgid "The expense amount."
+msgstr ""
+
+#: .\accounting\models.py:2067 .\accounting\models.py:2109
+msgid "The revenue amount."
+msgstr ""
+
+#: .\accounting\models.py:2070 .\accounting\models.py:2112
+msgid "Expense Budget"
+msgstr ""
+
+#: .\accounting\models.py:2072 .\accounting\models.py:2114
+msgid "The budgeted expense amount."
+msgstr ""
+
+#: .\accounting\models.py:2075 .\accounting\models.py:2117
+msgid "Revenue Budget"
+msgstr ""
+
+#: .\accounting\models.py:2077 .\accounting\models.py:2119
+msgid "The budgeted revenue amount."
+msgstr ""
+
+#: .\accounting\models.py:2080 .\accounting\models.py:2122
+msgid "Previous Expense"
+msgstr ""
+
+#: .\accounting\models.py:2082 .\accounting\models.py:2124
+msgid "The previous expense amount."
+msgstr ""
+
+#: .\accounting\models.py:2085 .\accounting\models.py:2127
+msgid "Previous Revenue"
+msgstr ""
+
+#: .\accounting\models.py:2087 .\accounting\models.py:2129
+msgid "The previous revenue amount."
+msgstr ""
+
+#: .\accounting\models.py:2099
+#, fuzzy
+#| msgid "Profit/Loss"
+msgid "Ledger - Profit/Loss"
+msgstr "Erfolgsrechnung"
+
+#: .\accounting\models.py:2141
+#, fuzzy
+#| msgid "Investment Calculations"
+msgid "Ledger - Investment Calculations"
+msgstr "Investitionsrechnung"
+
+#: .\accounting\models.py:2156
+msgid "Bilanz"
+msgstr ""
+
+#: .\accounting\models.py:2157
+msgid "Funktionale Gliederung"
+msgstr ""
+
+#: .\accounting\models.py:2158
+msgid "Erfolgsrechnung"
+msgstr ""
+
+#: .\accounting\models.py:2159
+msgid "Investitionsrechnung"
+msgstr ""
+
+#: .\accounting\models.py:2163 .\accounting\models.py:2207
+msgid "Enter the name of the chart of accounts."
+msgstr ""
+
+#: .\accounting\models.py:2166
+msgid "Select the type of chart (e.g., Balance, Functional)."
+msgstr ""
+
+#: .\accounting\models.py:2168 .\vault\models.py:167
+msgid "Canton"
+msgstr ""
+
+#: .\accounting\models.py:2169
+msgid "Select the associated canton for this chart of accounts."
+msgstr ""
+
+#: .\accounting\models.py:2173
+msgid "Choose the type from the available city options."
+msgstr ""
+
+#: .\accounting\models.py:2175 .\accounting\models.py:2209
+msgid "Chart Version"
+msgstr ""
+
+#: .\accounting\models.py:2176 .\accounting\models.py:2210
+msgid "Specify the version of the chart of accounts."
+msgstr ""
+
+#: .\accounting\models.py:2178
+msgid "Enter the date for this chart of accounts record."
+msgstr ""
+
+#: .\accounting\models.py:2180 .\vault\models.py:39
+msgid "Excel File"
+msgstr ""
+
+#: .\accounting\models.py:2181
 msgid "Upload the Excel file associated with this chart of accounts."
 msgstr ""
 
-#: .\accounting\models.py:1500 .\vault\models.py:42
+#: .\accounting\models.py:2183 .\vault\models.py:42
 msgid "Exported At"
 msgstr ""
 
-#: .\accounting\models.py:1501
+#: .\accounting\models.py:2184
 msgid "Record the date and time this chart use to create positions."
 msgstr ""
 
-#: .\accounting\models.py:1514
+#: .\accounting\models.py:2198
 msgid "Chart of Accounts (Canton)"
 msgstr ""
 
-#: .\accounting\models.py:1515
+#: .\accounting\models.py:2199
 msgid "Charts of Accounts (Canton)"
 msgstr ""
 
-#: .\accounting\models.py:1528
+#: .\accounting\models.py:2212
 msgid "period"
 msgstr ""
 
-#: .\accounting\models.py:1530
+#: .\accounting\models.py:2214
 msgid "Fiscal period, automatically updated in Fiscal Period"
 msgstr ""
 
-#: .\accounting\models.py:1532
+#: .\accounting\models.py:2216
 msgid "headings with numbers"
 msgstr ""
 
-#: .\accounting\models.py:1533
+#: .\accounting\models.py:2217
 msgid "Show numbers in headings of the accounting system"
 msgstr ""
 
-#: .\accounting\models.py:1549 .\accounting\models.py:1596
+#: .\accounting\models.py:2234 .\accounting\models.py:2281
 msgid "Chart of Accounts"
 msgstr ""
 
-#: .\accounting\models.py:1550
+#: .\accounting\models.py:2235
 msgid "Charts of Accounts"
 msgstr ""
 
-#: .\accounting\models.py:1558
+#: .\accounting\models.py:2243
 msgid ""
 "Typically 4 digits for functions / categories, 4 + 2 for account positions, "
 "5 + 2 for balance"
 msgstr ""
 
-#: .\accounting\models.py:1561 .\vault\models.py:55
+#: .\accounting\models.py:2246 .\vault\models.py:55
 msgid "is category"
 msgstr ""
 
-#: .\accounting\models.py:1561
+#: .\accounting\models.py:2246
 msgid "Flag indicating position is category"
 msgstr ""
 
-#: .\accounting\models.py:1564
+#: .\accounting\models.py:2249
 msgid "Name of the account"
 msgstr ""
 
-#: .\accounting\models.py:1567
+#: .\accounting\models.py:2252
 msgid "Position description"
 msgstr ""
 
-#: .\accounting\models.py:1578
+#: .\accounting\models.py:2263
 msgid "Calculated account number for reference"
 msgstr ""
 
-#: .\accounting\models.py:1598
+#: .\accounting\models.py:2283
 msgid "Link to the relevant chart of accounts"
 msgstr ""
 
-#: .\accounting\models.py:1616
+#: .\accounting\models.py:2302
 msgid "Account Position (Canton or Others)"
 msgstr ""
 
-#: .\accounting\models.py:1617
+#: .\accounting\models.py:2303
 msgid "Account Positions (Canton or Others)"
 msgstr ""
 
-#: .\accounting\models.py:1626
+#: .\accounting\models.py:2327
 msgid "Function code"
 msgstr ""
 
-#: .\accounting\models.py:1628
+#: .\accounting\models.py:2329
 msgid "Account Type"
 msgstr ""
 
-#: .\accounting\models.py:1629
+#: .\accounting\models.py:2330
 msgid "Account Type: balance, income, invent"
 msgstr ""
 
-#: .\accounting\models.py:1631
+#: .\accounting\models.py:2332
 msgid "Chart"
 msgstr ""
 
-#: .\accounting\models.py:1633
+#: .\accounting\models.py:2334
 msgid "Chart the position belongs to if applicable"
 msgstr ""
 
-#: .\accounting\models.py:1635
+#: .\accounting\models.py:2336
 msgid "responsible"
 msgstr ""
 
-#: .\accounting\models.py:1637
+#: .\accounting\models.py:2338
 msgid "Responsible for budgeting and review"
 msgstr ""
 
-#: .\accounting\models.py:1649
+#: .\accounting\models.py:2348
 msgid "Acutal Balance"
 msgstr ""
 
-#: .\accounting\models.py:1651 .\accounting\models.py:1653
+#: .\accounting\models.py:2350 .\accounting\models.py:2352
 msgid "Balance, imported"
 msgstr ""
 
-#: .\accounting\models.py:1657
-msgid "Budget"
-msgstr ""
-
-#: .\accounting\models.py:1658
+#: .\accounting\models.py:2357
 msgid "Budget for period given, fill out manually"
 msgstr ""
 
-#: .\accounting\models.py:1660
+#: .\accounting\models.py:2359
 msgid "Previous Balance"
 msgstr ""
 
-#: .\accounting\models.py:1662
+#: .\accounting\models.py:2361
 msgid "Balance of previous period"
 msgstr ""
 
-#: .\accounting\models.py:1664
+#: .\accounting\models.py:2363
 msgid "Explanation"
 msgstr ""
 
-#: .\accounting\models.py:1665
+#: .\accounting\models.py:2364
 msgid "Explanation, esp. deviations to previous period"
 msgstr ""
 
-#: .\accounting\models.py:1704
+#: .\accounting\models.py:2397
 msgid "Account Positions"
 msgstr ""
 
-#: .\accounting\models.py:1710 .\core\models.py:110 .\core\models.py:177
-#: .\vault\models.py:233
-msgid "tenant"
+#: .\accounting\signals_cash_ctrl.py:493
+#, python-brace-format
+msgid "Deletion is not allowed for {instance.number}."
 msgstr ""
 
-#: .\accounting\models.py:1712 .\core\models.py:179 .\vault\models.py:235
-msgid "assignment of tenant / client"
+#: .\accounting\temp\__resources.py:64 .\accounting\temp\_resources.py:64
+#, python-brace-format
+msgid "Invalid fiscal period: {name}"
 msgstr ""
 
-#: .\asset\models.py:16
-msgid "Received"
+#: .\accounting\temp\__resources.py:68 .\accounting\temp\_resources.py:68
+#, python-brace-format
+msgid "{hrm} no valid HRM code"
 msgstr ""
 
-#: .\asset\models.py:17
-msgid "In Stock"
+#: .\asset\admin.py:78
+msgid "Status & Dates"
 msgstr ""
 
-#: .\asset\models.py:18
-msgid "Deployed"
+#: .\asset\admin.py:82
+msgid "Identification"
 msgstr ""
 
-#: .\asset\models.py:19
-msgid "Mounted"
-msgstr ""
-
-#: .\asset\models.py:20
-msgid "Calibrated"
-msgstr ""
-
-#: .\asset\models.py:21
-msgid "Transferred"
-msgstr ""
-
-#: .\asset\models.py:22
-msgid "Under Maintenance"
-msgstr ""
-
-#: .\asset\models.py:23
-msgid "Decommissioned"
-msgstr ""
-
-#: .\asset\models.py:24
-msgid "Disposed"
-msgstr ""
-
-#: .\asset\models.py:25
-msgid "Lost"
-msgstr ""
-
-#: .\asset\models.py:26
-msgid "Stolen"
-msgstr ""
-
-#: .\asset\models.py:66
-msgid "first name"
-msgstr ""
-
-#: .\asset\models.py:68
-msgid "last name"
-msgstr ""
-
-#: .\asset\models.py:89 .\asset\models.py:299
-msgid "Label description"
-msgstr ""
-
-#: .\asset\models.py:107
+#: .\asset\filters.py:14 .\billing\models.py:136
 msgid "Categories"
 msgstr ""
 
+#: .\asset\models.py:19
+msgid "Received"
+msgstr ""
+
+#: .\asset\models.py:20
+msgid "In Stock"
+msgstr ""
+
+#: .\asset\models.py:21
+msgid "Deployed"
+msgstr ""
+
+#: .\asset\models.py:22
+msgid "Calibrated"
+msgstr ""
+
+#: .\asset\models.py:23
+msgid "Mounted"
+msgstr ""
+
+#: .\asset\models.py:24
+msgid "De-Mountied"
+msgstr ""
+
+#: .\asset\models.py:25
+msgid "Under Maintenance"
+msgstr ""
+
+#: .\asset\models.py:26
+msgid "Decommissioned"
+msgstr ""
+
+#: .\asset\models.py:27
+msgid "Disposed"
+msgstr ""
+
+#: .\asset\models.py:28
+msgid "Lost"
+msgstr ""
+
+#: .\asset\models.py:29
+msgid "Stolen"
+msgstr ""
+
+#: .\asset\models.py:40
+msgid "The name of the unit ('hours', 'minutes', etc.)"
+msgstr ""
+
+#: .\asset\models.py:54
+msgid "Units"
+msgstr ""
+
+#: .\asset\models.py:65 .\core\models.py:760
+msgid "The name of the title (i.e. the actual title)."
+msgstr ""
+
+#: .\asset\models.py:72
+msgid "The asset's unit."
+msgstr ""
+
+#: .\asset\models.py:76
+msgid "Asset Category"
+msgstr ""
+
+#: .\asset\models.py:77
+msgid "Asset Categories"
+msgstr ""
+
+#: .\asset\models.py:91
+msgid ""
+"Internal code for scerp. This is also transferred to water counter software"
+msgstr ""
+
+#: .\asset\models.py:95
+msgid "The name of the Device."
+msgstr ""
+
+#: .\asset\models.py:99
+msgid "The asset's category."
+msgstr ""
+
+#: .\asset\models.py:101
+msgid "Date added"
+msgstr ""
+
+#: .\asset\models.py:102
+msgid "The date when the fixed asset has been added."
+msgstr ""
+
+#: .\asset\models.py:104
+msgid "Price"
+msgstr ""
+
+#: .\asset\models.py:105
+msgid "Purchase price"
+msgstr ""
+
+#: .\asset\models.py:115
+msgid "Warranty"
+msgstr ""
+
+#: .\asset\models.py:116
+msgid "Warranty in months"
+msgstr ""
+
+#: .\asset\models.py:118
+msgid "Date disposed"
+msgstr ""
+
+#: .\asset\models.py:119
+msgid "The date of the disposal."
+msgstr ""
+
+#: .\asset\models.py:121
+msgid "Number or Id"
+msgstr ""
+
 #: .\asset\models.py:123
-msgid "Purchase Price"
+msgid "cashCtrl nr"
 msgstr ""
 
-#: .\asset\models.py:124
-msgid "The initial purchase price of the asset."
+#: .\asset\models.py:125
+msgid "Serial Number"
 msgstr ""
 
-#: .\asset\models.py:130
-msgid "Length (mm)"
-msgstr ""
-
-#: .\asset\models.py:131
-msgid "Enter the length of the device in millimeters."
-msgstr ""
-
-#: .\asset\models.py:134
-msgid "Width (mm)"
-msgstr ""
-
-#: .\asset\models.py:135
-msgid "Enter the width of the device in millimeters."
-msgstr ""
-
-#: .\asset\models.py:138
-msgid "Height (mm)"
-msgstr ""
-
-#: .\asset\models.py:139
-msgid "Enter the height of the device in millimeters."
-msgstr ""
-
-#: .\asset\models.py:142
-msgid "Diameter (mm)"
-msgstr ""
-
-#: .\asset\models.py:143
-msgid "Enter the diameter of the device in millimeters (if applicable)."
-msgstr ""
-
-#: .\asset\models.py:146
-msgid "Size Remark"
-msgstr ""
-
-#: .\asset\models.py:147
-msgid "Additional remarks or comments about the size."
-msgstr ""
-
-#: .\asset\models.py:152 .\asset\models.py:227 .\asset\models.py:374
-msgid "Label 1"
-msgstr ""
-
-#: .\asset\models.py:153 .\asset\models.py:157 .\asset\models.py:161
-#: .\asset\models.py:165 .\asset\models.py:228 .\asset\models.py:232
-#: .\asset\models.py:236 .\asset\models.py:240 .\asset\models.py:375
-#: .\asset\models.py:379 .\asset\models.py:383 .\asset\models.py:387
-msgid "Iinternal category or label for categorization."
-msgstr ""
-
-#: .\asset\models.py:156 .\asset\models.py:231 .\asset\models.py:378
-msgid "Label 2"
-msgstr ""
-
-#: .\asset\models.py:160 .\asset\models.py:235 .\asset\models.py:382
-msgid "Label 3"
-msgstr ""
-
-#: .\asset\models.py:164 .\asset\models.py:239 .\asset\models.py:386
-msgid "Label 4"
-msgstr ""
-
-#: .\asset\models.py:186
-msgid "Serial Number or Id"
-msgstr ""
-
-#: .\asset\models.py:198
-msgid "Location"
-msgstr ""
-
-#: .\asset\models.py:202 .\asset\models.py:268
-msgid "Customer"
-msgstr ""
-
-#: .\asset\models.py:203
-msgid "Gets updated automatically"
-msgstr ""
-
-#: .\asset\models.py:208
-msgid "Year"
-msgstr ""
-
-#: .\asset\models.py:210
-msgid "Enter a year between 1900 and 2100."
-msgstr ""
-
-#: .\asset\models.py:213 .\asset\models.py:221
-msgid "Batch"
-msgstr ""
-
-#: .\asset\models.py:214 .\asset\models.py:222
-msgid "Batch or order id"
-msgstr ""
-
-#: .\asset\models.py:217
+#: .\asset\models.py:129
 msgid "Registration number"
 msgstr ""
 
-#: .\asset\models.py:218
+#: .\asset\models.py:130
 msgid "Registration number of device"
 msgstr ""
 
-#: .\asset\models.py:254 .\asset\models.py:276 .\asset\models.py:368
+#: .\asset\models.py:133
+msgid "Batch"
+msgstr ""
+
+#: .\asset\models.py:134
+msgid "Batch or order id"
+msgstr ""
+
+#: .\asset\models.py:159 .\asset\models.py:169
 msgid "Device"
 msgstr ""
 
-#: .\asset\models.py:255
+#: .\asset\models.py:160
 msgid "Devices"
 msgstr ""
 
-#: .\asset\models.py:285
+#: .\asset\models.py:172
+msgid "Date and Time"
+msgstr ""
+
+#: .\asset\models.py:179 .\core\forms.py:44 .\core\models.py:1006
+#: .\core\models.py:1157
+msgid "Person"
+msgstr ""
+
+#: .\asset\models.py:182
+msgid "Leave empty if irrelevant (e.g. counters).Do not use for counters."
+msgstr ""
+
+#: .\asset\models.py:189
+msgid "Mandatory for counters, leave empty if irrelevant (e.g. room specified)"
+msgstr ""
+
+#: .\asset\models.py:193 .\core\models.py:1143
+msgid "Dwelling"
+msgstr ""
+
+#: .\asset\models.py:195
+msgid "leave empty if irrelevant (e.g. room specified)"
+msgstr ""
+
+#: .\asset\models.py:198
+msgid "Room"
+msgstr ""
+
+#: .\asset\models.py:200
+msgid "leave empty if irrelevant (e.g. building specified)"
+msgstr ""
+
+#: .\asset\models.py:222
 msgid "Event Log"
 msgstr ""
 
-#: .\asset\models.py:286
+#: .\asset\models.py:223
 msgid "Event Logs"
 msgstr ""
 
-#: .\asset\models.py:296 .\asset\models.py:325
-msgid "Water, Energy etc."
+#: .\billing\actions.py:25
+msgid "Export JSON Counter List for Routing"
 msgstr ""
 
-#: .\asset\models.py:363
-msgid "Measured at"
+#: .\billing\actions.py:48
+msgid "Import JSON Counter List from Routing"
 msgstr ""
 
-#: .\asset\models.py:365
+#: .\billing\actions.py:58
+#, python-format
+msgid "%s counters updated."
+msgstr ""
+
+#: .\billing\actions.py:59
+msgid "File uploaded and stored as attachment."
+msgstr ""
+
+#: .\billing\actions.py:84
+msgid "Route Billing"
+msgstr ""
+
+#: .\billing\actions.py:105
+#, python-brace-format
+msgid "{count} bills created"
+msgstr ""
+
+#: .\billing\actions.py:110
+msgid "Export internal Excel Counter List for Routing"
+msgstr ""
+
+#: .\billing\actions.py:113
+msgid "Not implemented yet."
+msgstr ""
+
+#: .\billing\actions.py:135
+msgid "Copy Route"
+msgstr ""
+
+#: .\billing\actions.py:155 .\billing\calc.py:799
+#: .\templates\billing\measurement_consumption.html:4
+msgid "Consumption Analysis"
+msgstr ""
+
+#: .\billing\actions.py:182
+msgid "Error: "
+msgstr ""
+
+#: .\billing\actions.py:185
+msgid "No valid data available"
+msgstr ""
+
+#: .\billing\actions.py:190
+msgid "Export Analysis to Excel"
+msgstr ""
+
+#: .\billing\admin.py:116
+msgid "Filters"
+msgstr ""
+
+#: .\billing\admin.py:122
+#, fuzzy
+#| msgid "Investment Calculations"
+msgid "Calculations"
+msgstr "Investitionsrechnung"
+
+#: .\billing\admin.py:134
+msgid "filters"
+msgstr ""
+
+#: .\billing\admin.py:138 .\billing\models.py:131 .\core\admin.py:400
+#: .\core\models.py:672
+msgid "Addresses"
+msgstr ""
+
+#: .\billing\admin.py:196
+msgid "Last"
+msgstr ""
+
+#: .\billing\admin.py:202
+msgid "References"
+msgstr ""
+
+#: .\billing\admin.py:225 .\billing\admin.py:314
+msgid "abo_nr"
+msgstr ""
+
+#: .\billing\admin.py:229 .\billing\admin.py:318 .\billing\models.py:219
+msgid "Subscriber"
+msgstr ""
+
+#: .\billing\admin.py:233 .\billing\filters.py:121 .\billing\models.py:364
+msgid "Consumption"
+msgstr ""
+
+#: .\billing\admin.py:237
+msgid "+/- in %"
+msgstr ""
+
+#: .\billing\admin.py:241 .\billing\filters.py:46 .\billing\forms.py:21
+#: .\billing\models.py:92 .\billing\models.py:110 .\billing\models.py:333
+#: .\billing\models.py:401
+msgid "Period"
+msgstr ""
+
+#: .\billing\admin.py:245 .\billing\models.py:246 .\billing\models.py:349
+msgid "Counter"
+msgstr ""
+
+#: .\billing\admin.py:249 .\billing\filters.py:96 .\core\models.py:499
+#: .\core\models.py:591 .\core\models.py:592
+msgid "Area"
+msgstr ""
+
+#: .\billing\admin.py:261
+msgid ""
+"Create a new subscription if owner changes, otherwise previous values are "
+"shown at the bill which is against policies. "
+msgstr ""
+
+#: .\billing\admin.py:300
+msgid "Controlling"
+msgstr ""
+
+#: .\billing\admin.py:323
+msgid "Invoice Address (Invoice if specified else Main)"
+msgstr ""
+
+#: .\billing\admin.py:327 .\core\models.py:1017
+msgid "Invoice Address"
+msgstr ""
+
+#: .\billing\admin.py:335
+msgid "Counters"
+msgstr ""
+
+#: .\billing\admin.py:339
+msgid "Last Route"
+msgstr ""
+
+#: .\billing\admin.py:344
+msgid "Last Route / Measurement"
+msgstr ""
+
+#: .\billing\calc.py:226
+#, python-format
+msgid "Records having no address: %s"
+msgstr ""
+
+#: .\billing\calc.py:242
+#, python-format
+msgid "Records having no counters: %s"
+msgstr ""
+
+#: .\billing\calc.py:258
+#, python-format
+msgid "Records having multiple counters: %s"
+msgstr ""
+
+#: .\billing\calc.py:453
+#, python-brace-format
+msgid "counter {code} not found."
+msgstr ""
+
+#: .\billing\calc.py:460
+#, python-brace-format
+msgid "counter {code} has no value."
+msgstr ""
+
+#: .\billing\calc.py:466
+#, python-brace-format
+msgid "counter {code} has no measurement."
+msgstr ""
+
+#: .\billing\calc.py:478
+msgid "Address {maintenance['address_id']} wrong."
+msgstr ""
+
+#: .\billing\calc.py:487
+#, python-brace-format
+msgid "Subscription {subscription_id} wrong."
+msgstr ""
+
+#: .\billing\calc.py:495
+msgid "{code}: {reference_dt.date()} not in "
+msgstr ""
+
+#: .\billing\calc.py:534
+msgid "counter {meter['id']} already measured."
+msgstr ""
+
+#: .\billing\calc.py:556
+msgid "Not a valid file"
+msgstr ""
+
+#: .\billing\calc.py:805 .\templates\billing\measurement_consumption.html:10
+msgid "Label"
+msgstr ""
+
+#: .\billing\calc.py:805 .\billing\models.py:361 .\billing\models.py:371
+#: .\templates\billing\measurement_consumption.html:11
 msgid "Value"
 msgstr ""
 
-#: .\asset\models.py:395
-msgid "Counter Log"
+#: .\billing\calc.py:814
+msgid "Records Processed"
 msgstr ""
 
-#: .\asset\models.py:396
-msgid "Counter Logs"
+#: .\billing\calc.py:815 .\billing\models.py:93
+#: .\templates\billing\measurement_consumption.html:16
+msgid "Periods"
 msgstr ""
 
-#: .\billing\models.py:13
-msgid "water"
+#: .\billing\calc.py:816 .\billing\models.py:207
+#: .\templates\billing\measurement_consumption.html:22
+msgid "Routes"
 msgstr ""
 
-#: .\billing\models.py:16
-msgid "disposed"
+#: .\billing\calc.py:817 .\billing\models.py:126 .\core\filters.py:14
+#: .\core\models.py:500 .\templates\billing\measurement_consumption.html:28
+msgid "Areas"
 msgstr ""
 
-#: .\billing\models.py:17
-msgid "mounted"
+#: .\billing\calc.py:818 .\templates\billing\measurement_consumption.html:34
+msgid "Period Start, End"
 msgstr ""
 
-#: .\billing\models.py:18
-msgid "stock"
+#: .\billing\calc.py:819
+msgid "Value Dates From - To"
+msgstr ""
+
+#: .\billing\calc.py:820
+msgid "Total Consumption"
+msgstr ""
+
+#: .\billing\calc.py:821 .\templates\billing\measurement_consumption.html:46
+msgid "Previous"
+msgstr ""
+
+#: .\billing\calc.py:824
+msgid "Change in %"
+msgstr ""
+
+#: .\billing\filters.py:71 .\billing\models.py:206 .\billing\models.py:353
+msgid "Route"
+msgstr ""
+
+#: .\billing\filters.py:133
+msgid "Empty"
+msgstr ""
+
+#: .\billing\forms.py:26
+msgid "Route Name"
+msgstr ""
+
+#: .\billing\forms.py:29
+msgid "Enter name"
+msgstr ""
+
+#: .\billing\forms.py:41
+msgid "Route Date"
+msgstr ""
+
+#: .\billing\forms.py:46
+msgid "Employee responsible"
+msgstr ""
+
+#: .\billing\forms.py:51 .\billing\forms.py:105 .\billing\forms.py:133
+#: .\billing\forms.py:146 .\scerp\forms.py:100 .\scerp\forms.py:159
+msgid "Filename"
+msgstr ""
+
+#: .\billing\forms.py:54 .\billing\forms.py:108 .\billing\forms.py:149
+#: .\billing\forms.py:155
+msgid "Enter filename"
+msgstr ""
+
+#: .\billing\forms.py:57
+msgid "Energy Type"
+msgstr ""
+
+#: .\billing\forms.py:60
+msgid "Enter symbol"
+msgstr ""
+
+#: .\billing\forms.py:63 .\billing\forms.py:111
+msgid "Test data"
+msgstr ""
+
+#: .\billing\forms.py:66 .\billing\forms.py:114
+msgid "Generate Test Data"
+msgstr ""
+
+#: .\billing\forms.py:78
+msgid "Warning: no previous period given"
+msgstr ""
+
+#: .\billing\forms.py:93 .\core\models.py:325
+msgid "File"
+msgstr ""
+
+#: .\billing\forms.py:96
+msgid "JSON File with the collected data"
+msgstr ""
+
+#: .\billing\forms.py:125 .\billing\forms.py:128
+msgid "ID"
+msgstr ""
+
+#: .\billing\forms.py:129
+msgid "Leave empty if all records"
+msgstr ""
+
+#: .\billing\forms.py:138
+#, python-brace-format
+msgid "invoices_{route_id}"
+msgstr ""
+
+#: .\billing\forms.py:140
+#, python-brace-format
+msgid "Default format: invoices_{route_id}"
+msgstr ""
+
+#: .\billing\forms.py:152 .\scerp\forms.py:102
+msgid "Worksheet Name"
+msgstr ""
+
+#: .\billing\forms.py:169
+msgid "Subscribers"
+msgstr ""
+
+#: .\billing\forms.py:172
+msgid "Leave empty for generating all invoices."
+msgstr ""
+
+#: .\billing\forms.py:175
+msgid "Invoice Status"
+msgstr ""
+
+#: .\billing\forms.py:180
+msgid "Invoice Date"
+msgstr ""
+
+#: .\billing\forms.py:187
+msgid "Sync with cashCtrl"
+msgstr ""
+
+#: .\billing\forms.py:190
+msgid "Enable for draft invoices. Disable for hundreds of invoices"
+msgstr ""
+
+#: .\billing\models.py:20
+#, python-brace-format
+msgid ""
+"Objekt: {building}\n"
+"Periode: {start} bis {end}\n"
+"Verbrauch letzte Periode: {consumption} m³"
+msgstr ""
+
+#: .\billing\models.py:29 .\billing\models.py:72
+msgid "e.g. water, semi annual"
+msgstr ""
+
+#: .\billing\models.py:33
+msgid "Header"
+msgstr ""
+
+#: .\billing\models.py:36
+msgid "Show partner"
+msgstr ""
+
+#: .\billing\models.py:37
+msgid "Show partner on invoice bill"
+msgstr ""
+
+#: .\billing\models.py:40
+msgid "Invoice Contract"
+msgstr ""
+
+#: .\billing\models.py:44
+msgid "Order Category"
+msgstr ""
+
+#: .\billing\models.py:51
+msgid "Rounding Digits"
+msgstr ""
+
+#: .\billing\models.py:52
+msgid "Rounding consumption on invoice"
+msgstr ""
+
+#: .\billing\models.py:65 .\billing\models.py:113
+msgid "Setup"
+msgstr ""
+
+#: .\billing\models.py:66
+msgid "Setups"
+msgstr ""
+
+#: .\billing\models.py:76
+msgid "Start date of the  period"
+msgstr ""
+
+#: .\billing\models.py:78
+msgid "End date of the period"
+msgstr ""
+
+#: .\billing\models.py:99
+msgid "Route initialized"
+msgstr ""
+
+#: .\billing\models.py:100
+msgid "Counter File Exported"
+msgstr ""
+
+#: .\billing\models.py:101
+msgid "Counter File Imported"
+msgstr ""
+
+#: .\billing\models.py:102
+msgid "Test Invoices Generated"
+msgstr ""
+
+#: .\billing\models.py:103
+msgid "Invoices Generated"
+msgstr ""
+
+#: .\billing\models.py:107
+msgid "name and period for route, e.g. Water, 24/1"
+msgstr ""
+
+#: .\billing\models.py:116
+msgid "Previous Period"
+msgstr ""
+
+#: .\billing\models.py:118
+msgid "This is used to calculate the consumption."
+msgstr ""
+
+#: .\billing\models.py:120
+msgid "Comparison Periods"
+msgstr ""
+
+#: .\billing\models.py:123
+msgid ""
+"Periods' measurements used to report on all invoices. If none is given, last "
+"one is taken."
+msgstr ""
+
+#: .\billing\models.py:128
+msgid "Areas that should be included, leave empty to include all in scope"
+msgstr ""
+
+#: .\billing\models.py:133
+msgid "Addresses that should be included, leave empty to include all in scope"
+msgstr ""
+
+#: .\billing\models.py:138
+msgid "Categories of counters to be included. Leave empty if all. "
+msgstr ""
+
+#: .\billing\models.py:141
+msgid "Leave empty if period start"
+msgstr ""
+
+#: .\billing\models.py:144
+msgid "Leave empty if period end"
+msgstr ""
+
+#: .\billing\models.py:147
+msgid "Period duration in days"
+msgstr ""
+
+#: .\billing\models.py:150
+msgid "Current status of the routing."
+msgstr ""
+
+#: .\billing\models.py:152
+msgid "Default route"
+msgstr ""
+
+#: .\billing\models.py:153
+msgid "Inside default schedule"
+msgstr ""
+
+#: .\billing\models.py:155
+msgid "Confidence Min."
+msgstr ""
+
+#: .\billing\models.py:157
+msgid ""
+"Min confidence factor based on previous period, e.g. 0.5: value must be ≥ 5 "
+"if previous value was 10"
+msgstr ""
+
+#: .\billing\models.py:160
+msgid "Confidence Max."
+msgstr ""
+
+#: .\billing\models.py:162
+msgid ""
+"Max confidence factor based on previous period, e.g. 2: value must be ≤ 20 "
+"if previous value was 10"
+msgstr ""
+
+#: .\billing\models.py:170
+msgid "Number of Addresses"
+msgstr ""
+
+#: .\billing\models.py:172
+msgid "Number of Subscriptions"
+msgstr ""
+
+#: .\billing\models.py:174
+msgid "Number of Counters"
+msgstr ""
+
+#: .\billing\models.py:213
+msgid "Subscription Number"
+msgstr ""
+
+#: .\billing\models.py:216 .\billing\models.py:323
+msgid "Abo Nr"
+msgstr ""
+
+#: .\billing\models.py:222 .\billing\models.py:229
+msgid ""
+"subscriber / inhabitant / ownerinvoice address may be different to "
+"subscriber, defined under address"
+msgstr ""
+
+#: .\billing\models.py:234
+msgid "Invoice recipient"
+msgstr ""
+
+#: .\billing\models.py:236
+msgid "Invoice recipient if not subscriber."
+msgstr ""
+
+#: .\billing\models.py:238
+msgid "Building Address"
+msgstr ""
+
+#: .\billing\models.py:240
+msgid "May be null at the beginning but must be entered later"
+msgstr ""
+
+#: .\billing\models.py:242
+msgid "Start Date"
+msgstr ""
+
+#: .\billing\models.py:242
+msgid "Start date of subscription."
+msgstr ""
+
+#: .\billing\models.py:244
+msgid "Exit Date"
+msgstr ""
+
+#: .\billing\models.py:252
+msgid "Number of counters"
+msgstr ""
+
+#: .\billing\models.py:253
+msgid "Gets updated automatically by signals"
+msgstr ""
+
+#: .\billing\models.py:258
+msgid "Routes out"
+msgstr ""
+
+#: .\billing\models.py:260
+msgid "Routes included in json files"
+msgstr ""
+
+#: .\billing\models.py:262 .\billing\models.py:264
+msgid "Invoices"
+msgstr ""
+
+#: .\billing\models.py:317 .\billing\models.py:404
+msgid "Subscription"
+msgstr ""
+
+#: .\billing\models.py:318
+msgid "Subscriptions"
+msgstr ""
+
+#: .\billing\models.py:327
+msgid "Strasse"
+msgstr ""
+
+#: .\billing\models.py:329
+msgid "PLZ Ort"
+msgstr ""
+
+#: .\billing\models.py:331
+msgid "Tarif"
+msgstr ""
+
+#: .\billing\models.py:335
+msgid "Bez."
+msgstr ""
+
+#: .\billing\models.py:337
+msgid "Base"
+msgstr ""
+
+#: .\billing\models.py:339
+msgid "Amount"
+msgstr ""
+
+#: .\billing\models.py:342
+msgid "Amount incl. VAT"
+msgstr ""
+
+#: .\billing\models.py:358
+msgid "Reference Date"
+msgstr ""
+
+#: .\billing\models.py:359
+msgid "Date and time, reference measurement"
+msgstr ""
+
+#: .\billing\models.py:369
+msgid "Date and time, latest"
+msgstr ""
+
+#: .\billing\models.py:374
+msgid "Consumption latest"
+msgstr ""
+
+#: .\billing\models.py:377
+msgid "Battery Level"
+msgstr ""
+
+#: .\billing\models.py:378
+msgid "number of recommended periods for using"
+msgstr ""
+
+#: .\billing\models.py:422
+msgid "Measurement"
+msgstr ""
+
+#: .\billing\models.py:423
+msgid "Measurements"
 msgstr ""
 
 #: .\core\_middleware(disabled).py:44
 msgid "User profile not found. Contact Admin."
 msgstr ""
 
-#: .\core\actions.py:17
+#: .\core\actions.py:28
+msgid "Scerp initialized"
+msgstr ""
+
+#: .\core\actions.py:30 .\core\actions.py:49 .\scerp\admin_base.py:317
+msgid "Unexpected error: "
+msgstr ""
+
+#: .\core\actions.py:41 .\core\actions.py:47
+msgid "cashCtrl initialized"
+msgstr ""
+
+#: .\core\actions.py:53
 msgid "Create a User"
 msgstr ""
 
-#: .\core\actions.py:22
+#: .\core\actions.py:62
 msgid "User already existing"
 msgstr ""
 
-#: .\core\actions.py:39
+#: .\core\actions.py:88
 #, python-brace-format
-msgid "Created {user} with password {password}"
+msgid "Created {user} with password"
 msgstr ""
 
-#: .\core\admin.py:34 .\core\admin.py:51
+#: .\core\actions.py:94
+msgid "Assign Title to Users"
+msgstr ""
+
+#: .\core\admin.py:70 .\core\admin.py:98 .\scerp\admin.py:551
 msgid "Photo"
 msgstr ""
 
-#: .\core\admin.py:55 .\core\admin.py:115 .\core\forms.py:14
+#: .\core\admin.py:94 .\core\admin.py:175 .\core\forms.py:51 .\crm\forms.py:59
 msgid "Groups"
 msgstr ""
 
-#: .\core\admin.py:84
-msgid "Session updated."
+#: .\core\admin.py:129
+msgid "API Key"
 msgstr ""
 
-#: .\core\admin.py:104
+#: .\core\admin.py:164 .\core\models.py:92
 msgid "Apps"
 msgstr ""
 
-#: .\core\admin.py:109 .\core\models.py:170 .\core\models.py:215
+#: .\core\admin.py:169 .\core\models.py:224 .\core\models.py:1115
 msgid "Users"
 msgstr ""
 
-#: .\core\admin.py:132 .\core\models.py:258
+#: .\core\admin.py:202 .\core\models.py:356
 msgid "logo"
 msgstr ""
 
-#: .\core\apps.py:7
-msgid "Admin"
+#: .\core\admin.py:228
+msgid "Municipality"
 msgstr ""
 
-#: .\core\forms.py:9
+#: .\core\admin.py:233 .\core\models.py:532 .\crm\models.py:26
+msgid "Street"
+msgstr ""
+
+#: .\core\admin.py:237 .\core\models.py:1125 .\core\models.py:1140
+msgid "Building"
+msgstr ""
+
+#: .\core\admin.py:252
+msgid "ZIP"
+msgstr ""
+
+#: .\core\admin.py:312
+msgid "Texts"
+msgstr ""
+
+#: .\core\admin.py:322 .\core\models.py:768
+msgid "Sentence"
+msgstr ""
+
+#: .\core\admin.py:412 .\core\models.py:739
+msgid "Bank Accounts"
+msgstr ""
+
+#: .\core\admin.py:425 .\core\models.py:701
+msgid "Contacts"
+msgstr ""
+
+#: .\core\admin.py:452
+msgid "Basic Information"
+msgstr ""
+
+#: .\core\admin.py:458
+msgid "Company/VAT/Work Information"
+msgstr ""
+
+#: .\core\admin.py:464
+msgid "Personal Details"
+msgstr ""
+
+#: .\core\admin.py:468
+msgid "Categorization"
+msgstr ""
+
+#: .\core\apps.py:7
+msgid "Admin & Core Data"
+msgstr ""
+
+#: .\core\forms.py:42 .\crm\forms.py:54
 msgid "Username"
 msgstr ""
 
-#: .\core\forms.py:10
-msgid "First name"
+#: .\core\forms.py:48
+msgid ""
+"Select the existing employee (internal or external) to associate with the "
+"new user."
 msgstr ""
 
-#: .\core\forms.py:11
-msgid "Last name"
-msgstr ""
-
-#: .\core\forms.py:12
-msgid "Email"
-msgstr ""
-
-#: .\core\forms.py:18
+#: .\core\forms.py:55 .\crm\forms.py:63
 msgid "Select the appropriate groups for user."
 msgstr ""
 
-#: .\core\forms.py:22
+#: .\core\forms.py:58 .\core\forms.py:80 .\crm\forms.py:67
 msgid "Add a user"
 msgstr ""
 
-#: .\core\models.py:15
+#: .\core\forms.py:74 .\core\models.py:789 .\core\models.py:872
+msgid "Title"
+msgstr ""
+
+#: .\core\forms.py:77
+msgid "Select the title to be applied to all records"
+msgstr ""
+
+#: .\core\models.py:26
 msgid "created at"
 msgstr ""
 
-#: .\core\models.py:17
+#: .\core\models.py:28
 msgid "created by"
 msgstr ""
 
-#: .\core\models.py:20
+#: .\core\models.py:31
 msgid "modified at"
 msgstr ""
 
-#: .\core\models.py:22
+#: .\core\models.py:33
 msgid "modified by"
 msgstr ""
 
-#: .\core\models.py:33
+#: .\core\models.py:44
 msgid "notes"
 msgstr ""
 
-#: .\core\models.py:33
+#: .\core\models.py:44
 msgid "notes to the record"
 msgstr ""
 
-#: .\core\models.py:35
-msgid "attachment"
-msgstr ""
-
-#: .\core\models.py:36
-msgid "attachment for evidence"
-msgstr ""
-
-#: .\core\models.py:38
+#: .\core\models.py:46
 msgid "version"
 msgstr ""
 
-#: .\core\models.py:40
+#: .\core\models.py:48
 msgid "previous_version"
 msgstr ""
 
-#: .\core\models.py:42
+#: .\core\models.py:50
 msgid "is inactive"
 msgstr ""
 
-#: .\core\models.py:43
+#: .\core\models.py:51
 msgid "item is not active anymore (but not permanently deleted)"
 msgstr ""
 
-#: .\core\models.py:45
+#: .\core\models.py:53
 msgid "protected"
 msgstr ""
 
-#: .\core\models.py:46
+#: .\core\models.py:54
 msgid "item must not be changed anymore"
 msgstr ""
 
 #: .\core\models.py:91
+msgid "App"
+msgstr ""
+
+#: .\core\models.py:103
 msgid "code"
 msgstr ""
 
-#: .\core\models.py:93
+#: .\core\models.py:105
 msgid ""
 "code of tenant / client, unique, max 32 characters, only small letters, "
 "should only contains characters that can be displayed in an url)"
 msgstr ""
 
-#: .\core\models.py:97
+#: .\core\models.py:110
 msgid "Is AppTime Trustee"
 msgstr ""
 
-#: .\core\models.py:99
+#: .\core\models.py:112
 msgid "only trustees are allowed to download time entries"
 msgstr ""
 
-#: .\core\models.py:101
+#: .\core\models.py:114
 msgid "apps"
 msgstr ""
 
-#: .\core\models.py:103
+#: .\core\models.py:116
 msgid "apps subscribed"
 msgstr ""
 
-#: .\core\models.py:111
-msgid "tenants"
+#: .\core\models.py:123 .\core\models.py:124
+msgid "api key"
 msgstr ""
 
-#: .\core\models.py:119
-msgid "Info"
+#: .\core\models.py:128 .\core\models.py:199 .\core\models.py:920
+msgid "Language"
 msgstr ""
 
-#: .\core\models.py:120
-msgid "Warning"
-msgstr ""
-
-#: .\core\models.py:123
-msgid "text"
-msgstr ""
-
-#: .\core\models.py:128
-msgid "Severity"
-msgstr ""
-
-#: .\core\models.py:129 .\meeting\models.py:54
-msgid "Current status of the meeting."
+#: .\core\models.py:129 .\core\models.py:200
+msgid "The main language of the person. May be used for documents."
 msgstr ""
 
 #: .\core\models.py:132
-msgid "recipients"
+msgid "Encode numbers in cashCtrl headings"
 msgstr ""
 
 #: .\core\models.py:134
-msgid "empty if all recipients"
+msgid "e.g. 02 Allgemeinde Dienste"
 msgstr ""
 
-#: .\core\models.py:147
-msgid "Messages"
+#: .\core\models.py:136
+msgid "Account plan loaded"
 msgstr ""
 
-#: .\core\models.py:152 .\core\models.py:169
-msgid "User"
+#: .\core\models.py:138
+msgid "gets set to True if account plan uploaded to accounting system"
 msgstr ""
 
-#: .\core\models.py:155
-msgid "Registered User. Click the 'pencil' to assign the user to groups"
+#: .\core\models.py:160
+msgid "Organization name must be unique."
 msgstr ""
 
-#: .\core\models.py:157
-msgid "photo"
+#: .\core\models.py:164
+msgid "cashCtrl need Org Name and api-key"
 msgstr ""
 
-#: .\core\models.py:158
-msgid "Load up your personal photo."
+#: .\core\models.py:172 .\core\models.py:319
+msgid "Tenant"
 msgstr ""
 
-#: .\core\models.py:190 .\core\models.py:196
+#: .\core\models.py:173
+msgid "Tenants"
+msgstr ""
+
+#: .\core\models.py:181 .\core\models.py:187
 msgid "Bürgergemeinde"
 msgstr ""
 
-#: .\core\models.py:191
+#: .\core\models.py:182
 msgid "Einwohnergemeinde"
 msgstr ""
 
-#: .\core\models.py:192
+#: .\core\models.py:183
 msgid "Gemeinde"
 msgstr ""
 
-#: .\core\models.py:193
+#: .\core\models.py:184
 msgid "Kirchgemeinde"
 msgstr ""
 
-#: .\core\models.py:194
+#: .\core\models.py:185
 msgid "Stadt"
 msgstr ""
 
-#: .\core\models.py:195
+#: .\core\models.py:186
 msgid "Zweckverband"
 msgstr ""
 
-#: .\core\models.py:197
+#: .\core\models.py:188
 msgid "Bund"
 msgstr ""
 
-#: .\core\models.py:198
+#: .\core\models.py:189
 msgid "Trustee"
 msgstr ""
 
-#: .\core\models.py:201
+#: .\core\models.py:192 .\core\models.py:293 .\vault\models.py:233
+msgid "tenant"
+msgstr ""
+
+#: .\core\models.py:194 .\core\models.py:295 .\core\models.py:319
+#: .\vault\models.py:235
+msgid "assignment of tenant / client"
+msgstr ""
+
+#: .\core\models.py:196
 msgid "canton"
 msgstr ""
 
-#: .\core\models.py:210
+#: .\core\models.py:203
+msgid "Show only primary language"
+msgstr ""
+
+#: .\core\models.py:204
+msgid "Show only primary language in forms"
+msgstr ""
+
+#: .\core\models.py:209
 msgid "Type, add new one of no match"
 msgstr ""
 
-#: .\core\models.py:212
-msgid "formats"
+#: .\core\models.py:211
+msgid "municipality zips"
 msgstr ""
 
 #: .\core\models.py:213
+msgid ""
+"Zips that belong to the tenant, e.g. [4617]. We use it for importing the "
+"building addresses. "
+msgstr ""
+
+#: .\core\models.py:216
+msgid "EGIDS to include"
+msgstr ""
+
+#: .\core\models.py:218
+msgid ""
+"Egids that belong to the tenant, e.g. [4617]. We use it for importing the "
+"building addresses. "
+msgstr ""
+
+#: .\core\models.py:221
+msgid "formats"
+msgstr ""
+
+#: .\core\models.py:222
 msgid "Format definitions"
 msgstr ""
 
-#: .\core\models.py:217
+#: .\core\models.py:226
 msgid "users subscribed"
 msgstr ""
 
-#: .\core\models.py:240
+#: .\core\models.py:249
 msgid "tenant setup"
 msgstr ""
 
-#: .\core\models.py:241
+#: .\core\models.py:250
 msgid "tenant setups"
 msgstr ""
 
-#: .\core\models.py:249
-msgid "Main"
+#: .\core\models.py:258 .\templates\admin\change_form.html:8
+#: .\templates\admin\change_list.html:11
+msgid "Info"
 msgstr ""
 
-#: .\core\models.py:256
-msgid "The type of logo. Defaults to MAIN."
+#: .\core\models.py:259
+msgid "Warning"
 msgstr ""
 
-#: .\core\models.py:260
-msgid "logo used in website"
+#: .\core\models.py:262
+msgid "text"
+msgstr ""
+
+#: .\core\models.py:267
+msgid "Severity"
+msgstr ""
+
+#: .\core\models.py:268 .\meeting\models.py:54
+msgid "Current status of the meeting."
+msgstr ""
+
+#: .\core\models.py:271
+msgid "recipients"
 msgstr ""
 
 #: .\core\models.py:273
+msgid "empty if all recipients"
+msgstr ""
+
+#: .\core\models.py:286
+msgid "Messages"
+msgstr ""
+
+#: .\core\models.py:347
+msgid "Main"
+msgstr ""
+
+#: .\core\models.py:348 .\core\models.py:690
+msgid "Other"
+msgstr ""
+
+#: .\core\models.py:354
+msgid "The type of logo. Defaults to MAIN."
+msgstr ""
+
+#: .\core\models.py:358
+msgid "logo used in website"
+msgstr ""
+
+#: .\core\models.py:371
 msgid "tenant logo"
 msgstr ""
 
-#: .\core\models.py:274
+#: .\core\models.py:372
 msgid "tenant logos"
 msgstr ""
 
-#: .\core\safeguards.py:72
+#: .\core\models.py:388
+msgid "CashCtrl id"
+msgstr ""
+
+#: .\core\models.py:390
+msgid "CashCtrl created"
+msgstr ""
+
+#: .\core\models.py:392
+msgid "CashCtrl created_by"
+msgstr ""
+
+#: .\core\models.py:394
+msgid "CashCtrl last_updated"
+msgstr ""
+
+#: .\core\models.py:396
+msgid "CashCtrl last_updated_by"
+msgstr ""
+
+#: .\core\models.py:398
+msgid "Last received"
+msgstr ""
+
+#: .\core\models.py:400
+msgid ""
+"Last time data has been received from cashCtrl. Gets filled out in "
+"signals_cash_ctrl.get "
+msgstr ""
+
+#: .\core\models.py:404
+msgid "Here we show error messages. Just be empty."
+msgstr ""
+
+#: .\core\models.py:406
+msgid "Enable Sync"
+msgstr ""
+
+#: .\core\models.py:408
+msgid ""
+"Disable sync with cashCtrl; useful for admin tasks. False if no accounting "
+"system is used."
+msgstr ""
+
+#: .\core\models.py:411
+msgid "Sync to Accounting"
+msgstr ""
+
+#: .\core\models.py:459
+msgid "2-letter country code"
+msgstr ""
+
+#: .\core\models.py:463
+msgid "3-letter country code"
+msgstr ""
+
+#: .\core\models.py:467
+msgid "The name of the country"
+msgstr ""
+
+#: .\core\models.py:471
+msgid "Default for data entry"
+msgstr ""
+
+#: .\core\models.py:483
+msgid "Countries"
+msgstr ""
+
+#: .\core\models.py:492
+msgid "Area to categorize addresses"
+msgstr ""
+
+#: .\core\models.py:627
+msgid "Street, house number"
+msgstr ""
+
+#: .\core\models.py:631
+msgid "Postal code for the address"
+msgstr ""
+
+#: .\core\models.py:634 .\crm\models.py:55
+msgid "City of the address"
+msgstr ""
+
+#: .\core\models.py:671
+msgid "Address Entry"
+msgstr ""
+
+#: .\core\models.py:679
+msgid "Invoice Email"
+msgstr ""
+
+#: .\core\models.py:680
+msgid "Work Email"
+msgstr ""
+
+#: .\core\models.py:681
+msgid "Private Email"
+msgstr ""
+
+#: .\core\models.py:682
+msgid "Reception Phone"
+msgstr ""
+
+#: .\core\models.py:683
+msgid "Work Phone"
+msgstr ""
+
+#: .\core\models.py:684
+msgid "Private Phone"
+msgstr ""
+
+#: .\core\models.py:685
+msgid "Work Mobile"
+msgstr ""
+
+#: .\core\models.py:686
+msgid "Private Mobile"
+msgstr ""
+
+#: .\core\models.py:687
+msgid "Fax"
+msgstr ""
+
+#: .\core\models.py:688
+msgid "Website"
+msgstr ""
+
+#: .\core\models.py:689
+msgid "Messenger"
+msgstr ""
+
+#: .\core\models.py:694 .\core\models.py:700
+msgid "Contact"
+msgstr ""
+
+#: .\core\models.py:695
+msgid "The actual contact information (e-mail address, phone number, etc.)."
+msgstr ""
+
+#: .\core\models.py:713
+msgid "Salary"
+msgstr ""
+
+#: .\core\models.py:714
+msgid "Historical"
+msgstr ""
+
+#: .\core\models.py:721
+msgid "The IBAN (International Bank Account Number) of the person."
+msgstr ""
+
+#: .\core\models.py:725
+msgid ""
+"The BIC (Business Identifier Code) of the person's bank. Most common Swiss "
+"BIC codes are detected automatically."
+msgstr ""
+
+#: .\core\models.py:732
+msgid "No BIC Code found."
+msgstr ""
+
+#: .\core\models.py:734
+msgid "No IBAN given."
+msgstr ""
+
+#: .\core\models.py:752
+msgid "Male"
+msgstr ""
+
+#: .\core\models.py:753
+msgid "Female"
+msgstr ""
+
+#: .\core\models.py:762
+msgid "Gender"
+msgstr ""
+
+#: .\core\models.py:765
+msgid ""
+"The person's biological gender (male or female). Possible values: MALE, "
+"FEMALE."
+msgstr ""
+
+#: .\core\models.py:770
+msgid "The letter salutation (e.g. 'Dear Mr.', etc.). May be used in mail."
+msgstr ""
+
+#: .\core\models.py:790
+msgid "Titles"
+msgstr ""
+
+#: .\core\models.py:811
+msgid "The name of the category."
+msgstr ""
+
+#: .\core\models.py:825
+msgid "Person Category"
+msgstr ""
+
+#: .\core\models.py:826
+msgid "Person Categories"
+msgstr ""
+
+#: .\core\models.py:836
+msgid "White"
+msgstr ""
+
+#: .\core\models.py:837
+msgid "Yellow"
+msgstr ""
+
+#: .\core\models.py:838
+msgid "Orange"
+msgstr ""
+
+#: .\core\models.py:839
+msgid "Green"
+msgstr ""
+
+#: .\core\models.py:840
+msgid "Blue"
+msgstr ""
+
+#: .\core\models.py:841
+msgid "Pink"
+msgstr ""
+
+#: .\core\models.py:842
+msgid "Violet"
+msgstr ""
+
+#: .\core\models.py:843
+msgid "Red"
+msgstr ""
+
+#: .\core\models.py:844
+msgid "Brown"
+msgstr ""
+
+#: .\core\models.py:845
+msgid "Gray"
+msgstr ""
+
+#: .\core\models.py:846
+msgid "Black"
+msgstr ""
+
+#: .\core\models.py:849
+msgid "Company"
+msgstr ""
+
+#: .\core\models.py:851
+msgid ""
+"The name of the organization/company. Either firstName, lastName or company "
+"must be set."
+msgstr ""
+
+#: .\core\models.py:854
+msgid "Is Customer"
+msgstr ""
+
+#: .\core\models.py:855
+msgid "Is the person a customer?"
+msgstr ""
+
+#: .\core\models.py:857
+msgid "Is Employee"
+msgstr ""
+
+#: .\core\models.py:858
+msgid "Is the person an employee?"
+msgstr ""
+
+#: .\core\models.py:860
+msgid "Is Family"
+msgstr ""
+
+#: .\core\models.py:861
+msgid "Is the person a family?"
+msgstr ""
+
+#: .\core\models.py:863
+msgid "Is Insurance"
+msgstr ""
+
+#: .\core\models.py:864
+msgid "Is the person an insurance company?"
+msgstr ""
+
+#: .\core\models.py:866
+msgid "Is Supplier"
+msgstr ""
+
+#: .\core\models.py:867
+msgid "Is the person a supplier / vendor?"
+msgstr ""
+
+#: .\core\models.py:873
+msgid "The person's title (e.g. 'Mr.', 'Mrs.', 'Dr.')."
+msgstr ""
+
+#: .\core\models.py:875
+msgid "First Name"
+msgstr ""
+
+#: .\core\models.py:877
+msgid ""
+"The person's first (given) name. Either firstName, lastName or company must "
+"be set."
+msgstr ""
+
+#: .\core\models.py:880
+msgid "Last Name"
+msgstr ""
+
+#: .\core\models.py:882
+msgid ""
+"The person's last (family) name. Either firstName, lastName or company must "
+"be set."
+msgstr ""
+
+#: .\core\models.py:885
+msgid "Alternative Name"
+msgstr ""
+
+#: .\core\models.py:887
+msgid ""
+"An alternative name for this person (for organizational chart). Can contain "
+"localized text."
+msgstr ""
+
+#: .\core\models.py:892
+msgid "The person's category."
+msgstr ""
+
+#: .\core\models.py:896
+msgid ""
+"The color to use for this person in the organizational chart or for internal "
+"categorization."
+msgstr ""
+
+#: .\core\models.py:899
+msgid "Date of Birth"
+msgstr ""
+
+#: .\core\models.py:902
+msgid "Department"
+msgstr ""
+
+#: .\core\models.py:903
+msgid "The department of the person within the company."
+msgstr ""
+
+#: .\core\models.py:905
+msgid "Discount"
+msgstr ""
+
+#: .\core\models.py:907
+msgid "Discount percentage must be at least 0."
+msgstr ""
+
+#: .\core\models.py:908
+msgid "Discount percentage cannot exceed 100."
+msgstr ""
+
+#: .\core\models.py:911
+msgid ""
+"Discount percentage for this person, which may be used for orders. This can "
+"also be set on the category for all people in that category."
+msgstr ""
+
+#: .\core\models.py:916
+msgid "Industry"
+msgstr ""
+
+#: .\core\models.py:918
+msgid "The industry of the company or the trade/vocation of the person."
+msgstr ""
+
+#: .\core\models.py:924
+msgid "Person Number"
+msgstr ""
+
+#: .\core\models.py:927
+msgid "Position"
+msgstr ""
+
+#: .\core\models.py:929
+msgid "The position (job title) of the person within the company."
+msgstr ""
+
+#: .\core\models.py:933
+msgid "Superior"
+msgstr ""
+
+#: .\core\models.py:934
+msgid "The superior of this person (for organizational chart)."
+msgstr ""
+
+#: .\core\models.py:936
+msgid "VAT no."
+msgstr ""
+
+#: .\core\models.py:937
+msgid "The UID (VAT no.) of the company."
+msgstr ""
+
+#: .\core\models.py:939
+msgid "photo"
+msgstr ""
+
+#: .\core\models.py:940
+msgid "Load up your personal photo."
+msgstr ""
+
+#: .\core\models.py:947
+msgid "Either First Name, Last Name or Company must be set."
+msgstr ""
+
+#: .\core\models.py:1007
+msgid "Persons"
+msgstr ""
+
+#: .\core\models.py:1016
+msgid "Main Address"
+msgstr ""
+
+#: .\core\models.py:1018
+msgid "Delivery Address"
+msgstr ""
+
+#: .\core\models.py:1019
+msgid "Other Address"
+msgstr ""
+
+#: .\core\models.py:1032
+msgid "PO Box"
+msgstr ""
+
+#: .\core\models.py:1034
+msgid "Post Office Box"
+msgstr ""
+
+#: .\core\models.py:1036
+msgid "Additional Address Information"
+msgstr ""
+
+#: .\core\models.py:1038
+msgid "e.g. c/o or company name for invoice addresses"
+msgstr ""
+
+#: .\core\models.py:1070
+msgid "Person by Address"
+msgstr ""
+
+#: .\core\models.py:1071
+msgid "Persons by Address"
+msgstr ""
+
+#: .\core\models.py:1096 .\core\models.py:1114
+msgid "User"
+msgstr ""
+
+#: .\core\models.py:1099
+msgid "Registered User. Click the 'pencil' to assign the user to groups"
+msgstr ""
+
+#: .\core\models.py:1101
+msgid "User Details"
+msgstr ""
+
+#: .\core\models.py:1103
+msgid "Details and photo of person"
+msgstr ""
+
+#: .\core\models.py:1133 .\core\models.py:1134 .\core\models.py:1151
+#: .\core\models.py:1152
+msgid "Dwelling or Room"
+msgstr ""
+
+#: .\core\models.py:1165 .\core\models.py:1166
+msgid "Room Contact"
+msgstr ""
+
+#: .\core\safeguards.py:119
 msgid "User has no access to tenant"
 msgstr ""
 
-#: .\core\safeguards.py:133
-msgid "No appropriate tenant given"
-msgstr ""
-
-#: .\core\signals.py:31
+#: .\core\signals.py:33
 msgid "Code cannot be displayed in an url."
 msgstr ""
 
-#: .\core\signals.py:34
+#: .\core\signals.py:36
 msgid "Code contains upper letters"
 msgstr ""
 
-#: .\core\signals.py:74
+#: .\core\signals.py:106
+#, python-brace-format
+msgid "{data} has no valid unit."
+msgstr ""
+
+#: .\core\signals.py:132
 msgid "Unsupported file type. Only JPG, GIF, and PNG are allowed."
 msgstr ""
 
-#: .\core\signals.py:79
+#: .\core\signals.py:137
 #, python-brace-format
 msgid "File size exceeds {MAX_SIZE_KB}KB."
 msgstr ""
 
-#: .\core\signals.py:86
+#: .\core\signals.py:144
 msgid "Image resolution exceeds "
 msgstr ""
 
-#: .\core\signals.py:89
+#: .\core\signals.py:147
 msgid "Invalid image file."
-msgstr ""
-
-#: .\crm\admin.py:42
-msgid "accounting"
 msgstr ""
 
 #: .\crm\apps.py:8
 msgid "CRM"
 msgstr ""
 
-#: .\crm\models.py:21 .\crm\models.py:157
-msgid "3-letter country code"
+#: .\crm\forms.py:55
+msgid "First name"
 msgstr ""
 
-#: .\crm\models.py:25
-msgid "The name of the country"
+#: .\crm\forms.py:56
+msgid "Last name"
+msgstr ""
+
+#: .\crm\forms.py:57
+msgid "Email"
 msgstr ""
 
 #: .\crm\models.py:29
-msgid "Default for data entry"
+msgid "House number"
 msgstr ""
 
-#: .\crm\models.py:41
-msgid "Countries"
+#: .\crm\models.py:30 .\crm\models.py:34
+msgid "house number"
+msgstr ""
+
+#: .\crm\models.py:33
+msgid "Dwelling number"
+msgstr ""
+
+#: .\crm\models.py:37
+msgid "Swiss ZIP Code"
+msgstr ""
+
+#: .\crm\models.py:40
+msgid ""
+"Von der Schweizer Post vergebene Postleitzahl in der Form, wie sie auf "
+"Briefen aufgedruckt wird."
+msgstr ""
+
+#: .\crm\models.py:44
+msgid "Swiss ZIP Code On"
+msgstr ""
+
+#: .\crm\models.py:47
+msgid "Eindeutige, 5 stellige Schweizer Postleitzahl"
 msgstr ""
 
 #: .\crm\models.py:50
-msgid "The name of the category."
+msgid "Foreign ZIP Code"
 msgstr ""
 
-#: .\crm\models.py:56 .\crm\models.py:302
-msgid "Discount percentage must be at least 0."
+#: .\crm\models.py:51
+msgid "Ausländische Postleitzahl"
 msgstr ""
 
-#: .\crm\models.py:57 .\crm\models.py:303
-msgid "Discount percentage cannot exceed 100."
+#: .\crm\models.py:84
+msgid "No zip code given."
 msgstr ""
 
-#: .\crm\models.py:60 .\crm\models.py:306
-msgid ""
-"Discount percentage for this person, which may be used for orders. This can "
-"also be set on the category for all people in that category."
+#: .\crm\models.py:106
+msgid "eCH-Address Entry"
 msgstr ""
 
-#: .\crm\models.py:70 .\crm\models.py:349
-msgid "Superior"
-msgstr ""
-
-#: .\crm\models.py:71
-msgid "The ID of the parent category. Currently not used"
-msgstr ""
-
-#: .\crm\models.py:82
-msgid "Male"
-msgstr ""
-
-#: .\crm\models.py:83
-msgid "Female"
-msgstr ""
-
-#: .\crm\models.py:90
-msgid "The name of the title (i.e. the actual title)."
-msgstr ""
-
-#: .\crm\models.py:97
-msgid ""
-"The person's biological gender (male or female). Possible values: MALE, "
-"FEMALE."
-msgstr ""
-
-#: .\crm\models.py:100
-msgid "Sentence"
-msgstr ""
-
-#: .\crm\models.py:102
-msgid "The letter salutation (e.g. 'Dear Mr.', etc.). May be used in mail."
-msgstr ""
-
-#: .\crm\models.py:119
-msgid "Title"
-msgstr ""
-
-#: .\crm\models.py:120
-msgid "Titles"
-msgstr ""
-
-#: .\crm\models.py:127
-msgid "Main Address"
-msgstr ""
-
-#: .\crm\models.py:128
-msgid "Invoice Address"
-msgstr ""
-
-#: .\crm\models.py:129
-msgid "Delivery Address"
-msgstr ""
-
-#: .\crm\models.py:130
-msgid "Other Address"
-msgstr ""
-
-#: .\crm\models.py:135
-msgid "The type of address: MAIN, INVOICE, DELIVERY, OTHER."
-msgstr ""
-
-#: .\crm\models.py:139
-msgid "Street, house number, additional address information."
-msgstr ""
-
-#: .\crm\models.py:143
-msgid "Postal code for the address"
-msgstr ""
-
-#: .\crm\models.py:147
-msgid "City of the address"
-msgstr ""
-
-#: .\crm\models.py:165
-msgid "Address Entry"
-msgstr ""
-
-#: .\crm\models.py:166 .\crm\models.py:245 .\crm\models.py:476
-msgid "Addresses"
-msgstr ""
-
-#: .\crm\models.py:173
-msgid "Invoice Email"
-msgstr ""
-
-#: .\crm\models.py:174
-msgid "Work Email"
-msgstr ""
-
-#: .\crm\models.py:175
-msgid "Private Email"
-msgstr ""
-
-#: .\crm\models.py:176
-msgid "Reception Phone"
-msgstr ""
-
-#: .\crm\models.py:177
-msgid "Work Phone"
-msgstr ""
-
-#: .\crm\models.py:178
-msgid "Private Phone"
-msgstr ""
-
-#: .\crm\models.py:179
-msgid "Work Mobile"
-msgstr ""
-
-#: .\crm\models.py:180
-msgid "Private Mobile"
-msgstr ""
-
-#: .\crm\models.py:181
-msgid "Fax"
-msgstr ""
-
-#: .\crm\models.py:182
-msgid "Website"
-msgstr ""
-
-#: .\crm\models.py:183
-msgid "Messenger"
-msgstr ""
-
-#: .\crm\models.py:189
-msgid "The actual contact information (e-mail address, phone number, etc.)."
-msgstr ""
-
-#: .\crm\models.py:194
-msgid "Contact"
-msgstr ""
-
-#: .\crm\models.py:209
-msgid "White"
-msgstr ""
-
-#: .\crm\models.py:210
-msgid "Blue"
-msgstr ""
-
-#: .\crm\models.py:211
-msgid "Green"
-msgstr ""
-
-#: .\crm\models.py:212
-msgid "Red"
-msgstr ""
-
-#: .\crm\models.py:213
-msgid "Yellow"
-msgstr ""
-
-#: .\crm\models.py:214
-msgid "Orange"
-msgstr ""
-
-#: .\crm\models.py:215
-msgid "Black"
-msgstr ""
-
-#: .\crm\models.py:216
-msgid "Gray"
-msgstr ""
-
-#: .\crm\models.py:217
-msgid "Brown"
-msgstr ""
-
-#: .\crm\models.py:218
-msgid "Violet"
-msgstr ""
-
-#: .\crm\models.py:219
-msgid "Pink"
-msgstr ""
-
-#: .\crm\models.py:246 .\crm\models.py:284 .\crm\models.py:477
-#: .\crm\models.py:482
-msgid "A list of addresses (street, house number, zip, city, country)."
-msgstr ""
-
-#: .\crm\models.py:259
-msgid "Business Identifier Code"
-msgstr ""
-
-#: .\crm\models.py:260
-msgid "The BIC (Business Identifier Code) of the person's bank."
-msgstr ""
-
-#: .\crm\models.py:269
-msgid "The person's category."
-msgstr ""
-
-#: .\crm\models.py:277
-msgid ""
-"The color to use for this person in the organizational chart. Leave empty "
-"for white."
-msgstr ""
-
-#: .\crm\models.py:363
-msgid "VAT no."
-msgstr ""
-
-#: .\crm\models.py:364
-msgid "The UID (VAT no.) of the company."
-msgstr ""
-
-#: .\crm\models.py:393
-msgid "Persons"
-msgstr ""
-
-#: .\crm\models.py:415
-msgid "Subscriber"
-msgstr ""
-
-#: .\crm\models.py:416
-msgid "Subscribers"
-msgstr ""
-
-#: .\crm\models.py:437
-msgid "Inhabitant"
-msgstr ""
-
-#: .\crm\models.py:438
-msgid "Inhabitants"
-msgstr ""
-
-#: .\crm\models.py:453
-msgid "Employee"
-msgstr ""
-
-#: .\crm\models.py:454
-msgid "Employees"
-msgstr ""
-
-#: .\crm\models.py:490
-msgid "Building"
-msgstr ""
-
-#: .\crm\models.py:491
-msgid "Buildings"
+#: .\crm\models.py:107
+msgid "eCH-Addresses"
 msgstr ""
 
 #: .\meeting\actions.py:10
@@ -3123,14 +4127,6 @@ msgstr ""
 
 #: .\meeting\actions.py:25
 msgid "2. Show agenda as web page"
-msgstr ""
-
-#: .\meeting\admin.py:77
-msgid "Invite"
-msgstr ""
-
-#: .\meeting\admin.py:87
-msgid "Meeting Details"
 msgstr ""
 
 #: .\meeting\models.py:18
@@ -3221,180 +4217,360 @@ msgstr ""
 msgid "Agenda Items"
 msgstr ""
 
-#: .\scerp\admin.py:50
+#: .\scerp\actions.py:24
 #, python-brace-format
 msgid "Please select excatly {count} record(s)."
 msgstr ""
 
-#: .\scerp\admin.py:56
-msgid "Please select more than {count - 1} record(s)."
+#: .\scerp\actions.py:30
+#, python-brace-format
+msgid "Please select more than {min_count} record(s)."
 msgstr ""
 
-#: .\scerp\admin.py:64
+#: .\scerp\actions.py:36
+#, python-brace-format
+msgid "Please select not more than {max_count} record(s)."
+msgstr ""
+
+#: .\scerp\actions.py:45
+msgid "Export Data to Excel"
+msgstr ""
+
+#: .\scerp\actions.py:68
+msgid "No valid col widths"
+msgstr ""
+
+#: .\scerp\actions.py:81
+msgid "Export Data to JSON"
+msgstr ""
+
+#: .\scerp\actions.py:100
 msgid "Set inactive"
 msgstr ""
 
-#: .\scerp\admin.py:67
+#: .\scerp\actions.py:103
 #, python-brace-format
 msgid "Set {count} records as inactive."
 msgstr ""
 
-#: .\scerp\admin.py:71
+#: .\scerp\actions.py:107
 msgid "Set protected"
 msgstr ""
 
-#: .\scerp\admin.py:74
+#: .\scerp\actions.py:110
 #, python-brace-format
 msgid "Set {count} records as protected."
 msgstr ""
 
-#: .\scerp\admin.py:344
+#: .\scerp\actions.py:114
+msgid "Unprotect"
+msgstr ""
+
+#: .\scerp\actions.py:117
 #, python-brace-format
-msgid "Unexpected error filtering tenant: {e}"
+msgid "Set {count} records as not protected."
 msgstr ""
 
-#: .\scerp\admin.py:394
-msgid "Tenant is not included"
+#: .\scerp\admin.py:35
+msgid "Landscape"
 msgstr ""
 
-#: .\scerp\admin.py:431
+#: .\scerp\admin.py:36
+msgid "Portrait"
+msgstr ""
+
+#: .\scerp\admin.py:353
+msgid "attachments"
+msgstr ""
+
+#: .\scerp\admin.py:401
+msgid "No valid page orientation"
+msgstr ""
+
+#: .\scerp\admin.py:574 .\scerp\admin.py:624
+msgid "last update"
+msgstr ""
+
+#: .\scerp\admin.py:585 .\scerp\admin.py:628
+msgid "Name Plural"
+msgstr ""
+
+#: .\scerp\admin.py:596
+msgid "Wording in document"
+msgstr ""
+
+#: .\scerp\admin.py:604
+msgid "Percentage Flat"
+msgstr ""
+
+#: .\scerp\admin.py:619
+msgid "description"
+msgstr ""
+
+#: .\scerp\admin.py:647
+msgid "function"
+msgstr ""
+
+#: .\scerp\admin.py:651
+msgid "position nr."
+msgstr ""
+
+#: .\scerp\admin.py:655
+msgid "actual +"
+msgstr ""
+
+#: .\scerp\admin.py:662
+msgid "actual -"
+msgstr ""
+
+#: .\scerp\admin.py:669
+msgid "balance +"
+msgstr ""
+
+#: .\scerp\admin.py:676
+msgid "balance -"
+msgstr ""
+
+#: .\scerp\admin.py:683
+msgid "balance"
+msgstr ""
+
+#: .\scerp\admin.py:688
+msgid "budget"
+msgstr ""
+
+#: .\scerp\admin.py:692
+msgid "previous"
+msgstr ""
+
+#: .\scerp\admin.py:696
+msgid "cashCtrl"
+msgstr ""
+
+#: .\scerp\admin_base.py:52
 msgid "Notes and Status"
 msgstr ""
 
-#: .\scerp\admin.py:435
+#: .\scerp\admin_base.py:57 .\scerp\admin_base.py:62 .\scerp\admin_base.py:67
 msgid "Logging"
 msgstr ""
 
-#: .\scerp\admin_site.py:49
+#: .\scerp\admin_base.py:209 .\scerp\admin_base.py:273
+msgid "Record is protected."
+msgstr ""
+
+#: .\scerp\admin_base.py:311
+msgid "Unique constraints violated."
+msgstr ""
+
+#: .\scerp\admin_base.py:313
+msgid "A database error occurred."
+msgstr ""
+
+#: .\scerp\admin_base.py:315
+msgid "API request failed: "
+msgstr ""
+
+#: .\scerp\admin_site.py:56
 msgid "Tenant not found or access denied."
 msgstr ""
 
-#: .\scerp\admin_site.py:51
+#: .\scerp\admin_site.py:58
 msgid "No tenant selected."
 msgstr ""
 
-#: .\scerp\locales.py:153
-msgid "Aargau"
+#: .\scerp\forms.py:104
+msgid "Page Orientation"
 msgstr ""
 
-#: .\scerp\locales.py:154
-msgid "Appenzell Innerrhoden"
+#: .\scerp\forms.py:108
+msgid "Column Widths in mm"
 msgstr ""
 
-#: .\scerp\locales.py:155
-msgid "Appenzell Ausserrhoden"
+#: .\scerp\forms.py:109
+msgid "Leave empty for 'auto'"
 msgstr ""
 
-#: .\scerp\locales.py:156
-msgid "Basel-Stadt"
+#: .\scerp\forms.py:113
+msgid "Header left"
 msgstr ""
 
-#: .\scerp\locales.py:157
-msgid "Basel-Landschaft"
+#: .\scerp\forms.py:115
+msgid "Header center"
 msgstr ""
 
-#: .\scerp\locales.py:158
-msgid "Bern"
+#: .\scerp\forms.py:117
+msgid "Header right"
 msgstr ""
 
-#: .\scerp\locales.py:159
-msgid "Fribourg"
+#: .\scerp\forms.py:121
+msgid "Footer left"
 msgstr ""
 
-#: .\scerp\locales.py:160
-msgid "Genf"
+#: .\scerp\forms.py:123
+msgid "Footer center"
 msgstr ""
 
-#: .\scerp\locales.py:161
-msgid "Glarus"
+#: .\scerp\forms.py:125
+msgid "Footer right"
 msgstr ""
 
-#: .\scerp\locales.py:162
-msgid "Graubünden"
+#: .\scerp\forms.py:129 .\scerp\forms.py:162
+#, python-brace-format
+msgid "{count} records selected."
 msgstr ""
 
-#: .\scerp\locales.py:163
-msgid "Jura"
+#: .\scerp\locales.py:11 .\scerp\locales.py:13
+msgid "SC-ERP - das Schweizer City ERP"
 msgstr ""
 
-#: .\scerp\locales.py:164
-msgid "Luzern"
-msgstr ""
-
-#: .\scerp\locales.py:165
-msgid "Neuenburg"
-msgstr ""
-
-#: .\scerp\locales.py:166
-msgid "Nidwalden"
-msgstr ""
-
-#: .\scerp\locales.py:167
-msgid "Obwalden"
-msgstr ""
-
-#: .\scerp\locales.py:168
-msgid "Schaffhausen"
-msgstr ""
-
-#: .\scerp\locales.py:169
-msgid "Schwyz"
+#: .\scerp\locales.py:12
+msgid "Willkommen!"
 msgstr ""
 
 #: .\scerp\locales.py:170
-msgid "Solothurn"
+msgid "Aargau"
 msgstr ""
 
 #: .\scerp\locales.py:171
-msgid "St. Gallen"
+msgid "Appenzell Innerrhoden"
 msgstr ""
 
 #: .\scerp\locales.py:172
-msgid "Thurgau"
+msgid "Appenzell Ausserrhoden"
 msgstr ""
 
 #: .\scerp\locales.py:173
-msgid "Uri"
+msgid "Basel-Stadt"
 msgstr ""
 
 #: .\scerp\locales.py:174
-msgid "Waadt"
+msgid "Basel-Landschaft"
 msgstr ""
 
 #: .\scerp\locales.py:175
-msgid "Wallis"
+msgid "Bern"
 msgstr ""
 
 #: .\scerp\locales.py:176
-msgid "Zug"
+msgid "Fribourg"
 msgstr ""
 
 #: .\scerp\locales.py:177
+msgid "Genf"
+msgstr ""
+
+#: .\scerp\locales.py:178
+msgid "Glarus"
+msgstr ""
+
+#: .\scerp\locales.py:179
+msgid "Graubünden"
+msgstr ""
+
+#: .\scerp\locales.py:180
+msgid "Jura"
+msgstr ""
+
+#: .\scerp\locales.py:181
+msgid "Luzern"
+msgstr ""
+
+#: .\scerp\locales.py:182
+msgid "Neuenburg"
+msgstr ""
+
+#: .\scerp\locales.py:183
+msgid "Nidwalden"
+msgstr ""
+
+#: .\scerp\locales.py:184
+msgid "Obwalden"
+msgstr ""
+
+#: .\scerp\locales.py:185
+msgid "Schaffhausen"
+msgstr ""
+
+#: .\scerp\locales.py:186
+msgid "Schwyz"
+msgstr ""
+
+#: .\scerp\locales.py:187
+msgid "Solothurn"
+msgstr ""
+
+#: .\scerp\locales.py:188
+msgid "St. Gallen"
+msgstr ""
+
+#: .\scerp\locales.py:189
+msgid "Thurgau"
+msgstr ""
+
+#: .\scerp\locales.py:190
+msgid "Uri"
+msgstr ""
+
+#: .\scerp\locales.py:191
+msgid "Waadt"
+msgstr ""
+
+#: .\scerp\locales.py:192
+msgid "Wallis"
+msgstr ""
+
+#: .\scerp\locales.py:193
+msgid "Zug"
+msgstr ""
+
+#: .\scerp\locales.py:194
 msgid "Zürich"
 msgstr ""
 
+#: .\scerp\locales.py:199
+msgid "Schweiz"
+msgstr ""
+
 #: .\templates\admin\index.html:13
+msgid "Warning:"
+msgstr ""
+
+#: .\templates\admin\index.html:13
+msgid "No tenant available."
+msgstr ""
+
+#: .\templates\admin\index.html:20
 msgid "Organization"
 msgstr ""
 
-#: .\templates\admin\index.html:17
+#: .\templates\admin\index.html:24
 msgid "Select an organization"
 msgstr ""
 
-#: .\templates\admin\index.html:27
+#: .\templates\admin\index.html:34
 msgid "Go"
+msgstr ""
+
+#: .\templates\billing\measurement_consumption.html:5
+msgid "records processed"
+msgstr ""
+
+#: .\templates\billing\measurement_consumption.html:38
+msgid "Value dates from - to"
+msgstr ""
+
+#: .\templates\billing\measurement_consumption.html:42
+msgid "Total consumption"
+msgstr ""
+
+#: .\templates\billing\measurement_consumption.html:50
+#, python-format
+msgid "Change in %%"
 msgstr ""
 
 #: .\time_app\actions.py:10
 msgid "Admin: Load timesheets"
-msgstr ""
-
-#: .\time_app\admin.py:107
-msgid "hours"
-msgstr ""
-
-#: .\time_app\admin.py:111
-msgid "day hours"
 msgstr ""
 
 #: .\time_app\models.py:50
@@ -3403,10 +4579,6 @@ msgstr ""
 
 #: .\time_app\models.py:66
 msgid "Time User"
-msgstr ""
-
-#: .\time_app\models.py:242
-msgid "Time Entry"
 msgstr ""
 
 #: .\vault\actions.py:23
@@ -3445,18 +4617,6 @@ msgstr ""
 msgid "2. make positions"
 msgstr ""
 
-#: .\vault\admin.py:35
-msgid "content"
-msgstr ""
-
-#: .\vault\admin.py:94
-msgid "#cat"
-msgstr ""
-
-#: .\vault\admin.py:101
-msgid "#pos"
-msgstr ""
-
 #: .\vault\forms.py:13
 msgid "Are you sure you want to create positions and override existing?"
 msgstr ""
@@ -3475,10 +4635,6 @@ msgstr ""
 
 #: .\vault\models.py:23
 msgid "Completed"
-msgstr ""
-
-#: .\vault\models.py:24
-msgid "Archived"
 msgstr ""
 
 #: .\vault\models.py:31

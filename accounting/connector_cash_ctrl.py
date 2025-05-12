@@ -579,13 +579,15 @@ class OrderCategoryOutgoing(OrderCategory):
             'name': convert_to_xml(
                 get_translations(force_str(status.label))),
             'isBook': instance.BOOKING_MAPPING[status]
-        } for status in STATUS]
+        } for status in STATUS]        
 
         # BookTemplates
+        STEP = instance.BOOKING_STEP
+                
         # booking
         booking = {
             'accountId': data['account_id'],
-            'name': convert_to_xml(get_translations('Booking')),
+            'name': convert_to_xml(get_translations(STEP[STATUS.BOOKED])),
             'isAllowTax': False,  # specify with order items
         }
 
@@ -594,7 +596,7 @@ class OrderCategoryOutgoing(OrderCategory):
         if payment_account.account and payment_account.account.c_id:
             payment = {
                 'accountId': payment_account.account.c_id,
-                'name': convert_to_xml(get_translations('Payment'))
+                'name': convert_to_xml(get_translations(STEP[STATUS.PAID]))
             }
         else:
             raise ValueError("Bank account has no booking account assigned")
