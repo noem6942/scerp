@@ -2,6 +2,7 @@
 billing/calc.py
 '''
 from datetime import datetime
+from decimal import Decimal
 import json
 import logging
 import openpyxl
@@ -103,11 +104,12 @@ def shift_encode(text, shift=3):
 
 def round_to_zero(value, digits):
     if value is None:
-        return '-'
+        return '-'        
     if digits == 0:
         return int(round(value, 0))                                
-    else:
-        return round(value, digits) 
+    if isinstance(value, Decimal):
+        value = float(value)            
+    return round(value, digits) 
 
 
 class RouteManagement:
