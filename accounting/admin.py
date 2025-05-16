@@ -953,7 +953,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display_links = ('date', 'description')
 
     # Search, filter
-    search_fields = ('supplier__company', 'description')
+    search_fields = ('nr', 'supplier__company', 'description')
     list_filter = ('category', 'status', 'date')
     autocomplete_fields = ['associate', 'responsible_person']
 
@@ -1005,7 +1005,7 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     ) + FIELDS.C_READ_ONLY
 
     # Search, filter
-    search_fields = ('contract__associate__company', 'description')
+    search_fields = ('nr', 'contract__associate__company', 'description')
     list_filter = ('category', 'status', 'date')
     autocomplete_fields = ['responsible_person']
 
@@ -1106,7 +1106,8 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = (        
-        'associate__company', 'associate__first_name', 'associate__last_name', 
+        'nr', 'associate__company', 'associate__first_name', 
+        'associate__last_name', 
         'description')
     list_filter = ('category', 'status', 'date')
     autocomplete_fields = ['associate', 'responsible_person']
