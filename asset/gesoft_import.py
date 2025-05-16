@@ -143,12 +143,12 @@ class ImportDevice:
 def update_counter_assets(tenant_id):
     # introduce factor
     codes = [OBIS_CODE.WATER, OBIS_CODE.HOT_WATER]
-
+    '''
     # update factor
     categories = AssetCategory.objects.filter(
         tenant__id=tenant_id,
         code__in=codes,
-        counter_factor=1
+        counter_factor=None
     ).all()
     logger.info(f"categories {categories}")
 
@@ -163,8 +163,7 @@ def update_counter_assets(tenant_id):
         obj.name = {k: v + ' neg.' for k,v in obj.name.items()}
         obj.save()
         logger.info(f"saved {obj}")
-    return 
-
+    '''
     # assign
     category_old = AssetCategory.objects.filter(
         tenant__id=tenant_id,
