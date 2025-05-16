@@ -614,7 +614,7 @@ class RouteCounterInvoicing(RouteManagement):
         ''' quantity, not considered: individual from, to
         '''
         if article.unit.code == 'volume':
-            return round(measurement.consumption, rounding_digits)
+            return round(measurement.consumption_with_sign, rounding_digits)
         elif article.unit.code == 'day' and days:
             return days
         return 1
@@ -632,7 +632,13 @@ class RouteCounterInvoicing(RouteManagement):
                     and subscription.end < measurement.period.end)
             ) else 'period'
         )
-        days = (self.end - self.start).days + 1 if unit_code == 'day' else None
+        if unit_code == 'day':
+            # start
+            start = max(subscription.start or self.start, self.start)
+            end = max(subscription.end or self.end, self.end)
+            days = (end - start).days + 1
+        else:
+            days = None
 
         # description         
         setup = measurement.route.setup
@@ -674,9 +680,10 @@ class RouteCounterInvoicing(RouteManagement):
             name += associate.company
         if subscription.partner:
             partner = subscription.partner
+            name += '\n'
             if partner.title:
                 name += primary_language(partner.title.name) + ' '
-            name += f"\n{partner.first_name} {partner.last_name}"
+            name += f"{partner.first_name} {partner.last_name}"
 
         # add address
         type, address = associate.get_invoice_address()
@@ -774,12 +781,10 @@ class MeasurementAnalyse:
             Max('datetime'))['datetime__max'].date()
 
         # Sum of consumption
-        total_consumption = self.queryset.aggregate(
-            Sum('consumption'))['consumption__sum'] or 0
-
-        # Sum of consumption
-        total_consumption_previous = self.queryset.aggregate(
-            Sum('consumption_previous'))['consumption_previous__sum'] or 0
+        consumption = 0
+        for measurement in self.queryset:
+            if measurement.consumption:
+                consumption += measurement.consumption_with_sign
 
         # Growth
         consumption_change = (

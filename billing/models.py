@@ -420,6 +420,12 @@ class Measurement(TenantAbstract):
             f'{self.route}, {self.counter}, {self.datetime}'
         )
 
+    @property
+    def consumption_with_sign(self):
+        if self.consumption and self.counter.category.counter_factor == -1:
+            return -self.consumption
+        return self.consumption
+
     class Meta:
         constraints = [
             models.UniqueConstraint(

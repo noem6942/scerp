@@ -170,75 +170,104 @@ AssetCategory:
     name:
       de: Wasserzähler - Bezug Volumen Aktuell
     unit: volume
+    counter_factor: 1
+  - code: 8-0:1.0.0
+    name:
+      de: Wasserzähler - Bezug Volumen Aktuell (neg.)
+    unit: volume
+    counter_factor: -1
   - code: 9-0:1.0.0
     name:
       de: Warmwasserzähler - Bezug Volumen Aktuell
     unit: volume
+    counter_factor: 1
+  - code: 9-0:1.0.0
+    name:
+      de: Warmwasserzähler - Bezug Volumen Aktuell (neg.)
+    unit: volume
+    counter_factor: -1
   - code: 7-0:3.0.0
     name:
       de: Gas -  Bezug Volumen Aktuell
     unit: volume
+    counter_factor: 1
   - code: 1-1:1.8.0
     name:
       de: Strom - Wirkenergie Bezug Total
     unit: energy
+    counter_factor: 1
   - code: 1-1:1.8.1
     name:
       de: Strom - Wirkenergie Bezug Tarif 1
     unit: energy
+    counter_factor: 1
   - code: 1-1:1.8.2
     name:
       de: Strom - Wirkenergie Bezug Tarif 2
     unit: energy
+    counter_factor: 1
   - code: 1-1:2.8.0
     name:
       de: Strom - Wirkenergie Einspeisung Total
     unit: energy
+    counter_factor: 1
   - code: 1-1:2.8.1
     name:
       de: Strom - Wirkenergie Einspeisung Tarif 1
     unit: energy
+    counter_factor: 1
   - code: 1-1:2.8.2
     name:
       de: Strom - Wirkenergie Einspeisung Tarif 2
     unit: energy
+    counter_factor: 1
   - code: 1-1:15.7.0
     name:
       de: Strom -  Wirkenergie Leistung Aktuell
     unit: power
+    counter_factor: 1
   - code: 1-1:16.7.0
     name:
       de: Strom - Wirkenergie Leistung Aktuell
     unit: power
+    counter_factor: 1
   - code: 1-1:1.2.1
     name:
       de: Strom - Wirkenergie Leistung Max
     unit: power
+    counter_factor: 1
   - code: 6-0:1.0.0
     name:
       de: Wärme - Energie Aktuell
     unit: energy
+    counter_factor: 1
   - code: 6-0:2.0.0
     name:
       de: Wärme - Volumen Aktuell
     unit: volume
+    counter_factor: 1
   - code: 6-0:8.0.0
     name:
       de: Wärme - Leistung
     unit: power
+    counter_factor: 1
   - code: 6-0:9.0.0
     name:
       de: Wärme - Durchfluss
     unit: flow
+    counter_factor: 1
   - code: 6-0:10.0.0
     name:
       de: Wärme - Temperatur Vorlauf
     unit: volume
+    counter_factor: 1
   - code: 6-0:11.0.0
     name:
       de: Wärme - Temperatur Rücklauf
     unit: volume
+    counter_factor: 1
   - code: 5-0:1.0.0
     name:
       de: Kälte - Energie
     unit: energy
+    counter_factor: 1

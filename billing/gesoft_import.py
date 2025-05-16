@@ -1172,3 +1172,47 @@ class ImportArchive(Import):
 
         logger.info(f"archived {count} positions")
         return count
+
+
+def fix_zero_problem(json_filename, excel_file_name):
+    ''' use to enter old  '''
+    # load excel
+    file_path = Path(
+        settings.BASE_DIR) / 'billing' / 'fixtures' / excel_file_name
+    wb = load_workbook(file_path)
+    ws = wb.active  # Or wb['SheetName']
+    rows = [row for row in ws.iter_rows(values_only=True)]
+
+    # Read    
+    counter_old = {}
+    for row_nr, row in enumerate(rows, start=1):
+        first_cell = row[0]        
+        if isinstance(first_cell, (int, float)) and first_cell > 100:
+            # Only process rows where the first cell is a number > 100
+            counter_nr = str(first_cell)
+            value = row[12]
+            counter_old[counter_nr] = float(value)
+    print("*counter_old", counter_old)
+    
+    # load json
+    file_path = Path(settings.BASE_DIR) / 'billing' / 'fixtures' / json_filename
+    with open(file_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)  
+    data_list = data['billing_mde']['meter']
+    
+    for data in data_list:
+        cur = data['value'].get('cur')
+        number = data['number']
+        if cur:
+            if data['value']['old']:
+                print(f"{number}: old already existing")
+            else:
+                number_no_leading_zero = number.lstrip('0')
+                old = counter_old.get(number_no_leading_zero)
+                if old:
+                    data['value']['old'] = old
+                    print(f"{number}: {old}")
+                else:
+                    print(f"Could not find {number}.")
+        else:
+            print(f"{number}: current not existing")

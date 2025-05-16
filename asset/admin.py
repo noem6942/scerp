@@ -20,7 +20,9 @@ class AssetCategory(TenantFilteringAdmin, BaseAdmin):
     form = forms.AssetCategoryAdminForm
 
     # Display these fields in the list view
-    list_display = ('code', 'display_name', 'unit') + FIELDS.ICON_DISPLAY
+    list_display = (
+        'code', 'display_name', 'unit', 'counter_factor'
+    ) + FIELDS.ICON_DISPLAY
     readonly_fields = ('display_name',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -35,7 +37,7 @@ class AssetCategory(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'code', 'display_name', *make_language_fields('name'),
-                'unit'
+                'unit', 'counter_factor'
             ),
             'classes': ('expand',),
         }),

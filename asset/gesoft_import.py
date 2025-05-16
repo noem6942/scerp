@@ -94,7 +94,7 @@ class ImportDevice:
                 if float(werk_nr) in HOTWATER_COUNTER_IDS:
                     asset_category = self.asset_category_query.filter(
                         code=OBIS_CODE.HOT_WATER).first()
-                else:                    
+                else:
                     asset_category = self.asset_category_query.filter(
                         code=OBIS_CODE.WATER).first()
                 if not asset_category:
@@ -110,9 +110,9 @@ class ImportDevice:
                         date_added=dt.date(),
                         status=status,
                         date_disposed=(
-                            dt.date() if status==DEVICE_STATUS.DISPOSED 
+                            dt.date() if status==DEVICE_STATUS.DISPOSED
                             else None),
-                        number=werk_nr,                        
+                        number=werk_nr,
                         is_enabled_sync=DEVICE_IS_ENABLED_SYNC
                     )
                 )
@@ -138,3 +138,51 @@ class ImportDevice:
                         defaults=dict(created_by=self.created_by)
                     )
                     logger.info(f"storing {status} {werk_nr}, created: {created}")
+
+
+def update_counter_assets(tenant_id):
+    # introduce factor
+    codes = [OBIS_CODE.WATER, OBIS_CODE.HOT_WATER]
+
+    # update factor
+    categories = AssetCategory.objects.filter(
+        tenant__id=tenant_id,
+        code__in=codes,
+        counter_factor=1
+    ).all()
+    logger.info(f"categories {categories}")
+
+    # update, do not trigger event in cashCtrl
+    categories.update(counter_factor=1)
+
+    # make negative counters
+    for category in categories:
+        obj = category
+        obj.pk = None
+        obj.counter_factor = -1
+        obj.name = {k: v + ' neg.' for k,v in obj.name.items()}
+        obj.save()
+        logger.info(f"saved {obj}")
+
+    # assign
+    category_old = AssetCategory.objects.filter(
+        tenant__id=tenant_id,
+        code=OBIS_CODE.WATER,
+        counter_factor=1
+    ).first()
+    category_new = AssetCategory.objects.filter(
+        tenant__id=tenant_id,
+        code=OBIS_CODE.WATER,
+        counter_factor=-1
+    ).first()
+
+    devices = Device.objects.filter(
+        tenant__id=tenant_id,
+        category=category_old,
+        code__contains='.'
+    )
+    for device in devices:
+        device.category = category_new
+        device.sync_to_accounting = True
+        device.save()
+        logger.info(f"saved {device}")

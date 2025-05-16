@@ -4,6 +4,7 @@ process_asset.py
 usage:
     python manage.py process_billing cmd
     e.g python manage.py process_asset gesoft --tenant_id=3
+    python manage.py process_asset update_counter_assets --tenant_id=3
 
 '''
 from django.core.management.base import BaseCommand
@@ -16,7 +17,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             'action',  # Positional argument
-            choices=['gesoft'],  # Restrict valid values
+            choices=['gesoft', 'update_counter_assets'],  # Restrict valid values
             help='Specify the action: gesoft'
         )
         parser.add_argument(
@@ -38,5 +39,13 @@ class Command(BaseCommand):
             file_name = 'Zähler-Bestandesliste.xlsx'
             handler = ImportDevice(tenant_id)                        
             handler.load(file_name)
+        
+        elif action == 'update_counter_assets':
+            # Import library
+            from asset.gesoft_import import update_counter_assets
+                        
+            # Loadcounters
+            update_counter_assets(tenant_id)
+            
         else:
             raise ValueError("No valid action")

@@ -70,8 +70,19 @@ class AssetCategory(AcctApp):
         Unit, on_delete=models.PROTECT,
         related_name='%(class)s_category',
         verbose_name=_('Unit'), help_text=_("The asset's unit."))
+    counter_factor = models.SmallIntegerField(
+        _('Factor'), null=True, blank=True,
+        help_text=_(
+            "Default 1 for counters, -1 for negative counters, none otherwise"
+        ))
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code', 'counter_factor'],
+                name='unique_asset_category'
+            )
+        ]
         ordering = ['code']
         verbose_name = _('Asset Category')
         verbose_name_plural = _('Asset Categories')
@@ -146,7 +157,7 @@ class Device(AcctApp):
         queryset = EventLog.objects.filter(device=self)
         if date:
             queryset = queryset.filter(date__lte=date)
-        return queryset.order_by('date').last()    
+        return queryset.order_by('date').last()
 
     class Meta:
         constraints = [
