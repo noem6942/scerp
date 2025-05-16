@@ -26,6 +26,7 @@ Docu:
 ## Translation
 django-admin makemessages -l de --ignore="fixtures/*" --ignore="asset/ignore/*"
 django-admin compilemessages
+open \locale\de\LC_MESSAGES\django.po
 
 ## Bugs
 

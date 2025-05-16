@@ -263,7 +263,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_subscriber', 'partner', 'address', 
+        'display_subscriber', 'partner', 'address', 'description',
         'display_invoice_address_list',
         'start', 'end', 'display_abo_nr', 'number_of_counters',
         'last_route_out', 'last_measurement'
@@ -281,7 +281,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'subscriber__last_name','subscriber__first_name',
         'partner__last_name','partner__first_name',
         'address__stn_label', 'address__adr_number', 'start', 'end',
-        'counters__code', 'notes')
+        'description', 'counters__code', 'notes')
     list_filter = (
         filters.SubscriptionArticlesFilter,
         'number_of_counters', 'end', 'subscriber__company')
@@ -293,7 +293,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (
                 'subscriber', 'partner', 'recipient',
                 'display_invoice_address',
-                'start', 'end', 'address', 
+                'start', 'end', 'address', 'description',
                 'articles', 'counters'
             ),
         }),
@@ -350,7 +350,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         )
 
 @admin.register(SubscriptionArchive, site=admin_site)
-class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
+class SubscriptionArchiveAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version']
     read_only = True

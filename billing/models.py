@@ -13,14 +13,14 @@ from asset.models import AssetCategory, Device, Unit
 
 
 # use this postfix to specify article_nr for unit = Day
-ARTICLE_NR_POSTFIX_DAY = '-D'  
+ARTICLE_NR_POSTFIX_DAY = '-D'
 
 # use this to default header for billing invoices
-SETUP_HEADER = _(
-    "Objekt: {building}\n"
-    "Periode: {start} bis {end}\n"
-    "Verbrauch letzte Periode: {consumption} m³"
-)
+SETUP_HEADER = '''<small>
+Objekt: {building}{building_notes}{description}<br>
+Periode: {start} bis {end}<br>
+Verbrauch letzte Periode: {consumption} m³, Zählerstand alt {counter_old}, neu {counter_new}
+<small>'''
 
 
 class Setup(TenantAbstract):
@@ -32,6 +32,9 @@ class Setup(TenantAbstract):
     header = models.TextField(
         _('Header'), default=SETUP_HEADER,
         help_text=_("name"))
+    description = models.CharField(
+        _('Description'), max_length=200, blank=True, null=True,
+        help_text=('default invoice description, usually empty'))
     show_partner = models.BooleanField(
         _('Show partner'), default=True,
         help_text=_("Show partner on invoice bill"))
@@ -215,6 +218,10 @@ class Subscription(TenantAbstract):
     subscriber_number = models.CharField(
         _('Abo Nr'), max_length=50, blank=True, null=True,
         help_text=('Old subscription number, leave empty'))
+    description = models.CharField(
+        _('Description'), max_length=200, blank=True, null=True,
+        help_text=(
+            'leave empty, use for exceptions that should be on the invoice'))
     subscriber = models.ForeignKey(
         Person, verbose_name=_('Subscriber'),
         on_delete=models.PROTECT, related_name='%(class)s_subscriber',
@@ -405,9 +412,12 @@ class Measurement(TenantAbstract):
         on_delete=models.PROTECT, related_name='%(class)s_subscriber')
 
     def __str__(self):
+        desc = self.subscription.description or ''
+        if desc:
+            desc = ', ' + desc
         return (
-            f'{self.subscription.subscriber}, {self.address}: {self.route}, {self.counter}, '
-            f'{self.datetime}'
+            f'{self.subscription.subscriber}, {self.address}{desc}: '
+            f'{self.route}, {self.counter}, {self.datetime}'
         )
 
     class Meta:

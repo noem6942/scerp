@@ -27,7 +27,7 @@ from .models import (
 )
 
 from . import forms, models
-from . import connector_cash_ctrl as conn
+from . import api_cash_ctrl, connector_cash_ctrl as conn
 #from .signals_cash_ctrl import api_setup_post_save
 
 
@@ -42,8 +42,8 @@ def init_setup(modeladmin, request, queryset):
         # Only perform actions if there are no errors
         with transaction.atomic():
             api_setup_post_save(
-                modeladmin.model, instance, init=True, request=request)        
-        return 
+                modeladmin.model, instance, init=True, request=request)
+        return
         try:
             # Wrap the database operation in an atomic block
             with transaction.atomic():
@@ -212,11 +212,11 @@ def get_data(modeladmin, request, queryset, update, delete_not_existing):
     api = getattr(conn, modeladmin.model.__name__, None)
     language = None  # i.e. English
     if api:
-        handler = api(modeladmin.model)        
+        handler = api(modeladmin.model)
         tenant = queryset.first().tenant
         handler.get(tenant, request.user, update, delete_not_existing)
     else:
-        messages.warning(request, _("Cannot retrieve data for this list"))    
+        messages.warning(request, _("Cannot retrieve data for this list"))
 
 @action_with_form(
     forms.AccountingUpdateForm, description=_('Get data from account system')
@@ -226,14 +226,14 @@ def accounting_get_data(modeladmin, request, queryset, data):
     model = modeladmin.model.__name__
     api = getattr(conn, model, None)
     language = None  # i.e. English
-    if api:        
+    if api:
         handler = api(modeladmin.model, language=language)
         tenant = queryset.first().tenant
         handler.get(
-            tenant, request.user, 
-            overwrite_data=data['overwrite_data'], 
+            tenant, request.user,
+            overwrite_data=data['overwrite_data'],
             delete_not_existing=data['delete_not_existing']
-        )        
+        )
     else:
         messages.warning(request, _("Cannot retrieve data for this list"))
 
@@ -294,7 +294,7 @@ def order_status_update(modeladmin, request, queryset, data):
         order.status = status
         order.sync_to_accounting = True
         order.save()
-    
+
 
 @admin.action(description=_("Submit for booking"))
 def incoming_order_approve(modeladmin, request, queryset):
@@ -303,6 +303,27 @@ def incoming_order_approve(modeladmin, request, queryset):
         invoice = queryset.first()
         invoice.status = invoice.category.STATUS.SUBMITTED
         invoice.save()
+
+
+@admin.action(description=_("Get Order Status"))
+def order_get_status(modeladmin, request, queryset):
+    ''' filtering not working so we must read all orders
+    '''
+    if action_check_nr_selected(request, queryset, min_count=1):
+        # prepare
+        item = queryset.first()
+        status_list = [x for x in item.category.STATUS]
+        status_ids = [x['id'] for x in item.category.status_data]
+
+        # get from cashCtrl
+        api = api_cash_ctrl.Order(
+            item.tenant.cash_ctrl_org_name,
+            item.tenant.cash_ctrl_api_key)
+        for order in queryset.all():
+            invoice = api.read(order.c_id)
+            index = status_ids.index(invoice['status_id'])
+            order.status = status_list[index]
+            order.save()
 
 
 @action_with_form(
@@ -317,20 +338,20 @@ def get_bank_data(modeladmin, request, queryset, data):
         if data['price_incl_vat']:
             invoice.price_incl_vat = data.pop('price_incl_vat')
             changed = True
-        
+
         data = {k: v.replace(' ', '') for k, v in data.items()}
         bank_account = invoice.supplier_bank_account
 
         if bank_account:
             if data['iban'] != bank_account.iban:
-                bank_account.iban = data['iban'] 
+                bank_account.iban = data['iban']
                 changed = True
             if data['qr_iban'] != bank_account.qr_iban:
-                bank_account.qr_iban = data['qr_iban'] 
+                bank_account.qr_iban = data['qr_iban']
                 changed = True
             if data['bic'] != bank_account.bic:
-                bank_account.bic = data['bic'] 
+                bank_account.bic = data['bic']
                 changed = True
-        
+
         if changed:
             bank_account.save()

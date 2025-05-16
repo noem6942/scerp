@@ -620,11 +620,9 @@ class RouteCounterInvoicing(RouteManagement):
         return 1
 
     def bill(self, measurement):
-        # init
-        setup = measurement.route.setup
-        subscription = measurement.subscription
-
+        ''' get called from actions '''
         # check day vs. period
+        subscription = measurement.subscription
         unit_code = (
             'day' if (
                 measurement.route.start
@@ -636,12 +634,19 @@ class RouteCounterInvoicing(RouteManagement):
         )
         days = (self.end - self.start).days + 1 if unit_code == 'day' else None
 
+        # description         
+        setup = measurement.route.setup
+        if subscription.description:
+            description = ', ' + subscription.description
+        else:
+            description = ', ' + setup.description if setup.description else ''
+
         # billing base
         invoice = {
             'tenant': measurement.tenant,
             'category': setup.order_category,
             'contract': setup.order_contract,
-            'description': measurement.route.__str__(),
+            'description': measurement.route.__str__() + description,
             'responsible_person': setup.contact,
             'date': self.date,
             'status': self.status,
@@ -701,7 +706,8 @@ class RouteCounterInvoicing(RouteManagement):
         # header
         invoice['header'] = setup.header.format(
             building=building,
-            building_notes = building_notes,
+            building_notes=building_notes,
+            description=description,
             start=format_date(self.start),
             end=format_date(self.end),
             consumption=consumption,

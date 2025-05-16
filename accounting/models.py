@@ -1498,6 +1498,7 @@ class OrderCategoryOutgoing(OrderCategory):
         SENT = 'Sent', _('Sent')  # Versendet
         REMINDER_1 = 'Reminder 1', _('Reminder 1')  # Mahnstufe 1
         REMINDER_2 = 'Reminder 2', _('Reminder 2')  # Mahnstufe 2, verbucht
+        REMINDER_3 = 'Reminder 3', _('Reminder 3')  # Mahnstufe 3, verbucht
         PAID = 'Paid', _('Paid')  # Bezahlt, Buchung
         ARCHIVED = 'Archived', _('Archived')  # Archiviert
         CANCELLED = 'Cancelled', _('Cancelled')  # Storniert, verbucht
@@ -1508,6 +1509,7 @@ class OrderCategoryOutgoing(OrderCategory):
         STATUS.SENT: COLOR.YELLOW,
         STATUS.REMINDER_1: COLOR.ORANGE,
         STATUS.REMINDER_2: COLOR.RED,
+        STATUS.REMINDER_3: COLOR.RED,
         STATUS.PAID: COLOR.GREEN,
         STATUS.ARCHIVED: COLOR.BLACK,
         STATUS.CANCELLED: COLOR.PINK,
@@ -1519,6 +1521,7 @@ class OrderCategoryOutgoing(OrderCategory):
         STATUS.SENT: False,
         STATUS.REMINDER_1: False,
         STATUS.REMINDER_2: True,
+        STATUS.REMINDER_3: True,
         STATUS.PAID: True,
         STATUS.ARCHIVED: False,
         STATUS.CANCELLED: True,

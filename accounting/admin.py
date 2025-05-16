@@ -1112,7 +1112,9 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     autocomplete_fields = ['associate', 'responsible_person']
 
     # Actions
-    actions = accounting_actions + [a.order_status_update]+ default_actions
+    actions = accounting_actions + [
+        a.order_status_update, a.order_get_status
+    ]+ default_actions
 
     #Fieldsets
     fieldsets = (

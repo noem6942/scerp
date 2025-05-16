@@ -166,7 +166,7 @@ class AnalyseMeasurentExcelActionForm(AdminActionForm):
 
 class RouteBillingForm(AdminActionForm):
     measurements = forms.ModelMultipleChoiceField(
-        label=_('Subscribers'),
+        label=_('Measurements'),
         required=False,
         queryset=Measurement.objects.none(),
         help_text=_("Leave empty for generating all invoices.")

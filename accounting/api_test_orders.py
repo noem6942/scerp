@@ -167,23 +167,30 @@ if __name__ == "__main__":
         '''
         # Read Invoicing document
         conn = Order(org, api, convert_dt=False)
-        data_list = conn.list(params={'type': 'SALES'})
+        data_list = conn.list(params={
+            'type': 'SALES', 
+        })
         for data in data_list:
             print("*data", data['id'], data['date'])        
-            if data['id'] == 77:
+            if data['id'] == 569:
                 order = data        
         # OrderDocument
-        #print("*order", order)
+        print("*order", order)
+        
+        # Read again the order
+        order_read = conn.read(order['id'])
+        print("*order_read", order_read)
+        
         conn = OrderDocument(org, api, convert_dt=False)
         document = conn.read(order['id'])
-        print("*document", document)
+        #print("*document", document)
 
         # Update Order
         """
         document.update({
             'id': document.pop('order_id'),
             'org_address': 'Org Address\nPlace\nxxx',
-            'recipient_address': 'Recipient Address\nPlace\nxxx',
+            'recipient_address': 'Recipient Address\nPlace\n',
             'header': '''<p>This is my header text.</p>''',
             'footer': '''<p>This is my footer text.</p>'''
         })
