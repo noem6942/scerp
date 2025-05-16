@@ -148,7 +148,7 @@ def update_counter_assets(tenant_id):
     categories = AssetCategory.objects.filter(
         tenant__id=tenant_id,
         code__in=codes,
-        counter_factor=1
+        counter_factor=None
     ).all()
     logger.info(f"categories {categories}")
 
