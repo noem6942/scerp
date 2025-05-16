@@ -155,7 +155,7 @@ def update_counter_assets(tenant_id):
     # update, do not trigger event in cashCtrl
     categories.update(counter_factor=1)
 
-    # make negative counters
+    # make negative Asset Categories
     for category in categories:
         obj = category
         obj.pk = None
@@ -163,6 +163,7 @@ def update_counter_assets(tenant_id):
         obj.name = {k: v + ' neg.' for k,v in obj.name.items()}
         obj.save()
         logger.info(f"saved {obj}")
+    return 
 
     # assign
     category_old = AssetCategory.objects.filter(
