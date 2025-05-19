@@ -21,7 +21,7 @@ from core.models import (
 )
 from scerp.mixins import parse_gesoft_to_datetime
 from .models import (
-    ARTICLE_NR_POSTFIX_DAY, Period, Route, Measurement, Subscription, 
+    ARTICLE_NR_POSTFIX_DAY, Period, Route, Measurement, Subscription,
     SubscriptionArchive
 )
 
@@ -284,6 +284,15 @@ ARTICLE_MAPPING = {
             'unit': 'volume'
         }
 }
+
+# helpers
+def is_numeric_string(s):
+    try:
+        float(s)
+        return True
+    except (ValueError, TypeError):
+        return False
+
 
 class Import:
 
@@ -991,23 +1000,23 @@ class ArticleCopy(Import):
         count = 0
         for article in articles:
             # assign and check nr
-            article.nr += ARTICLE_NR_POSTFIX_DAY            
+            article.nr += ARTICLE_NR_POSTFIX_DAY
             article.name = {
                 lang: name + ARTICLE_NR_POSTFIX_DAY
                 for lang, name in article.name.items()
             }
-            
+
             if article.nr not in article_nr_copies:
                 # make a copy
                 article.pk = None
                 article.c_id = None
                 article.sync_to_accounting = True
                 article.sales_price = float(article.sales_price / 180)
-                article.unit = unit                
+                article.unit = unit
                 article.save()
                 count += 1
                 logger.info(f"saving {article.nr}")
-                
+
         return count
 
     def rename_daily(self):
@@ -1016,23 +1025,23 @@ class ArticleCopy(Import):
         '''
         # Init
         articles = Article.objects.filter(
-            tenant=self.tenant, unit__code='day')        
+            tenant=self.tenant, unit__code='day')
 
         # Copy
         count = 0
-        for article in articles:            
+        for article in articles:
             # new name
             article.name = {
                 lang: name + ARTICLE_NR_POSTFIX_DAY
                 for lang, name in article.name.items()
             }
-            
+
             # save
-            article.save()            
+            article.save()
             count += 1
             logger.info(f"saving {article.nr}")
-                
-        return count        
+
+        return count
 
 
 class ImportArchive(Import):
@@ -1174,45 +1183,123 @@ class ImportArchive(Import):
         return count
 
 
-def fix_zero_problem(json_filename, excel_file_name):
+def fix_zero_problem(json_filename, excel_file_name, tenant_id):
     ''' use to enter old  '''
     # load excel
     file_path = Path(
         settings.BASE_DIR) / 'billing' / 'fixtures' / excel_file_name
-    wb = load_workbook(file_path)
+    wb = load_workbook(file_path, data_only=False)
     ws = wb.active  # Or wb['SheetName']
-    rows = [row for row in ws.iter_rows(values_only=True)]
+   
+    # Read
+    analyse_list = [
+        ['abo_nr', 'subscriber_excel', 'counter_nr', 'existing', 
+         'consumption_old', 'consumption_new', 'counters', 'products']
+    ]
+    abo_nr, subscriber_excel = None, None
+    for row_nr, row in enumerate(ws.iter_rows(min_row=2), start=2):  # Skip header
+        cell = row[0]
+        value = cell.value
+        number_format = cell.number_format
 
-    # Read    
-    counter_old = {}
-    for row_nr, row in enumerate(rows, start=1):
-        first_cell = row[0]        
-        if isinstance(first_cell, (int, float)) and first_cell > 100:
-            # Only process rows where the first cell is a number > 100
-            counter_nr = str(first_cell)
-            value = row[12]
-            counter_old[counter_nr] = float(value)
-    print("*counter_old", counter_old)
-    
-    # load json
-    file_path = Path(settings.BASE_DIR) / 'billing' / 'fixtures' / json_filename
-    with open(file_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)  
-    data_list = data['billing_mde']['meter']
-    
-    for data in data_list:
-        cur = data['value'].get('cur')
-        number = data['number']
-        if cur:
-            if data['value']['old']:
-                print(f"{number}: old already existing")
+        # Reconstruct visible value
+        if isinstance(value, str):
+            visible_value = value
+            # Get abo
+            if value == 'WA-2402':
+                abo_nr = row[5].value
+                subscriber_excel = row[1].value
+                continue
+            
+        elif isinstance(value, int):
+            # If number format includes zero-padding, reconstruct that
+            if '0' in number_format:
+                zero_count = number_format.count('0')
+                visible_value = str(value).zfill(zero_count)
             else:
-                number_no_leading_zero = number.lstrip('0')
-                old = counter_old.get(number_no_leading_zero)
-                if old:
-                    data['value']['old'] = old
-                    print(f"{number}: {old}")
-                else:
-                    print(f"Could not find {number}.")
+                visible_value = str(value)
+
+        elif isinstance(value, float):
+            visible_value = str(value)  # Keep full float value like 18635332.1
+
         else:
-            print(f"{number}: current not existing")
+            continue  # Skip None or unsupported types
+
+        # Skip if no number
+        if not is_numeric_string(visible_value):
+            continue
+
+        # Add products
+        if float(visible_value) < 100:
+            products = analyse_list[-1][-1]            
+            analyse_list[-1][-1] = products + 1
+            continue
+
+        # Get device
+        counter_nr = visible_value
+        devices = Device.objects.filter(
+            tenant__id=tenant_id,
+            code=counter_nr
+        )
+        if devices.count() > 1:
+            analyse_list.append([
+                abo_nr, subscriber_excel, counter_nr, 'multiple', 
+                None, None, 0, 0])
+            continue
+        elif not devices:
+            analyse_list.append([
+                abo_nr, subscriber_excel, counter_nr, None, 
+                None, None, 0, 0])
+            continue
+        device = devices.first()
+
+        # Old Measurement
+        measurements = Measurement.objects.filter(
+            tenant__id=tenant_id,
+            counter=device,
+            datetime__lte=datetime(2024, 10, 1)
+        )
+        if measurements.first():
+            consumption_old = measurements.first().consumption
+        else:
+            consumption_old = None
+
+        # New Measurement
+        measurements = Measurement.objects.filter(
+            tenant__id=tenant_id,
+            counter=device,
+            datetime__gte=datetime(2025, 1, 1)
+        )
+        if measurements.first():
+            consumption_new = measurements.first().consumption
+        else:
+            consumption_new = None
+            
+        analyse_list.append(
+            [abo_nr, subscriber_excel, counter_nr, devices.exists(), 
+             consumption_old, consumption_new, 0, 0])
+
+    # Calc counter_number
+    for row in analyse_list[1:]:
+        abo_nr = row[0]
+        nr_of_counters = len([x for x in analyse_list if x[0] == abo_nr])
+        row[-2] = nr_of_counters
+
+    # Create a new workbook and get the active sheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Analysis Report"
+    
+    # Add your data rows
+    print("*analyse_list", analyse_list[:10])
+    for row in analyse_list:
+        ws.append(list(row))
+
+    # Save to file
+    file_name = 'analysis_report.xlsx'
+    file_path = Path(
+            settings.BASE_DIR) / 'billing' / 'fixtures' / file_name    
+    wb.save(file_path)
+    
+    logging.info(f"{file_name} created")
+  

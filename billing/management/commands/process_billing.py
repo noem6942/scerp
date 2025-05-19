@@ -104,7 +104,7 @@ class Command(BaseCommand):
             # Load subscribers + counters
             json_filename = 'productive_route0120250325_2025-04-16_12-44-39 (leading 0, some entries empty).json'
             excel_file_name = 'Abonnenten mit Zähler und Gebühren.xlsx'
-            fix_zero_problem(json_filename, excel_file_name)
+            fix_zero_problem(json_filename, excel_file_name, tenant_id)
 
         else:
             raise ValueError("No valid action")
