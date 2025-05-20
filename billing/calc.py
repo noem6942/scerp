@@ -611,18 +611,17 @@ class RouteCounterInvoicing(RouteManagement):
         self.is_enabled_sync = is_enabled_sync
 
     def get_quantity(
-            self, measurement, subscription_article, rounding_digits, 
+            self, measurement, article, quantity, rounding_digits, 
             days=None):
         ''' quantity, not considered: individual from, to
         '''
-        article = subscription_article.article
         if article.unit.code == 'volume':
             return round(measurement.consumption_with_sign, rounding_digits)
         
-        # Not volume, take quantity:
-        quantity = subscription_article.quantity or 1            
+        # Calc quantity and days
+        quantity = quantity or 1            
         if article.unit.code == 'day' and days:
-            return days * quantity
+            return days * quantity     
         return quantity
 
     def bill(self, measurement):
@@ -645,6 +644,8 @@ class RouteCounterInvoicing(RouteManagement):
             days = (end - start).days + 1
         else:
             days = None
+            
+        print("*days", days, start, end)
 
         # description         
         setup = measurement.route.setup
@@ -732,11 +733,13 @@ class RouteCounterInvoicing(RouteManagement):
         invoice = OutgoingOrder.objects.create(**invoice)
         
         # add items
-        articles = SubscriptionArticle.objects.filter(
+        sub_articles = SubscriptionArticle.objects.filter(
             subscription=subscription
         ).order_by('article__nr')
-        for subscription_article in articles:
+        for subscription_article in sub_articles:
             article = subscription_article.article
+            quantity = subscription_article.quantity
+            
             if unit_code == 'day' and article.unit.code == 'period':
                 # Replace article by daily
                 article = Article.objects.filter(
@@ -748,7 +751,7 @@ class RouteCounterInvoicing(RouteManagement):
                 tenant=measurement.tenant,
                 article=article,
                 quantity=self.get_quantity(
-                    measurement, subscription_article, setup.rounding_digits, 
+                    measurement, article, quantity, setup.rounding_digits, 
                     days),
                 order=invoice,
                 created_by=self.created_by
