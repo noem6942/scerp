@@ -255,7 +255,7 @@ class Subscription(TenantAbstract):
     articles = models.ManyToManyField(
         Article, verbose_name=_('Article'),
         related_name='%(class)s_articles',
-        help_text=_('Will be phased out'))
+        help_text=_('Will be phased out!!!!'))
     number_of_counters = models.PositiveSmallIntegerField(
         _('Number of counters'), default=0, editable=False,
         help_text=_('Gets updated automatically by signals'))

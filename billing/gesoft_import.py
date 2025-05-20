@@ -1309,8 +1309,8 @@ def adjust_articles(tenant_id):
     for subscription in subscriptions.all():
         for article in subscription.articles.all():
             unit_code = article.unit.code
-            quantity = 1 if unit_code in ['day', 'period'] else None                               
-            obj, _created = SubscriptionArticle.objects.get_or_create(                
+            quantity = 1 if unit_code in ['day', 'period'] else None
+            obj, _created = SubscriptionArticle.objects.get_or_create(
                 tenant=subscription.tenant,
                 subscription=subscription,
                 article=article,
@@ -1318,6 +1318,78 @@ def adjust_articles(tenant_id):
                     quantity=quantity,
                     created_by=subscription.created_by
                 )
-            )            
+            )
             if _created:
                 logging.info(f"{obj} created")
+
+
+def adjust_mfh(tenant_id):
+    ''' corr. MFHs: '''
+    CORR = [
+        (585, 6),
+        (44, 12),
+        (54, 2),
+        (46, 6),
+        (193, 5),
+        (61, 8),
+        (62, 11),
+        (63, 15),
+        (64, 6),
+        (65, 8),
+        (66, 6),
+        (457, 10),
+        (474, 11),
+        (209, 3),
+        (502, 2),
+        (611, 2),
+        (162, 9),
+        (163, 9),
+        (367, 12),
+        (368, 12),
+        (301, 9),
+        (137, 6),
+        (313, 8),
+        (146, 2),
+        (81, 8),
+        (211, 5),
+        (212, 12),
+        (553, 2),
+        (45, 12),
+        (160, 6),
+        (361, 8),
+        (362, 8),
+        (364, 8),
+        (365, 8),
+        (366, 8),
+        (346, 6),
+        (363, 8),
+        (161, 6),
+        (24, 6),
+        (303, 8),
+        (136, 6),
+        (596, 2),
+        (135, 6),
+        (133, 6),
+        (302, 6)
+    ]
+
+    for abo_nr, quantity in CORR:
+        # find subscription
+        subscription = Subscription.objects.filter(
+            tenant__id=tenant_id,
+            subscriber_number=str(abo_nr)
+        ).first()
+
+        # check if valid
+        if not subscription:
+            logging.warning(f"{subscription} not found")
+
+        # look for product
+        count = SubscriptionArticle.objects.filter(
+            subscription=subscription,
+            article__nr='A-WW-141'
+        ).update(quantity=quantity)
+        if count:
+            logging.info(f"{subscription}: updated {count} to {quantity}")
+        else:
+            logging.warning(f"{subscription}: article not found")

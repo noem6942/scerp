@@ -7,6 +7,7 @@
     python manage.py process_billing article_daily_rename --tenant_id=12
     python manage.py process_billing fix_zero_problem --tenant_id=12
     python manage.py process_billing adjust_articles --tenant_id=12
+    python manage.py process_billing adjust_mfh --tenant_id=12
 '''
 import json
 from django.core.management.base import BaseCommand
@@ -22,7 +23,7 @@ class Command(BaseCommand):
             choices=[
                 'gesoft', 'gesoft_area', 'gesoft_archive',
                 'article_import', 'article_daily_rename',
-                'fix_zero_problem', 'adjust_articles'
+                'fix_zero_problem', 'adjust_articles', 'adjust_mfh'
             ],
             help='Specify the action: gesoft'
         )
@@ -113,6 +114,13 @@ class Command(BaseCommand):
 
             # Load subscribers + counters            
             adjust_articles(tenant_id)
+
+        elif action == 'adjust_mfh':
+            # Import library
+            from billing.gesoft_import import adjust_mfh
+
+            # Load subscribers + counters            
+            adjust_mfh(tenant_id)
 
         else:
             raise ValueError("No valid action")
