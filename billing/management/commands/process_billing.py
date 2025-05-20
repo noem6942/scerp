@@ -6,6 +6,7 @@
     python manage.py process_billing article_import --tenant_id=12
     python manage.py process_billing article_daily_rename --tenant_id=12
     python manage.py process_billing fix_zero_problem --tenant_id=12
+    python manage.py process_billing adjust_articles --tenant_id=12
 '''
 import json
 from django.core.management.base import BaseCommand
@@ -21,7 +22,7 @@ class Command(BaseCommand):
             choices=[
                 'gesoft', 'gesoft_area', 'gesoft_archive',
                 'article_import', 'article_daily_rename',
-                'fix_zero_problem', 'add_abo_nr'
+                'fix_zero_problem', 'adjust_articles'
             ],
             help='Specify the action: gesoft'
         )
@@ -105,6 +106,13 @@ class Command(BaseCommand):
             json_filename = 'productive_route0120250325_2025-04-16_12-44-39 (leading 0, some entries empty).json'
             excel_file_name = 'Abonnenten mit Zähler und Gebühren.xlsx'
             fix_zero_problem(json_filename, excel_file_name, tenant_id)
+
+        elif action == 'adjust_articles':
+            # Import library
+            from billing.gesoft_import import adjust_articles
+
+            # Load subscribers + counters            
+            adjust_articles(tenant_id)
 
         else:
             raise ValueError("No valid action")

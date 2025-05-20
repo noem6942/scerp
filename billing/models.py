@@ -254,7 +254,8 @@ class Subscription(TenantAbstract):
         related_name='%(class)s_counter')
     articles = models.ManyToManyField(
         Article, verbose_name=_('Article'),
-        related_name='%(class)s_articles')
+        related_name='%(class)s_articles',
+        help_text=_('Will be phased out'))
     number_of_counters = models.PositiveSmallIntegerField(
         _('Number of counters'), default=0, editable=False,
         help_text=_('Gets updated automatically by signals'))
@@ -323,6 +324,32 @@ class Subscription(TenantAbstract):
             'subscriber__last_name', 'subscriber__first_name']
         verbose_name = _('Subscription')
         verbose_name_plural = _('Subscriptions')
+
+
+class SubscriptionArticle(TenantAbstract):    
+    subscription = models.ForeignKey(
+        Subscription, on_delete=models.CASCADE,
+        verbose_name=_('Subscription'), 
+        related_name='%(class)s_subscription')
+    article = models.ForeignKey(
+        Article, on_delete=models.PROTECT, null=True,
+        verbose_name=_('Article'), related_name='%(class)s_article')
+    quantity = models.PositiveSmallIntegerField(
+        _('Quantity'), blank=True, null=True,        
+        help_text=(
+            "Leave blank if unit is m3 / quantity derived from measurement")
+    )
+    
+    def __str__(self):
+        return f'{self.subscription}, {self.article}'    
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'subscription', 'article'],
+                name='unique_subscription_article'
+            )
+        ]
 
 
 class SubscriptionArchive(TenantAbstract):

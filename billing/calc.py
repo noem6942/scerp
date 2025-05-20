@@ -22,7 +22,8 @@ from core.models import Area, AddressMunicipal, PersonAddress, Attachment
 from scerp.admin import ExportExcel
 from scerp.mixins import format_date, primary_language
 from .models import (
-    ARTICLE_NR_POSTFIX_DAY, Period, Route, Measurement, Subscription
+    ARTICLE_NR_POSTFIX_DAY, Period, Route, Measurement, Subscription,
+    SubscriptionArticle
 )
 
 logger = logging.getLogger(__name__)
@@ -610,14 +611,19 @@ class RouteCounterInvoicing(RouteManagement):
         self.is_enabled_sync = is_enabled_sync
 
     def get_quantity(
-            self, measurement, article, rounding_digits, days=None):
+            self, measurement, subscription_article, rounding_digits, 
+            days=None):
         ''' quantity, not considered: individual from, to
         '''
+        article = subscription_article.article
         if article.unit.code == 'volume':
             return round(measurement.consumption_with_sign, rounding_digits)
-        elif article.unit.code == 'day' and days:
-            return days
-        return 1
+        
+        # Not volume, take quantity:
+        quantity = subscription_article.quantity or 1            
+        if article.unit.code == 'day' and days:
+            return days * quantity
+        return quantity
 
     def bill(self, measurement):
         ''' get called from actions '''
@@ -726,7 +732,11 @@ class RouteCounterInvoicing(RouteManagement):
         invoice = OutgoingOrder.objects.create(**invoice)
         
         # add items
-        for article in subscription.articles.order_by('nr'):
+        articles = SubscriptionArticle.objects.filter(
+            subscription=subscription
+        ).order_by('article__nr')
+        for subscription_article in articles:
+            article = subscription_article.article
             if unit_code == 'day' and article.unit.code == 'period':
                 # Replace article by daily
                 article = Article.objects.filter(
@@ -738,7 +748,8 @@ class RouteCounterInvoicing(RouteManagement):
                 tenant=measurement.tenant,
                 article=article,
                 quantity=self.get_quantity(
-                    measurement, article, setup.rounding_digits, days),
+                    measurement, subscription_article, setup.rounding_digits, 
+                    days),
                 order=invoice,
                 created_by=self.created_by
             )

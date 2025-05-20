@@ -22,7 +22,7 @@ from core.models import (
 from scerp.mixins import parse_gesoft_to_datetime
 from .models import (
     ARTICLE_NR_POSTFIX_DAY, Period, Route, Measurement, Subscription,
-    SubscriptionArchive
+    SubscriptionArticle, SubscriptionArchive
 )
 
 logger = logging.getLogger(__name__)
@@ -1302,3 +1302,22 @@ def fix_zero_problem(json_filename, excel_file_name, tenant_id):
     wb.save(file_path)
 
     logging.info(f"{file_name} created")
+
+
+def adjust_articles(tenant_id):
+    subscriptions = Subscription.objects.filter(tenant__id=tenant_id)
+    for subscription in subscriptions.all():
+        for article in subscription.articles.all():
+            unit_code = article.unit.code
+            quantity = 1 if unit_code in ['day', 'period'] else None                               
+            obj, _created = SubscriptionArticle.objects.get_or_create(                
+                tenant=subscription.tenant,
+                subscription=subscription,
+                article=article,
+                defaults=dict(
+                    quantity=quantity,
+                    created_by=subscription.created_by
+                )
+            )            
+            if _created:
+                logging.info(f"{obj} created")

@@ -4,41 +4,10 @@ core/filters.py
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from accounting.models import Article
 from core.safeguards import get_tenant_data
 from core.models import Area
 from scerp.mixins import primary_language
 from .models import Period, Route
-
-
-# Custom Filters for Subscription
-class SubscriptionArticlesFilter(admin.SimpleListFilter):
-    title = _('Article')
-    parameter_name = 'article'
-
-    def lookups(self, request, model_admin):
-        '''Return categories filtered by tenant'''
-        tenant_id = get_tenant_data(request).get('id') 
-
-        articles = Article.objects.filter(
-            tenant_id=tenant_id
-        ).values_list('id', 'name')
-
-        # return translated names
-        return [
-            (id, primary_language(name))
-            for id, name in articles
-        ]
-
-    def queryset(self, request, queryset):
-        tenant_id = get_tenant_data(request).get('id') 
-
-        if self.value():
-            return queryset.filter(
-                tenant__id=tenant_id,  # Ensure tenant filter applies here too
-                articles__id=self.value()
-            )
-        return queryset
 
 
 # Custom Filters for Measurement

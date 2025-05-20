@@ -5,13 +5,16 @@ from django.utils.translation import gettext_lazy as _
 
 from core.admin import AttachmentInline
 from scerp.actions import export_excel, export_json, default_actions
-from scerp.admin import BaseAdmin, Display, verbose_name_field
+from scerp.admin import (
+    BaseAdmin, BaseTabularInline, Display, verbose_name_field
+)
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 
 from . import filters, actions as a
 from .models import (
-    Setup, Period, Route, Measurement, Subscription, SubscriptionArchive
+    Setup, Period, Route, Measurement, Subscription, SubscriptionArticle,
+    SubscriptionArchive
 )
 
 
@@ -251,12 +254,23 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         return obj.address.area
 
 
+class ArticleInline(BaseTabularInline):  # or admin.StackedInline
+    # Safeguards
+    protected_foreigns = ['tenant', 'subscription', 'article']
+
+    # Inline
+    model = SubscriptionArticle
+    fields = ['quantity', 'article']  # Only show these fields    
+    extra = 0  # Number of empty forms displayed
+    autocomplete_fields = ['article']  # Improves FK selection performance
+    show_change_link = False  # Shows a link to edit the related model
+
+
 @admin.register(Subscription, site=admin_site)
 class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
         'tenant', 'version', 'subscriber', 'partner', 'recipient', 'address']
-    protected_many_to_many = ['articles']
     help_text = _(
         "Create a new subscription if owner changes, otherwise previous "
         "values are shown at the bill which is against policies. ")
@@ -271,7 +285,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display_links = ('display_subscriber', 'address')
     readonly_fields = (
         'display_invoice_address', 'display_invoice_address_list',
-        'display_counters', 'display_articles', 'last_route_out',
+        'display_counters', 'last_route_out',
         'routes_out', 'invoices', 'display_abo_nr'
     ) + FIELDS.LOGGING_TENANT
 
@@ -283,7 +297,6 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'address__stn_label', 'address__adr_number', 'start', 'end',
         'description', 'counters__code', 'notes', 'subscriber_number')
     list_filter = (
-        filters.SubscriptionArticlesFilter,
         'number_of_counters', 'end', 'subscriber__company')
     autocomplete_fields = ['subscriber', 'partner', 'recipient', 'address']
 
@@ -293,14 +306,12 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (
                 'subscriber', 'partner', 'recipient',
                 'display_invoice_address',
-                'start', 'end', 'address', 'description',
-                'articles', 'counters'
+                'start', 'end', 'address', 'description', 'counters'
             ),
         }),
         (_('Controlling'), {
             'fields': (
-                'display_articles', 'display_counters',
-                'routes_out', 'invoices', 'display_abo_nr'
+                'display_counters', 'routes_out', 'invoices', 'display_abo_nr'
             ),
             'classes': ('collapse',),
         }),
@@ -310,6 +321,9 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Actions
     actions = [export_excel] + default_actions
+    
+    # Inlines
+    inlines = [ArticleInline]
 
     @admin.display(description=_('abo_nr'))
     def display_abo_nr(self, obj):
@@ -326,11 +340,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     @admin.display(description=_('Invoice Address'))
     def display_invoice_address_list(self, obj):
-        return obj.invoice_address
-
-    @admin.display(description=_('Articles'))
-    def display_articles(self, obj):
-        return ','.join([x.__str__() for x in obj.articles.order_by('nr')])
+        return obj.invoice_address   
 
     @admin.display(description=_('Counters'))
     def display_counters(self, obj):
