@@ -644,8 +644,6 @@ class RouteCounterInvoicing(RouteManagement):
             days = (end - start).days + 1
         else:
             days = None
-            
-        print("*days", days, start, end)
 
         # description         
         setup = measurement.route.setup
