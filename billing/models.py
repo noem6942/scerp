@@ -222,6 +222,9 @@ class Subscription(TenantAbstract):
         _('Description'), max_length=200, blank=True, null=True,
         help_text=(
             'leave empty, use for exceptions that should be on the invoice'))
+    tag = models.CharField(
+        _('Tag'), max_length=50, blank=True, null=True,
+        help_text=('Tag a subscriber, e.g. to invoice only these'))            
     subscriber = models.ForeignKey(
         Person, verbose_name=_('Subscriber'),
         on_delete=models.PROTECT, related_name='%(class)s_subscriber',
@@ -443,8 +446,9 @@ class Measurement(TenantAbstract):
         if desc:
             desc = ', ' + desc
         return (
-            f'{self.subscription.subscriber_number} {self.subscription.subscriber}, {self.address}{desc}: '
-            f'{self.route}, {self.counter}, {self.datetime}'
+            f"{self.subscription.tag or ''}{self.subscription.subscriber_number} "
+            f"{self.subscription.subscriber}, {self.address}{desc}: "
+            f"{self.route}, {self.counter}, {self.datetime}"
         )
 
     @property

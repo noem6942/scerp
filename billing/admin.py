@@ -297,7 +297,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'address__stn_label', 'address__adr_number', 'start', 'end',
         'description', 'counters__code', 'notes', 'subscriber_number')
     list_filter = (
-        'number_of_counters', 'end', 'subscriber__company')
+        'tag', 'number_of_counters', 'end', 'subscriber__company')
     autocomplete_fields = ['subscriber', 'partner', 'recipient', 'address']
 
     #Fieldsets
@@ -306,7 +306,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (
                 'subscriber', 'partner', 'recipient',
                 'display_invoice_address',
-                'start', 'end', 'address', 'description', 'counters'
+                'start', 'end', 'address', 'description', 'tag', 'counters'
             ),
         }),
         (_('Controlling'), {

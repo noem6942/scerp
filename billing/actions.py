@@ -88,9 +88,15 @@ def route_billing(modeladmin, request, queryset, data):
         route = queryset.first()
         is_enabled_sync = data.get('is_enabled_sync', False)
 
-        measurements = data['measurements']
-        if not measurements:
-            measurements = Measurement.objects.filter(route=route)
+        # Data select
+        tag = data['tag']
+        if tag:
+            measurements = Measurement.objects.filter(
+                route=route, subscription__tag=tag)
+        else:
+            measurements = data['measurements']
+            if not measurements:
+                measurements = Measurement.objects.filter(route=route)
 
         # Process
         invoice = RouteCounterInvoicing(
@@ -100,7 +106,7 @@ def route_billing(modeladmin, request, queryset, data):
             invoice.bill(measurement)
 
         # output
-        count = len(data['measurements'])
+        count = len(measurements)
         messages.info(
             request, _("{count} bills created").format(count=count))
 

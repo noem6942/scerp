@@ -165,6 +165,15 @@ class AnalyseMeasurentExcelActionForm(AdminActionForm):
 
 
 class RouteBillingForm(AdminActionForm):
+    tag = forms.ChoiceField(
+        label=_('Tag'),
+        required=False,
+        choices=[],
+        help_text=(
+            _("Invoice all subscriptions with this tag. Ignore ") +
+            _('Measurements') + '.')
+            
+    )    
     measurements = forms.ModelMultipleChoiceField(
         label=_('Measurements'),
         required=False,
@@ -193,5 +202,15 @@ class RouteBillingForm(AdminActionForm):
     def __post_init__(self, modeladmin, request, queryset):
         route = queryset.first()
         measurements = Measurement.objects.filter(
-            route=route).order_by('subscription__subscriber_number')
+            route=route
+        ).order_by('subscription__tag', 'subscription__subscriber_number')
         self.fields['measurements'].queryset = measurements
+
+        # tags
+        self.fields['tag'].choices = [(None, '-')] + list(        
+            set([
+                (x.subscription.tag, x.subscription.tag) 
+                for x in measurements 
+                if x.subscription.tag
+            ])
+        )        
