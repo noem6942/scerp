@@ -416,7 +416,7 @@ class Measurement(TenantAbstract):
         if desc:
             desc = ', ' + desc
         return (
-            f'{self.subscription.subscriber}, {self.address}{desc}: '
+            f'{self.subscription.subscriber_number} {self.subscription.subscriber}, {self.address}{desc}: '
             f'{self.route}, {self.counter}, {self.datetime}'
         )
 

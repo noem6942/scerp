@@ -193,5 +193,5 @@ class RouteBillingForm(AdminActionForm):
     def __post_init__(self, modeladmin, request, queryset):
         route = queryset.first()
         measurements = Measurement.objects.filter(
-            route=route).order_by('subscription')
+            route=route).order_by('subscription__subscriber_number')
         self.fields['measurements'].queryset = measurements

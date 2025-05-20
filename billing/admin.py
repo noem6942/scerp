@@ -272,7 +272,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     readonly_fields = (
         'display_invoice_address', 'display_invoice_address_list',
         'display_counters', 'display_articles', 'last_route_out',
-        'routes_out', 'invoices'
+        'routes_out', 'invoices', 'display_abo_nr'
     ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -281,7 +281,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'subscriber__last_name','subscriber__first_name',
         'partner__last_name','partner__first_name',
         'address__stn_label', 'address__adr_number', 'start', 'end',
-        'description', 'counters__code', 'notes')
+        'description', 'counters__code', 'notes', 'subscriber_number')
     list_filter = (
         filters.SubscriptionArticlesFilter,
         'number_of_counters', 'end', 'subscriber__company')
@@ -300,7 +300,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         (_('Controlling'), {
             'fields': (
                 'display_articles', 'display_counters',
-                'routes_out', 'invoices'
+                'routes_out', 'invoices', 'display_abo_nr'
             ),
             'classes': ('collapse',),
         }),

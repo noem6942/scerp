@@ -1190,10 +1190,10 @@ def fix_zero_problem(json_filename, excel_file_name, tenant_id):
         settings.BASE_DIR) / 'billing' / 'fixtures' / excel_file_name
     wb = load_workbook(file_path, data_only=False)
     ws = wb.active  # Or wb['SheetName']
-   
+
     # Read
     analyse_list = [
-        ['abo_nr', 'subscriber_excel', 'counter_nr', 'existing', 
+        ['abo_nr', 'subscriber_excel', 'counter_nr', 'existing',
          'consumption_old', 'consumption_new', 'counters', 'products']
     ]
     abo_nr, subscriber_excel = None, None
@@ -1210,7 +1210,7 @@ def fix_zero_problem(json_filename, excel_file_name, tenant_id):
                 abo_nr = row[5].value
                 subscriber_excel = row[1].value
                 continue
-            
+
         elif isinstance(value, int):
             # If number format includes zero-padding, reconstruct that
             if '0' in number_format:
@@ -1231,7 +1231,7 @@ def fix_zero_problem(json_filename, excel_file_name, tenant_id):
 
         # Add products
         if float(visible_value) < 100:
-            products = analyse_list[-1][-1]            
+            products = analyse_list[-1][-1]
             analyse_list[-1][-1] = products + 1
             continue
 
@@ -1243,12 +1243,12 @@ def fix_zero_problem(json_filename, excel_file_name, tenant_id):
         )
         if devices.count() > 1:
             analyse_list.append([
-                abo_nr, subscriber_excel, counter_nr, 'multiple', 
+                abo_nr, subscriber_excel, counter_nr, 'multiple',
                 None, None, 0, 0])
             continue
         elif not devices:
             analyse_list.append([
-                abo_nr, subscriber_excel, counter_nr, None, 
+                abo_nr, subscriber_excel, counter_nr, None,
                 None, None, 0, 0])
             continue
         device = devices.first()
@@ -1274,9 +1274,9 @@ def fix_zero_problem(json_filename, excel_file_name, tenant_id):
             consumption_new = measurements.first().consumption
         else:
             consumption_new = None
-            
+
         analyse_list.append(
-            [abo_nr, subscriber_excel, counter_nr, devices.exists(), 
+            [abo_nr, subscriber_excel, counter_nr, devices.exists(),
              consumption_old, consumption_new, 0, 0])
 
     # Calc counter_number
@@ -1289,7 +1289,7 @@ def fix_zero_problem(json_filename, excel_file_name, tenant_id):
     wb = Workbook()
     ws = wb.active
     ws.title = "Analysis Report"
-    
+
     # Add your data rows
     print("*analyse_list", analyse_list[:10])
     for row in analyse_list:
@@ -1298,8 +1298,7 @@ def fix_zero_problem(json_filename, excel_file_name, tenant_id):
     # Save to file
     file_name = 'analysis_report.xlsx'
     file_path = Path(
-            settings.BASE_DIR) / 'billing' / 'fixtures' / file_name    
+            settings.BASE_DIR) / 'billing' / 'fixtures' / file_name
     wb.save(file_path)
-    
+
     logging.info(f"{file_name} created")
-  

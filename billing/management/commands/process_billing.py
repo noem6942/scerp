@@ -21,7 +21,7 @@ class Command(BaseCommand):
             choices=[
                 'gesoft', 'gesoft_area', 'gesoft_archive',
                 'article_import', 'article_daily_rename',
-                'fix_zero_problem'
+                'fix_zero_problem', 'add_abo_nr'
             ],
             help='Specify the action: gesoft'
         )
