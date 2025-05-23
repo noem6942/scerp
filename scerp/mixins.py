@@ -35,27 +35,47 @@ User = get_user_model()
 
 
 # I/O functions
-def read_excel_file(file_path, convert_to_str=True):
-    '''read an excel sheet and interprete EVERY cell as string.
-        i.e. empty cell -> ''
-             111.11 -> '111.11'
-             012 -> '012'
-    '''
-    # Load the workbook
-    wb = load_workbook(filename=file_path, data_only=False)  # data_only=False to get formulas too
-    ws = wb.active  # Use the active sheet
+def read_excel(file_path, header_nr=1, string_cols=[]):
+    """
+    Reads an Excel file and returns a list of rows as dictionaries.
+    Columns listed in `string_cols` will be coerced to strings (to preserve leading zeros, etc).
+    
+    :param file_path: Path to the .xlsx file
+    :param header_nr: Row number containing headers (1-based)
+    :param string_cols: List of column names to force as strings
+    :return: List of dictionaries, one per row
+    """
+    wb = load_workbook(file_path, data_only=False)
+    ws = wb.active
 
-    # Iterate through the rows in the worksheet
-    rows = []
-    for row in ws.iter_rows(values_only=True):
-        # Convert each cell to string while keeping leading zeros
-        if convert_to_str:
-            row = [
-                str(cell).strip() if cell is not None else ''
-                for cell in row]
-        rows.append(row)
+    # Read header row
+    header_row = ws[header_nr]
+    headers = [cell.value for cell in header_row]
 
-    return rows
+    data = []
+    for row in ws.iter_rows(min_row=header_nr + 1, values_only=False):
+        row_data = {}
+        for col_idx, cell in enumerate(row):
+            if col_idx >= len(headers):
+                continue  # skip extra columns
+
+            col_name = headers[col_idx]
+            value = cell.value
+
+            # Force to string if in string_cols
+            if col_name in string_cols:
+                if value is None:
+                    value = ''
+                elif isinstance(value, float) and value.is_integer():
+                    value = str(int(value))
+                else:
+                    value = str(value)
+
+            row_data[col_name] = value
+
+        data.append(row_data)
+
+    return data
 
 
 def read_yaml_file(app_name, filename_yaml):

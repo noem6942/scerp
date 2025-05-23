@@ -204,6 +204,59 @@ class TenantLogoAdmin(TenantFilteringAdmin, BaseAdmin):
         return Display.photo(obj.logo)
 
 
+@admin.register(models.Ticket, site=admin_site)
+class TicketAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = ['tenant', 'version']
+
+    # Display these fields in the list view
+    list_display = ('title', 'issue_type', 'priority', 'status')
+    readonly_fields = ('status',) + FIELDS.LOGGING_TENANT
+
+    # Search, filter
+    search_fields = ('title',)
+    list_filter = ('created_at', 'issue_type', 'priority', 'status')
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'title', 'description', 'issue_type', 'priority', 'app',
+                'status'),
+            'classes': ('expand',),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+    )
+    
+    inlines = [AttachmentInline]    
+
+
+@admin.register(models.TicketAdminView, site=admin_site)
+class TicketOverviewAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Display these fields in the list view
+    list_display = ('tenant', 'title', 'issue_type', 'priority', 'status')
+    readonly_fields = FIELDS.LOGGING_TENANT
+
+    # Search, filter
+    search_fields = ('title',)
+    list_filter = ('created_at', 'issue_type', 'priority', 'status')
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'title', 'description', 'issue_type', 'priority', 'app',
+                'status'
+                ),
+            'classes': ('expand',),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+    )
+
+
+
 # MunicipalAdmin + Tag ----------------------------------------------------
 @admin.register(models.AddressMunicipal, site=admin_site)
 class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):

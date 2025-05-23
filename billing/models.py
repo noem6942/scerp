@@ -224,7 +224,7 @@ class Subscription(TenantAbstract):
             'leave empty, use for exceptions that should be on the invoice'))
     tag = models.CharField(
         _('Tag'), max_length=50, blank=True, null=True,
-        help_text=('Tag a subscriber, e.g. to invoice only these'))            
+        help_text=('Tag a subscriber, e.g. to invoice only these'))
     subscriber = models.ForeignKey(
         Person, verbose_name=_('Subscriber'),
         on_delete=models.PROTECT, related_name='%(class)s_subscriber',
@@ -329,23 +329,23 @@ class Subscription(TenantAbstract):
         verbose_name_plural = _('Subscriptions')
 
 
-class SubscriptionArticle(TenantAbstract):    
+class SubscriptionArticle(TenantAbstract):
     subscription = models.ForeignKey(
         Subscription, on_delete=models.CASCADE,
-        verbose_name=_('Subscription'), 
+        verbose_name=_('Subscription'),
         related_name='%(class)s_subscription')
     article = models.ForeignKey(
         Article, on_delete=models.PROTECT, null=True,
         verbose_name=_('Article'), related_name='%(class)s_article')
     quantity = models.PositiveSmallIntegerField(
-        _('Quantity'), blank=True, null=True,        
+        _('Quantity'), blank=True, null=True,
         help_text=(
             "Leave blank if unit is m3 / quantity derived from measurement")
     )
-    
+
     def __str__(self):
-        return f'{self.subscription}, {self.article}'    
-    
+        return f'{self.subscription}, {self.article}'
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -468,3 +468,27 @@ class Measurement(TenantAbstract):
             '-route__period__end', 'counter__number']
         verbose_name = _('Measurement')
         verbose_name_plural = _('Measurements')
+
+
+class MeasurementArchive(TenantAbstract):
+    datetime = models.DateTimeField(
+        _('Reference Date'), db_index=True,
+        help_text=_('Date of File as specified in mex'))
+    route = models.ForeignKey(
+        Route, verbose_name=_('Route'),
+        on_delete=models.PROTECT, related_name='%(class)s_counter')
+    data = models.JSONField(
+        _('data'), blank=True, null=True,
+        help_text=_("Get's automatically assigned.")
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'datetime', 'route'],
+                name='unique_measurement_archive'
+            )
+        ]
+        ordering = ['-datetime']
+        verbose_name = _('Measurement Archive')
+        verbose_name_plural = _('Measurements Archive')

@@ -13,8 +13,8 @@ from scerp.admin_site import admin_site
 
 from . import filters, actions as a
 from .models import (
-    Setup, Period, Route, Measurement, Subscription, SubscriptionArticle,
-    SubscriptionArchive
+    Setup, Period, Route, Measurement, MeasurementArchive,
+    Subscription, SubscriptionArticle, SubscriptionArchive
 )
 
 
@@ -252,6 +252,36 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('Area'))
     def display_area(self, obj):
         return obj.address.area
+
+
+@admin.register(MeasurementArchive, site=admin_site)
+class MeasurementArchiveAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = ['tenant', 'version', 'route']
+
+    # Display these fields in the list view
+    list_display = ('id', 'datetime', 'route') + FIELDS.ICON_DISPLAY
+    list_display_links = ('id', 'datetime')    
+    readonly_fields = ('data',) + FIELDS.LOGGING_TENANT
+
+    # Search, filter
+    search_fields = ('datetime',)    
+
+    # Actions
+    actions = [a.assign_measurement_archive]
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'datetime', 'route', 'data'
+            ),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+    )
+
+    inlines = [AttachmentInline]    
 
 
 class ArticleInline(BaseTabularInline):  # or admin.StackedInline

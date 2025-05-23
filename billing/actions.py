@@ -7,12 +7,14 @@ from django.utils.safestring import mark_safe
 from django_admin_action_forms import action_with_form
 
 from scerp.actions import action_check_nr_selected
+from scerp.mixins import read_excel
 from . import forms
 
 from asset.models import Device
+from core.models import Attachment
 from .calc import (
     RouteCounterExport, RouteCounterImport, RouteCounterInvoicing,
-    MeasurementAnalyse
+    Measurement, MeasurementAnalyse
 )
 from .models import Route, Subscription, Measurement
 
@@ -184,9 +186,7 @@ def analyse_measurement(modeladmin, request, queryset):
                 request, mark_safe(success_message), messages.SUCCESS)
 
         except Exception as e:
-            modeladmin.message_user(
-                request, _("Error: ") + str(e), messages.ERROR)
-
+            messages.error(request, str(e), messages.ERROR)
         except:
             messages.error(request, _('No valid data available'))
 
@@ -208,3 +208,53 @@ def anaylse_measurent_excel(modeladmin, request, queryset, data):
         response = a.output_excel(data, filename, ws_title)
 
         return response
+
+
+@admin.action(description=_("Assign Measurement Archive"))
+def assign_measurement_archive(modeladmin, request, queryset):
+    if action_check_nr_selected(request, queryset, count=1):
+        # Init
+        col_counter_id = 'Zähler-Nr.'
+        col_value = 'Wert'
+        col_obis_code = 'Obis'
+
+        # Get archive
+        archive = queryset.first()
+        attachments = Attachment.get_attachments_for_instance(archive)
+
+        # Load File
+        try:
+            filename = attachments.first().file.path
+        except:
+            messages.error(request, "No files or two many files attached.")
+
+        # Process File
+        data_list = read_excel(
+            filename, header_nr=1, string_cols=[col_counter_id])
+        count, counter_nok, measurement_nok = len(data_list), 0, 0
+
+        for data in data_list:
+            counter_id = data[col_counter_id]
+            value = data[col_value]
+            obis_code = data[col_obis_code]
+            
+            device = Device.objects.filter(
+                tenant=archive.tenant,
+                code=counter_id
+            ).first()
+            if device:
+                if not Measurement.objects.filter(counter=device).exists():
+                    measurement_nok += 1
+                    messages.warning(
+                        request, f"{counter_id}: {value} - value not existing [{obis_code}]")
+            else:
+                counter_nok += 1
+                messages.warning(
+                    request,
+                    f"{counter_id}: {value} - measurement not existing [{obis_code}]")
+
+        messages.info(request, (
+            f"Result: {count} counters: "
+            f"{counter_nok} missing counters, "
+            f"{measurement_nok} missing measurements.")
+        )

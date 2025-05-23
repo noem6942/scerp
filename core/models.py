@@ -84,7 +84,7 @@ class App(LogAbstract, NotesAbstract):
     verbose_name = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
-        return self.name
+        return self.verbose_name
 
     class Meta:
         ordering = ['name']
@@ -338,6 +338,18 @@ class Attachment(LogAbstract):
     def __str__(self):
         return f'Attachment {self.id} for {self.content_object}'
 
+    @classmethod
+    def get_attachments_for_instance(cls, instance):
+        """
+        Returns a single Attachment for a given model instance using GenericForeignKey.
+        Raises ValueError if no or multiple attachments are found.
+        """
+        content_type = ContentType.objects.get_for_model(instance)
+
+        return cls.objects.filter(
+            content_type=content_type, object_id=instance.pk
+        ).order_by('-object_id')
+
 
 class TenantLogo(TenantAbstract):
     '''used for logos for all apps
@@ -370,6 +382,63 @@ class TenantLogo(TenantAbstract):
         ]
         verbose_name = _('tenant logo')
         verbose_name_plural =  _('tenant logos')
+
+
+class Ticket(TenantAbstract):
+    '''used for generating tickets
+    '''
+    class IssueType(models.TextChoices):
+        INCIDENT = 'incident', _('Incident')
+        REQUEST = 'request', _('Request')
+        CHANGE = 'change', _('Change')
+
+    class Priority(models.TextChoices):
+        CRITICAL = 'critical', _('Critical - System is down or users cannot work')
+        HIGH = 'high', _('High - Major functions not working, no workaround')
+        MEDIUM = 'medium', _('Medium - Some functions impaired, workaround available')
+        LOW = 'low', _('Low - Minor issue or bug')
+
+    class Department(models.TextChoices):
+        IT = 'it', _('IT Support')
+        HR = 'hr', _('HR')
+        FINANCE = 'finance', _('Finance')
+        FACILITIES = 'facilities', _('Facilities')
+        CUSTOMER_SERVICE = 'customer_service', _('Customer Service')
+
+    class Status(models.TextChoices):
+        NEW = 'new', _('New')
+        IN_PROGRESS = 'in_progress', _('In Progress')
+        AWAITING_CUSTOMER = 'awaiting_customer', _('Awaiting Customer')
+        RESOLVED = 'resolved', _('Resolved')
+        CLOSED = 'closed', _('Closed')
+
+    title = models.CharField(_('title'), max_length=255)
+    description = models.TextField(_('description'))
+    issue_type = models.CharField(
+        _('issue type'), max_length=20, choices=IssueType.choices)
+    priority = models.CharField(
+        _('priority'), max_length=20, choices=Priority.choices)
+    status = models.CharField(
+        _('status'), max_length=30, choices=Status.choices, default=Status.NEW)
+    app = models.ForeignKey(
+        App, models.SET_NULL, null=True, blank=True,
+        verbose_name=_('app'), related_name="%(class)s_app",
+        help_text=_('Related App where the issue occurs (optional).')
+    )
+    def __str__(self):
+        return f"{self.title} ({self.get_issue_type_display()})"
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = _('Ticket')
+        verbose_name_plural = _('Tickets')
+
+
+class TicketAdminView(Ticket):
+    class Meta:
+        proxy = True
+        verbose_name = _('Ticket - Admin View')
+        verbose_name_plural = _('Tickets - Admin Views')
 
 
 # Accounting --------------------------------------------------------
