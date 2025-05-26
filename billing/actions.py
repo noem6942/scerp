@@ -11,7 +11,7 @@ from scerp.mixins import read_excel
 from . import forms
 from .calc import convert_str_to_datetime
 
-from asset.models import Device
+from asset.models import AssetCategory, Device, EventLog
 from core.models import Attachment
 from .calc import (
     RouteCounterExport, RouteCounterImport, RouteCounterInvoicing,
@@ -211,6 +211,31 @@ def anaylse_measurent_excel(modeladmin, request, queryset, data):
         return response
 
 
+# helper
+def assign_measurement_archive_measurement(archive, device, data):
+    ''' data: gwf dataset from direct Excel load '''
+    # create Measurement
+    measurement = dict(
+        tenant=archive.tenant,
+        counter=device,
+        route=archive.route,
+        period=archive.route.period,
+        datetime=convert_str_to_datetime(data['showDate2']),
+        value=data['Wert'],
+        datetime_latest=convert_str_to_datetime(
+            data.get('dtLast2')),
+        value_latest=data.get('lastValue'),
+        notes=(
+            f"abo-nr: {data['i.customerNo']}\n"
+            f"name: {data['Kundenname']}\n"
+            f"{data['Adresse']}\n"
+        ),
+        created_by=archive.created_by
+    )
+    obj = Measurement.objects.create(**measurement)
+    return obj
+
+
 @admin.action(description=_("Assign Measurement Archive"))
 def assign_measurement_archive(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, count=1):
@@ -237,11 +262,11 @@ def assign_measurement_archive(modeladmin, request, queryset):
         for data in data_list:
             counter_id = data[col_counter_id]
             value = data[col_value]
-            
+
             if not value:
                 continue  # we don't care
-                        
-            obis_code = data[col_obis_code]            
+
+            obis_code = data[col_obis_code]
             device = Device.objects.filter(
                 tenant=archive.tenant,
                 code=counter_id
@@ -251,32 +276,50 @@ def assign_measurement_archive(modeladmin, request, queryset):
                     measurement_nok += 1
                     messages.warning(
                         request, f"{counter_id}: {value} - value not existing [{obis_code}]")
-                        
-                    # create Measurement
-                    measurement = dict(
-                        tenant=archive.tenant,
-                        counter=device,
-                        route=archive.route,
-                        period=archive.route.period,
-                        datetime=convert_str_to_datetime(data['showDate2']),
-                        value=data['Wert'],
-                        datetime_latest=convert_str_to_datetime(
-                            data.get('dtLast2')),
-                        value_latest=data.get('lastValue'),
-                        notes=(
-                            f"abo-nr: {data['i.customerNo']}\n"
-                            f"name: {data['Kundenname']}\n"                            
-                            f"{data['Adresse']}\n"
-                        ),
-                        created_by=archive.created_by
-                    )
-                    obj = Measurement.objects.create(**measurement)
+                    obj = assign_measurement_archive_measurement(
+                        archive, device, data)
+
             else:
                 # counter and measurement not existing
                 counter_nok += 1
                 messages.warning(
                     request,
                     f"{counter_id}: {value} - counter and measurement not existing [{obis_code}]")
+
+                # get asset category
+                category = AssetCategory.objects.filter(
+                    tenant=archive.tenant,
+                    code=obis_code,
+                    counter_factor=1
+                ).first()
+
+                # Create counter
+                counter = dict(
+                    tenant=archive.tenant,
+                    code=counter_id,
+                    category=category,
+                    date_added=convert_str_to_datetime('1900-01-01').date(),
+                    number=counter_id,
+                    batch='archive',
+                    notes=(
+                        f"abo-nr: {data['i.customerNo']}\n"
+                        f"name: {data['Kundenname']}\n"
+                        f"{data['Adresse']}\n"
+                    ),
+                    created_by=archive.created_by
+                )
+                device = Device.objects.create(**counter)
+
+                # Create EventLog
+                event = EventLog.objects.create(
+                    tenant=archive.tenant,
+                    device=device,
+                    created_by=archive.created_by
+                )
+
+                # Create Measurement
+                obj = assign_measurement_archive_measurement(
+                        archive, device, data)
 
         messages.info(request, (
             f"Result: {count} counters: "
