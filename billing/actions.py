@@ -243,7 +243,7 @@ def assign_measurement_archive(modeladmin, request, queryset):
                 tenant=archive.tenant,
                 code=counter_id
             ).first()
-            if device value:
+            if device:
                 if value and not Measurement.objects.filter(
                         counter=device).exists():
                     measurement_nok += 1
