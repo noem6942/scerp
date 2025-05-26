@@ -237,15 +237,17 @@ def assign_measurement_archive(modeladmin, request, queryset):
         for data in data_list:
             counter_id = data[col_counter_id]
             value = data[col_value]
-            obis_code = data[col_obis_code]
             
+            if not value:
+                continue  # we don't care
+                        
+            obis_code = data[col_obis_code]            
             device = Device.objects.filter(
                 tenant=archive.tenant,
                 code=counter_id
             ).first()
             if device:
-                if value and not Measurement.objects.filter(
-                        counter=device).exists():
+                if not Measurement.objects.filter(counter=device).exists():
                     measurement_nok += 1
                     messages.warning(
                         request, f"{counter_id}: {value} - value not existing [{obis_code}]")
