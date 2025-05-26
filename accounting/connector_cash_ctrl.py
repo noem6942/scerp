@@ -755,6 +755,12 @@ class OutgoingOrder(Order):
         ) if item.article.category.tax else 1
         return float(item.article.sales_price * tax_factor)
 
+    @staticmethod
+    def get_description(item):
+        if item.description:
+            return item.description
+        return primary_language(item.article.description)        
+
     def adjust_for_upload(self, instance, data, created=None):
         self.make_base(instance, data)
 
@@ -797,7 +803,7 @@ class OutgoingOrder(Order):
         data['items'] = [{
             'accountId': item.article.category.sales_account.c_id,
             'name': primary_language(item.article.name),
-            'description': primary_language(item.article.description),
+            'description': self.get_description(item),
             'quantity': float(item.quantity),
             'unitPrice': self.correct_cash_ctrl_article_price(item),
             'unitId': item.article.unit.c_id,

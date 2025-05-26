@@ -1491,7 +1491,7 @@ class OrderCategoryOutgoing(OrderCategory):
     '''Category for outgoing invoices,
         use this to define all booking details
         replace by article category
-    '''        
+    '''
     class STATUS(models.TextChoices):
         DRAFT = 'Draft', _('Draft')
         BOOKED = 'Booked', _('Booked')
@@ -1526,12 +1526,12 @@ class OrderCategoryOutgoing(OrderCategory):
         STATUS.ARCHIVED: False,
         STATUS.CANCELLED: True,
     }
-    
+
     BOOKING_STEP = {
-        STATUS.BOOKED: _('Booking'), 
+        STATUS.BOOKED: _('Booking'),
         STATUS.PAID: _('Payment')
     }
-    
+
     is_display_item_gross = True
     type = OrderCategory.TYPE.SALES
     debit_account = models.ForeignKey(
@@ -1811,6 +1811,9 @@ class OutgoingItem(AcctApp):
         verbose_name=_('Article'))
     quantity = models.DecimalField(
         _('Quantity'), max_digits=11, decimal_places=2)
+    description = models.CharField(
+        _('Description'), max_length=200, blank=True, null=True,
+        help_text=_("Custom description for article, leave empty for default"))
     order = models.ForeignKey(
         OutgoingOrder, on_delete=models.CASCADE,
         related_name='%(class)s_order',

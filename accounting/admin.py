@@ -1080,7 +1080,7 @@ class OutgoingItemsInline(BaseTabularInline):  # or admin.StackedInline
 
     # Inline
     model = models.OutgoingItem
-    fields = ['article', 'quantity']  # Only show these fields
+    fields = ['article', 'quantity', 'description']  # Only show these fields
     #formset = RequireOneOutgoingItemFormSet  # Force at least one article
     extra = 1  # Number of empty forms displayed
     autocomplete_fields = ['article']  # Improves FK selection performance
