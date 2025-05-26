@@ -293,6 +293,12 @@ def assign_measurement_archive(modeladmin, request, queryset):
                     counter_factor=1
                 ).first()
 
+                if not category:
+                    messages.warning(
+                        request,
+                        f"{counter_id}: no category found [{obis_code}]")
+                    continue
+
                 # Create counter
                 counter = dict(
                     tenant=archive.tenant,
