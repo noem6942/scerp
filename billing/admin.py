@@ -179,7 +179,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         filters.MeasurementPeriodFilter,
         filters.MeasurementRouteFilter,
         filters.MeasurementConsumptionFilter,
-        'datetime')
+        'datetime', 'notes')
     autocomplete_fields = ['counter', 'address', 'subscription']
 
     # Actions
