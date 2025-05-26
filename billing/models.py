@@ -432,24 +432,27 @@ class Measurement(TenantAbstract):
 
     # for efficiency analysis, automatically updated
     address = models.ForeignKey(
-        AddressMunicipal, verbose_name=_('Address'),
+        AddressMunicipal, verbose_name=_('Address'), blank=True, null=True,
         on_delete=models.PROTECT, related_name='%(class)s_address')
     period = models.ForeignKey(
         Period, verbose_name=_('Period'),
         on_delete=models.PROTECT, related_name='%(class)s_period')
     subscription = models.ForeignKey(
-        Subscription, verbose_name=_('Subscription'),
+        Subscription, verbose_name=_('Subscription'), blank=True, null=True,
         on_delete=models.PROTECT, related_name='%(class)s_subscriber')
 
     def __str__(self):
-        desc = self.subscription.description or ''
-        if desc:
-            desc = ', ' + desc
-        return (
-            f"{self.subscription.tag or ''}{self.subscription.subscriber_number} "
-            f"{self.subscription.subscriber}, {self.address}{desc}: "
-            f"{self.route}, {self.counter}, {self.datetime}"
-        )
+        if self.subscription:        
+            desc = self.subscription.description or ''
+            if desc:
+                desc = ', ' + desc
+            return (
+                f"{self.subscription.tag or ''}{self.subscription.subscriber_number} "
+                f"{self.subscription.subscriber}, {self.address}{desc}: "
+                f"{self.route}, {self.counter}, {self.datetime}"
+            )
+        else:
+            return  f"{self.route}, {self.counter}, {self.datetime} - Unassigned!"
 
     @property
     def consumption_with_sign(self):

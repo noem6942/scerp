@@ -9,6 +9,7 @@ from django_admin_action_forms import action_with_form
 from scerp.actions import action_check_nr_selected
 from scerp.mixins import read_excel
 from . import forms
+from .calc import convert_str_to_datetime
 
 from asset.models import Device
 from core.models import Attachment
@@ -242,16 +243,38 @@ def assign_measurement_archive(modeladmin, request, queryset):
                 tenant=archive.tenant,
                 code=counter_id
             ).first()
-            if device:
-                if not Measurement.objects.filter(counter=device).exists():
+            if device value:
+                if value and not Measurement.objects.filter(
+                        counter=device).exists():
                     measurement_nok += 1
                     messages.warning(
                         request, f"{counter_id}: {value} - value not existing [{obis_code}]")
+                        
+                    # create Measurement
+                    measurement = dict(
+                        tenant=archive.tenant,
+                        counter=device,
+                        route=archive.route,
+                        period=archive.route.period,
+                        datetime=convert_str_to_datetime(data['showDate2']),
+                        value=data['Wert'],
+                        datetime_latest=convert_str_to_datetime(
+                            data.get('dtLast2')),
+                        value_latest=data.get('lastValue'),
+                        notes=(
+                            f"abo-nr: {data['i.customerNo']}\n"
+                            f"name: {data['Kundenname']}\n"                            
+                            f"{data['Adresse']}\n"
+                        ),
+                        created_by=archive.created_by
+                    )
+                    obj = Measurement.objects.create(**measurement)
             else:
+                # counter and measurement not existing
                 counter_nok += 1
                 messages.warning(
                     request,
-                    f"{counter_id}: {value} - measurement not existing [{obis_code}]")
+                    f"{counter_id}: {value} - counter and measurement not existing [{obis_code}]")
 
         messages.info(request, (
             f"Result: {count} counters: "

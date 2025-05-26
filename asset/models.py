@@ -197,8 +197,10 @@ class EventLog(TenantAbstract):
         verbose_name=_("Address"),
         related_name='%(class)s_customer',
         help_text=_(
-            "Mandatory for counters, "
-            "leave empty if irrelevant (e.g. room specified)"))
+            "leave empty if irrelevant (e.g. room specified)"
+            "Note: billing takes subscription.address as master, not event "
+            "log!"
+        ))
     dwelling = models.ForeignKey(
         Dwelling, on_delete=models.SET_NULL, blank=True, null=True,
         verbose_name=_("Dwelling"),

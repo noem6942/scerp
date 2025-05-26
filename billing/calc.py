@@ -59,10 +59,10 @@ def convert_datetime_to_date(dt):
     return dt.strftime('%Y-%m-%d')
 
 
-def convert_str_to_datetime(dt_string):
+def convert_str_to_datetime(dt_string, date_format='%Y-%m-%d'):
     # is only date
     try:
-        naive_datetime = datetime.strptime(dt_string, '%Y-%m-%d')
+        naive_datetime = datetime.strptime(dt_string, date_format)
     except:
         return None
 

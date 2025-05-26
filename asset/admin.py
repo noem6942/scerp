@@ -3,7 +3,7 @@ from django.utils.translation import gettext_lazy as _
 
 from core.admin import AttachmentInline
 from scerp.actions import export_excel, default_actions
-from scerp.admin import BaseAdmin, make_language_fields
+from scerp.admin import BaseAdmin, BaseTabularInline, make_language_fields
 from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 
@@ -44,6 +44,21 @@ class AssetCategory(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
+
+
+class EventLogInline(BaseTabularInline):  # or admin.StackedInline
+    # Safeguards
+    protected_foreigns = [
+        'tenant', 'version', 'customer', 'address', 'dwelling', 'room']
+
+    # Inline
+    model = EventLog
+    fields = [
+        'datetime', 'status', 
+        'customer', 'address', 'dwelling', 'room']  # Only show these fields
+    extra = 0  # Number of empty forms displayed
+    autocomplete_fields = ['customer', 'address']  # Improves FK selection performance
+    show_change_link = True  # Shows a link to edit the related model
 
 
 @admin.register(Device, site=admin_site)
@@ -91,7 +106,7 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
     )
     
-    inlines = [AttachmentInline]
+    inlines = [EventLogInline]
 
 
 @admin.register(EventLog, site=admin_site)

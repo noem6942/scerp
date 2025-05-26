@@ -227,11 +227,14 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     @admin.display(description=_('abo_nr'))
     def display_abo_nr(self, obj):
-        return obj.subscription.subscriber_number
+        if obj.subscription:
+            return obj.subscription.subscriber_number        
+            
 
     @admin.display(description=_('Subscriber'))
     def display_subscriber(self, obj):
-        return obj.subscription.subscriber.__str__()[:40]
+        if obj.subscription:
+            return obj.subscription.subscriber.__str__()[:40]
 
     @admin.display(description=_('Consumption'), ordering='consumption')
     def display_consumption(self, obj):
@@ -251,7 +254,8 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     @admin.display(description=_('Area'))
     def display_area(self, obj):
-        return obj.address.area
+        if obj.address:
+            return obj.address.area
 
 
 @admin.register(MeasurementArchive, site=admin_site)
