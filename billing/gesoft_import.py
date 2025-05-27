@@ -2,6 +2,7 @@
 billing/gesoft_import.py
 '''
 from enum import Enum
+import copy
 import json
 import logging
 import re
@@ -10,6 +11,7 @@ from openpyxl import Workbook, load_workbook
 from pathlib import Path
 
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from accounting.models import ArticleCategory, Article
@@ -1393,3 +1395,77 @@ def adjust_mfh(tenant_id):
             logging.info(f"{subscription}: updated {count} to {quantity}")
         else:
             logging.warning(f"{subscription}: article not found")
+
+
+def rearrange_counters(tenant_id):
+    # temp for re arranging counters
+    subscriptions = Subscription.objects.filter(
+        tenant__id=tenant_id
+    ).order_by('subscriber_number')
+    for subscription in subscriptions:
+        # currently we do only manage subscriptions with one counter
+        if subscription.counter:
+            continue
+        if subscription.counters.count() == 1:
+            subscription.counter = subscription.counters.first()
+            # subscription.counters.clear()
+            subscription.save()
+            logger.info(f"cleared {subscription}")
+        elif subscription.counters.count() == 2:
+            # first one
+            subscription.counter = subscription.counters.first()
+            # subscription.counters.clear()
+            subscription.save()
+
+            # Second one
+            with transaction.atomic():
+                # save reference to original object
+                original_subscription = subscription
+                counter = subscription.counters.last()
+
+                # 1. Make a copy of the subscription
+                subscription.pk = None  # Unset the primary key
+                subscription.counter = counter
+                subscription.dossier_id = original_subscription.id
+                subscription.save()
+
+                new_subscription = subscription  # This is your duplicated instance
+
+                # 2. Copy related SubscriptionArticles
+                original_articles = SubscriptionArticle.objects.filter(
+                    subscription=original_subscription)
+
+                for article in original_articles:
+                    article_copy = copy.copy(article)
+                    article_copy.pk = None
+                    article_copy.id = None
+                    article_copy.subscription = new_subscription
+                    article_copy.save()
+
+            logger.info(f"cleared 2* {subscription}")
+
+
+def delete_negative_counter():
+    # Delete subscriptions
+    count = Subscription.objects.filter(
+        counter__category__counter_factor=-1
+    ).delete()
+    logger.info(f"subscription deleted: {count}")
+
+    # Delete measurements
+    count = Measurement.objects.filter(
+        counter__category__counter_factor=-1
+    ).delete()
+    logger.info(f"measurements deleted: {count}")
+
+    # Delete counters
+    queryset = Device.objects.filter(category__counter_factor=-1)
+    for counter in queryset.all():
+        counter.delete()
+        logger.info(f"delete {counter}")
+
+    # Delete asset classes
+    queryset = AssetCategory.objects.filter(counter_factor=-1)
+    for category in queryset.all():
+        category.delete()
+        logger.info(f"delete {category}")

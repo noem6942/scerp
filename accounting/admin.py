@@ -1091,16 +1091,17 @@ class OutgoingItemsInline(BaseTabularInline):  # or admin.StackedInline
 class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'contract', 'category', 'responsible_person'
+        'tenant', 'version', 'contract', 'category', 'dossier',
+        'responsible_person'
     ]
 
     # Display these fields in the list view
     list_display = (
-        'date', 'category', 'description', 'associate',
+        'date', 'nr', 'category', 'associate',
         'category__currency', 'status', 'display_cash_ctrl_url'
     )  + FIELDS.C_DISPLAY_SHORT + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
     list_display_links = (
-        'date', 'description'
+        'date', 'nr'
     ) + CORE_FIELDS.LINK_ATTACHMENT
     readonly_fields = FIELDS.C_READ_ONLY
 
@@ -1122,7 +1123,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'category', 'contract', 'status', 'description', 'date',
-                'associate', 'due_days', 'responsible_person'),
+                'associate', 'due_days', 'responsible_person', 'dossier'),
             'classes': ('expand',),
         }),
         (_('Layout'), {

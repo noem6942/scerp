@@ -1764,6 +1764,11 @@ class OutgoingOrder(Order):
     description = models.TextField(
         _('Description'), blank=True, null=True,
         help_text=_("internal note, e.g. Services May"))
+    dossier = models.ForeignKey(
+        'self', on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_dossier',
+        verbose_name=_('Dossier'),
+        help_text=_("Link to another related invoice. Default: leave empty "))
     recipient_address = models.TextField(
         _('Recipient Address'), blank=True, null=True,
         help_text=_(
@@ -1797,10 +1802,11 @@ class OutgoingOrder(Order):
             "Leave empty if default."))
 
     def __str__(self):
-        return (f"{self.contract.associate.company}, {self.date}, "
+        return (f"{self.nr} {self.contract.associate.company}, {self.date}, "
                 f"{self.description}")
 
     class Meta:
+        ordering = ['-id']
         verbose_name = _("Debtor - Invoice")
         verbose_name_plural = _("Debtor - Invoices")
 

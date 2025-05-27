@@ -211,6 +211,6 @@ class RouteBillingForm(AdminActionForm):
             set([
                 (x.subscription.tag, x.subscription.tag) 
                 for x in measurements 
-                if x.subscription.tag
+                if x.subscription and x.subscription.tag
             ])
         )        

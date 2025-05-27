@@ -659,6 +659,7 @@ class RouteCounterInvoicing(RouteManagement):
             'contract': setup.order_contract,
             'description': measurement.route.__str__() + description,
             'responsible_person': setup.contact,
+            'dossier': subscription.dossier,
             'date': self.date,
             'status': self.status,
             'is_enabled_sync': self.is_enabled_sync,
@@ -757,6 +758,7 @@ class RouteCounterInvoicing(RouteManagement):
                 
         # add bill        
         # subscription.invoices.add(invoice)
+
 
 class MeasurementAnalyse:
     '''

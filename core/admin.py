@@ -254,6 +254,8 @@ class TicketOverviewAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
+    
+    inlines = [AttachmentInline]    
 
 
 

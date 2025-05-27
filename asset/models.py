@@ -114,9 +114,6 @@ class Device(AcctApp):
     purchase_price = models.DecimalField(
         _('Price'), max_digits=20, decimal_places=2, blank=True, null=True,
         help_text=_("Purchase price"))
-    status = models.CharField(
-        max_length=3, choices=DEVICE_STATUS.choices, null=True, blank=True,
-        help_text='Gets updated automatically')
     description = models.JSONField(
         _('Description'), null=True, blank=True,
         help_text=_(
@@ -144,6 +141,28 @@ class Device(AcctApp):
         _("Batch"), max_length=50, null=True, blank=True,
         help_text=_("Batch or order id"),
     )
+    
+    # Maintenance
+    status = models.CharField(
+        max_length=3, choices=DEVICE_STATUS.choices, null=True, blank=True,
+        help_text='Gets updated automatically')    
+    address = models.ForeignKey(
+        AddressMunicipal, on_delete=models.SET_NULL, blank=True, null=True,
+        verbose_name=_("Address"),
+        related_name='%(class)s_customer',
+        help_text='Gets updated automatically')
+    dwelling = models.ForeignKey(
+        Dwelling, on_delete=models.SET_NULL, blank=True, null=True,
+        verbose_name=_("Dwelling"),
+        related_name='%(class)s_dwelling',
+        help_text='Gets updated automatically')        
+    room = models.ForeignKey(
+        Room, on_delete=models.SET_NULL, blank=True, null=True,
+        verbose_name=_("Room"),
+        related_name='%(class)s_room',
+        help_text='Gets updated automatically')       
+    
+    # Attachments
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
 
     def __str__(self):
@@ -215,14 +234,24 @@ class EventLog(TenantAbstract):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
-        # Update status in counter
+        # Update mainatenance in counter
         event = EventLog.objects.filter(
             device=self.device).order_by('datetime').last()
         self.device.status = event.status
+        self.device.address = event.address
+        self.device.dwelling = event.dwelling
+        self.device.room = event.room
         self.device.save()
 
     def __str__(self):
-        return f"{self.modified_at.strftime('%B %d, %Y, %H:%M')}, {self.device}"
+        name = f"{self.modified_at.strftime('%B %d, %Y, %H:%M')}, {self.device}"
+        if self.address:
+            name += f', {self.address}'
+        if self.dwelling:
+            name += f', {self.dwelling}'
+        if self.room:
+            name += f', {self.room}'
+        return name
 
     class Meta:
         constraints = [

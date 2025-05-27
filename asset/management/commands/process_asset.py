@@ -17,7 +17,9 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             'action',  # Positional argument
-            choices=['gesoft', 'update_counter_assets'],  # Restrict valid values
+            choices=[
+                'gesoft', 'update_counter_assets', 'delete_negative_counter'
+            ],  # Restrict valid values
             help='Specify the action: gesoft'
         )
         parser.add_argument(
@@ -46,6 +48,13 @@ class Command(BaseCommand):
                         
             # Loadcounters
             update_counter_assets(tenant_id)
+        
+        elif action == 'delete_negative_counter':
+            # Import library
+            from asset.gesoft_import import delete_negative_counter
+                        
+            # Loadcounters
+            delete_negative_counter()
             
         else:
             raise ValueError("No valid action")

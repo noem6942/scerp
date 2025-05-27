@@ -74,7 +74,9 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
         'code', 'category', 'display_name', 'number', 'status'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = ('code', 'display_name') + FIELDS.LINK_ATTACHMENT
-    readonly_fields = ('display_name', 'status') + FIELDS.LOGGING_TENANT
+    readonly_fields = (
+        'display_name', 'status', 'address', 'dwelling', 'room',
+    ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = (
@@ -94,7 +96,8 @@ class DeviceAdmin(TenantFilteringAdmin, BaseAdmin):
         }),
         (_("Status & Dates"), {
             'fields': (
-                'status', 'date_added', 'date_disposed', 'warranty_months'),
+                'status', 'address', 'dwelling', 'room',
+                'date_added', 'date_disposed', 'warranty_months'),
         }),
         (_("Identification"), {
             'fields': (

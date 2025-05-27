@@ -304,17 +304,17 @@ class ArticleInline(BaseTabularInline):  # or admin.StackedInline
 class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'subscriber', 'partner', 'recipient', 'address']
+        'tenant', 'version', 'dossier', 'subscriber', 'partner', 
+        'recipient', 'address', 'counter']
     help_text = _(
         "Create a new subscription if owner changes, otherwise previous "
         "values are shown at the bill which is against policies. ")
 
     # Display these fields in the list view
     list_display = (
-        'display_subscriber', 'partner', 'address', 'description',
-        'display_invoice_address_list',
-        'start', 'end', 'display_abo_nr', 'number_of_counters',
-        'last_route_out', 'last_measurement'
+        'display_subscriber', 'tag', 'description', 'address',
+        'start', 'end', 'display_abo_nr', 'last_route_out', 
+        'last_measurement'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = ('display_subscriber', 'address')
     readonly_fields = (
@@ -329,18 +329,20 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'subscriber__last_name','subscriber__first_name',
         'partner__last_name','partner__first_name',
         'address__stn_label', 'address__adr_number', 'start', 'end',
-        'description', 'counters__code', 'notes', 'subscriber_number')
+        'description', 'counter__code', 'notes', 'subscriber_number'
+    )
     list_filter = (
         'tag', 'number_of_counters', 'end', 'subscriber__company')
-    autocomplete_fields = ['subscriber', 'partner', 'recipient', 'address']
+    autocomplete_fields = [
+        'dossier', 'subscriber', 'partner', 'recipient', 'address']
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
-                'subscriber', 'partner', 'recipient',
+                'subscriber', 'partner', 'recipient', 'dossier',
                 'display_invoice_address',
-                'start', 'end', 'address', 'description', 'tag', 'counters'
+                'start', 'end', 'address', 'description', 'tag', 'counter'
             ),
         }),
         (_('Controlling'), {
@@ -388,10 +390,8 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('Last Route / Measurement'))
     def last_measurement(self, obj):
         measurement = obj.measurements.last() 
-        return (
-            f"{measurement.route.id} / {round(measurement.consumption)}"
-            if measurement and measurement.consumption else None
-        )
+        if measurement and measurement.consumption:
+            return measurement.datetime.date() 
 
 @admin.register(SubscriptionArchive, site=admin_site)
 class SubscriptionArchiveAdmin(TenantFilteringAdmin, BaseAdmin):

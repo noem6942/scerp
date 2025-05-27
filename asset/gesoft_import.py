@@ -186,3 +186,17 @@ def update_counter_assets(tenant_id):
         device.sync_to_accounting = True
         device.save()
         logger.info(f"saved {device}")
+
+
+def delete_negative_counter():
+    # Delete counters
+    queryset = Device.objects.filter(category__counter_factor=-1)
+    for counter in queryset.all():
+        counter.delete()
+        logger.info(f"delete {counter}")
+        
+    # Delete asset classes
+    queryset = AssetCategory.objects.filter(counter_factor=-1)
+    for category in queryset.all():
+        category.delete()
+        logger.info(f"delete {category}")   

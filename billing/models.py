@@ -217,7 +217,7 @@ class Subscription(TenantAbstract):
         help_text=('New subscription number, retrieved automatically'))
     subscriber_number = models.CharField(
         _('Abo Nr'), max_length=50, blank=True, null=True,
-        help_text=('Old subscription number, leave empty'))
+        help_text=('Old subscription number, leave empty'))           
     description = models.CharField(
         _('Description'), max_length=200, blank=True, null=True,
         help_text=(
@@ -231,7 +231,7 @@ class Subscription(TenantAbstract):
         help_text=_(
             "subscriber / inhabitant / owner"
             "invoice address may be different to subscriber, defined under "
-            "address"))
+            "address"))       
     partner = models.ForeignKey(
         Person, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Partner'), related_name='%(class)s_partner',
@@ -244,6 +244,10 @@ class Subscription(TenantAbstract):
         verbose_name=_('Invoice recipient'),
         related_name='%(class)s_recipient',
         help_text=_("Invoice recipient if not subscriber."))
+    dossier = models.ForeignKey(
+        'self', on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Dossier'), related_name='%(class)s_dossier',
+        help_text=_("main subscription if multiple counters"))  
     address = models.ForeignKey(
         AddressMunicipal, verbose_name=_('Building Address'), null=True,
         on_delete=models.PROTECT, related_name='%(class)s_address',
@@ -252,14 +256,14 @@ class Subscription(TenantAbstract):
         _('Start Date'), help_text=_("Start date of subscription."))
     end = models.DateField(
         _('Exit Date'), blank=True, null=True)
-    counters = models.ManyToManyField(
+    counter = models.ForeignKey(
+        Device, on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Counter'), related_name='%(class)s_counter',
+        help_text=_("main subscription if multiple counters"))             
+    counters = models.ManyToManyField(  # discontinue
         Device, verbose_name=_('Counter'), blank=True,
-        related_name='%(class)s_counter')
-    articles = models.ManyToManyField(
-        Article, verbose_name=_('Article'),
-        related_name='%(class)s_articles',
-        help_text=_('Will be phased out!!!!'))
-    number_of_counters = models.PositiveSmallIntegerField(
+        related_name='%(class)s_counters')
+    number_of_counters = models.PositiveSmallIntegerField(  # discontinue
         _('Number of counters'), default=0, editable=False,
         help_text=_('Gets updated automatically by signals'))
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
@@ -312,8 +316,11 @@ class Subscription(TenantAbstract):
 
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f'{self.subscriber}, {self.start} - {self.end}'
+    def __str__(self):        
+        name = f'{self.address}'
+        if self.description:
+            name += ' - ' + self.description
+        return name
 
     class Meta:
         constraints = [
@@ -324,7 +331,8 @@ class Subscription(TenantAbstract):
         ]
         ordering = [
             'subscriber__alt_name', 'subscriber__company',
-            'subscriber__last_name', 'subscriber__first_name']
+            'subscriber__last_name', 'subscriber__first_name',
+            'address__zip', 'address__stn_label', 'address__adr_number', 'id']
         verbose_name = _('Subscription')
         verbose_name_plural = _('Subscriptions')
 
@@ -439,7 +447,7 @@ class Measurement(TenantAbstract):
         on_delete=models.PROTECT, related_name='%(class)s_period')
     subscription = models.ForeignKey(
         Subscription, verbose_name=_('Subscription'), blank=True, null=True,
-        on_delete=models.PROTECT, related_name='%(class)s_subscriber')
+        on_delete=models.CASCADE, related_name='%(class)s_subscriber')
 
     def __str__(self):
         if self.subscription:        

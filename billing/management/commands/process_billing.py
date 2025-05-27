@@ -8,6 +8,8 @@
     python manage.py process_billing fix_zero_problem --tenant_id=12
     python manage.py process_billing adjust_articles --tenant_id=12
     python manage.py process_billing adjust_mfh --tenant_id=12
+    python manage.py process_billing rearrange_counters --tenant_id=12
+    python manage.py process_billing delete_negative_counter
 '''
 import json
 from django.core.management.base import BaseCommand
@@ -23,7 +25,8 @@ class Command(BaseCommand):
             choices=[
                 'gesoft', 'gesoft_area', 'gesoft_archive',
                 'article_import', 'article_daily_rename',
-                'fix_zero_problem', 'adjust_articles', 'adjust_mfh'
+                'fix_zero_problem', 'adjust_articles', 'adjust_mfh',
+                'rearrange_counters', 'delete_negative_counter'
             ],
             help='Specify the action: gesoft'
         )
@@ -121,6 +124,20 @@ class Command(BaseCommand):
 
             # Load subscribers + counters            
             adjust_mfh(tenant_id)
+
+        elif action == 'rearrange_counters':
+            # Import library
+            from billing.gesoft_import import rearrange_counters
+
+            # Load subscribers + counters            
+            rearrange_counters(tenant_id)
+
+        elif action == 'delete_negative_counter':
+            # Import library
+            from billing.gesoft_import import delete_negative_counter
+
+            # Delete counters      
+            delete_negative_counter()
 
         else:
             raise ValueError("No valid action")
