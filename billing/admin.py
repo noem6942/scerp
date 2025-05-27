@@ -312,7 +312,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_subscriber', 'tag', 'description', 'address',
+        'display_egid', 'display_subscriber', 'tag', 'description', 'address',
         'start', 'end', 'display_abo_nr', 'last_route_out', 
         'last_measurement'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
@@ -325,7 +325,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = (
-        'subscriber__company',
+        'address__bdg_egid', 'subscriber__company',
         'subscriber__last_name','subscriber__first_name',
         'partner__last_name','partner__first_name',
         'address__stn_label', 'address__adr_number', 'start', 'end',
@@ -360,6 +360,10 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     
     # Inlines
     inlines = [ArticleInline]
+
+    @admin.display(description=_('egid'))
+    def display_egid(self, obj):
+        return Display.align_right(obj.address.bdg_egid)
 
     @admin.display(description=_('abo_nr'))
     def display_abo_nr(self, obj):

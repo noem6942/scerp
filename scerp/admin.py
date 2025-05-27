@@ -158,6 +158,10 @@ class Display:
             return default
         return date_format(value, format='DATETIME_FORMAT')
 
+    def align_right(value):
+        html = '<span style="text-align: right; display: block;">{}</span>'
+        return format_html(html, value)
+
     def big_number(value, round_digits=None, thousand_separator=None):
         '''
         use settings.THOUSAND_SEPARATOR and 2 commas for big numberss

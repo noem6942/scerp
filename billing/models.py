@@ -212,9 +212,6 @@ class Route(TenantAbstract):
 
 # Subscriptions
 class Subscription(TenantAbstract):
-    nr = models.CharField(
-        _('Subscription Number'), max_length=50, blank=True, null=True,
-        help_text=('New subscription number, retrieved automatically'))
     subscriber_number = models.CharField(
         _('Abo Nr'), max_length=50, blank=True, null=True,
         help_text=('Old subscription number, leave empty'))           
@@ -307,14 +304,6 @@ class Subscription(TenantAbstract):
     def measurements(self):
         return Measurement.objects.filter(
             subscription=self).order_by('datetime')
-
-    def save(self, *args, **kwargs):
-        ''' Make number '''
-        if not self.pk:
-            # Nr
-            self.nr = f'SC {self.tenant.id}-{self.id}'
-
-        super().save(*args, **kwargs)
 
     def __str__(self):        
         name = f'{self.address}'
