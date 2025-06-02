@@ -235,7 +235,8 @@ class TicketAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.TicketAdminView, site=admin_site)
 class TicketOverviewAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
-    list_display = ('tenant', 'title', 'issue_type', 'priority', 'status')
+    list_display = (
+        'tenant', 'title', 'issue_type', 'priority', 'status', 'responsible')
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -247,7 +248,7 @@ class TicketOverviewAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'title', 'description', 'issue_type', 'priority', 'app',
-                'status'
+                'status', 'responsible'
                 ),
             'classes': ('expand',),
         }),

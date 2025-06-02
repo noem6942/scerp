@@ -425,6 +425,10 @@ class Ticket(TenantAbstract):
         verbose_name=_('app'), related_name="%(class)s_app",
         help_text=_('Related App where the issue occurs (optional).')
     )
+    responsible = models.ForeignKey(
+        User, verbose_name=_('respsonsible'), blank=True, null=True,
+        on_delete=models.CASCADE, related_name='%(class)s_respsonsible',
+        help_text=_('User responsible to resolve'))
     def __str__(self):
         return f"{self.title} ({self.get_issue_type_display()})"
 
@@ -1114,7 +1118,7 @@ class PersonAddress(TenantAbstract):
         if self.additional_information:
             value += self.additional_information + '\n'
         if self.address.address:
-            value += self.address.address + '\n'        
+            value += self.address.address + '\n'
 
         return value
 
