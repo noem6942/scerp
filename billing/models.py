@@ -1,3 +1,24 @@
+'''
+billing/models.py
+
+Data Model (Draft)
+
+Workflow:
+1. A subscription is created with EGID address and description which are unique
+   Use tags to classify subscriptions.
+2. A counter is created.
+3. The subscription is updated with counter assigned. Now the subscription is 
+   functional.
+
+Measuring:
+1. Create a period (usually semi-annual)
+2. Create a route (usually one per period) and check all tags assigned 
+   (usually all). Apply filters (e.g. 
+
+Every counter in use has a subscription --> foreign counter is unique
+Every subscription has a subscriber
+
+'''
 from django.db import models
 from django.contrib.contenttypes.fields import GenericRelation
 from django.db.models import UniqueConstraint
@@ -439,12 +460,17 @@ class Measurement(TenantAbstract):
         on_delete=models.CASCADE, related_name='%(class)s_subscriber')
 
     def __str__(self):
-        if self.subscription:        
+        if self.subscription:    
+            tag = self.subscription.tag or ''
+            if tag:
+                tag += ', '
+            
             desc = self.subscription.description or ''
             if desc:
-                desc = ', ' + desc
+                desc = ', ' + desc 
+            
             return (
-                f"{self.subscription.tag or ''}{self.subscription.subscriber_number} "
+                f"{tag}{self.subscription.subscriber_number} "
                 f"{self.subscription.subscriber}, {self.address}{desc}: "
                 f"{self.route}, {self.counter}, {self.datetime}"
             )
