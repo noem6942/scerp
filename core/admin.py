@@ -210,7 +210,7 @@ class TicketAdmin(TenantFilteringAdmin, BaseAdmin):
     protected_foreigns = ['tenant', 'version']
 
     # Display these fields in the list view
-    list_display = ('title', 'issue_type', 'priority', 'status')
+    list_display = ('title', 'issue_type', 'priority', 'status', 'created_at')
     readonly_fields = ('status',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -236,7 +236,8 @@ class TicketAdmin(TenantFilteringAdmin, BaseAdmin):
 class TicketOverviewAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
-        'tenant', 'title', 'issue_type', 'priority', 'status', 'responsible')
+        'tenant', 'title', 'issue_type', 'priority', 'status', 'responsible',
+        'created_at')
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
