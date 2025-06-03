@@ -10,6 +10,7 @@
     python manage.py process_billing adjust_mfh --tenant_id=12
     python manage.py process_billing rearrange_counters --tenant_id=12
     python manage.py process_billing delete_negative_counter
+    python manage.py process_billing update_invoiced
 '''
 import json
 from django.core.management.base import BaseCommand
@@ -26,7 +27,8 @@ class Command(BaseCommand):
                 'gesoft', 'gesoft_area', 'gesoft_archive',
                 'article_import', 'article_daily_rename',
                 'fix_zero_problem', 'adjust_articles', 'adjust_mfh',
-                'rearrange_counters', 'delete_negative_counter'
+                'rearrange_counters', 'delete_negative_counter',
+                'update_invoiced'
             ],
             help='Specify the action: gesoft'
         )
@@ -138,6 +140,13 @@ class Command(BaseCommand):
 
             # Delete counters      
             delete_negative_counter()
+
+        elif action == 'update_invoiced':
+            # Import library
+            from billing.gesoft_import import update_invoiced
+
+            # Update
+            update_invoiced()
 
         else:
             raise ValueError("No valid action")

@@ -14,7 +14,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from accounting.models import ArticleCategory, Article
+from accounting.models import ArticleCategory, Article, OutgoingOrder
 from asset.models import (
     DEVICE_STATUS, Unit, AssetCategory, Device, EventLog)
 from core.models import (
@@ -1469,3 +1469,27 @@ def delete_negative_counter():
     for category in queryset.all():
         category.delete()
         logger.info(f"delete {category}")
+
+
+def update_invoiced():
+    # get orders
+    for order in OutgoingOrder.objects.all():
+        try:
+            address = order.header.split('Objekt: ')[1].split('<br>')[0] + ','
+        except:
+            logger.warning(f"cannot process {order}")
+            continue
+
+        # get measurement
+        founds = 0
+        for measurement in Measurement.objects.filter(invoice=None):
+            if measurement.address and address in measurement.address.__str__():
+                founds += 1
+                break
+
+        if founds == 1:
+            logger.info(f"found {order}")
+        elif founds > 1:
+            logger.warning(f"found {founds} for {order}")
+        else:
+            logger.warning(f"not found {order}")
