@@ -739,6 +739,8 @@ class RouteCounterInvoicing(RouteManagement):
                 measurement, max=1)
             if comparisons:
                 comparison = comparisons[0]
+                value_old = round_to_zero(
+                    comparison.value, setup.rounding_digits)
             else:
                 msg = _("{subscription}: no comparison available.")
                 msg = msg.format(subscription=subscription)
@@ -746,8 +748,7 @@ class RouteCounterInvoicing(RouteManagement):
                 raise ValueError("comparison", comparisons)
                 return
                 
-            if comparison and comparison.consumption:
-                value_old = round_to_zero(comparison.value, setup.rounding_digits)
+            if comparison and comparison.consumption:                
                 consumption = round_to_zero(
                     comparison.consumption, setup.rounding_digits)
             else:
