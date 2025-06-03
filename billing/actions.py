@@ -229,6 +229,14 @@ def measurement_calc_consumption(modeladmin, request, queryset):
                 messages.warning(request, msg)
 
 
+@admin.action(description=_("Invoiced"))
+def measurement_update_invoiced(modeladmin, request, queryset):
+    if action_check_nr_selected(request, queryset, min_count=1):
+        for measurement in queryset.all():
+            count = queryset.update(notes='invoiced 2025/1')
+        messages.info(request, f'{count} updated')
+
+
 # helper
 def assign_measurement_archive_measurement(archive, device, data):
     ''' data: gwf dataset from direct Excel load '''

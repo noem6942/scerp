@@ -185,7 +185,8 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     actions = [
         a.analyse_measurement,
         a.anaylse_measurent_excel,
-        a.measurement_calc_consumption
+        a.measurement_calc_consumption,
+        a.measurement_update_invoiced
     ] + [export_excel] + default_actions
 
     #Fieldsets
