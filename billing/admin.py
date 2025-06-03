@@ -327,7 +327,8 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display_links = ('display_subscriber', 'address')
     readonly_fields = (
         'display_invoice_address', 'display_invoice_address_list',
-        'display_counters', 'display_abo_nr', 'display_invoices'
+        'display_counters', 'display_abo_nr', 'display_invoices',
+        'display_measurements'
     ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
