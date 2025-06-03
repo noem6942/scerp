@@ -647,7 +647,7 @@ class RouteCounterInvoicing(RouteManagement):
             'contract': setup.order_contract,
             'description': route.__str__() + description,
             'responsible_person': setup.contact,
-            'dossier': subscription.dossier,
+            # 'dossier': subscription.dossier, must be an invoice but difficult to get
             'date': self.date,
             'status': self.status,
             'is_enabled_sync': self.is_enabled_sync,
@@ -814,11 +814,11 @@ class RouteCounterInvoicing(RouteManagement):
 
         # No error, create objects
         # Create invoice
-        invoice = OutgoingOrder.objects.create(**invoice)
+        invoice_obj = OutgoingOrder.objects.create(**invoice)
 
         # Create items
         for item in items:
-            item['order'] = invoice
+            item['order'] = invoice_obj
             obj = OutgoingItem.objects.create(**item)
 
         # Update measurement
