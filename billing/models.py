@@ -306,6 +306,16 @@ class Subscription(TenantAbstract):
         return f'S-{self.id}'
 
     @property
+    def invoices(self):        
+        invoices = [
+            measurement.invoice 
+            for measurement in Measurement.objects.filter(
+                subscription=self
+            ).exclude(invoice=None).order_by('-datetime')            
+        ]
+        return invoices
+
+    @property
     def measurements(self):
         return Measurement.objects.filter(
             subscription=self).order_by('datetime')

@@ -327,7 +327,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display_links = ('display_subscriber', 'address')
     readonly_fields = (
         'display_invoice_address', 'display_invoice_address_list',
-        'display_counters', 'display_abo_nr'
+        'display_counters', 'display_abo_nr', 'display_invoices'
     ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -350,6 +350,11 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
                 'subscriber', 'partner', 'recipient', 'dossier',
                 'display_invoice_address',
                 'start', 'end', 'address', 'description', 'tag', 'counter'
+            ),
+        }),
+        (_("Controlling"), {
+            'fields': (
+                'display_invoices', 'display_measurements'
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -392,6 +397,15 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         measurement = obj.measurements.last() 
         if measurement and measurement.consumption:
             return measurement.datetime.date() 
+
+    @admin.display(description=_('Invoices'))
+    def display_invoices(self, obj):
+        return ', '.joins([f"{x}" for x in obj.invoices])
+
+    @admin.display(description=_('Measurements'))
+    def display_measurements(self, obj):
+        return ', '.joins([f"{x}" for x in obj.measurements])
+
 
 @admin.register(SubscriptionArchive, site=admin_site)
 class SubscriptionArchiveAdmin(TenantFilteringAdmin, BaseAdmin):

@@ -822,7 +822,7 @@ class RouteCounterInvoicing(RouteManagement):
             obj = OutgoingItem.objects.create(**item)
 
         # Update measurement
-        measurement.invoice = invoice
+        measurement.invoice = invoice_obj
         measurement.save()
 
         return measurement
