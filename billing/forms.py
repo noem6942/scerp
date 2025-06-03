@@ -11,7 +11,7 @@ from django_admin_action_forms import action_with_form, AdminActionForm
 
 from accounting.models import OrderCategoryOutgoing
 from core.models import UserProfile
-from .models import Period, Measurement
+from .models import Period, Measurement, Subscription
 
 LABEL_BACK = _("Back")
 
@@ -172,12 +172,12 @@ class RouteBillingForm(AdminActionForm):
         help_text=(
             _("Invoice all subscriptions with this tag. Ignore ") +
             _('Measurements') + '.')
-            
-    )    
-    measurements = forms.ModelMultipleChoiceField(
-        label=_('Measurements'),
+
+    )
+    subscriptions = forms.ModelMultipleChoiceField(
+        label=_('Subscriber'),
         required=False,
-        queryset=Measurement.objects.none(),
+        queryset=Subscription.objects.none(),
         help_text=_("Leave empty for generating all invoices.")
     )
     status = forms.ChoiceField(
@@ -201,16 +201,17 @@ class RouteBillingForm(AdminActionForm):
 
     def __post_init__(self, modeladmin, request, queryset):
         route = queryset.first()
-        measurements = Measurement.objects.filter(
-            route=route
-        ).order_by('subscription__tag', 'subscription__subscriber_number')
-        self.fields['measurements'].queryset = measurements
 
+        # Get Subscribers
+        subscriptions = Subscription.objects.filter(
+            tenant=route.tenant,
+            is_inactive=False
+        )
+        self.fields['subscriptions'].queryset = subscriptions.order_by(
+            'address__zip', 'address__stn_label', 'address__adr_number',
+            'description'
+        )
+        
         # tags
-        self.fields['tag'].choices = [(None, '-')] + list(        
-            set([
-                (x.subscription.tag, x.subscription.tag) 
-                for x in measurements 
-                if x.subscription and x.subscription.tag
-            ])
-        )        
+        tags = list(set([x.tag for x in subscriptions.all()]))
+        self.fields['tag'].choices = [(tag, tag if tag else '-') for tag in tags]

@@ -277,24 +277,8 @@ class Subscription(TenantAbstract):
     counter = models.ForeignKey(
         Device, on_delete=models.CASCADE, blank=True, null=True,
         verbose_name=_('Counter'), related_name='%(class)s_counter',
-        help_text=_("main subscription if multiple counters"))             
-    counters = models.ManyToManyField(  # discontinue
-        Device, verbose_name=_('Counter'), blank=True,
-        related_name='%(class)s_counters')
-    number_of_counters = models.PositiveSmallIntegerField(  # discontinue
-        _('Number of counters'), default=0, editable=False,
-        help_text=_('Gets updated automatically by signals'))
+        help_text=_("main subscription if multiple counters"))                 
     attachments = GenericRelation('core.Attachment')  # Enables reverse relation
-
-    # Maintenance
-    routes_out = models.ManyToManyField(
-        Route, blank=True, verbose_name=_('Routes out'),
-        related_name='subscription_routes_out',
-        help_text=_("Routes included in json files"))
-    invoices = models.ManyToManyField(
-        OutgoingOrder, blank=True, verbose_name=_('Invoices'),
-        related_name='subscription_invoices',
-        help_text=_("Invoices"))
 
     @property
     def invoice_address(self):
@@ -404,9 +388,6 @@ class Measurement(TenantAbstract):
         Device, verbose_name=_('Counter'),
         blank=True, null=True,  # only for archive
         on_delete=models.PROTECT, related_name='%(class)s_counter')
-    route = models.ForeignKey(
-        Route, verbose_name=_('Route'),
-        on_delete=models.PROTECT, related_name='%(class)s_counter')
 
     # measurement data used for bill
     datetime = models.DateTimeField(
@@ -415,6 +396,8 @@ class Measurement(TenantAbstract):
     value = models.FloatField(
         _('Value'), blank=True, null=True,
         help_text=('Value at reference measurement'))
+        
+    # for billing and statistics
     consumption = models.FloatField(
         _('Consumption'), blank=True, null=True,
         help_text=('Consumption = value - value_previous'))
@@ -449,6 +432,9 @@ class Measurement(TenantAbstract):
         max_length=20, blank=True, null=True)
 
     # for efficiency analysis, automatically updated
+    route = models.ForeignKey(
+        Route, verbose_name=_('Route'), blank=True, null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_counter')    
     address = models.ForeignKey(
         AddressMunicipal, verbose_name=_('Address'), blank=True, null=True,
         on_delete=models.PROTECT, related_name='%(class)s_address')
@@ -458,6 +444,19 @@ class Measurement(TenantAbstract):
     subscription = models.ForeignKey(
         Subscription, verbose_name=_('Subscription'), blank=True, null=True,
         on_delete=models.CASCADE, related_name='%(class)s_subscriber')
+
+    # prevent double charging
+    invoice = models.ForeignKey(
+        OutgoingOrder, null=True, blank=True, on_delete=models.SET_NULL,
+        verbose_name=_('Invoice'), related_name='measurement_invoice',        
+        help_text=_("Related invoice")
+    )
+    
+    @property
+    def value_old(self):
+        if self.value is None or self.consumption is None:
+            return None
+        return self.value - self.consumption
 
     def __str__(self):
         if self.subscription:    
@@ -477,11 +476,18 @@ class Measurement(TenantAbstract):
         else:
             return  f"{self.route}, {self.counter}, {self.datetime} - Unassigned!"
 
-    @property
-    def consumption_with_sign(self):
-        if self.consumption and self.counter.category.counter_factor == -1:
-            return -self.consumption
-        return self.consumption
+    def save_consumption(self):
+        # get previous_measurement
+        previous_measurement = Measurement.objects.filter(
+                tenant=self.tenant,
+                counter=self.counter,
+                datetime__lt=self.datetime
+            ).order_by('datetime').last()
+        if (previous_measurement 
+                and self.value is not None 
+                and previous_measurement.value is not None):
+            self.consumption = self.value - previous_measurement.value
+            self.save()        
 
     class Meta:
         constraints = [
@@ -491,7 +497,8 @@ class Measurement(TenantAbstract):
             )
         ]
         ordering = [
-            '-route__period__end', 'counter__number']
+            '-route__period__end', 'address__zip', 'address__stn_label',
+            'address__adr_number', 'subscription__description']
         verbose_name = _('Measurement')
         verbose_name_plural = _('Measurements')
 

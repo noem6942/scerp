@@ -91,27 +91,34 @@ def route_billing(modeladmin, request, queryset, data):
         route = queryset.first()
         is_enabled_sync = data.get('is_enabled_sync', False)
 
-        # Data select
-        tag = data['tag']
-        if tag:
-            measurements = Measurement.objects.filter(
-                route=route, subscription__tag=tag)
-        else:
-            measurements = data['measurements']
-            if not measurements:
-                measurements = Measurement.objects.filter(route=route)
+        # Get subscriptions
+        subscriptions = Subscription.objects.filter(
+            tenant=route.tenant,
+            is_inactive=False
+        )
+
+        # Filter subscriptions
+        if data['subscriptions']:
+            ids = [x.id for x in data['subscriptions']]
+            subscriptions = subscriptions.filter(id__in=ids)
+
+        # Filter tag
+        if data['tag']:
+            subscriptions = subscriptions.filter(tag=data['tag'])
 
         # Process
         invoice = RouteCounterInvoicing(
             modeladmin, request, route, data['status'], data['date'],
             is_enabled_sync)
-        for measurement in measurements:
-            invoice.bill(measurement)
+        count = 0
+        for subscription in subscriptions:
+            if invoice.bill(subscription, route):
+                count += 1
 
         # output
-        count = len(measurements)
         messages.info(
-            request, _("{count} bills created").format(count=count))
+            request, _("{len} bills from {count} measurements created").format(
+                count=count, len=len(subscriptions)))
 
 
 @action_with_form(
@@ -209,6 +216,17 @@ def anaylse_measurent_excel(modeladmin, request, queryset, data):
         response = a.output_excel(data, filename, ws_title)
 
         return response
+
+
+@admin.action(description=_("Calc Consumption"))
+def measurement_calc_consumption(modeladmin, request, queryset):
+    if action_check_nr_selected(request, queryset, min_count=1):
+        for measurement in queryset.all():
+            measurement.save_consumption()
+            if measurement.consumption is None:
+                msg = _("{counter_id}: cannot retrieve consumption")
+                msg = msg.format(counter_id=measurement.counter.code)
+                messages.warning(request, msg)
 
 
 # helper

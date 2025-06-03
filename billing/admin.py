@@ -163,11 +163,10 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'id', 'datetime', 'display_abo_nr', 'address',
-        'display_subscriber', 'display_area', 'route', 'display_consumption'
+        'counter__code', 'datetime', 'address', 'display_value_old', 
+        'display_value', 'display_consumption', 'display_area', 'route'
     ) + FIELDS.ICON_DISPLAY
-    list_display_links = ('id', 'datetime')
-    ordering = ('-period__end', '-consumption')
+    list_display_links = ('counter__code', 'datetime')    
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -182,10 +181,11 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         'datetime', 'notes')
     autocomplete_fields = ['counter', 'address', 'subscription']
 
-    # Actions
+    # Actions    
     actions = [
         a.analyse_measurement,
         a.anaylse_measurent_excel,
+        a.measurement_calc_consumption
     ] + [export_excel] + default_actions
 
     #Fieldsets
@@ -257,6 +257,14 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         if obj.address:
             return obj.address.area
 
+    @admin.display(description=_('Value'))
+    def display_value(self, obj):        
+        return Display.big_number(obj.value)
+
+    @admin.display(description=_('Value old'))
+    def display_value_old(self, obj):        
+        return Display.big_number(obj.value_old)
+
 
 @admin.register(MeasurementArchive, site=admin_site)
 class MeasurementArchiveAdmin(TenantFilteringAdmin, BaseAdmin):
@@ -313,14 +321,13 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
         'display_egid', 'display_subscriber', 'tag', 'description', 'address',
-        'start', 'end', 'display_abo_nr', 'last_route_out', 
+        'start', 'end', 'display_abo_nr', 
         'last_measurement'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = ('display_subscriber', 'address')
     readonly_fields = (
         'display_invoice_address', 'display_invoice_address_list',
-        'display_counters', 'last_route_out',
-        'routes_out', 'invoices', 'display_abo_nr'
+        'display_counters', 'display_abo_nr'
     ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -332,7 +339,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'description', 'counter__code', 'notes', 'subscriber_number'
     )
     list_filter = (
-        'tag', 'number_of_counters', 'end', 'subscriber__company')
+        'tag', 'counter__code', 'end', 'subscriber__company')
     autocomplete_fields = [
         'dossier', 'subscriber', 'partner', 'recipient', 'address']
 
@@ -344,12 +351,6 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
                 'display_invoice_address',
                 'start', 'end', 'address', 'description', 'tag', 'counter'
             ),
-        }),
-        (_('Controlling'), {
-            'fields': (
-                'display_counters', 'routes_out', 'invoices', 'display_abo_nr'
-            ),
-            'classes': ('collapse',),
         }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
@@ -385,11 +386,6 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('Counters'))
     def display_counters(self, obj):
         return ','.join([x.__str__() for x in obj.counters.order_by('nr')])
- 
-    @admin.display(description=_('Last Route'))
-    def last_route_out(self, obj):
-        route = obj.routes_out.last() 
-        return str(route.id) if route else None
  
     @admin.display(description=_('Last Route / Measurement'))
     def last_measurement(self, obj):

@@ -105,12 +105,12 @@ def shift_encode(text, shift=3):
 
 def round_to_zero(value, digits):
     if value is None:
-        return '-'        
+        return '-'
     if digits == 0:
-        return int(round(value, 0))                                
+        return int(round(value, 0))
     if isinstance(value, Decimal):
-        value = float(value)            
-    return round(value, digits) 
+        value = float(value)
+    return round(value, digits)
 
 
 class RouteManagement:
@@ -123,7 +123,7 @@ class RouteManagement:
         self.route = route
         self.tenant = route.tenant
         self.created_by = request.user
-        
+
         # calc
         # start, end
         self.start = self.route.get_start()
@@ -133,22 +133,25 @@ class RouteManagement:
         measurement = Measurement.objects.filter(
                 tenant=self.tenant,
                 counter=counter,
+                period=self.route.period
+            ).order_by('datetime').last()
+        return measurement
+
+    def get_previous_measurement(self, counter):
+        measurement = Measurement.objects.filter(
+                tenant=self.tenant,
+                counter=counter,
                 period=self.route.period_previous
             ).order_by('datetime').last()
         return measurement
 
-    def get_comparison_measurements(self, counter):
-        period_ids = (
-            [x.id for x in self.route.comparison_periods.order_by('-end')]
-            if self.route.comparison_periods.exists()
-            else [self.route.period_previous.id]
-        )
+    def get_comparison_measurements(self, measurement, max=1):
         measurements = Measurement.objects.filter(
                 tenant=self.tenant,
-                counter=counter,
-                period__id__in=period_ids
+                counter=measurement.counter,
+                datetime__lt=measurement.datetime
             ).order_by('-datetime')
-        return measurements
+        return measurements[:max]
 
     def make_response_json(self, data, filename):
         '''make json file
@@ -201,7 +204,7 @@ class RouteCounterExport(RouteManagement):
     key: decipher for JSON export
     '''
     def __init__(
-            self, modeladmin, request, route, responsible_user=None, 
+            self, modeladmin, request, route, responsible_user=None,
             route_date=None, energy_type='W', key=None):
         super().__init__(modeladmin, request, route)
         self.username = responsible_user.username if responsible_user else None
@@ -290,12 +293,13 @@ class RouteCounterExport(RouteManagement):
     def make_gft_meter(self, subscription, counter, excel):
         ''' make meter dict for json / excel export
         if excel we optimize data to our needs
+        redo !!!
         '''
         # last consumption
-        last_measurement = self.get_last_measurement(counter)
-        if last_measurement:
-            value = last_measurement.value or 0
-            consumption_previous = last_measurement.consumption or 0
+        previous_measurement = self.get_previous_measurement(counter)
+        if previous_measurement:
+            value = previous_measurement.value or 0
+            consumption_previous = previous_measurement.consumption or 0
         else:
             value = 0
             consumption_previous = 0
@@ -599,7 +603,7 @@ class RouteCounterImport(RouteManagement):
 
 class RouteCounterInvoicing(RouteManagement):
     '''use this to invoice route data
-    
+
     is_enabled_sync: set true for drafts, set false for others
     '''
     def __init__(
@@ -611,42 +615,26 @@ class RouteCounterInvoicing(RouteManagement):
         self.is_enabled_sync = is_enabled_sync
 
     def get_quantity(
-            self, measurement, article, quantity, rounding_digits, 
+            self, measurement, article, quantity, rounding_digits,
             days=None):
         ''' quantity, not considered: individual from, to
         '''
         if article.unit.code == 'volume':
-            return round(measurement.consumption_with_sign, rounding_digits)
-        
+            if measurement:
+                return round(measurement.consumption, rounding_digits)
+            else:
+                return None
+
         # Calc quantity and days
-        quantity = quantity or 1            
+        quantity = quantity or 1
         if article.unit.code == 'day' and days:
-            return days * quantity     
+            return days * quantity
         return quantity
 
-    def bill(self, measurement):
+    def bill(self, subscription, route):
         ''' get called from actions '''
-        # check day vs. period
-        subscription = measurement.subscription
-        unit_code = (
-            'day' if (
-                measurement.route.start
-                or measurement.route.end
-                or subscription.start > measurement.period.start
-                or (subscription.end
-                    and subscription.end < measurement.period.end)
-            ) else 'period'
-        )
-        if unit_code == 'day':
-            # start
-            start = max(subscription.start or self.start, self.start)
-            end = max(subscription.end or self.end, self.end)
-            days = (end - start).days + 1
-        else:
-            days = None
-
-        # description         
-        setup = measurement.route.setup
+        # description
+        setup = route.setup
         if subscription.description:
             description = ', ' + subscription.description
         else:
@@ -654,10 +642,10 @@ class RouteCounterInvoicing(RouteManagement):
 
         # billing base
         invoice = {
-            'tenant': measurement.tenant,
+            'tenant': route.tenant,
             'category': setup.order_category,
             'contract': setup.order_contract,
-            'description': measurement.route.__str__() + description,
+            'description': route.__str__() + description,
             'responsible_person': setup.contact,
             'dossier': subscription.dossier,
             'date': self.date,
@@ -695,27 +683,89 @@ class RouteCounterInvoicing(RouteManagement):
         type, address = associate.get_invoice_address()
         invoice['recipient_address'] = f"{name}\n{address}"
 
-        # Get comparison consumption
-        value_new = round_to_zero(measurement.value, setup.rounding_digits)
-        value_old = '-'
-        comparison = self.get_comparison_measurements(
-            measurement.counter).last()
-        if comparison and comparison.consumption:
-            value_old = round_to_zero(comparison.value, setup.rounding_digits)
-            consumption = round_to_zero(
-                comparison.consumption, setup.rounding_digits)
-        else:
-            consumption = ''
-
         # building
         building = (
-            f"{measurement.address.stn_label} {measurement.address.adr_number}"
-        )   
-        if measurement.address.notes:
-            building_notes = ', ' + measurement.address.notes
-        else:    
+            f"{subscription.address.stn_label} {subscription.address.adr_number}"
+        )
+        if subscription.address.notes:
+            building_notes = ', ' + subscription.address.notes
+        else:
             building_notes = ''
-          
+
+        # Get counter_id
+        counter_id = subscription.counter.code if subscription.counter else ''
+
+        # Get actual measurement
+        measurement = self.get_last_measurement(subscription.counter)
+        if measurement:
+            # Check consumption
+            if measurement.consumption is None:
+                msg = _("No consumption for {subscription}")
+                msg = msg.format(subscription=subscription)
+                messages.error(self.request, msg)
+                return
+
+            # Check invoice
+            if Measurement.objects.filter(
+                    tenant=route.tenant,
+                    route=route).exclude(invoice=None).exists():
+                msg = _("{subscription}: invoice already created for {route}.")
+                msg = msg.format(subscription=subscription, route=route)
+                messages.error(self.request, msg)
+                return
+
+            # check day vs. period
+            unit_code = (
+                'day' if (
+                    route.start
+                    or route.end
+                    or subscription.start > measurement.period.start
+                    or (subscription.end
+                        and subscription.end < measurement.period.end)
+                ) else 'period'
+            )
+            if unit_code == 'day':
+                # start
+                start = max(subscription.start or self.start, self.start)
+                end = max(subscription.end or self.end, self.end)
+                days = (end - start).days + 1
+            else:
+                days = None
+
+            # Get comparison consumption
+            value_new = round_to_zero(measurement.value, setup.rounding_digits)
+            value_old = '-'
+            comparisons = self.get_comparison_measurements(
+                measurement, max=1)
+            if comparisons:
+                comparison = comparisons[0]
+            else:
+                msg = _("{subscription}: no comparison available.")
+                msg = msg.format(subscription=subscription)
+                messages.error(self.request, msg)                
+                raise ValueError("comparison", comparisons)
+                return
+                
+            if comparison and comparison.consumption:
+                value_old = round_to_zero(comparison.value, setup.rounding_digits)
+                consumption = round_to_zero(
+                    comparison.consumption, setup.rounding_digits)
+            else:
+                consumption = ''
+        else:
+            # check day vs. period
+            unit_code = 'day' if (route.start or route.end) else 'period'
+            if unit_code == 'day':
+                # start
+                start = max(subscription.start or self.start, self.start)
+                end = max(subscription.end or self.end, self.end)
+                days = (end - start).days + 1
+            else:
+                days = None
+
+            # consumption
+            consumption, value_new, value_old = '-', '-', '-'
+
         # header
         invoice['header'] = setup.header.format(
             building=building,
@@ -724,21 +774,20 @@ class RouteCounterInvoicing(RouteManagement):
             start=format_date(self.start),
             end=format_date(self.end),
             consumption=consumption,
+            counter_id=counter_id,
             counter_new=value_new,
             counter_old=value_old
         )
 
-        # create as atomic so signals work correctly        
-        invoice = OutgoingOrder.objects.create(**invoice)
-        
-        # add items
+        # create article items
+        items = []
         sub_articles = SubscriptionArticle.objects.filter(
             subscription=subscription
         ).order_by('article__nr')
         for subscription_article in sub_articles:
             article = subscription_article.article
             quantity = subscription_article.quantity
-            
+
             if unit_code == 'day' and article.unit.code == 'period':
                 # Replace article by daily
                 article = Article.objects.filter(
@@ -746,18 +795,37 @@ class RouteCounterInvoicing(RouteManagement):
                     nr=article.nr + ARTICLE_NR_POSTFIX_DAY,
                 ).first()
 
-            item = OutgoingItem.objects.create(
-                tenant=measurement.tenant,
+            quantity = self.get_quantity(
+                measurement, article, quantity, setup.rounding_digits, days)
+            if quantity is None:
+                msg = _("{subscription}: no measurement for {article}.")
+                msg = msg.format(subscription=subscription, article=article)
+                messages.error(self.request, msg)
+                return
+
+            items.append(dict(
+                tenant=route.tenant,
                 article=article,
                 quantity=self.get_quantity(
-                    measurement, article, quantity, setup.rounding_digits, 
+                    measurement, article, quantity, setup.rounding_digits,
                     days),
-                order=invoice,
                 created_by=self.created_by
-            )
-                
-        # add bill        
-        # subscription.invoices.add(invoice)
+            ))
+
+        # No error, create objects
+        # Create invoice
+        invoice = OutgoingOrder.objects.create(**invoice)
+
+        # Create items
+        for item in items:
+            item['order'] = invoice
+            obj = OutgoingItem.objects.create(**item)
+
+        # Update measurement
+        measurement.invoice = invoice
+        measurement.save()
+
+        return measurement
 
 
 class MeasurementAnalyse:
@@ -798,7 +866,7 @@ class MeasurementAnalyse:
         consumption = 0
         for measurement in self.queryset:
             if measurement.consumption:
-                consumption += measurement.consumption_with_sign
+                consumption += measurement.consumption
 
         # Growth
         consumption_change = (
