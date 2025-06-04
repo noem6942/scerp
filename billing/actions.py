@@ -112,12 +112,13 @@ def route_billing(modeladmin, request, queryset, data):
             is_enabled_sync)
         count = 0
         for subscription in subscriptions:
-            if invoice.bill(subscription, route):
+            invoice_obj = invoice.bill(subscription, route)
+            if invoice_obj:
                 count += 1
 
         # output
         messages.info(
-            request, _("{len} bills from {count} measurements created").format(
+            request, _("{count} bills from {len} records created.").format(
                 count=count, len=len(subscriptions)))
 
 

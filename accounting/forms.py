@@ -23,7 +23,7 @@ from .models import (
     AccountPositionTemplate, ChartOfAccountsTemplate,
     ChartOfAccounts, AccountPosition, Currency, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, BankAccount, Allocation,
-    Unit, Tax, BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
+    Tax, BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
     OrderCategoryOutgoing,
     ArticleCategory, Article, Ledger, LedgerBalance, LedgerPL, LedgerIC
 )
@@ -32,61 +32,74 @@ LABEL_BACK = _("Back")
 
 
 # Name forms
-class NameAdminForm(MultilanguageForm):
+class RoundingAdminForm(MultilanguageForm):
     multi_lang_fields = ['name']
 
-    # Dynamically create fields for each language
     class Meta:
         model = Rounding
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class RoundingAdminForm(NameAdminForm):
-    pass
+class CostCenterCategoryAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
 
-
-class CostCenterCategoryAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+    class Meta:
         model = CostCenterCategory
+        fields = '__all__'
+
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class CostCenterAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class CostCenterAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    class Meta:
         model = CostCenter
+        fields = '__all__'
+
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class AccountCategoryAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class AccountCategoryAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+    
+    class Meta:
         model = AccountCategory
+        fields = '__all__'
+
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class AccountAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class AccountAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    class Meta:
         model = Account
+        fields = '__all__'
+
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class UnitAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
-        model = Unit
-
-
-class TaxAdminForm(NameAdminForm):
+class TaxAdminForm(MultilanguageForm):
     multi_lang_fields = ['name', 'document_name']
 
     class Meta:
         model = Tax
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class BookTemplateAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class BookTemplateAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    class Meta:
         model = BookTemplate
+        fields = '__all__'
+
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
 class OrderCategoryContractAdminForm(MultilanguageForm):
@@ -96,7 +109,6 @@ class OrderCategoryContractAdminForm(MultilanguageForm):
         model = OrderCategoryContract
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
@@ -107,7 +119,6 @@ class OrderCategoryIncomingAdminForm(MultilanguageForm):
         model = OrderCategoryIncoming
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
@@ -118,98 +129,86 @@ class OrderCategoryOutgoingAdminForm(MultilanguageForm):
         model = OrderCategoryOutgoing
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class ArticleCategoryAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class ArticleCategoryAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    class Meta:
         model = ArticleCategory
+        fields = '__all__'
 
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
-class BankAccountAdminForm(NameAdminForm):
-    class Meta(NameAdminForm.Meta):
+class BankAccountAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    class Meta:
         model = BankAccount
+        fields = '__all__'
+
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
 class ArticleAdminForm(MultilanguageForm):
     multi_lang_fields = ['name', 'description']
 
-    # Dynamically create fields for each language
     class Meta:
         model = Article
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
-
-"""
-class OrderCategoryAdminForm(NameAdminForm):
-    multi_lang_fields = ['name_plural', 'document_name']
-
-    class Meta(NameAdminForm.Meta):
-        model = OrderCategory
-"""
 
 class LedgerAdminForm(MultilanguageForm):
     multi_lang_fields = ['name']
 
-    # Dynamically create fields for each language
     class Meta:
         model = Ledger
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
 class LedgerBalanceAdminForm(MultilanguageForm):
     multi_lang_fields = ['name']
 
-    # Dynamically create fields for each language
     class Meta:
         model = LedgerBalance
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
 class LedgerPLAdminForm(MultilanguageForm):
     multi_lang_fields = ['name']
 
-    # Dynamically create fields for each language
     class Meta:
         model = LedgerPL
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
 class LedgerICAdminForm(MultilanguageForm):
     multi_lang_fields = ['name']
 
-    # Dynamically create fields for each language
     class Meta:
         model = LedgerIC
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
 # Other multilanguage forms
-class CurrencyAdminForm(NameAdminForm):
+class CurrencyAdminForm(MultilanguageForm):
     multi_lang_fields = ['description']
 
-    # Dynamically create fields for each language
     class Meta:
         model = Currency
         fields = '__all__'
 
-    # Dynamically create fields for each language
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 

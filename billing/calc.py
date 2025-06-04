@@ -619,17 +619,19 @@ class RouteCounterInvoicing(RouteManagement):
             days=None):
         ''' quantity, not considered: individual from, to
         '''
-        if article.unit.code == 'volume':
-            if measurement:
-                return round(measurement.consumption, rounding_digits)
-            else:
-                return None
-
-        # Calc quantity and days
-        quantity = quantity or 1
         if article.unit.code == 'day' and days:
-            return days * quantity
-        return quantity
+            # case: days given
+            if quantity:
+                return days * quantity            
+        elif quantity:
+            # just return quantity
+            return quantity
+        elif measurement:
+            # fill in consumption
+            return round(measurement.consumption, rounding_digits)
+        
+        # No valid case
+        return None  # could not be derived
 
     def bill(self, subscription, route):
         ''' get called from actions '''
@@ -645,7 +647,6 @@ class RouteCounterInvoicing(RouteManagement):
             'tenant': route.tenant,
             'category': setup.order_category,
             'contract': setup.order_contract,
-            'description': route.__str__() + description,
             'responsible_person': setup.contact,
             # 'dossier': subscription.dossier, must be an invoice but difficult to get
             'date': self.date,
@@ -703,16 +704,14 @@ class RouteCounterInvoicing(RouteManagement):
                 msg = _("No consumption for {subscription}")
                 msg = msg.format(subscription=subscription)
                 messages.error(self.request, msg)
-                return
+                return None
 
             # Check invoice
-            if Measurement.objects.filter(
-                    tenant=route.tenant,
-                    route=route).exclude(invoice=None).exists():
+            if measurement.invoice:            
                 msg = _("{subscription}: invoice already created for {route}.")
                 msg = msg.format(subscription=subscription, route=route)
                 messages.error(self.request, msg)
-                return
+                return None
 
             # check day vs. period
             unit_code = (
@@ -744,11 +743,11 @@ class RouteCounterInvoicing(RouteManagement):
             else:
                 msg = _("{subscription}: no comparison available.")
                 msg = msg.format(subscription=subscription)
-                messages.error(self.request, msg)                
+                messages.error(self.request, msg)
                 raise ValueError("comparison", comparisons)
-                return
-                
-            if comparison and comparison.consumption:                
+                return None
+
+            if comparison and comparison.consumption:
                 consumption = round_to_zero(
                     comparison.consumption, setup.rounding_digits)
             else:
@@ -780,6 +779,10 @@ class RouteCounterInvoicing(RouteManagement):
             counter_old=value_old
         )
 
+        # description
+        invoice['description'] = (
+            f"{route.name}, {building or '-'}{building_notes}, {description}")
+
         # create article items
         items = []
         sub_articles = SubscriptionArticle.objects.filter(
@@ -799,10 +802,10 @@ class RouteCounterInvoicing(RouteManagement):
             quantity = self.get_quantity(
                 measurement, article, quantity, setup.rounding_digits, days)
             if quantity is None:
-                msg = _("{subscription}: no measurement for {article}.")
+                msg = _("{subscription}: no valid measurement for {article}.")
                 msg = msg.format(subscription=subscription, article=article)
                 messages.error(self.request, msg)
-                return
+                return None
 
             items.append(dict(
                 tenant=route.tenant,
@@ -818,12 +821,16 @@ class RouteCounterInvoicing(RouteManagement):
         invoice_obj = OutgoingOrder.objects.create(**invoice)
 
         # Create items
-        for item in items:
-            item['order'] = invoice_obj
-            obj = OutgoingItem.objects.create(**item)
+        try:
+            for item in items:
+                item['order'] = invoice_obj
+                obj = OutgoingItem.objects.create(**item)
+        except Exception as e:
+            print("Error creating OutgoingItem:", e)
+            invoice_obj.delete()
 
         # Update measurement, should be True except "Pauschal"
-        if measurement:            
+        if measurement:
             measurement.invoice = invoice_obj
             measurement.save()
         else:
@@ -831,7 +838,7 @@ class RouteCounterInvoicing(RouteManagement):
             messages.warning(
                 self.request, msg.format(subscription=subscription))
 
-        return measurement
+        return invoice_obj
 
 
 class MeasurementAnalyse:

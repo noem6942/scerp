@@ -220,44 +220,12 @@ class FiscalPeriodAdmin(TenantFilteringAdmin, BaseAdmin):
     )
 
 
-@admin.register(models.Unit, site=admin_site)
-class UnitAdmin(TenantFilteringAdmin, BaseAdmin):
-    # Safeguards
-    protected_foreigns = ['tenant', 'version']
-
-    # Helpers
-    form = forms.UnitAdminForm
-
-    # Display these fields in the list view
-    list_display = ('code', 'display_name') + FIELDS.C_DISPLAY_SHORT
-    list_display_links = ('code', 'display_name')
-    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
-
-    # Display these fields in the list view
-    search_fields = ('code', 'name')
-
-    # Actions
-    actions = accounting_actions + default_actions
-
-    #Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': (
-                'code', *make_language_fields('name')),
-            'classes': ('collapse',),
-        }),
-        FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING_TENANT,
-        FIELDSET.CASH_CTRL
-    )
-
-
 @admin.register(models.BankAccount, site=admin_site)
 class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
         'tenant', 'version', 'account', 'currency']
-    read_only = True  # as long as cashControl bug not resolved
+    #read_only = True  # as long as cashControl bug not resolved
 
     # Helpers
     help_text = _("Read only model. Use cashControl for edits.")
@@ -1097,8 +1065,8 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'date', 'nr', 'category', 'associate',
-        'category__currency', 'status', 'display_cash_ctrl_url'
+        'date', 'nr', 'description', 'category', 'associate',
+        'status', 'display_cash_ctrl_url'
     )  + FIELDS.C_DISPLAY_SHORT + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
     list_display_links = (
         'date', 'nr'

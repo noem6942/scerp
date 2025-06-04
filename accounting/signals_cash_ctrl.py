@@ -304,7 +304,7 @@ def person_bank_account_post_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=Unit)
 def unit_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Unit. '''
-    if sync(instance):
+    if sync(instance):        
         api = conn.Unit(sender)
         api.save(instance, created)
 

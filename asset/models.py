@@ -37,10 +37,11 @@ class Unit(AcctApp):
         _('Code'), max_length=50, help_text=_("Code"))
     name = models.JSONField(
         _('Name'), blank=True,  null=True,  # null necessary to handle multi languages
-        help_text=_("The name of the unit ('hours', 'minutes', etc.)"))
+        help_text=_("The name of the unit ('hours', 'minutes', etc.). "
+                    "Use <None> to leave empty in output."))
 
     def __str__(self):
-        return primary_language(self.name)
+        return self.code
 
     class Meta:
         constraints = [

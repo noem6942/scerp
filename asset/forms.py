@@ -5,7 +5,18 @@ from django_admin_action_forms import AdminActionForm
 from django.utils.translation import gettext as _
 
 from scerp.forms import MultilanguageForm, make_multilanguage_form
-from .models import AssetCategory, Device
+from .models import Unit, AssetCategory, Device
+
+
+# Unit
+class UnitAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    class Meta:
+        model = Unit
+        fields = '__all__'
+
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
 # AssetCategory

@@ -372,7 +372,7 @@ class Account(CashCtrl):
 class BankAccount(CashCtrl):
     api_class = api_cash_ctrl.AccountBankAccount
     exclude = EXCLUDE_FIELDS + ['account', 'code', 'notes']
-    read_only = True
+    #read_only = True
 
     def adjust_for_upload(self, instance, data, created=None):
         # account_id
@@ -761,6 +761,14 @@ class OutgoingOrder(Order):
             return item.description
         return primary_language(item.article.description)        
 
+    @staticmethod
+    def get_unit(item):
+        if item.article.unit:
+            name = primary_language(item.article.unit.name)
+            if name.lower() != '<none>':
+                return item.article.unit.c_id  # do not show none on invoice
+        return None       
+
     def adjust_for_upload(self, instance, data, created=None):
         self.make_base(instance, data)
 
@@ -806,7 +814,7 @@ class OutgoingOrder(Order):
             'description': self.get_description(item),
             'quantity': float(item.quantity),
             'unitPrice': self.correct_cash_ctrl_article_price(item),
-            'unitId': item.article.unit.c_id,
+            'unitId': self.get_unit(item),
             'taxId': (
                 item.article.category.tax.c_id
                 if item.article.category.tax else None

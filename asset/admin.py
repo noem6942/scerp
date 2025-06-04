@@ -8,7 +8,39 @@ from scerp.admin_base import TenantFilteringAdmin, FIELDS, FIELDSET
 from scerp.admin_site import admin_site
 
 from . import filters, forms
-from .models import AssetCategory, Device, EventLog
+from .models import Unit, AssetCategory, Device, EventLog
+
+
+@admin.register(Unit, site=admin_site)
+class UnitAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = ['tenant', 'version']
+
+    # Helpers
+    form = forms.UnitAdminForm
+
+    # Display these fields in the list view
+    list_display = ('code', 'display_name') + FIELDS.C_DISPLAY_SHORT
+    list_display_links = ('code', 'display_name')
+    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
+
+    # Display these fields in the list view
+    search_fields = ('code', 'name')
+
+    # Actions
+    actions = default_actions
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', *make_language_fields('name')),
+            'classes': ('collapse',),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+        FIELDSET.CASH_CTRL
+    )
 
 
 @admin.register(AssetCategory, site=admin_site)
