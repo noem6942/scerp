@@ -822,9 +822,14 @@ class RouteCounterInvoicing(RouteManagement):
             item['order'] = invoice_obj
             obj = OutgoingItem.objects.create(**item)
 
-        # Update measurement
-        measurement.invoice = invoice_obj
-        measurement.save()
+        # Update measurement, should be True except "Pauschal"
+        if measurement:            
+            measurement.invoice = invoice_obj
+            measurement.save()
+        else:
+            msg = _("{subscription}: no measurement.")
+            messages.warning(
+                self.request, msg.format(subscription=subscription))
 
         return measurement
 
