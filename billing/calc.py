@@ -782,6 +782,8 @@ class RouteCounterInvoicing(RouteManagement):
         # description
         invoice['description'] = (
             f"{route.name}, {building or '-'}{building_notes}, {description}")
+        if subscription.tag:
+            invoice['description'] += ', ' + subscription.tag
 
         # create article items
         items = []
