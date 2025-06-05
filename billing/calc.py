@@ -745,7 +745,6 @@ class RouteCounterInvoicing(RouteManagement):
                 msg = _("{subscription}: no comparison available.")
                 msg = msg.format(subscription=subscription)
                 messages.error(self.request, msg)
-                raise ValueError("comparison", comparisons)
                 return None
 
             if comparison and comparison.consumption:
