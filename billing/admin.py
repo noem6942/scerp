@@ -171,8 +171,9 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = (
-        'subscription__subscriber__company',
-        'subscription__subscriber__last_name', 'counter__code', 'datetime')
+        'subscription__subscriber__company', 'subscription__subscriber_number',
+        'subscription__subscriber__last_name', 'counter__code', 'datetime',
+    )
     list_filter = (
         filters.MeasurementAreaFilter,
         filters.MeasurementPeriodFilter,
