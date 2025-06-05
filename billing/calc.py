@@ -619,6 +619,7 @@ class RouteCounterInvoicing(RouteManagement):
             days=None):
         ''' quantity, not considered: individual from, to
         '''
+        print("*", measurement, article, quantity, days)
         if article.unit.code == 'day' and days:
             # case: days given
             if quantity:

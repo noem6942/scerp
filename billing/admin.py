@@ -164,7 +164,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
         'counter__code', 'datetime', 'address', 'display_value_old', 
-        'display_value', 'display_consumption', 'display_area', 'route'
+        'display_value', 'display_consumption', 'invoice', 'display_area', 'route'
     ) + FIELDS.ICON_DISPLAY
     list_display_links = ('counter__code', 'datetime')    
     readonly_fields = FIELDS.LOGGING_TENANT

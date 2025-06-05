@@ -38,7 +38,7 @@ class Unit(AcctApp):
     name = models.JSONField(
         _('Name'), blank=True,  null=True,  # null necessary to handle multi languages
         help_text=_("The name of the unit ('hours', 'minutes', etc.). "
-                    "Use <None> to leave empty in output."))
+                    "Use &lt;None&gt; to leave empty in output."))
 
     def __str__(self):
         return self.code

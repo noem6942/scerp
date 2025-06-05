@@ -11,6 +11,7 @@ from scerp.mixins import read_excel
 from . import forms
 from .calc import convert_str_to_datetime
 
+from accounting.models import OutgoingOrder
 from asset.models import AssetCategory, Device, EventLog
 from core.models import Attachment
 from .calc import (
@@ -233,8 +234,10 @@ def measurement_calc_consumption(modeladmin, request, queryset):
 @admin.action(description=_("Invoiced"))
 def measurement_update_invoiced(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, min_count=1):
+        dummy = OutgoingOrder.objects.get(
+            tenant=queryset.first().tenant, header='dummy')
         for measurement in queryset.all():
-            count = queryset.update(notes='invoiced 2025/1')
+            count = queryset.update(invoice=dummy)
         messages.info(request, f'{count} updated')
 
 
