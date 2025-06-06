@@ -336,13 +336,13 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_counter_id', 'display_subscriber', 'tag', 'description', 'address',
-        'start', 'end', 'display_abo_nr', 
+        'display_number', 'display_counter_id', 'display_subscriber', 'tag', 
+        'description', 'address', 'start', 'end', 'display_abo_nr', 
         'last_measurement'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = ('display_subscriber', 'address')
     readonly_fields = (
-        'display_invoice_address', 'display_invoice_address_list',
+        'display_number', 'display_invoice_address', 'display_invoice_address_list',
         'display_counters', 'display_abo_nr', 
         'display_measurements'
     ) + FIELDS.LOGGING_TENANT
@@ -379,6 +379,10 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Inlines
     inlines = [ArticleInline, MeasurementInline]
 
+    @admin.display(description=_('S-id'))
+    def display_number(self, obj):
+        return Display.align_right(obj.number)
+
     @admin.display(description=_('counter id'))
     def display_counter_id(self, obj):
         return Display.align_right(obj.counter.code)
@@ -413,6 +417,16 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('Measurements'))
     def display_measurements(self, obj):
         return ', '.joins([f"{x}" for x in obj.measurements])
+
+    def get_search_results(self, request, queryset, search_term):
+        if search_term.startswith("S-"):
+            try:
+                obj_id = int(search_term[2:])
+                queryset = queryset.filter(id=obj_id)
+                return queryset, False
+            except ValueError:
+                pass  # fall back to default behavior if not a valid int
+        return super().get_search_results(request, queryset, search_term)
 
 
 @admin.register(SubscriptionArchive, site=admin_site)

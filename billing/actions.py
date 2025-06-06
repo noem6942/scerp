@@ -111,9 +111,10 @@ def route_billing(modeladmin, request, queryset, data):
         invoice = RouteCounterInvoicing(
             modeladmin, request, route, data['status'], data['date'],
             is_enabled_sync)
-        count = 0
+        count = 0         
         for subscription in subscriptions:
-            invoice_obj = invoice.bill(subscription, route)
+            invoice_obj = invoice.bill(
+                subscription, route, data['check_measurement'])
             if invoice_obj:
                 count += 1
 

@@ -634,7 +634,7 @@ class RouteCounterInvoicing(RouteManagement):
         # No valid case
         return None  # could not be derived
 
-    def bill(self, subscription, route):
+    def bill(self, subscription, route, check_measurement=True):
         ''' get called from actions '''
         # description
         setup = route.setup
@@ -686,9 +686,18 @@ class RouteCounterInvoicing(RouteManagement):
         invoice['recipient_address'] = f"{name}\n{address}"
 
         # building
-        building = (
-            f"{subscription.address.stn_label} {subscription.address.adr_number}"
-        )
+        if subscription.address:
+            building = (
+                f"{subscription.address.stn_label} {subscription.address.adr_number}"
+            )
+        else:
+            msg = _("No address for {id}, {subscription}")
+            msg = msg.format(
+                id=subscription.id,
+                subscription=subscription)
+            messages.error(self.request, msg)
+            return None            
+            
         if subscription.address.notes:
             building_notes = ', ' + subscription.address.notes
         else:
@@ -702,15 +711,20 @@ class RouteCounterInvoicing(RouteManagement):
         if measurement:
             # Check consumption
             if measurement.consumption is None:
-                msg = _("No consumption for {subscription}")
-                msg = msg.format(subscription=subscription)
+                msg = _("No consumption for {id}, {subscription}")
+                msg = msg.format(
+                    id=subscription.id,
+                    subscription=subscription)
                 messages.error(self.request, msg)
                 return None
 
             # Check invoice
             if measurement.invoice:            
-                msg = _("{subscription}: invoice already created for {route}.")
-                msg = msg.format(subscription=subscription, route=route)
+                msg = _("{id}, {subscription}: invoice already created for {route}.")
+                msg = msg.format(
+                    id=subscription.id,
+                    subscription=subscription, 
+                    route=route)
                 messages.error(self.request, msg)
                 return None
 
@@ -742,10 +756,12 @@ class RouteCounterInvoicing(RouteManagement):
                 value_old = round_to_zero(
                     comparison.value, setup.rounding_digits)
             else:
-                msg = _("{subscription}: no comparison available.")
-                msg = msg.format(subscription=subscription)
+                msg = _("No comparison for {id}, {subscription}")
+                msg = msg.format(
+                    id=subscription.id,
+                    subscription=subscription)
                 messages.error(self.request, msg)
-                return None
+                return None                
 
             if comparison and comparison.consumption:
                 consumption = round_to_zero(
@@ -753,6 +769,15 @@ class RouteCounterInvoicing(RouteManagement):
             else:
                 consumption = ''
         else:
+            # default: raise Error message
+            if check_measurement:
+                msg = _("No actual measurement for {id}, {subscription}")
+                msg = msg.format(
+                    id=subscription.id,
+                    subscription=subscription)
+                messages.error(self.request, msg)
+                return None                    
+            
             # check day vs. period
             unit_code = 'day' if (route.start or route.end) else 'period'
             if unit_code == 'day':
@@ -771,6 +796,7 @@ class RouteCounterInvoicing(RouteManagement):
             building=building,
             building_notes=building_notes,
             description=description,
+            subscription_id=f"S-{subscription.id}",
             start=format_date(self.start),
             end=format_date(self.end),
             consumption=consumption,
