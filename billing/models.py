@@ -329,7 +329,7 @@ class Subscription(TenantAbstract):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['tenant', 'subscriber', 'start', 'end', 'address'],
+                fields=['tenant', 'address', 'description', 'is_inactive'],
                 name='unique_billing_subscription'
             )
         ]
