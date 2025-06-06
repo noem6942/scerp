@@ -206,7 +206,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         }),        
         (_('References'), {
             'fields': (
-                'address', 'period', 'subscription'
+                'address', 'period', 'subscription', 'invoice'
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,

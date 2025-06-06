@@ -1485,7 +1485,6 @@ def update_invoiced():
         for measurement in Measurement.objects.filter(invoice=None):
             if measurement.address and address in measurement.address.__str__():
                 founds += 1
-                break
 
         if founds == 1:
             logger.info(f"found {order}")
@@ -1493,3 +1492,31 @@ def update_invoiced():
             logger.warning(f"found {founds} for {order}")
         else:
             logger.warning(f"not found {order}")
+
+
+def correct_article_counts(tenant_id):
+    ''' MFHs have wrong quantity '''
+    # Get SubscribtionArticle in scope
+    s_articles = SubscriptionArticle.objects.filter(
+        tenant__id=tenant_id, article__nr='A-WW-141').exclude(quantity=None)
+    for s_article in s_articles:
+        # Get other Article
+        s_article_geb = SubscriptionArticle.objects.filter(
+            subscription=s_article.subscription,
+            article__nr='A-WW-121',
+            quantity=1
+        ).first()
+        if s_article_geb:
+            quantity = s_article.quantity
+            
+            # Update s_article_geb
+            s_article_geb.quantity = quantity
+            s_article_geb.save()
+            
+            # Update s_article
+            s_article.quantity = None
+            s_article.save()            
+            
+            logger.info(f"*update {s_article.subscription}: {quantity}.")
+        else:
+            logger.warning(f"*cannot update {s_article.subscription}.")

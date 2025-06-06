@@ -11,6 +11,7 @@
     python manage.py process_billing rearrange_counters --tenant_id=12
     python manage.py process_billing delete_negative_counter
     python manage.py process_billing update_invoiced
+    python manage.py process_billing correct_article_counts
 '''
 import json
 from django.core.management.base import BaseCommand
@@ -28,7 +29,7 @@ class Command(BaseCommand):
                 'article_import', 'article_daily_rename',
                 'fix_zero_problem', 'adjust_articles', 'adjust_mfh',
                 'rearrange_counters', 'delete_negative_counter',
-                'update_invoiced'
+                'update_invoiced', 'correct_article_counts'
             ],
             help='Specify the action: gesoft'
         )
@@ -147,6 +148,13 @@ class Command(BaseCommand):
 
             # Update
             update_invoiced()
+
+        elif action == 'correct_article_counts':
+            # Import library
+            from billing.gesoft_import import correct_article_counts
+
+            # Update
+            correct_article_counts(tenant_id)
 
         else:
             raise ValueError("No valid action")
