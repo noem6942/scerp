@@ -336,7 +336,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_egid', 'display_subscriber', 'tag', 'description', 'address',
+        'display_counter_id', 'display_subscriber', 'tag', 'description', 'address',
         'start', 'end', 'display_abo_nr', 
         'last_measurement'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
@@ -349,11 +349,11 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = (
-        'address__bdg_egid', 'subscriber__company',
+        'counter__code', 'subscriber__company',
         'subscriber__last_name','subscriber__first_name',
         'partner__last_name','partner__first_name',
-        'address__stn_label', 'address__adr_number', 'start', 'end',
-        'description', 'counter__code', 'notes', 'subscriber_number'
+        'address__stn_label', 'address__adr_number', 'address__bdg_egid',
+        'description', 'notes', 'subscriber_number'
     )
     list_filter = (
         'tag', 'counter__code', 'end', 'subscriber__company')
@@ -379,9 +379,9 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Inlines
     inlines = [ArticleInline, MeasurementInline]
 
-    @admin.display(description=_('egid'))
-    def display_egid(self, obj):
-        return Display.align_right(obj.address.bdg_egid)
+    @admin.display(description=_('counter id'))
+    def display_counter_id(self, obj):
+        return Display.align_right(obj.counter.code)
 
     @admin.display(description=_('abo_nr'))
     def display_abo_nr(self, obj):
