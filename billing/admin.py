@@ -310,6 +310,20 @@ class ArticleInline(BaseTabularInline):  # or admin.StackedInline
     show_change_link = False  # Shows a link to edit the related model
 
 
+class MeasurementInline(admin.TabularInline):
+    model = Measurement
+    can_delete = False
+    extra = 0  # Don't show extra blank forms
+    readonly_fields = ('datetime', 'value')
+    fields = ('datetime', 'value', 'consumption', 'invoice')
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(Subscription, site=admin_site)
 class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
@@ -329,7 +343,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display_links = ('display_subscriber', 'address')
     readonly_fields = (
         'display_invoice_address', 'display_invoice_address_list',
-        'display_counters', 'display_abo_nr', 'display_invoices',
+        'display_counters', 'display_abo_nr', 
         'display_measurements'
     ) + FIELDS.LOGGING_TENANT
 
@@ -355,11 +369,6 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
                 'start', 'end', 'address', 'description', 'tag', 'counter'
             ),
         }),
-        (_("Controlling"), {
-            'fields': (
-                'display_invoices', 'display_measurements'
-            ),
-        }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
@@ -368,7 +377,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     actions = [export_excel] + default_actions
     
     # Inlines
-    inlines = [ArticleInline]
+    inlines = [ArticleInline, MeasurementInline]
 
     @admin.display(description=_('egid'))
     def display_egid(self, obj):
@@ -400,10 +409,6 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         measurement = obj.measurements.last() 
         if measurement and measurement.consumption:
             return measurement.datetime.date() 
-
-    @admin.display(description=_('Invoices'))
-    def display_invoices(self, obj):
-        return ', '.joins([f"{x}" for x in obj.invoices])
 
     @admin.display(description=_('Measurements'))
     def display_measurements(self, obj):
