@@ -327,7 +327,7 @@ class Subscription(TenantAbstract):
         name = f'{self.address}'
         if self.description:
             name += ' - ' + self.description
-        return f"inv {invoiced}, ready {ready}, {name}"
+        return f"ready {ready}, inv {invoiced}, {name}"
         
         # standard
         name = f'{self.address}'
