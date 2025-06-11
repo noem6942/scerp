@@ -1520,3 +1520,19 @@ def correct_article_counts(tenant_id):
             logger.info(f"*update {s_article.subscription}: {quantity}.")
         else:
             logger.warning(f"*cannot update {s_article.subscription}.")
+
+
+def get_list_of_open_records(tenant_id):
+    subscriptions = Subscription.objects.filter(
+        tenant__id=tenant_id,
+        is_inactive=False
+    ).order_by(
+        'address__zip', 'address__stn_label', 'address__adr_number',
+        'description'
+    )    
+    
+    for subscription in subscriptions:   
+        invoiced = len(subscription.invoices) > 0
+        ready = subscription.measurements.count() == 2
+        if ready and not invoiced:
+            print(f"{subscription}")    

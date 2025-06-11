@@ -11,7 +11,9 @@
     python manage.py process_billing rearrange_counters --tenant_id=12
     python manage.py process_billing delete_negative_counter
     python manage.py process_billing update_invoiced
-    python manage.py process_billing correct_article_counts
+    python manage.py process_billing correct_article_counts --tenant_id=12
+    python manage.py process_billing get_list_of_open_records --tenant_id=12
+    
 '''
 import json
 from django.core.management.base import BaseCommand
@@ -29,7 +31,8 @@ class Command(BaseCommand):
                 'article_import', 'article_daily_rename',
                 'fix_zero_problem', 'adjust_articles', 'adjust_mfh',
                 'rearrange_counters', 'delete_negative_counter',
-                'update_invoiced', 'correct_article_counts'
+                'update_invoiced', 'correct_article_counts',
+                'get_list_of_open_records'
             ],
             help='Specify the action: gesoft'
         )
@@ -155,6 +158,13 @@ class Command(BaseCommand):
 
             # Update
             correct_article_counts(tenant_id)
+
+        elif action == 'get_list_of_open_records':
+            # Import library
+            from billing.gesoft_import import get_list_of_open_records
+
+            # Update
+            get_list_of_open_records(tenant_id)
 
         else:
             raise ValueError("No valid action")
