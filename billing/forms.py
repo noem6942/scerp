@@ -197,7 +197,7 @@ class RouteBillingForm(AdminActionForm):
         required=False, initial=True,
         help_text=_(
             "Check that measurement exists for subscriber.")
-    )    
+    )
     is_enabled_sync = forms.BooleanField(
         label=_('Sync with cashCtrl'),
         required=False,
@@ -217,7 +217,7 @@ class RouteBillingForm(AdminActionForm):
             'address__zip', 'address__stn_label', 'address__adr_number',
             'description'
         )
-
+        
         # tags
         tags = list(set([x.tag for x in subscriptions.all()]))
         self.fields['tag'].choices = [(tag, tag if tag else '-') for tag in tags]

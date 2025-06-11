@@ -320,16 +320,7 @@ class Subscription(TenantAbstract):
         return Measurement.objects.filter(
             subscription=self).order_by('datetime')
 
-    def __str__(self):        
-        # temp !
-        invoiced = len(self.invoices) > 0
-        ready = self.measurements.count() == 2
-        name = f'{self.address}'
-        if self.description:
-            name += ' - ' + self.description
-        return f"ready {ready}, inv {invoiced}, {name}"
-        
-        # standard
+    def __str__(self):                
         name = f'{self.address}'
         if self.description:
             name += ' - ' + self.description
