@@ -291,19 +291,19 @@ def update_or_create_base_buildings(tenant_id=None, update=True):
 def clear_company_addresses():
     '''
     Billing set too many additional_information
-    '''    
+    '''
     queryset = PersonAddress.objects.exclude(
         additional_information=None
     )
     count = 0
-    
+
     for item in queryset.all():
         if item.additional_information == item.person.company:
             item.additional_information = None
             item.sync_accounting = True
             item.save()
             count += 1
-            logger.info(f"{item} updated.")                
+            logger.info(f"{item} updated.")
 
     return count
 
@@ -321,3 +321,10 @@ def sync_person_again(tenant_id):
     return count
 
 
+def update_address_label():
+    ''' first time init of addresses '''
+    addresses = AddressMunicipal.objects.filter(address_label=None).all()
+    for address in addresses:
+        address.save()
+
+    return addresses.count()

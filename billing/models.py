@@ -220,9 +220,10 @@ class Subscription(TenantAbstract):
             )
         ]
         ordering = [
-            'subscriber__alt_name', 'subscriber__company',
+            'address__zip', 'address__address_label', 
+            'description', 'subscriber__alt_name', 'subscriber__company',
             'subscriber__last_name', 'subscriber__first_name',
-            'address__zip', 'address__stn_label', 'address__adr_number', 'id']
+            'id']
         verbose_name = _('Subscription')
         verbose_name_plural = _('Subscriptions')
 
@@ -487,8 +488,8 @@ class Measurement(TenantAbstract):
             )
         ]
         ordering = [
-            '-route__period__end', 'address__zip', 'address__stn_label',
-            'address__adr_number', 'subscription__description']
+            '-route__period__end', 'address__zip', 'address__address_label',
+            'subscription__description']
         verbose_name = _('Measurement')
         verbose_name_plural = _('Measurements')
 

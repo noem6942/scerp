@@ -659,12 +659,21 @@ class AddressMunicipal(TenantAbstract):
     )
 
     # Custom
+    address_label = models.CharField(
+        max_length=255, blank=True, null=True,
+        help_text="Address label for sorting - automatically filled out."
+    )    
     area = models.ForeignKey(
         Area, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Area'), related_name="%(class)s_area",
         help_text=_("Area"))
 
     def save(self, *args, **kwargs):
+        # Calc address_label
+        self.address_label = self.stn_label or ''
+        # append number to be sortable, e.g. '123'.rjust(5) → ' 123'
+        self.address_label += (self.adr_number or '').rjust(5)
+        
         # Automatically calculate latitude and longitude if missing
         if self.adr_easting and self.adr_northing and (
                 self.lat is None or self.lon is None):

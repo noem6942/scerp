@@ -6,6 +6,7 @@
     python manage.py process_core update_or_create_base_buildings --update
     python manage.py process_core sync_person_again --tenant_id=4
     python manage.py process_core clear_company_addresses
+    python manage.py process_core update_address_label
 '''
 import logging
 from django.core.management.base import BaseCommand
@@ -13,7 +14,8 @@ from django.core.management import CommandError
 
 from core.process import (
     update_or_create_apps, update_or_create_countries, update_or_create_groups,
-    update_or_create_base_buildings, sync_person_again, clear_company_addresses
+    update_or_create_base_buildings, sync_person_again, 
+    clear_company_addresses, update_address_label
 )
 
 # Set up logging
@@ -32,7 +34,8 @@ class Command(BaseCommand):
                 'update_or_create_groups',
                 'update_or_create_base_buildings',
                 'sync_person_again',
-                'clear_company_addresses'
+                'clear_company_addresses',
+                'update_address_label'
             ],
             help='Specify the action: gesoft'
         )
@@ -88,10 +91,16 @@ class Command(BaseCommand):
         elif action == 'clear_company_addresses':
             # necessary as company addresses often double
             count = clear_company_addresses()
-            logger.info(f"{count} itmes updated.")
+            logger.info(f"{count} items updated.")
 
         elif action == 'sync_person_again':
             # sync person, necessary as for some reason addresses were missing
             tenant_id = options.get('tenant_id', None)
             count = sync_person_again(tenant_id)
             logger.info(f"Synced {count} records.")
+
+        elif action == 'update_address_label':
+            # introduce this to do proper sorting of addresses
+            count = update_address_label()
+            logger.info(f"{count} items updated.")
+

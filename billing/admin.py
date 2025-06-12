@@ -339,8 +339,9 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_number', 'display_counter_id', 'display_subscriber', 'tag', 
-        'description', 'address', 'start', 'end', 'display_abo_nr', 
+        'display_number', 'display_counter_id', 'tag', 
+        'address', 'description', 'display_subscriber', 
+        'start', 'end', 'display_abo_nr', 
         'last_measurement'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = ('display_subscriber', 'address')
@@ -358,8 +359,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'address__stn_label', 'address__adr_number', 'address__bdg_egid',
         'description', 'notes', 'subscriber_number'
     )
-    list_filter = (
-        'tag', 'counter__code', 'end', 'subscriber__company')
+    list_filter = ('tag', 'end', 'is_inactive')
     autocomplete_fields = [
         'dossier', 'subscriber', 'partner', 'recipient', 'address']
 
@@ -388,7 +388,9 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     @admin.display(description=_('counter id'))
     def display_counter_id(self, obj):
-        return Display.align_right(obj.counter.code)
+        if obj.counter:
+            return Display.align_right(obj.counter.code)
+        return None
 
     @admin.display(description=_('abo_nr'))
     def display_abo_nr(self, obj):
