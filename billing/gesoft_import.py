@@ -1536,3 +1536,20 @@ def get_list_of_open_records(tenant_id):
         ready = subscription.measurements.count() == 2
         if ready and not invoiced:
             print(f"{subscription}")    
+
+
+def get_list_of_do_again_records(tenant_id):
+    ''' these subscriptions need to be visited again by Brunnenmeister '''
+    subscriptions = Subscription.objects.filter(
+        tenant__id=tenant_id,
+        is_inactive=False
+    ).order_by(
+        'address__zip', 'address__stn_label', 'address__adr_number',
+        'description'
+    )    
+    
+    for subscription in subscriptions:   
+        invoiced = len(subscription.invoices) > 0
+        ready = subscription.measurements.count() == 2
+        if not invoiced and not ready:
+            print(f"{subscription}")    

@@ -15,7 +15,8 @@ from accounting.models import OutgoingOrder
 from asset.models import AssetCategory, Device, EventLog
 from core.models import Attachment
 from .calc import (
-    RouteCounterExport, RouteCounterImport, RouteCounterInvoicing,
+    RouteCounterExport, RouteCounterExportNew,
+    RouteCounterImport, RouteCounterInvoicing,
     Measurement, MeasurementAnalyse
 )
 from .models import Route, Subscription, Measurement
@@ -43,6 +44,28 @@ def export_counter_data_json(modeladmin, request, queryset, data):
             data['route_date'], data['energy_type'], key)
         data = export.get_counter_data_json()
         response = export.make_response_json(data, filename)
+
+        return response
+
+
+@action_with_form(
+    forms.RouteMeterExportJSONActionForm,
+    description='1. ' + _('Export JSON Counter List for Routing (New)'))
+def export_counter_data_json_new(modeladmin, request, queryset, data):
+    if action_check_nr_selected(request, queryset, 1):
+        # Prepare
+        route = queryset.first()
+        if not route.period_previous:
+            return
+
+        key = 3 if data['key_enabled'] else None
+        filename = data['filename']
+        print("*filename", filename)
+        # Make and download json
+        export = RouteCounterExportNew(
+            modeladmin, request, route, data['responsible_user'].user,
+            data['route_date'], key)
+        response = export.make_export_file(filename)
 
         return response
 

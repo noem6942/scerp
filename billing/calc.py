@@ -428,6 +428,169 @@ class RouteCounterExport(RouteManagement):
         return data['billing_mde']['meter'] if excel else data
 
 
+class RouteCounterExportNew(RouteManagement):
+    '''
+    use this class to
+    - get_counter_data_json:
+        create a json list that gets upload to GFT software
+
+    responsible_user: Brunnenmeister
+    key: decipher for JSON export
+    '''
+    def __init__(
+            self, modeladmin, request, route, responsible_user=None,
+            route_date=None, key=None):
+        super().__init__(modeladmin, request, route)
+        self.username = responsible_user.username if responsible_user else None
+        self.name = f'{route.id}, {route.tenant.code}, {route.__str__()}'
+        self.route_date = route_date        
+        self.key = key  # encryption
+
+    def _get_energy_type(self, counter):
+        return 'W'  # only water supported for now
+
+    def _make_gft_meter(self, subscription):
+        ''' make meter dict for json / excel export
+        if excel we optimize data to our needs
+        redo !!!
+        '''
+        # Init
+        counter = subscription.counter
+        
+        # last consumption
+        previous_measurement = self.get_previous_measurement(counter)
+        if previous_measurement:
+            value = previous_measurement.value or 0
+            consumption_previous = previous_measurement.consumption or 0
+        else:
+            value = 0
+            consumption_previous = 0
+
+        # Calc min, max
+        min, max = value, value
+        if consumption_previous:
+            min += consumption_previous * float(self.route.confidence_min)
+            max += consumption_previous * float(self.route.confidence_max)
+
+        # subscription
+        name = subscription.subscriber.__str__()
+        if subscription.partner:
+            name += ' & ' + subscription.partner.__str__()
+
+        # address
+        address = subscription.address
+        street = address.stn_label or ''
+        nr = address.adr_number or ''
+
+        # current date
+        if self.route_date:
+            current_date = convert_datetime_to_date(self.route_date)
+        else:
+            current_date = None
+
+        # previous date
+        if self.route.period_previous:
+            previous_date = convert_datetime_to_date(
+                self.route.period_previous.end)
+        else:
+            previous_date = None
+
+        # encryption
+        if self.key:
+            name = shift_encode(name, self.key)
+            nr = shift_encode(street, self.key)
+            street = shift_encode(nr, self.key)
+
+        meter = {
+            'id': counter.number,
+            'energytype': self._get_energy_type(counter),
+            'number': counter.number,
+            'hint': json.dumps({
+                'subscription_id': subscription.id,
+                'address_id': address.id,
+                'consumption_previous': round(consumption_previous, 1)
+            }),
+            'address': {
+                'street': street,
+                'housenr': nr,
+                'city': address.city,
+                'zip': address.zip,
+                'hint': f'address_id: {address.id}',
+            },
+            'subscriber': {
+                'name': name,
+                'hint': subscription.subscriber.notes
+            },
+            'value': {
+                'obiscode': counter.category.code,
+                'dateOld': previous_date,
+                'old': round(value, 1),
+                'min': round(min, 1),
+                'max': round(max, 1),
+                'dateCur': current_date
+            }
+        }
+
+        return meter
+
+    def _init_json(self):
+        data = dict(METER.TEMPLATE)
+        data['billing_mde']['route'].update({
+            'name': self.name,
+            'user': self.username
+        })
+        return data
+
+    # Methods, main
+    def make_export_file(self, filename, file_type='json'):
+        '''called to generate the json data for the export to GFT software
+        excel: output to excel, creates a much simpler meter data
+        show_multiple: show if a subscriber has multiple counters
+        '''
+        data = self._init_json()
+        count = 0
+        
+        # get subscriptions
+        if self.route.subscriptions:
+            query_subscriptions = self.route.subscriptions
+        else:
+            query_subscriptions = Subscription.objects.filter(
+                tenant=self.tenant, is_inactive=False)
+
+        for subscription in query_subscriptions.all():
+            if subscription.counter:
+                # Check if measurement already existing
+                queryset = Measurement.objects.filter(
+                    route=self.route, counter=subscription.counter)
+                if queryset.exists():
+                    msg = _("subscription {subscription}; already measured.")
+                    msg = msg.format(subscription=subscription)
+                    messages.warning(self.request, msg)
+                else:
+                    meter = self._make_gft_meter(subscription)
+                    if meter:
+                        data['billing_mde']['meter'].append(meter)
+                        count += 1
+            else:
+                messages.warning(
+                    self.request, _(f"subscription {subscription}; no counter"))
+
+        # Update route
+        # self.route.number_of_addresses = len(addresses)
+        self.route.number_of_subscriptions = count  # only include valid ones
+        # self.route.number_of_counters = number_of_counters
+        self.route.status = Route.STATUS.COUNTER_EXPORTED
+        self.route.save()
+
+        messages.info(
+            self.request, _(f"json files contains {count} records"))
+
+        # return export_file
+        if file_type == 'json':
+            return self.make_response_json(data, filename)
+        return None
+
+
 class RouteCounterImport(RouteManagement):
     '''
     use this class to import GFT json list after tour is completed
@@ -614,7 +777,7 @@ class RouteCounterInvoicing(RouteManagement):
         self.date = invoice_date
         self.is_enabled_sync = is_enabled_sync
 
-    def get_quantity(
+    def _get_quantity(
             self, measurement, article, quantity, rounding_digits,
             days=None):
         ''' quantity, not considered: individual from, to
@@ -623,14 +786,14 @@ class RouteCounterInvoicing(RouteManagement):
         if article.unit.code == 'day' and days:
             # case: days given
             if quantity:
-                return days * quantity            
+                return days * quantity
         elif quantity:
             # just return quantity
             return quantity
         elif measurement:
             # fill in consumption
             return round(measurement.consumption, rounding_digits)
-        
+
         # No valid case
         return None  # could not be derived
 
@@ -696,8 +859,8 @@ class RouteCounterInvoicing(RouteManagement):
                 id=subscription.id,
                 subscription=subscription)
             messages.error(self.request, msg)
-            return None            
-            
+            return None
+
         if subscription.address.notes:
             building_notes = ', ' + subscription.address.notes
         else:
@@ -719,11 +882,11 @@ class RouteCounterInvoicing(RouteManagement):
                 return None
 
             # Check invoice
-            if measurement.invoice:            
+            if measurement.invoice:
                 msg = _("{id}, {subscription}: invoice already created for {route}.")
                 msg = msg.format(
                     id=subscription.id,
-                    subscription=subscription, 
+                    subscription=subscription,
                     route=route)
                 messages.error(self.request, msg)
                 return None
@@ -761,7 +924,7 @@ class RouteCounterInvoicing(RouteManagement):
                     id=subscription.id,
                     subscription=subscription)
                 messages.error(self.request, msg)
-                return None                
+                return None
 
             if comparison and comparison.consumption:
                 consumption = round_to_zero(
@@ -776,8 +939,8 @@ class RouteCounterInvoicing(RouteManagement):
                     id=subscription.id,
                     subscription=subscription)
                 messages.error(self.request, msg)
-                return None                    
-            
+                return None
+
             # check day vs. period
             unit_code = 'day' if (route.start or route.end) else 'period'
             if unit_code == 'day':
@@ -827,7 +990,7 @@ class RouteCounterInvoicing(RouteManagement):
                     nr=article.nr + ARTICLE_NR_POSTFIX_DAY,
                 ).first()
 
-            quantity = self.get_quantity(
+            quantity = self._get_quantity(
                 measurement, article, quantity, setup.rounding_digits, days)
             if quantity is None:
                 msg = _("{subscription}: no valid measurement for {article}.")
@@ -838,7 +1001,7 @@ class RouteCounterInvoicing(RouteManagement):
             items.append(dict(
                 tenant=route.tenant,
                 article=article,
-                quantity=self.get_quantity(
+                quantity=self._get_quantity(
                     measurement, article, quantity, setup.rounding_digits,
                     days),
                 created_by=self.created_by

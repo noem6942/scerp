@@ -7,13 +7,13 @@ Workflow:
 1. A subscription is created with EGID address and description which are unique
    Use tags to classify subscriptions.
 2. A counter is created.
-3. The subscription is updated with counter assigned. Now the subscription is 
+3. The subscription is updated with counter assigned. Now the subscription is
    functional.
 
 Measuring:
 1. Create a period (usually semi-annual)
-2. Create a route (usually one per period) and check all tags assigned 
-   (usually all). Apply filters (e.g. 
+2. Create a route (usually one per period) and check all tags assigned
+   (usually all). Apply filters (e.g.
 
 Every counter in use has a subscription --> foreign counter is unique
 Every subscription has a subscriber
@@ -117,6 +117,142 @@ class Period(TenantAbstract):
         verbose_name_plural = _('Periods')
 
 
+# Subscriptions
+class Subscription(TenantAbstract):
+    subscriber_number = models.CharField(
+        _('Abo Nr'), max_length=50, blank=True, null=True,
+        help_text=('Old subscription number, leave empty'))
+    description = models.CharField(
+        _('Description'), max_length=200, blank=True, null=True,
+        help_text=(
+            'leave empty, use for exceptions that should be on the invoice'))
+    tag = models.CharField(
+        _('Tag'), max_length=50, blank=True, null=True,
+        help_text=('Tag a subscriber, e.g. to invoice only these'))
+    subscriber = models.ForeignKey(
+        Person, verbose_name=_('Subscriber'),
+        on_delete=models.PROTECT, related_name='%(class)s_subscriber',
+        help_text=_(
+            "subscriber / inhabitant / owner"
+            "invoice address may be different to subscriber, defined under "
+            "address"))
+    partner = models.ForeignKey(
+        Person, on_delete=models.PROTECT, blank=True, null=True,
+        verbose_name=_('Partner'), related_name='%(class)s_partner',
+        help_text=_(
+            "subscriber / inhabitant / owner"
+            "invoice address may be different to subscriber, defined under "
+            "address"))
+    recipient = models.ForeignKey(
+        Person, on_delete=models.PROTECT, blank=True, null=True,
+        verbose_name=_('Invoice recipient'),
+        related_name='%(class)s_recipient',
+        help_text=_("Invoice recipient if not subscriber."))
+    dossier = models.ForeignKey(
+        'self', on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Dossier'), related_name='%(class)s_dossier',
+        help_text=_("main subscription if multiple counters"))
+    address = models.ForeignKey(
+        AddressMunicipal, verbose_name=_('Building Address'), null=True,
+        on_delete=models.PROTECT, related_name='%(class)s_address',
+        help_text=_("May be null at the beginning but must be entered later"))
+    start = models.DateField(
+        _('Start Date'), help_text=_("Start date of subscription."))
+    end = models.DateField(
+        _('Exit Date'), blank=True, null=True)
+    counter = models.ForeignKey(
+        Device, on_delete=models.CASCADE, blank=True, null=True,
+        verbose_name=_('Counter'), related_name='%(class)s_counter',
+        help_text=_("main subscription if multiple counters"))
+    attachments = GenericRelation('core.Attachment')  # Enables reverse relation
+
+    @property
+    def invoice_address(self):
+        # Get Field
+        if self.recipient:
+            # First check point, usually empty
+            addresses = PersonAddress.objects.filter(person=self.recipient)
+        else:
+            # Take subscriber
+            addresses = PersonAddress.objects.filter(person=self.subscriber)
+
+        # Get address
+        invoice = addresses.filter(type=PersonAddress.TYPE.INVOICE)
+        if invoice:
+            return invoice.first()
+
+        main = addresses.filter(type=PersonAddress.TYPE.MAIN)
+        if main:
+            return main.first()
+
+        return addresses.first()
+
+    @property
+    def number(self):
+        return f'S-{self.id}'
+
+    @property
+    def invoices(self):
+        invoices = [
+            measurement.invoice
+            for measurement in Measurement.objects.filter(
+                subscription=self
+            ).exclude(invoice=None).order_by('-datetime')
+        ]
+        return invoices
+
+    @property
+    def measurements(self):
+        return Measurement.objects.filter(
+            subscription=self).order_by('datetime')
+
+    def __str__(self):
+        name = f'{self.address}'
+        if self.description:
+            name += ' - ' + self.description
+        return name
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'address', 'description', 'is_inactive'],
+                name='unique_billing_subscription'
+            )
+        ]
+        ordering = [
+            'subscriber__alt_name', 'subscriber__company',
+            'subscriber__last_name', 'subscriber__first_name',
+            'address__zip', 'address__stn_label', 'address__adr_number', 'id']
+        verbose_name = _('Subscription')
+        verbose_name_plural = _('Subscriptions')
+
+
+class SubscriptionArticle(TenantAbstract):
+    subscription = models.ForeignKey(
+        Subscription, on_delete=models.CASCADE,
+        verbose_name=_('Subscription'),
+        related_name='%(class)s_subscription')
+    article = models.ForeignKey(
+        Article, on_delete=models.PROTECT, null=True,
+        verbose_name=_('Article'), related_name='%(class)s_article')
+    quantity = models.PositiveSmallIntegerField(
+        _('Quantity'), blank=True, null=True,
+        help_text=(
+            "Leave blank if unit is m3 / quantity derived from measurement")
+    )
+
+    def __str__(self):
+        return f'{self.subscription}, {self.article}'
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'subscription', 'article'],
+                name='unique_subscription_article'
+            )
+        ]
+
+
 class Route(TenantAbstract):
     class STATUS(models.TextChoices):
         # Processing stages
@@ -151,10 +287,15 @@ class Route(TenantAbstract):
         help_text=_(
             "Areas that should be included, "
             "leave empty to include all in scope"))
-    addresses = models.ManyToManyField(
+    addresses = models.ManyToManyField(  # discontinue
         AddressMunicipal, verbose_name=_('Addresses'), blank=True,
         help_text=_(
             "Addresses that should be included, "
+            "leave empty to include all in scope"))
+    subscriptions = models.ManyToManyField(  # new
+        Subscription, verbose_name=_('Subscriptions'), blank=True,
+        help_text=_(
+            "Subscriptions that should be included, "
             "leave empty to include all in scope"))
     asset_categories = models.ManyToManyField(
         AssetCategory, verbose_name=_('Categories'), blank=True,
@@ -231,172 +372,14 @@ class Route(TenantAbstract):
         verbose_name_plural = _('Routes')
 
 
-# Subscriptions
-class Subscription(TenantAbstract):
-    subscriber_number = models.CharField(
-        _('Abo Nr'), max_length=50, blank=True, null=True,
-        help_text=('Old subscription number, leave empty'))           
-    description = models.CharField(
-        _('Description'), max_length=200, blank=True, null=True,
-        help_text=(
-            'leave empty, use for exceptions that should be on the invoice'))
-    tag = models.CharField(
-        _('Tag'), max_length=50, blank=True, null=True,
-        help_text=('Tag a subscriber, e.g. to invoice only these'))
-    subscriber = models.ForeignKey(
-        Person, verbose_name=_('Subscriber'),
-        on_delete=models.PROTECT, related_name='%(class)s_subscriber',
-        help_text=_(
-            "subscriber / inhabitant / owner"
-            "invoice address may be different to subscriber, defined under "
-            "address"))       
-    partner = models.ForeignKey(
-        Person, on_delete=models.PROTECT, blank=True, null=True,
-        verbose_name=_('Partner'), related_name='%(class)s_partner',
-        help_text=_(
-            "subscriber / inhabitant / owner"
-            "invoice address may be different to subscriber, defined under "
-            "address"))
-    recipient = models.ForeignKey(
-        Person, on_delete=models.PROTECT, blank=True, null=True,
-        verbose_name=_('Invoice recipient'),
-        related_name='%(class)s_recipient',
-        help_text=_("Invoice recipient if not subscriber."))
-    dossier = models.ForeignKey(
-        'self', on_delete=models.CASCADE, blank=True, null=True,
-        verbose_name=_('Dossier'), related_name='%(class)s_dossier',
-        help_text=_("main subscription if multiple counters"))  
-    address = models.ForeignKey(
-        AddressMunicipal, verbose_name=_('Building Address'), null=True,
-        on_delete=models.PROTECT, related_name='%(class)s_address',
-        help_text=_("May be null at the beginning but must be entered later"))
-    start = models.DateField(
-        _('Start Date'), help_text=_("Start date of subscription."))
-    end = models.DateField(
-        _('Exit Date'), blank=True, null=True)
-    counter = models.ForeignKey(
-        Device, on_delete=models.CASCADE, blank=True, null=True,
-        verbose_name=_('Counter'), related_name='%(class)s_counter',
-        help_text=_("main subscription if multiple counters"))                 
-    attachments = GenericRelation('core.Attachment')  # Enables reverse relation
-
-    @property
-    def invoice_address(self):
-        # Get Field
-        if self.recipient:
-            # First check point, usually empty
-            addresses = PersonAddress.objects.filter(person=self.recipient)
-        else:
-            # Take subscriber
-            addresses = PersonAddress.objects.filter(person=self.subscriber)
-
-        # Get address
-        invoice = addresses.filter(type=PersonAddress.TYPE.INVOICE)
-        if invoice:
-            return invoice.first()
-
-        main = addresses.filter(type=PersonAddress.TYPE.MAIN)
-        if main:
-            return main.first()
-
-        return addresses.first()
-
-    @property
-    def number(self):
-        return f'S-{self.id}'
-
-    @property
-    def invoices(self):        
-        invoices = [
-            measurement.invoice 
-            for measurement in Measurement.objects.filter(
-                subscription=self
-            ).exclude(invoice=None).order_by('-datetime')            
-        ]
-        return invoices
-
-    @property
-    def measurements(self):
-        return Measurement.objects.filter(
-            subscription=self).order_by('datetime')
-
-    def __str__(self):                
-        name = f'{self.address}'
-        if self.description:
-            name += ' - ' + self.description
-        return name
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['tenant', 'address', 'description', 'is_inactive'],
-                name='unique_billing_subscription'
-            )
-        ]
-        ordering = [
-            'subscriber__alt_name', 'subscriber__company',
-            'subscriber__last_name', 'subscriber__first_name',
-            'address__zip', 'address__stn_label', 'address__adr_number', 'id']
-        verbose_name = _('Subscription')
-        verbose_name_plural = _('Subscriptions')
-
-
-class SubscriptionArticle(TenantAbstract):
-    subscription = models.ForeignKey(
-        Subscription, on_delete=models.CASCADE,
-        verbose_name=_('Subscription'),
-        related_name='%(class)s_subscription')
-    article = models.ForeignKey(
-        Article, on_delete=models.PROTECT, null=True,
-        verbose_name=_('Article'), related_name='%(class)s_article')
-    quantity = models.PositiveSmallIntegerField(
-        _('Quantity'), blank=True, null=True,
-        help_text=(
-            "Leave blank if unit is m3 / quantity derived from measurement")
-    )
-
-    def __str__(self):
-        return f'{self.subscription}, {self.article}'
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['tenant', 'subscription', 'article'],
-                name='unique_subscription_article'
-            )
-        ]
-
-
-class SubscriptionArchive(TenantAbstract):
-    subscriber_number = models.CharField(
-        _('Abo Nr'), max_length=50)
-    subscriber_name = models.CharField(
-        _('Name'), max_length=200, blank=True, null=True)
-    street_name = models.CharField(
-        _('Strasse'), max_length=200, blank=True, null=True)
-    zip_city = models.CharField(
-        _('PLZ Ort'), max_length=200, blank=True, null=True)
-    tarif = models.PositiveSmallIntegerField(
-        _('Tarif'), blank=True, null=True)
-    period = models.PositiveSmallIntegerField(
-        _('Period'), blank=True, null=True)
-    tarif_name = models.CharField(
-        _('Bez.'), max_length=200, blank=True, null=True)
-    consumption = models.FloatField(
-        _('Base'), blank=True, null=True)
-    amount = models.DecimalField(
-        _('Amount'), max_digits=10, decimal_places=2,
-        blank=True, null=True)
-    amount_gross = models.DecimalField(
-        _('Amount incl. VAT'), max_digits=10, decimal_places=2,
-        blank=True, null=True)
-
-
 # Counters
 class Measurement(TenantAbstract):
     counter = models.ForeignKey(
         Device, verbose_name=_('Counter'),
         blank=True, null=True,  # only for archive
+        on_delete=models.PROTECT, related_name='%(class)s_counter')
+    route = models.ForeignKey(
+        Route, verbose_name=_('Route'), blank=True, null=True,
         on_delete=models.PROTECT, related_name='%(class)s_counter')
 
     # measurement data used for bill
@@ -406,7 +389,7 @@ class Measurement(TenantAbstract):
     value = models.FloatField(
         _('Value'), blank=True, null=True,
         help_text=('Value at reference measurement'))
-        
+
     # for billing and statistics
     consumption = models.FloatField(
         _('Consumption'), blank=True, null=True,
@@ -442,9 +425,6 @@ class Measurement(TenantAbstract):
         max_length=20, blank=True, null=True)
 
     # for efficiency analysis, automatically updated
-    route = models.ForeignKey(
-        Route, verbose_name=_('Route'), blank=True, null=True,
-        on_delete=models.PROTECT, related_name='%(class)s_counter')    
     address = models.ForeignKey(
         AddressMunicipal, verbose_name=_('Address'), blank=True, null=True,
         on_delete=models.PROTECT, related_name='%(class)s_address')
@@ -458,10 +438,10 @@ class Measurement(TenantAbstract):
     # prevent double charging
     invoice = models.ForeignKey(
         OutgoingOrder, null=True, blank=True, on_delete=models.SET_NULL,
-        verbose_name=_('Invoice'), related_name='measurement_invoice',        
+        verbose_name=_('Invoice'), related_name='measurement_invoice',
         help_text=_("Related invoice")
     )
-    
+
     @property
     def value_old(self):
         if self.value is None or self.consumption is None:
@@ -469,15 +449,15 @@ class Measurement(TenantAbstract):
         return self.value - self.consumption
 
     def __str__(self):
-        if self.subscription:    
+        if self.subscription:
             tag = self.subscription.tag or ''
             if tag:
                 tag += ', '
-            
+
             desc = self.subscription.description or ''
             if desc:
-                desc = ', ' + desc 
-            
+                desc = ', ' + desc
+
             return (
                 f"{tag}{self.subscription.subscriber_number} "
                 f"{self.subscription.subscriber}, {self.address}{desc}: "
@@ -493,11 +473,11 @@ class Measurement(TenantAbstract):
                 counter=self.counter,
                 datetime__lt=self.datetime
             ).order_by('datetime').last()
-        if (previous_measurement 
-                and self.value is not None 
+        if (previous_measurement
+                and self.value is not None
                 and previous_measurement.value is not None):
             self.consumption = self.value - previous_measurement.value
-            self.save()        
+            self.save()
 
     class Meta:
         constraints = [
@@ -535,3 +515,28 @@ class MeasurementArchive(TenantAbstract):
         ordering = ['-datetime']
         verbose_name = _('Measurement Archive')
         verbose_name_plural = _('Measurements Archive')
+
+
+class SubscriptionArchive(TenantAbstract):
+    subscriber_number = models.CharField(
+        _('Abo Nr'), max_length=50)
+    subscriber_name = models.CharField(
+        _('Name'), max_length=200, blank=True, null=True)
+    street_name = models.CharField(
+        _('Strasse'), max_length=200, blank=True, null=True)
+    zip_city = models.CharField(
+        _('PLZ Ort'), max_length=200, blank=True, null=True)
+    tarif = models.PositiveSmallIntegerField(
+        _('Tarif'), blank=True, null=True)
+    period = models.PositiveSmallIntegerField(
+        _('Period'), blank=True, null=True)
+    tarif_name = models.CharField(
+        _('Bez.'), max_length=200, blank=True, null=True)
+    consumption = models.FloatField(
+        _('Base'), blank=True, null=True)
+    amount = models.DecimalField(
+        _('Amount'), max_digits=10, decimal_places=2,
+        blank=True, null=True)
+    amount_gross = models.DecimalField(
+        _('Amount incl. VAT'), max_digits=10, decimal_places=2,
+        blank=True, null=True)
