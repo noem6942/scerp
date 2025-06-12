@@ -323,7 +323,7 @@ def sync_person_again(tenant_id):
 
 def update_address_label():
     ''' first time init of addresses '''
-    addresses = AddressMunicipal.objects.filter(address_label=None).all()
+    addresses = AddressMunicipal.objects.all()
     for address in addresses:
         address.save()
 
