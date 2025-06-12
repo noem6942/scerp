@@ -672,7 +672,8 @@ class AddressMunicipal(TenantAbstract):
         # Calc address_label
         self.address_label = self.stn_label or ''
         # append number to be sortable, e.g. '123'.rjust(5) → ' 123'
-        self.address_label += (self.adr_number or '').rjust(5)
+        length = 5 if self.adr_number and self.adr_number[-1].isalpha() else 4
+        self.address_label += (self.adr_number or '').rjust(length)
         
         # Automatically calculate latitude and longitude if missing
         if self.adr_easting and self.adr_northing and (
