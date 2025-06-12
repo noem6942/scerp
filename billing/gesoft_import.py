@@ -1527,8 +1527,7 @@ def get_list_of_open_records(tenant_id):
         tenant__id=tenant_id,
         is_inactive=False
     ).order_by(
-        'address__zip', 'address__stn_label', 'address__adr_number',
-        'description'
+        'address__zip', 'address__address_label', 'description'
     )    
     
     for subscription in subscriptions:   
@@ -1544,8 +1543,7 @@ def get_list_of_do_again_records(tenant_id):
         tenant__id=tenant_id,
         is_inactive=False
     ).order_by(
-        'address__zip', 'address__stn_label', 'address__adr_number',
-        'description'
+        'address__zip', 'address__address_label', 'description'
     )    
     
     for subscription in subscriptions:   
