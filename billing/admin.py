@@ -82,18 +82,20 @@ class PeriodAdmin(TenantFilteringAdmin, BaseAdmin):
 class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'period']
-    protected_many_to_many = ['addresses', 'comparison_periods']
+    protected_many_to_many = ['comparison_periods', 'asset_categories']
 
     # Display these fields in the list view
     list_display = (
         'name', 'period', 'display_start', 'display_end',
         'duration', 'display_filters', 'is_default', 'status'
     ) + (
-        'number_of_subscriptions', 'number_of_counters',
+        'display_subscription_count', 'number_of_counters',
         'number_of_addresses'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
     list_display_links = ('name', 'period')
-    readonly_fields = ('duration', 'status') + FIELDS.LOGGING_TENANT
+    readonly_fields = (
+        'duration', 'status', 'display_subscription_count'
+    ) + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ('name', 'period__name')
@@ -120,7 +122,6 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
         (_('Filters'), {
             'fields': (
                 'areas', 'subscriptions',
-                # 'addresses',  # discontinue
                 'asset_categories', 'start', 'end',
             ),
             'classes': ('expand',),
@@ -140,8 +141,6 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('filters'))
     def display_filters(self, obj):
         values = []
-        if obj.addresses.exists():
-            values.append(str(_('Addresses')))
         if obj.start:
             values.append(str(_('Start')))
         if obj.end:
@@ -155,6 +154,10 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('End'))
     def display_end(self, obj):
         return obj.get_end()
+
+    @admin.display(description=_('Number of Subscriptions'))
+    def display_subscription_count(self, obj):
+        return obj.subscriptions.count()
 
 
 @admin.register(Measurement, site=admin_site)

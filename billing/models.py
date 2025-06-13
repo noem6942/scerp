@@ -288,11 +288,6 @@ class Route(TenantAbstract):
         help_text=_(
             "Areas that should be included, "
             "leave empty to include all in scope"))
-    addresses = models.ManyToManyField(  # discontinue
-        AddressMunicipal, verbose_name=_('Addresses'), blank=True,
-        help_text=_(
-            "Addresses that should be included, "
-            "leave empty to include all in scope"))
     subscriptions = models.ManyToManyField(  # new
         Subscription, verbose_name=_('Subscriptions'), blank=True,
         help_text=_(
@@ -334,7 +329,7 @@ class Route(TenantAbstract):
     # For analysis
     number_of_addresses = models.PositiveIntegerField(
         _('Number of Addresses'), blank=True, null=True, editable=False)
-    number_of_subscriptions = models.PositiveIntegerField(
+    number_of_subscriptions = models.PositiveIntegerField(  # discontinue
         _('Number of Subscriptions'), blank=True, null=True, editable=False)
     number_of_counters = models.PositiveIntegerField(
         _('Number of Counters'), blank=True, null=True, editable=False)

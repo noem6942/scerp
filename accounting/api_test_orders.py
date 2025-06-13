@@ -168,16 +168,24 @@ if __name__ == "__main__":
         # Read Invoicing document
         conn = Order(org, api, convert_dt=False)
         data_list = conn.list(params={
-            'type': 'SALES', 
+            'filter': [{
+                'comparison': 'eq',
+                'field': 'id',
+                'value': [192, 600]
+            }],
+            'limit': 101,
+            'type': 'SALES',             
         })
+        
+        print("*orders", len(data_list))
+       
+        """       
         for data in data_list:
             print("*data", data['id'], data['date'])        
             if data['id'] == 600:
                 order = data        
         # OrderDocument
-        print("*order", order)
-        
-        """
+       
         # Read again the order
         order_read = conn.read(order['id'])
         print("*order_read", order_read)
