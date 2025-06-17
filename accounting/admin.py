@@ -1119,7 +1119,9 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     
     @admin.display(description=_('url'))
     def display_cash_ctrl_url_form(self, obj):
-        return Display.link(obj.url, '🧾 external url to cashCtrl', 'new')
+        if obj.url:
+            return Display.link(obj.url, '🧾 external url to cashCtrl', 'new')
+        return '-'
 
 
 # Ledger -------------------------------------------------------------------

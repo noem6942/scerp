@@ -1615,8 +1615,10 @@ class Order(AcctApp):
 
     @property
     def url(self):
-        return f'{self.tenant.cash_ctrl_url}#order/document?id={self.c_id}'
-
+        if self.c_id:
+            return f'{self.tenant.cash_ctrl_url}#order/document?id={self.c_id}'
+        return None
+        
     class Meta:
         abstract = True
 
