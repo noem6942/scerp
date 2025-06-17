@@ -41,7 +41,7 @@ class SetupAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'code', 'name', 'header',
-                'order_contract', 'order_category', 'contact', 
+                'order_contract', 'order_category', 'contact',
                 'show_partner'),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -105,7 +105,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
     actions = [
         a.export_counter_data_json,
         a.export_counter_data_json_new,
-        a.import_counter_data_json,        
+        a.import_counter_data_json,
         a.route_billing,
         #a.export_counter_data_excel,
         a.route_copy
@@ -133,7 +133,7 @@ class RouteAdmin(TenantFilteringAdmin, BaseAdmin):
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING_TENANT        
+        FIELDSET.LOGGING_TENANT
     )
 
     inlines = [AttachmentInline]
@@ -169,10 +169,10 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'counter__code', 'datetime', 'address', 'display_value_old', 
+        'counter__code', 'datetime', 'address', 'display_value_old',
         'display_value', 'display_consumption', 'invoice', 'display_area', 'route'
     ) + FIELDS.ICON_DISPLAY
-    list_display_links = ('counter__code', 'datetime')    
+    list_display_links = ('counter__code', 'datetime')
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
@@ -188,7 +188,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         'datetime', 'notes')
     autocomplete_fields = ['counter', 'address', 'subscription']
 
-    # Actions    
+    # Actions
     actions = [
         a.analyse_measurement,
         a.anaylse_measurent_excel,
@@ -200,7 +200,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'counter', 'route', 
+                'counter', 'route',
                 'datetime', 'value', 'consumption', 'current_battery_level',
             ),
         }),
@@ -209,7 +209,7 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
                 'datetime_latest', 'value_latest', 'consumption_latest',
             ),
             'classes': ('collapse',),
-        }),        
+        }),
         (_('References'), {
             'fields': (
                 'address', 'period', 'subscription', 'invoice'
@@ -236,8 +236,8 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('abo_nr'))
     def display_abo_nr(self, obj):
         if obj.subscription:
-            return obj.subscription.subscriber_number        
-            
+            return obj.subscription.subscriber_number
+
 
     @admin.display(description=_('Subscriber'))
     def display_subscriber(self, obj):
@@ -266,11 +266,11 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
             return obj.address.area
 
     @admin.display(description=_('Value'))
-    def display_value(self, obj):        
+    def display_value(self, obj):
         return Display.big_number(obj.value)
 
     @admin.display(description=_('Value old'))
-    def display_value_old(self, obj):        
+    def display_value_old(self, obj):
         return Display.big_number(obj.value_old)
 
 
@@ -281,11 +281,11 @@ class MeasurementArchiveAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = ('id', 'datetime', 'route') + FIELDS.ICON_DISPLAY
-    list_display_links = ('id', 'datetime')    
+    list_display_links = ('id', 'datetime')
     readonly_fields = ('data',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
-    search_fields = ('datetime',)    
+    search_fields = ('datetime',)
 
     # Actions
     actions = [a.assign_measurement_archive]
@@ -301,7 +301,7 @@ class MeasurementArchiveAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
     )
 
-    inlines = [AttachmentInline]    
+    inlines = [AttachmentInline]
 
 
 class ArticleInline(BaseTabularInline):  # or admin.StackedInline
@@ -310,7 +310,7 @@ class ArticleInline(BaseTabularInline):  # or admin.StackedInline
 
     # Inline
     model = SubscriptionArticle
-    fields = ['quantity', 'article']  # Only show these fields    
+    fields = ['quantity', 'article']  # Only show these fields
     extra = 0  # Number of empty forms displayed
     autocomplete_fields = ['article']  # Improves FK selection performance
     show_change_link = False  # Shows a link to edit the related model
@@ -334,7 +334,7 @@ class MeasurementInline(admin.TabularInline):
 class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
-        'tenant', 'version', 'dossier', 'subscriber', 'partner', 
+        'tenant', 'version', 'dossier', 'subscriber', 'partner',
         'recipient', 'address', 'counter']
     help_text = _(
         "Create a new subscription if owner changes, otherwise previous "
@@ -342,15 +342,15 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_number', 'display_counter_id', 'tag', 
-        'address', 'description', 'display_subscriber', 
-        'start', 'end', 'display_abo_nr', 
+        'display_number', 'display_counter_id', 'tag',
+        'address', 'description', 'display_subscriber',
+        'start', 'end', 'display_abo_nr',
         'last_measurement'
     ) + FIELDS.ICON_DISPLAY + FIELDS.LINK_ATTACHMENT
-    list_display_links = ('display_subscriber', 'address')
+    list_display_links = ('display_number', 'display_counter_id', )
     readonly_fields = (
         'display_number', 'display_invoice_address', 'display_invoice_address_list',
-        'display_counters', 'display_abo_nr', 
+        'display_counters', 'display_abo_nr',
         'display_measurements'
     ) + FIELDS.LOGGING_TENANT
 
@@ -381,7 +381,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Actions
     actions = [export_excel] + default_actions
-    
+
     # Inlines
     inlines = [ArticleInline, MeasurementInline]
 
@@ -410,24 +410,24 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
 
     @admin.display(description=_('Invoice Address'))
     def display_invoice_address_list(self, obj):
-        return obj.invoice_address   
+        return obj.invoice_address
 
     @admin.display(description=_('Counters'))
     def display_counters(self, obj):
         return ','.join([x.__str__() for x in obj.counters.order_by('nr')])
- 
+
     @admin.display(description=_('Last Route / Measurement'))
     def last_measurement(self, obj):
-        measurement = obj.measurements.last() 
+        measurement = obj.measurements.last()
         if measurement and measurement.consumption:
-            return measurement.datetime.date() 
+            return measurement.datetime.date()
 
     @admin.display(description=_('Measurements'))
     def display_measurements(self, obj):
         return ', '.joins([f"{x}" for x in obj.measurements])
 
     def get_search_results(self, request, queryset, search_term):
-        if search_term.startswith("S-"):
+        if search_term.startswith("S-" or search_term.startswith("s-")):
             try:
                 obj_id = int(search_term[2:])
                 queryset = queryset.filter(id=obj_id)

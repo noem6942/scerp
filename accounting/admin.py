@@ -1071,7 +1071,9 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display_links = (
         'date', 'nr'
     ) + CORE_FIELDS.LINK_ATTACHMENT
-    readonly_fields = FIELDS.C_READ_ONLY
+    readonly_fields = (
+        'display_cash_ctrl_url', 'display_cash_ctrl_url_form'
+    ) + FIELDS.C_READ_ONLY
 
     # Search, filter
     search_fields = (        
@@ -1086,12 +1088,13 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         a.order_status_update, a.order_get_status
     ]+ default_actions
 
-    #Fieldsets
+    #Fieldsets    
     fieldsets = (
         (None, {
             'fields': (
                 'category', 'contract', 'status', 'description', 'date',
-                'associate', 'due_days', 'responsible_person', 'dossier'),
+                'associate', 'due_days', 'responsible_person', 'dossier',
+                'display_cash_ctrl_url_form'),
             'classes': ('expand',),
         }),
         (_('Layout'), {
@@ -1113,6 +1116,10 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('url'))
     def display_cash_ctrl_url(self, obj):
         return Display.link(obj.url, '🧾', 'new')
+    
+    @admin.display(description=_('url'))
+    def display_cash_ctrl_url_form(self, obj):
+        return Display.link(obj.url, '🧾 external url to cashCtrl', 'new')
 
 
 # Ledger -------------------------------------------------------------------
