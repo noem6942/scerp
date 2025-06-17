@@ -437,11 +437,16 @@ class CashCtrl():
         if not params.get('language'):
             params['lang'] = self.language
 
+        if params.get('filter'):
+            params['filter'] = json.dumps(params['filter'])
+        response = requests.get(
+            url, params=params, auth=self.auth, timeout=timeout)        
+
         for attempt in range(self.MAX_TRIES):
             try:
                 response = requests.get(
                     url, params=params, auth=self.auth, timeout=timeout
-                )
+                )                
 
                 if response.status_code == 429:
                     logging.info("GET rate limit hit. Retrying...")
@@ -601,19 +606,8 @@ class CashCtrl():
             raise Exception(f'Failed to download file: {response}')
 
     # REST API mine: list, read, create, update, delete, data
-    def list(self, params={}, **filter_kwargs):
-        ''' cash_ctrl list '''
-        # special filters not supported by cashCtrl
-        created_by_system = filter_kwargs.pop('created_by_system', False)
-
-        if filter_kwargs:
-            # e.g. categoryId=110,  camelCase!
-            filters = []
-            for key, value in filter_kwargs.items():
-                filters.append(
-                    {'comparison': 'eq', 'field': key, 'value': value})
-            params['filter'] = json.dumps(filters)
-
+    def list(self, params={}):
+        ''' cash_ctrl list '''        
         url = self.BASE.format(
             org=self.org, url=self.url, params=params, action='list')
         response = self.get(url, params)
@@ -621,11 +615,6 @@ class CashCtrl():
             clean_dict(x, self.convert_dt, self.timezone)
             for x in response.json()['data']
         ]
-
-        # special filters
-        if created_by_system:
-            self.data = [x for x in self.data if x['created_by'] == 'SYSTEM']
-
         return self.data
 
     def read(self, id=None, params=None):
