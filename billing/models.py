@@ -38,7 +38,7 @@ ARTICLE_NR_POSTFIX_DAY = '-D'
 
 # use this to default header for billing invoices
 SETUP_HEADER = '''<small>
-Objekt: {building}{building_notes}{description}, {subscription_id}<br>
+Objekt: {building}{building_notes}{description}, {subscription_id}{subscriber_short_name}<br>
 Periode: {start} bis {end}<br>
 Verbrauch letzte Periode: {consumption} m³, Zählerstand Id {counter_id} alt {counter_old}, neu {counter_new}
 <small>'''

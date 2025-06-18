@@ -1072,7 +1072,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         'date', 'nr'
     ) + CORE_FIELDS.LINK_ATTACHMENT
     readonly_fields = (
-        'display_cash_ctrl_url', 'display_cash_ctrl_url_form'
+        'nr', 'display_cash_ctrl_url', 'display_cash_ctrl_url_form'
     ) + FIELDS.C_READ_ONLY
 
     # Search, filter
@@ -1092,7 +1092,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'category', 'contract', 'status', 'description', 'date',
+                'nr', 'category', 'contract', 'status', 'description', 'date',
                 'associate', 'due_days', 'responsible_person', 'dossier',
                 'display_cash_ctrl_url_form'),
             'classes': ('expand',),

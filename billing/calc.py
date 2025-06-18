@@ -20,7 +20,7 @@ from accounting.models import Article, OutgoingOrder, OutgoingItem
 from asset.models import Device
 from core.models import Area, AddressMunicipal, PersonAddress, Attachment
 from scerp.admin import ExportExcel
-from scerp.mixins import format_date, primary_language
+from scerp.mixins import SafeDict, format_date, primary_language
 from .models import (
     ARTICLE_NR_POSTFIX_DAY, Period, Route, Measurement, Subscription,
     SubscriptionArticle
@@ -954,19 +954,28 @@ class RouteCounterInvoicing(RouteManagement):
             # consumption
             consumption, value_new, value_old = '-', '-', '-'
 
-        # header
-        invoice['header'] = setup.header.format(
+        # subscriber_short_name
+        if subscription.recipient:
+            # Invoice recipient if not subscriber.
+            subscriber_short_name = f", {subscription.subscriber.short_name}"
+        else:
+            subscriber_short_name = ''
+
+        # header, use SafeDict to avoid error of variable not in template
+        template = setup.header
+        invoice['header'] = template.format_map(SafeDict(
             building=building,
             building_notes=building_notes,
             description=description,
             subscription_id=f"S-{subscription.id}",
+            subscriber_short_name=subscriber_short_name,
             start=format_date(self.start),
             end=format_date(self.end),
             consumption=consumption,
             counter_id=counter_id,
             counter_new=value_new,
             counter_old=value_old
-        )
+        ))
 
         # description
         invoice['description'] = (

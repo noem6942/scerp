@@ -34,6 +34,29 @@ current_timezone = timezone.get_current_timezone()
 User = get_user_model()
 
 
+# I/O classes
+class SafeDict(dict):
+    '''
+    A dictionary subclass for safe string formatting.
+
+    If a key is missing during string formatting, it returns a placeholder
+    instead of raising a KeyError. This is useful when formatting templates
+    with optional fields.
+
+    Example usage:
+
+        template = "Hello {name}, your order #{order_id} is {status}."
+        data = SafeDict(name="Alice", order_id=123)
+
+        result = template.format_map(data)
+        print(result)
+        # Output: "Hello Alice, your order #123 is {status}."
+    '''
+
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
 # I/O functions
 def read_excel(file_path, header_nr=1, string_cols=[]):
     """

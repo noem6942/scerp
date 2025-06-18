@@ -1023,6 +1023,13 @@ class Person(AcctApp):
         help_text=_('Load up your personal photo.'))
     attachments = GenericRelation('Attachment')  # Enables reverse relation
 
+    @property
+    def short_name(self):
+        ''' output company name or lastname, firstname '''
+        if self.company:
+            return self.company 
+        return f"{self.last_name}, {self.first_name}"
+
     def clean(self, *args, **kwargs):
         # Validate_person
         if not self.first_name and not self.last_name and not self.company:
