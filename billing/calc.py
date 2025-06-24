@@ -267,7 +267,7 @@ class PeriodCalc:
                 if isinstance(cell.value, (int, float)):                    
                     cell.number_format = (
                         CUSTOM_NUMBER_FORMAT if cell.value > 1000
-                    ) else CUSTOM_NUMBER_FORMAT_SMALL
+                        else CUSTOM_NUMBER_FORMAT_SMALL)
 
         # Auto-adjust column widths
         for col in ws.columns:
