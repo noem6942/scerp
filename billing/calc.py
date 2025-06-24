@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 # Defaults
 CUSTOM_NUMBER_FORMAT = "#'##0"
+CUSTOM_NUMBER_FORMAT_SMALL = "# ##0"
 
 # GFT Template
 class METER:
@@ -263,8 +264,10 @@ class PeriodCalc:
         # Format numbers
         for row in ws.iter_rows(min_row=1, max_row=ws.max_row):
             for cell in row:
-                if isinstance(cell.value, (int, float)) and cell.value > 1000:
-                    cell.number_format = CUSTOM_NUMBER_FORMAT
+                if isinstance(cell.value, (int, float)):                    
+                    cell.number_format = (
+                        CUSTOM_NUMBER_FORMAT if cell.value > 1000
+                    ) else CUSTOM_NUMBER_FORMAT_SMALL
 
         # Auto-adjust column widths
         for col in ws.columns:
