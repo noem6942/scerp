@@ -1136,7 +1136,8 @@ class RouteCounterInvoicing(RouteManagement):
             # Invoice recipient if not subscriber.
             subscriber_short_name = f", {subscription.subscriber.short_name}"
             if subscription.partner:
-                subscriber_short_name += f", {subscription.partner.short_name}"
+                subscriber_short_name += (
+                    f" und {subscription.partner.short_name}")
         else:
             subscriber_short_name = ''
 
