@@ -66,7 +66,7 @@ class PeriodAdmin(TenantFilteringAdmin, BaseAdmin):
     list_filter = ('end',)
 
     # Actions
-    actions = default_actions
+    actions = default_actions + [a.period_statistics]
 
     #Fieldsets
     fieldsets = (

@@ -15,7 +15,7 @@ from accounting.models import OutgoingOrder
 from asset.models import AssetCategory, Device, EventLog
 from core.models import Attachment
 from .calc import (
-    RouteCounterExport, RouteCounterExportNew,
+    PeriodCalc, RouteCounterExport, RouteCounterExportNew,
     RouteCounterImport, RouteCounterInvoicing,
     Measurement, MeasurementAnalyse
 )
@@ -23,6 +23,19 @@ from .models import Route, Subscription, Measurement
 
 
 ENCRYPTION_KEY = 3
+
+
+@action_with_form(
+    forms.PeriodActionForm, description='1. ' + _('Create statistics'))
+def period_statistics(modeladmin, request, queryset, data):
+    if action_check_nr_selected(request, queryset, 1):        
+        period = queryset.first()
+        
+        # Make statistics
+        period = PeriodCalc(period)
+        statistics = period.create_statistics()
+        response = period.create_excel(statistics)
+        return response
 
 
 @action_with_form(

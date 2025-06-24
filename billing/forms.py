@@ -16,6 +16,19 @@ from .models import Period, Measurement, Subscription
 LABEL_BACK = _("Back")
 
 
+class PeriodActionForm(AdminActionForm):
+    period = forms.ModelChoiceField(
+        label=_('Period'),
+        required=True,
+        queryset=Period.objects.none()
+    )
+
+    def __post_init__(self, modeladmin, request, queryset):
+        period = queryset.first()
+        self.fields['period'].queryset = Period.objects.filter(id=period.id)
+        self.fields['period'].initial = period    
+
+
 class RouteCopyActionForm(AdminActionForm):
     period = forms.ModelChoiceField(
         label=_('Period'),
@@ -86,6 +99,59 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
         self.fields['route_date'].initial = datetime.date.today
         self.fields['energy_type'].initial = 'W'
         self.fields['filename'].initial = f"route_{route.name}_{today}.json"
+
+
+class RouteMeterExportJSONActionForm(AdminActionForm):
+    route_date = forms.DateField(
+        label=_('Route Date'),
+        required=True,
+        widget=forms.DateInput(attrs={'type': 'date'})
+    )
+    responsible_user = forms.ModelChoiceField(
+        label=_('Employee responsible'),
+        required=True,
+        queryset=UserProfile.objects.none()
+    )
+    filename = forms.CharField(
+        label=_('Filename'),
+        required=True,
+        max_length=255,
+        widget=forms.TextInput(attrs={'placeholder': _('Enter filename')})
+    )
+    energy_type = forms.CharField(
+        label=_('Energy Type'),
+        required=True,
+        max_length=10,
+        widget=forms.TextInput(attrs={'placeholder': _('Enter symbol')})
+    )
+    key_enabled = forms.BooleanField(
+        label=_('Test data'),
+        required=False,
+        initial=False,
+        help_text=_("Generate Test Data"),
+    )
+
+    class Meta:
+        list_objects = True
+
+    def __post_init__(self, modeladmin, request, queryset):
+        route = queryset.first()
+        tenant = route.tenant
+        today = datetime.date.today()
+
+        if not route.period_previous:
+            messages.warning(request, _('Warning: no previous period given'))
+            self.Meta.confirm_button_text = LABEL_BACK
+            self.fields['responsible_user'].required = False
+
+        employees = UserProfile.objects.filter(
+            person__tenant=tenant).order_by(
+                'user__last_name', 'user__first_name')
+        self.fields['responsible_user'].queryset = employees
+        self.fields['route_date'].initial = datetime.date.today
+        self.fields['energy_type'].initial = 'W'
+        self.fields['filename'].initial = f"route_{route.name}_{today}.json"
+
 
 
 class RouteMeterImportJSONActionForm(AdminActionForm):
@@ -212,11 +278,8 @@ class RouteBillingForm(AdminActionForm):
         subscriptions = Subscription.objects.filter(
             tenant=route.tenant,
             is_inactive=False
-        )
-        self.fields['subscriptions'].queryset = subscriptions.order_by(
-            'address__zip', 'address__stn_label', 'address__adr_number',
-            'description'
-        )
+        ).order_by('address__zip', 'address__address_label', 'description')
+        self.fields['subscriptions'].queryset = subscriptions
         
         # tags
         tags = list(set([x.tag for x in subscriptions.all()]))
