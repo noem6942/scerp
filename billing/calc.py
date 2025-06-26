@@ -1173,8 +1173,8 @@ class RouteCounterInvoicing(RouteManagement):
             unit_code = 'day' if (route.start or route.end) else 'period'
             if unit_code == 'day':
                 # start
-                start = max(subscription.start or self.start, self.start)
-                end = max(subscription.end or self.end, self.end)
+                start = max(subscription.start or self.start, self.start)              
+                end = min(subscription.end or self.end, self.end)
                 days = (end - start).days + 1
             else:
                 days = None
