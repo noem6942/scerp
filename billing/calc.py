@@ -1152,7 +1152,7 @@ class RouteCounterInvoicing(RouteManagement):
                 msg = msg.format(
                     id=subscription.id,
                     subscription=subscription)
-                messages.waring(self.request, msg)
+                messages.warning(self.request, msg)
 
             if comparison and comparison.consumption:
                 consumption = round_to_zero(
