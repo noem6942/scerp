@@ -1176,8 +1176,10 @@ class RouteCounterInvoicing(RouteManagement):
                 start = max(subscription.start or self.start, self.start)              
                 end = min(subscription.end or self.end, self.end)
                 days = (end - start).days + 1
+                messages.info(f"{start}, {end}")
             else:
                 days = None
+                messages.info(f"{days}")
 
             # consumption
             consumption, value_new, value_old = '-', '-', '-'
