@@ -124,29 +124,66 @@ class PeriodCalc:
     def __init__(self, period):
         self.period = period
 
-    def create_statistics(self):
-        # Init
-        statistics = {
+    def _init_statistics(self):
+        return {
             _('organiization'): (
                 f"{self.period.tenant.name} ({self.period.tenant.code})"),
             _('period'): self.period.name,
             _('start'): self.period.start,
             _('end'): self.period.end
         }
-        label = {
-            _('code'): None,
-            _('name'): None,
+
+    def _init_count(self):
+        return {
+            'count': 0,
+            'total': 0
         }
-        
-        count =  {'count': 0, 'total': 0}
+
+    def _excel_total(self, ws, statistics):
+        bold = Font(bold=True)
+
+        # Append the total row
+        ws.append([
+            "Total", '',
+            statistics['consumption']['all']['count'],
+            statistics['consumption']['all']['total'],
+            statistics['consumption']['unit']
+        ])
+
+        # Get index of the last row (just added)
+        total_row = ws.max_row
+
+        # Apply bold font to the entire row
+        for cell in ws[total_row]:
+            cell.font = bold
+
+        # Optionally add a spacer row
+        ws.append([])
+
+    def _excel_adjust_cols(self, ws):
+        ''' Auto-adjust column widths
+        '''
+        for col in ws.columns:
+            max_length = max(
+                len(str(cell.value)) if cell.value else 0
+                for cell in col
+            )
+            ws.column_dimensions[get_column_letter(col[0].column)].width = (
+                max_length + 2
+            )
+
+    def create_statistics(self):
+        # Init
+        statistics = self._init_statistics()
         consumption = {
             'unit': None,
             'areas': {},
             'codes': {},
-            'all': dict(count),
-            'no_value': dict(count),
+            'all': self._init_count(),
+            'no_value': self._init_count(),
             'total_per_area': {},
             'total_per_code': {},
+            'measurements': []
         }
 
         # Get measurements
@@ -172,10 +209,10 @@ class PeriodCalc:
             if measurement.address:
                 code = measurement.address.area.code
                 consumption['areas'].setdefault(
-                    code, measurement.address.area.name)                
+                    code, measurement.address.area.name)
             else:
                 code = _('n/a')
-            consumption['total_per_area'].setdefault(code, dict(count))
+            consumption['total_per_area'].setdefault(code, self._init_count())
             consumption['total_per_area'][code]['count'] += 1
             consumption['total_per_area'][code]['total'] += (
                 measurement.consumption or 0)
@@ -184,74 +221,64 @@ class PeriodCalc:
             if measurement.counter:
                 code = measurement.counter.category.code
                 consumption['codes'].setdefault(
-                    code, measurement.counter.category.name)   
+                    code, measurement.counter.category.name)
             else:
                 code = _('n/a')
-            consumption['total_per_code'].setdefault(code, dict(count))
+            consumption['total_per_code'].setdefault(code, self._init_count())
             consumption['total_per_code'][code]['count'] += 1
             consumption['total_per_code'][code]['total'] += (
                 measurement.consumption or 0)
 
+            # Add Measurement
+            consumption['measurements'].append({
+                'counter_code': measurement.counter.code,
+                'date': measurement.datetime.date(),
+                'value': measurement.value,
+                'consumption': measurement.consumption,
+            })
+
         statistics.update({
             'consumption': consumption
         })
-        
+
         return statistics
 
-    def _excel_total(self, ws, statistics):
-        bold = Font(bold=True)
-
-        # Append the total row
-        ws.append([
-            "Total", '', 
-            statistics['consumption']['all']['count'], 
-            statistics['consumption']['all']['total'], 
-            statistics['consumption']['unit']
-        ])
-        
-        # Get index of the last row (just added)
-        total_row = ws.max_row
-
-        # Apply bold font to the entire row
-        for cell in ws[total_row]:
-            cell.font = bold
-
-        # Optionally add a spacer row
-        ws.append([])
-   
     def create_excel(self, statistics, filename=None):
-        ''' make excel from dict '''        
+        ''' make excel from dict '''
         wb = Workbook()
         ws = wb.active
-        ws.title = "Statistics"
-        bold = Font(bold=True)       
+        ws.title = _("Statistics")
+        bold = Font(bold=True)
 
         # Header info
         unit = statistics['consumption']['unit']
         ws.append(["Organization", statistics['organiization']])
         ws.append(["Period", statistics['period']])
         ws.append(["Start Date", statistics['start']])
-        ws.append(["End Date", statistics['end']])       
+        ws.append(["End Date", statistics['end']])
         ws.append([])
         if not filename:
             filename = f"statistics_report_{statistics['period']}.xlsx"
 
         # Total per area
-        ws.append(["Total per Area"])
-        ws.append(["Code", "Description", "Count", "Total", "Unit"])
+        headers = [
+            _("Code"), _("Description"), _("Count"), _("Total"), _("Unit")
+        ]
+        ws.append([_("Total per Area")])
+        ws.append(headers)
         for code, data in statistics['consumption']['total_per_area'].items():
             try:
-                desc = statistics['consumption']['areas'][code]           
+                desc = statistics['consumption']['areas'][code]
             except:
                 desc = ''
             ws.append([code, desc, data['count'], data['total'], unit])
         self._excel_total(ws, statistics)
 
         # Total per code
-        ws.append(["Total per Code"])
-        ws.append(["Code", "Description", "Count", "Total", "Unit"])
+        ws.append([_("Total per Code")])
+        ws.append(headers)
         for code, data in statistics['consumption']['total_per_code'].items():
-            desc = statistics['consumption']['codes'][code]['de']            
+            desc = statistics['consumption']['codes'][code]['de']
             ws.append([code, desc, data['count'], data['total'], unit])
         self._excel_total(ws, statistics)
 
@@ -264,19 +291,39 @@ class PeriodCalc:
         # Format numbers
         for row in ws.iter_rows(min_row=1, max_row=ws.max_row):
             for cell in row:
-                if isinstance(cell.value, (int, float)):                    
+                if isinstance(cell.value, (int, float)):
                     cell.number_format = (
                         CUSTOM_NUMBER_FORMAT if cell.value > 1000
                         else CUSTOM_NUMBER_FORMAT_SMALL)
 
         # Auto-adjust column widths
-        for col in ws.columns:
-            max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
-            ws.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+        self._excel_adjust_cols(ws)
+
+        # Sheet 2: All Measurements
+        ws_measure = wb.create_sheet(title=_("Measurements"))
+
+        # Header row
+        headers = [_("Counter Code"), _("Date"), _("Value"), _("Consumption")]
+        ws_measure.append(headers)
+        for cell in ws_measure[1]:
+            cell.font = bold
+
+        # Add measurement rows
+        measurements = statistics['consumption'].get('measurements', [])
+        for m in measurements:
+            ws_measure.append([
+                m.get('counter_code'),
+                m.get('date'),
+                m.get('value'),
+                m.get('consumption'),
+            ])
+
+        # Auto-adjust column widths
+        self._excel_adjust_cols(ws_measure)
 
         # Save workbook as file
         # wb.save(filename)
-        
+
         # Save workbook to memory buffer
         output = io.BytesIO()
         wb.save(output)
@@ -288,7 +335,7 @@ class PeriodCalc:
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response        
+        return response
 
 
 class RouteManagement:
@@ -959,7 +1006,7 @@ class RouteCounterInvoicing(RouteManagement):
             self, measurement, article, quantity, rounding_digits,
             days=None):
         ''' quantity, not considered: individual from, to
-        '''        
+        '''
         if article.unit.code == 'day' and days:
             # case: days given
             if quantity:
