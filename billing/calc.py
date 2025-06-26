@@ -1147,12 +1147,12 @@ class RouteCounterInvoicing(RouteManagement):
                 value_old = round_to_zero(
                     comparison.value, setup.rounding_digits)
             else:
+                comparison = None
                 msg = _("No comparison for {id}, {subscription}")
                 msg = msg.format(
                     id=subscription.id,
                     subscription=subscription)
-                messages.error(self.request, msg)
-                return None
+                messages.waring(self.request, msg)
 
             if comparison and comparison.consumption:
                 consumption = round_to_zero(
