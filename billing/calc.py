@@ -235,6 +235,8 @@ class PeriodCalc:
                 'date': measurement.datetime.date(),
                 'value': measurement.value,
                 'consumption': measurement.consumption,
+                'route':  f"{measurement.route}",
+                'period':  f"{measurement.route.period}"
             })
 
         statistics.update({
@@ -316,6 +318,8 @@ class PeriodCalc:
                 m.get('date'),
                 m.get('value'),
                 m.get('consumption'),
+                m.get('route'),
+                m.get('period'),
             ])
 
         # Auto-adjust column widths
