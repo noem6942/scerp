@@ -126,11 +126,11 @@ class PeriodCalc:
 
     def _init_statistics(self):
         return {
-            _('organiization'): (
-                f"{self.period.tenant.name} ({self.period.tenant.code})"),
-            _('period'): self.period.name,
-            _('start'): self.period.start,
-            _('end'): self.period.end
+            'organization_code': self.period.tenant.code,
+            'organization_name': self.period.tenant.name,
+            'period': self.period.name,
+            'start': self.period.start,
+            'end': self.period.end
         }
 
     def _init_count(self):
@@ -183,12 +183,14 @@ class PeriodCalc:
             'no_value': self._init_count(),
             'total_per_area': {},
             'total_per_code': {},
+            'total_per_period': {},
             'measurements': []
         }
 
         # Get measurements
         measurements = Measurement.objects.filter(
-            route__period=self.period)
+            route__period=self.period
+        ).order_by('counter__code')
 
         for measurement in measurements:
             # Init
@@ -229,6 +231,21 @@ class PeriodCalc:
             consumption['total_per_code'][code]['total'] += (
                 measurement.consumption or 0)
 
+            # Total per period
+            if measurement.value == measurement.consumption:
+                code = 'new'
+                consumption['codes'].setdefault(
+                    code, _("Counters added"))   
+            else:
+                code = 'existing'
+                consumption['codes'].setdefault(
+                    code, _("Counters already existing"))
+                
+            consumption['total_per_period'].setdefault(code, self._init_count())
+            consumption['total_per_period'][code]['count'] += 1
+            consumption['total_per_period'][code]['total'] += (
+                measurement.consumption or 0)
+
             # Add Measurement
             consumption['measurements'].append({
                 'counter_code': measurement.counter.code,
@@ -254,13 +271,15 @@ class PeriodCalc:
 
         # Header info
         unit = statistics['consumption']['unit']
-        ws.append(["Organization", statistics['organiization']])
-        ws.append(["Period", statistics['period']])
-        ws.append(["Start Date", statistics['start']])
-        ws.append(["End Date", statistics['end']])
+        ws.append([_("Organization"), statistics['organization_name']])
+        ws.append([_("Period"), statistics['period']])
+        ws.append([_("Start Date"), statistics['start']])
+        ws.append([_("End Date"), statistics['end']])
         ws.append([])
         if not filename:
-            filename = f"statistics_report_{statistics['period']}.xlsx"
+            filename = (
+                f"statistics_report_{statistics['organization_code']}_"
+                f"{statistics['period']}.xlsx")
 
         # Total per area
         headers = [
@@ -281,6 +300,14 @@ class PeriodCalc:
         ws.append(headers)
         for code, data in statistics['consumption']['total_per_code'].items():
             desc = statistics['consumption']['codes'][code]['de']
+            ws.append([code, desc, data['count'], data['total'], unit])
+        self._excel_total(ws, statistics)
+
+        # Total per existence
+        ws.append([_("Total per Existance")])
+        ws.append(headers)
+        for code, data in statistics['consumption']['total_per_period'].items():
+            desc = statistics['consumption']['codes'][code]
             ws.append([code, desc, data['count'], data['total'], unit])
         self._excel_total(ws, statistics)
 
@@ -305,7 +332,9 @@ class PeriodCalc:
         ws_measure = wb.create_sheet(title=_("Measurements"))
 
         # Header row
-        headers = [_("Counter Code"), _("Date"), _("Value"), _("Consumption")]
+        headers = [
+            _("Counter Code"), _("Date"), _("Value"), _("Consumption"),
+            _("Route"), _("Periode")]
         ws_measure.append(headers)
         for cell in ws_measure[1]:
             cell.font = bold
@@ -1132,7 +1161,7 @@ class RouteCounterInvoicing(RouteManagement):
             if unit_code == 'day':
                 # start
                 start = max(subscription.start or self.start, self.start)
-                end = max(subscription.end or self.end, self.end)
+                end = min(subscription.end or self.end, self.end)
                 days = (end - start).days + 1
             else:
                 days = None
@@ -1173,13 +1202,11 @@ class RouteCounterInvoicing(RouteManagement):
             unit_code = 'day' if (route.start or route.end) else 'period'
             if unit_code == 'day':
                 # start
-                start = max(subscription.start or self.start, self.start)              
+                start = max(subscription.start or self.start, self.start)
                 end = min(subscription.end or self.end, self.end)
                 days = (end - start).days + 1
-                messages.info(f"{start}, {end}")
             else:
                 days = None
-                messages.info(f"{days}")
 
             # consumption
             consumption, value_new, value_old = '-', '-', '-'
@@ -1231,7 +1258,6 @@ class RouteCounterInvoicing(RouteManagement):
                     tenant=article.tenant,
                     nr=article.nr + ARTICLE_NR_POSTFIX_DAY,
                 ).first()
-
             quantity = self._get_quantity(
                 measurement, article, quantity, setup.rounding_digits, days)
             if quantity is None:
@@ -1243,9 +1269,7 @@ class RouteCounterInvoicing(RouteManagement):
             items.append(dict(
                 tenant=route.tenant,
                 article=article,
-                quantity=self._get_quantity(
-                    measurement, article, quantity, setup.rounding_digits,
-                    days),
+                quantity=quantity,
                 created_by=self.created_by
             ))
 
@@ -1259,7 +1283,9 @@ class RouteCounterInvoicing(RouteManagement):
                 item['order'] = invoice_obj
                 obj = OutgoingItem.objects.create(**item)
         except Exception as e:
-            print("Error creating OutgoingItem:", e)
+            msg = _("{subscription}: Error creating OutgoingItem {e}.")
+            messages.error(
+                self.request, msg.format(subscription=subscription, e=e))
             invoice_obj.delete()
 
         # Update measurement, should be True except "Pauschal"
