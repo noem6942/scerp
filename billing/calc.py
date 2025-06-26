@@ -1239,7 +1239,9 @@ class RouteCounterInvoicing(RouteManagement):
 
         # description
         invoice['description'] = (
-            f"{route.name}, {building or '-'}{building_notes}, {description}")
+            f"{route.name}, {building or '-'}{building_notes}, {description}"
+            f", {counter_id}"
+        )
         if subscription.tag:
             invoice['description'] += ', ' + subscription.tag
 
