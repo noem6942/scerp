@@ -1,12 +1,13 @@
 '''
 billing/calc.py
 '''
-from datetime import datetime
-from decimal import Decimal
+import copy
 import io
 import json
 import logging
 import openpyxl
+from datetime import datetime
+from decimal import Decimal
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, numbers
@@ -375,12 +376,13 @@ class RouteManagement:
     '''
     base class to handle Route management
     '''
-    def __init__(self, modeladmin, request, route):
+    def __init__(self, modeladmin, request, route, language='de'):
         self.modeladmin = modeladmin
         self.request = request
         self.route = route
         self.tenant = route.tenant
         self.created_by = request.user
+        self.language = language
 
         # calc
         # start, end
@@ -1029,8 +1031,8 @@ class RouteCounterInvoicing(RouteManagement):
     '''
     def __init__(
             self, modeladmin, request, route, status, invoice_date,
-            is_enabled_sync):
-        super().__init__(modeladmin, request, route)
+            is_enabled_sync, language='de'):
+        super().__init__(modeladmin, request, route, language)
         self.status = status
         self.date = invoice_date
         self.is_enabled_sync = is_enabled_sync
@@ -1056,12 +1058,8 @@ class RouteCounterInvoicing(RouteManagement):
 
     def bill(self, subscription, route, check_measurement=True):
         ''' get called from actions '''
-        # description
+        # init
         setup = route.setup
-        if subscription.description:
-            description = ', ' + subscription.description
-        else:
-            description = ', ' + setup.description if setup.description else ''
 
         # billing base
         invoice = {
@@ -1221,6 +1219,11 @@ class RouteCounterInvoicing(RouteManagement):
         else:
             subscriber_short_name = ''
 
+        # description
+        description = (
+            f", {subscription.description}" if subscription.description
+            else '')
+
         # header, use SafeDict to avoid error of variable not in template
         template = setup.header
         invoice['header'] = template.format_map(SafeDict(
@@ -1229,8 +1232,8 @@ class RouteCounterInvoicing(RouteManagement):
             description=description,
             subscription_id=f"S-{subscription.id}",
             subscriber_short_name=subscriber_short_name,
-            start=format_date(self.start),
-            end=format_date(self.end),
+            start=format_date(start),
+            end=format_date(end),
             consumption=consumption,
             counter_id=counter_id,
             counter_new=value_new,
@@ -1239,8 +1242,8 @@ class RouteCounterInvoicing(RouteManagement):
 
         # description
         invoice['description'] = (
-            f"{route.name}, {building or '-'}{building_notes}, {description}"
-            f", {counter_id}"
+            f"{route.name}, {building or '-'}{building_notes}, "
+            f"{subscription.description or ''}, {counter_id}"
         )
         if subscription.tag:
             invoice['description'] += ', ' + subscription.tag
@@ -1251,7 +1254,7 @@ class RouteCounterInvoicing(RouteManagement):
             subscription=subscription
         ).order_by('article__nr')
         for subscription_article in sub_articles:
-            article = subscription_article.article
+            article = copy.copy(subscription_article.article)  # Shallow Copy            
             quantity = subscription_article.quantity
 
             if unit_code == 'day' and article.unit.code == 'period':
@@ -1260,6 +1263,13 @@ class RouteCounterInvoicing(RouteManagement):
                     tenant=article.tenant,
                     nr=article.nr + ARTICLE_NR_POSTFIX_DAY,
                 ).first()
+                
+                # Fill in days
+                description_daily = setup.description_daily.format_map(
+                    SafeDict(quantity=quantity, days=days))                                
+            else:
+                description_daily = None
+                
             quantity = self._get_quantity(
                 measurement, article, quantity, setup.rounding_digits, days)
             if quantity is None:
@@ -1271,6 +1281,7 @@ class RouteCounterInvoicing(RouteManagement):
             items.append(dict(
                 tenant=route.tenant,
                 article=article,
+                description=description_daily,
                 quantity=quantity,
                 created_by=self.created_by
             ))
@@ -1279,7 +1290,6 @@ class RouteCounterInvoicing(RouteManagement):
         # Create invoice
         invoice_obj = OutgoingOrder.objects.create(**invoice)
 
-        # Create items
         try:
             for item in items:
                 item['order'] = invoice_obj

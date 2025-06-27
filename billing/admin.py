@@ -40,7 +40,7 @@ class SetupAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'code', 'name', 'header',
+                'code', 'name', 'header', 'description_daily',
                 'order_contract', 'order_category', 'contact',
                 'show_partner'),
         }),
@@ -337,8 +337,8 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'tenant', 'version', 'dossier', 'subscriber', 'partner',
         'recipient', 'address', 'counter']
     help_text = _(
-        "Create a new subscription if owner changes, otherwise previous "
-        "values are shown at the bill which is against policies. ")
+        "A subscription has one counter and one unique address, "
+        "one subscriber, possibly with partner and invoice company")
 
     # Display these fields in the list view
     list_display = (

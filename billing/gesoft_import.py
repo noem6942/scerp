@@ -1551,3 +1551,18 @@ def get_list_of_do_again_records(tenant_id):
         ready = subscription.measurements.count() == 2
         if not invoiced and not ready:
             print(f"{subscription}")    
+
+
+def update_article_daily():
+    # Init
+    articles = Article.objects.filter(nr__contains='-D')    
+
+    # Update
+    for article in articles.all():
+        article.name['de'] = article.name['de'].replace(
+            '-D', ' - Tagessatz')
+        article.sync_to_accounting = True
+        article.save()
+        logger.info(f"{article.nr}, {article.name}")
+        
+    return articles.count()

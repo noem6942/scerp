@@ -42,6 +42,7 @@ Objekt: {building}{building_notes}{description}, {subscription_id}{subscriber_sh
 Periode: {start} bis {end}<br>
 Verbrauch letzte Periode: {consumption} m³, Zählerstand Id {counter_id} alt {counter_old}, neu {counter_new}
 <small>'''
+SETUP_DESCRIPTION_DAILY = '{quantity} * {days} Tage'
 
 
 class Setup(TenantAbstract):
@@ -53,9 +54,9 @@ class Setup(TenantAbstract):
     header = models.TextField(
         _('Header'), default=SETUP_HEADER,
         help_text=_("name"))
-    description = models.CharField(
-        _('Description'), max_length=200, blank=True, null=True,
-        help_text=('default invoice description, usually empty'))
+    description_daily = models.TextField(
+        _('Description for daily'), default=SETUP_DESCRIPTION_DAILY,
+        help_text=('Display for daily items'))
     show_partner = models.BooleanField(
         _('Show partner'), default=True,
         help_text=_("Show partner on invoice bill"))
@@ -439,10 +440,14 @@ class Measurement(TenantAbstract):
     )
 
     @property
-    def value_old(self):
-        if self.value is None or self.consumption is None:
-            return None
-        return self.value - self.consumption
+    def previous(self):
+        measurement_previous = Measurement.objects.filter(            
+            tenant=self.tenant,
+            counter=self.counter,
+            datetime__lt=self.datetime            
+        ).order_by('datetime').last()
+                    
+        return measurement_previous
 
     def __str__(self):
         if self.subscription:

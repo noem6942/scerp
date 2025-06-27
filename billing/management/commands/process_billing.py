@@ -14,6 +14,7 @@
     python manage.py process_billing correct_article_counts --tenant_id=12
     python manage.py process_billing get_list_of_open_records --tenant_id=12
     python manage.py process_billing get_list_of_do_again_records --tenant_id=12
+    python manage.py process_billing update_article_daily
     
 '''
 import json
@@ -33,7 +34,8 @@ class Command(BaseCommand):
                 'fix_zero_problem', 'adjust_articles', 'adjust_mfh',
                 'rearrange_counters', 'delete_negative_counter',
                 'update_invoiced', 'correct_article_counts',
-                'get_list_of_open_records', 'get_list_of_do_again_records'
+                'get_list_of_open_records', 'get_list_of_do_again_records',
+                'update_article_daily'
             ],
             help='Specify the action: gesoft'
         )
@@ -173,6 +175,13 @@ class Command(BaseCommand):
 
             # Update
             get_list_of_do_again_records(tenant_id)
+
+        elif action == 'update_article_daily':
+            # Import library
+            from billing.gesoft_import import update_article_daily
+
+            # Update
+            update_article_daily()
 
         else:
             raise ValueError("No valid action")
