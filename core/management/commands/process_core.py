@@ -53,6 +53,11 @@ class Command(BaseCommand):
             type=int,  # Make it an integer, or type=str if you need a string
             help='Specify the tenant ID'
         )
+        parser.add_argument(
+            '--weekday',  # Optional argument
+            type=str,  # Make it an integer, or type=str if you need a string
+            help='e.g. Sunday'
+        )        
 
     def handle(self, *args, **options):
         action = options['action']
@@ -82,8 +87,9 @@ class Command(BaseCommand):
         elif action == 'update_or_create_base_buildings':
             # Import library
             tenant_id = options.get('tenant_id', None)
+            weekday = options.get('weekday', None)
             created, updated, deleted = update_or_create_base_buildings(
-                tenant_id, update)
+                tenant_id, update, weekday)
             logger.info(
                 f"Buildings: {created} created, {updated} updated, "
                 f"{deleted} deleted.")

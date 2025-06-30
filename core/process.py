@@ -197,13 +197,21 @@ def update_or_create_groups(update=True):
     return created, updated, deleted
 
 
-def update_or_create_base_buildings(tenant_id=None, update=True):
+def update_or_create_base_buildings(tenant_id=None, update=True, weekday=None):
     '''
     Load actual Buildings, currently per tenant, not grouped
     see https://data.geo.admin.ch/ch.swisstopo.amtliches-gebaeudeadressverzeichnis/amtliches-gebaeudeadressverzeichnis_ch/amtliches-gebaeudeadressverzeichnis_ch_2056.csv.zip
 
     deleted not implemented yet
     '''
+    # Check weekday
+    if weekday is not None:
+        # Convert to lowercase for safety
+        today = datetime.today().strftime('%A').lower()
+        if weekday.lower() != today:
+            logger.info(f"Weekday {weekday} not matching.")
+            return 0, 0, 0
+    
     # Init
     file_path = Path(settings.BASE_DIR / 'core' / 'fixtures' / BUILDING_CSV)
     admin = get_admin()
@@ -284,8 +292,10 @@ def update_or_create_base_buildings(tenant_id=None, update=True):
                 # Maintain
                 if _created:
                     created += 1
-                else:
+                elif update:
                     updated += 1
+
+    return created, updated, deleted
 
 
 def clear_company_addresses():
