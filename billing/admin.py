@@ -169,8 +169,8 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'counter__code', 'datetime', 'address', 'display_value_old',
-        'display_value', 'display_consumption', 'invoice', 'display_area', 'route'
+        'counter__code', 'datetime', 'address', 'display_value', 
+        'display_consumption', 'invoice', 'display_area', 'route'
     ) + FIELDS.ICON_DISPLAY
     list_display_links = ('counter__code', 'datetime')
     readonly_fields = FIELDS.LOGGING_TENANT
@@ -268,10 +268,6 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('Value'))
     def display_value(self, obj):
         return Display.big_number(obj.value)
-
-    @admin.display(description=_('Value old'))
-    def display_value_old(self, obj):
-        return Display.big_number(obj.value_old)
 
 
 @admin.register(MeasurementArchive, site=admin_site)
