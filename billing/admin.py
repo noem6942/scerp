@@ -360,7 +360,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     )
     list_filter = ('tag', 'end', 'is_inactive')
     autocomplete_fields = [
-        'dossier', 'subscriber', 'partner', 'recipient', 'address']
+        'dossier', 'subscriber', 'partner', 'recipient', 'address', 'counter']
 
     #Fieldsets
     fieldsets = (
