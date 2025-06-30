@@ -579,11 +579,11 @@ class OrderCategoryOutgoing(OrderCategory):
             'name': convert_to_xml(
                 get_translations(force_str(status.label))),
             'isBook': instance.BOOKING_MAPPING[status]
-        } for status in STATUS]        
+        } for status in STATUS]
 
         # BookTemplates
         STEP = instance.BOOKING_STEP
-                
+
         # booking
         booking = {
             'accountId': data['account_id'],
@@ -759,7 +759,7 @@ class OutgoingOrder(Order):
     def get_description(item):
         if item.description:
             return item.description
-        return primary_language(item.article.description)        
+        return primary_language(item.article.description)
 
     @staticmethod
     def get_unit(item):
@@ -767,7 +767,7 @@ class OutgoingOrder(Order):
             name = primary_language(item.article.unit.name)
             if name.lower() != '<none>':
                 return item.article.unit.c_id  # do not show none on invoice
-        return None       
+        return None
 
     def adjust_for_upload(self, instance, data, created=None):
         self.make_base(instance, data)

@@ -18,11 +18,13 @@ from asset.models import AssetCategory, Unit
 from core.models import (
     LogAbstract, NotesAbstract, Attachment ,
     Tenant, TenantAbstract, TenantSetup, TenantLogo,
-    Country, AcctApp, Address, Contact, PersonAddress, PersonBankAccount,
-    Person
+    Country, Address, Contact, AddressMunicipal,
+    PersonAddress, PersonBankAccount, Person, AcctApp
 )
 from scerp.locales import CANTON_CHOICES
-from scerp.mixins import get_code_w_name, primary_language
+from scerp.mixins import (
+    SafeDict, format_date, get_code_w_name, primary_language
+)
 from .api_cash_ctrl import (
     URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE,
     CALCULATION_BASE, ORDER_TYPE, PERSON_TYPE, BANK_ACCOUNT_TYPE,
@@ -1567,7 +1569,7 @@ class OrderCategoryOutgoing(OrderCategory):
     responsible_person = models.ForeignKey(
         Person, on_delete=models.PROTECT,
         verbose_name=_('Responsible'), related_name='%(class)s_person',
-        help_text=_('Contact person mentioned in invoice.'))
+        help_text=_('Contact person mentioned in invoice.')) 
 
     @property
     def sequence_number(self):
@@ -1618,7 +1620,7 @@ class Order(AcctApp):
         if self.c_id:
             return f'{self.tenant.cash_ctrl_url}#order/document?id={self.c_id}'
         return None
-        
+
     class Meta:
         abstract = True
 
@@ -1803,9 +1805,59 @@ class OutgoingOrder(Order):
             "The text displayed below the items list on the document. "
             "Leave empty if default."))
 
+    # City specific
+    header_description = models.TextField(
+        _('Header description'), blank=True, null=True,
+        help_text=_("Specific header description, e.g. Hydrantengebrauch"))
+    address = models.ForeignKey(
+        AddressMunicipal, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_address', verbose_name=_('Building Address'),
+        help_text=_("Relate invoice to building address or leave empty."))
+    recipient = models.ForeignKey(
+        # to be mapped to manytomany field in cashCtrl
+        Person, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_recipient',
+        verbose_name=_('Recipient'),
+        help_text=_('Leave empty or fill in to specify recipient.'))        
+    start = models.DateField(
+        _('Start Date'), blank=True, null=True,
+        help_text=_("Start date of invoiced service."))
+    end = models.DateField(
+        _('Exit Date'), blank=True, null=True,
+        help_text=_("Start date of invoiced service."))       
+
     def __str__(self):
         return (f"{self.nr} {self.contract.associate.company}, {self.date}, "
                 f"{self.description}")
+
+    def save(self, *args, **kwargs):
+        # Build city specific header
+        description = self.header_description or ''
+        
+        # building / "Objekt"
+        building = (
+            f"{self.address.stn_label} {self.address.adr_number}"
+        ) if self.address else ''        
+        building_notes = (
+            ', ' + self.address.notes
+        ) if self.address and self.address.notes else ''
+        
+        # recipient_short_name
+        recipient_short_name = (
+            f", {self.recipient.short_name}" if self.recipient else '')
+            
+        # build    
+        template = self.category.header or ''
+        self.header = template.format_map(SafeDict(
+            building=building,
+            building_notes=building_notes,
+            description=description,
+            recipient_short_name=recipient_short_name,
+            start=format_date(self.start),
+            end=format_date(self.end),            
+        ))            
+        
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['-id']

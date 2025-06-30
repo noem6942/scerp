@@ -1081,7 +1081,8 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         'associate__last_name', 
         'description')
     list_filter = ('category', 'status', 'date')
-    autocomplete_fields = ['associate', 'responsible_person']
+    autocomplete_fields = [
+        'associate', 'responsible_person', 'address', 'recipient']
 
     # Actions
     actions = accounting_actions + [
@@ -1095,6 +1096,11 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
                 'nr', 'category', 'contract', 'status', 'description', 'date',
                 'associate', 'due_days', 'responsible_person', 'dossier',
                 'display_cash_ctrl_url_form'),
+            'classes': ('expand',),
+        }),
+        (_('Details'), {
+            'fields': (
+                'header_description', 'address', 'recipient', 'start', 'end'),
             'classes': ('expand',),
         }),
         (_('Layout'), {

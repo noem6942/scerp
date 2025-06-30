@@ -1116,7 +1116,7 @@ class RouteCounterInvoicing(RouteManagement):
             messages.error(self.request, msg)
             return None
 
-        if subscription.address.notes:
+        if subscription.address and subscription.address.notes:
             building_notes = ', ' + subscription.address.notes
         else:
             building_notes = ''
