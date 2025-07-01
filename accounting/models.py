@@ -1669,7 +1669,10 @@ class OrderContract(Order):
         return f"{self.category.get_type_display()}: {self.associate.company}, {self.date}, {self.description}"
 
     def clean(self):
-        if not self.category.bank_account.iban:
+        if not PersonBankAccount.objects.filter(            
+                    person=self.associate,
+                    type=PersonBankAccount.TYPE.DEFAULT
+                ).exists():
             raise ValidationError(_("IBAN of creditor missing."))
         super().clean()
 
