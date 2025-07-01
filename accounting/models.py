@@ -1038,7 +1038,7 @@ class Article(AcctApp):
 # Orders --------------------------------------------------------------------
 class BookTemplate(AcctApp):
     '''
-    BookTemplates
+    BookTemplates, not used so fare
     not synchronized to cashCtrl
     we use it for booking and order management
     do not show to users !?
@@ -1193,8 +1193,8 @@ class OrderCategory(AcctApp):
         type: defined in classes  SALES, PURCHASE
     '''
     class TYPE(models.TextChoices):
-        PURCHASE = "PURCHASE", _('Purchase')
-        SALES = "SALES", _('Sales')
+        PURCHASE = "PURCHASE", _('Creditor')
+        SALES = "SALES", _('Debtor')
 
     code = models.CharField(
         _('Code'), max_length=50,
@@ -1227,11 +1227,6 @@ class OrderCategory(AcctApp):
         help_text=_(
             'Whether prices and totals are displayed on the document. '
             'Set to True unless no price is shown on first page! '))
-    header = models.TextField(
-        _("Header Text"), blank=True, null=True,
-        help_text=_(
-            "The text displayed above  the items list on the document used by "
-            "default for order objects"))
     footer = models.TextField(
         _("Footer Text"), blank=True, null=True,
         help_text=_(
@@ -1323,8 +1318,13 @@ class OrderCategoryContract(OrderCategory):
         on_delete=models.PROTECT, related_name='%(class)s_location',
         help_text=_(
             'Responsible Internal Organisation, will be shown in invoicing '
-            'documents'))
+            'documents (paying and receivable, address and title'))
     is_display_item_gross = False
+    header = models.TextField(
+        _("Header Text"), blank=True, null=True,
+        help_text=_(
+            "The text displayed above  the items list on the document used by "
+            "default for order objects"))
 
     @property
     def account(self):
@@ -1346,15 +1346,13 @@ class OrderCategoryContract(OrderCategory):
     def sequence_number(self):
         return self.get_sequence_number('BE')
 
-    # overwriting of order categories seems to work
-    '''
     def clean(self):
-        # Check if not changeable
-        if self.pk and OrderContract.objects.filter(category=self).exists():
+        if (not self.org_location.address
+                or not self.org_location.zip
+                or not self.org_location.city):
             raise ValidationError(
-                _("Categories with existing contracts cannot be changed"))
+                _("Address missing for location"))
         super().clean()
-    '''
 
     def __str__(self):
         return (
@@ -1414,7 +1412,24 @@ class OrderCategoryIncoming(OrderCategory):
         STATUS.CANCELLED: True,
     }
 
+    BOOKING_STEP = {
+        STATUS.BOOKED: _('Booking'),
+        STATUS.PAID: _('Payment')
+    }
+    
+    HEADER = (
+        '{name}<br>\n'
+        'Account Paying: {iban_paying}<br>\n'
+        'Account Receiving: {iban_receiving}'    
+    )
+
+    header = models.TextField(
+        _("Header Text"), default=HEADER,
+        help_text=_(
+            "The text displayed above  the items list on the document used by "
+            "default for order objects"))
     is_display_item_gross = True
+    type = OrderCategory.TYPE.PURCHASE
     credit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_credit_account',
@@ -1426,7 +1441,7 @@ class OrderCategoryIncoming(OrderCategory):
     bank_account = models.ForeignKey(
         BankAccount, on_delete=models.CASCADE,
         related_name='%(class)s_banke_account',
-        verbose_name=_('Bank Account'))
+        verbose_name=_('Bank Account for paying'))
     tax = models.ForeignKey(
         Tax, on_delete=models.CASCADE, blank=True, null=True,
         related_name='%(class)s_tax',
@@ -1450,10 +1465,6 @@ class OrderCategoryIncoming(OrderCategory):
         help_text=(
             '''Which address of the recipient to use in the order document.
                Possible values: MAIN, INVOICE, DELIVERY, OTHER.'''))
-    org_location = models.ForeignKey(
-        Location, verbose_name=_('Parent'), blank=True, null=True,
-        on_delete=models.PROTECT, related_name='%(class)s_location',
-        help_text=_('Paying Organisation'))
     message = models.CharField(
         _('Message'), max_length=50, blank=True, null=True,
         help_text=(
@@ -1463,16 +1474,6 @@ class OrderCategoryIncoming(OrderCategory):
     @property
     def sequence_number(self):
         return self.get_sequence_number('ER')
-
-    # overwriting of order categories seems to work
-    '''
-    def clean(self):
-        # Check if not changeable
-        if self.pk and IncomingOrder.objects.filter(category=self).exists():
-            raise ValidationError(
-                _("Categories with existing contracts cannot be changed"))
-        super().clean()
-    '''
 
     def __str__(self):
         return _('Incoming Invoice') + ': ' + primary_language(self.name_plural)
@@ -1536,6 +1537,11 @@ class OrderCategoryOutgoing(OrderCategory):
 
     is_display_item_gross = True
     type = OrderCategory.TYPE.SALES
+    header = models.TextField(
+        _("Header Text"), blank=True, null=True,
+        help_text=_(
+            "The text displayed above  the items list on the document used by "
+            "default for order objects"))    
     debit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_debit_account',
@@ -1562,14 +1568,10 @@ class OrderCategoryOutgoing(OrderCategory):
         help_text=(
             '''Which address of the recipient to use in the order document.
                Possible values: MAIN, INVOICE, DELIVERY, OTHER.'''))
-    org_location = models.ForeignKey(
-        Location, verbose_name=_('Parent'), blank=True, null=True,
-        on_delete=models.PROTECT, related_name='%(class)s_location',
-        help_text=_('Paying Organisation'))
     responsible_person = models.ForeignKey(
         Person, on_delete=models.PROTECT,
         verbose_name=_('Responsible'), related_name='%(class)s_person',
-        help_text=_('Contact person mentioned in invoice.')) 
+        help_text=_('Contact person mentioned in invoice.'))
 
     @property
     def sequence_number(self):
@@ -1664,7 +1666,12 @@ class OrderContract(Order):
     attachments = GenericRelation('core.Attachment')
 
     def __str__(self):
-        return f"{self.associate.company}, {self.date}, {self.description}"
+        return f"{self.category.get_type_display()}: {self.associate.company}, {self.date}, {self.description}"
+
+    def clean(self):
+        if not category.bank_account.iban:
+            raise ValidationError(_("IBAN of creditor missing."))
+        super().clean()
 
     class Meta:
         verbose_name = _("Contract")
@@ -1697,11 +1704,14 @@ class IncomingOrder(Order):
         help_text=_(
             "Contract with booking instructions. "
             "Upload actual invoice as attachment."))
+    name = models.CharField(
+        _('Name'), max_length=100, help_text=_("e.g. Services May"))
     description = models.TextField(
         _('Description'), blank=True, null=True,
-        help_text=_("e.g. Services May"))
+        help_text=_("e.g. late delivery"))
     price_incl_vat = models.DecimalField(
-        _('Price (Incl. VAT)'), max_digits=11, decimal_places=2)
+        _('Price'), max_digits=11, decimal_places=2,
+        help_text=_('incl. VAT'))
     status = models.CharField(
         _('Status'), max_length=50,
         choices=OrderCategoryIncoming.STATUS.choices)
@@ -1728,9 +1738,50 @@ class IncomingOrder(Order):
         return (f"{self.contract.associate.company}, {self.date}, "
                 f"{self.description}")
 
+    def clean(self):
+        # Check bank_accounts
+        if not PersonBankAccount.objects.filter(
+                person=self.contract.associate).exclude(iban=None).exists():
+            raise ValidationError(_("No Iban specified for contract partner"))         
+
     class Meta:
         verbose_name = _("Creditor - Invoice")
         verbose_name_plural = _("Creditor - Invoices")
+
+
+class IncomingItem(AcctApp):
+    name = models.CharField(
+        _('Name'), max_length=200,
+        help_text=_("Name of positions"))
+    description = models.CharField(
+        _('Description'), max_length=200, blank=True, null=True,
+        help_text=_("Custom description for position, leave empty for default"))
+    account = models.ForeignKey(
+        Account, verbose_name=_('Account'),
+        on_delete=models.PROTECT, related_name='%(class)s_account',
+        help_text="Expense account")
+    tax = models.ForeignKey(
+        # additional field, not included in cashCtrl
+        Tax, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='%(class)s_tax',
+        verbose_name=_('Tax'), help_text=_("Applying tax rate"))
+    amount = models.DecimalField(
+        _('Amount'), max_digits=11, decimal_places=2,
+        help_text=_("The amount of the position (incl. VAT)."))
+    quantity = models.DecimalField(
+        _('Quantity'), max_digits=11, decimal_places=2, blank=True, null=True,
+        help_text=_("leave empty for default"))
+    order = models.ForeignKey(
+        IncomingOrder, on_delete=models.CASCADE,
+        related_name='%(class)s_order',
+        verbose_name=_('Order'))
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = _("Position")
+        verbose_name_plural = _("Split amount into positions (default empty)")
 
 
 class OutgoingOrder(Order):
@@ -1818,13 +1869,13 @@ class OutgoingOrder(Order):
         Person, on_delete=models.PROTECT, blank=True, null=True,
         related_name='%(class)s_recipient',
         verbose_name=_('Recipient'),
-        help_text=_('Leave empty or fill in to specify recipient.'))        
+        help_text=_('Leave empty or fill in to specify recipient.'))
     start = models.DateField(
         _('Start Date'), blank=True, null=True,
         help_text=_("Start date of invoiced service."))
     end = models.DateField(
         _('Exit Date'), blank=True, null=True,
-        help_text=_("Start date of invoiced service."))       
+        help_text=_("Start date of invoiced service."))
 
     def __str__(self):
         return (f"{self.nr} {self.contract.associate.company}, {self.date}, "
@@ -1833,20 +1884,20 @@ class OutgoingOrder(Order):
     def save(self, *args, **kwargs):
         # Build city specific header
         description = self.header_description or ''
-        
+
         # building / "Objekt"
         building = (
             f"{self.address.stn_label} {self.address.adr_number}"
-        ) if self.address else ''        
+        ) if self.address else ''
         building_notes = (
             ', ' + self.address.notes
         ) if self.address and self.address.notes else ''
-        
+
         # recipient_short_name
         recipient_short_name = (
             f", {self.recipient.short_name}" if self.recipient else '')
-            
-        # build    
+
+        # build
         template = self.category.header or ''
         self.header = template.format_map(SafeDict(
             building=building,
@@ -1854,9 +1905,9 @@ class OutgoingOrder(Order):
             description=description,
             recipient_short_name=recipient_short_name,
             start=format_date(self.start),
-            end=format_date(self.end),            
-        ))            
-        
+            end=format_date(self.end),
+        ))
+
         super().save(*args, **kwargs)
 
     class Meta:
@@ -1885,59 +1936,6 @@ class OutgoingItem(AcctApp):
     class Meta:
         verbose_name = _("Article")
         verbose_name_plural = _("Articles")
-
-
-class BookEntry(AcctApp):
-    ''' Book Entry for incoming orders  # do not use
-    '''
-    date = models.DateField(_('Date'))
-    template_id = models.PositiveIntegerField(
-        _('Book Template Id'), null=True, blank=True,
-        help_text=_('''CashCtrl id, automatically filled out'''))
-
-    class Meta:
-        ordering = ['-date']
-        verbose_name = _("Book Entry")
-        verbose_name_plural = _("Book Entries")
-        abstract = True
-
-
-class IncomingBookEntry(BookEntry):
-    ''' Book Entry for incoming orders, do not use
-    '''
-    order = models.ForeignKey(
-        IncomingOrder, on_delete=models.CASCADE,
-        related_name='%(class)s_order',
-        verbose_name=_('Order'),
-        help_text=_('automatically generated'))
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['tenant', 'order', 'template_id'],
-                name='unique_incoming_book_entry'
-            )
-        ]
-
-
-
-class OutgoingBookEntry(BookEntry):
-    ''' Book Entry for incoming orders  # do not use
-    '''
-    order = models.ForeignKey(
-        OutgoingOrder, on_delete=models.CASCADE,
-        related_name='%(class)s_order',
-        verbose_name=_('Order'),
-        help_text=_('automatically generated'))
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['tenant', 'order', 'template_id'],
-                name='unique_outgoing_book_entry'
-            )
-        ]
-
 
 
 # scerp entities with foreign key to Ledger ---------------------------------
@@ -2023,7 +2021,7 @@ class LedgerAccount(AcctLedger):
             'it gets filled automatically.' ))
     account = models.ForeignKey(
         Account, verbose_name=_('Account'), null=True, blank=True,
-        on_delete=models.PROTECT, related_name='%(class)s_category',
+        on_delete=models.PROTECT, related_name='%(class)s_account',
         help_text="The underlying account. Empty for categories.")
     manual_creation = models.BooleanField(
         default=True, help_text=(

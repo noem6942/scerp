@@ -713,7 +713,7 @@ class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.CASH_CTRL
     )
 
-
+'''  not used so fare
 @admin.register(models.BookTemplate, site=admin_site)
 class BookTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
@@ -747,7 +747,7 @@ class BookTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
-
+'''
 
 @admin.register(models.OrderCategoryContract, site=admin_site)
 class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
@@ -822,7 +822,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (
                 'code',
                 *make_language_fields('name_singular'),
-                *make_language_fields('name_plural'), 'layout'
+                *make_language_fields('name_plural'), 'layout', 'header'
             ),
             'classes': ('expand',),
         }),
@@ -914,7 +914,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'date', 'category', 'description', 'display_supplier',
+        'date', 'category', 'description', 'associate__company',
         'price_excl_vat', 'currency', 'status'
     ) + FIELDS.C_DISPLAY_SHORT
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
@@ -946,9 +946,17 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
 
     inlines = [AttachmentInline]
 
-    @admin.display(description=_('Partner'))
-    def display_supplier(self, obj):
-        return self.display_link_to_company(obj.associate)
+
+class IncomingItemsInline(BaseTabularInline):  # or admin.StackedInline
+    # Safeguards
+    protected_foreigns = ['tenant', 'version', 'order', 'account', 'tax']
+
+    # Inline
+    model = models.IncomingItem
+    fields = ['name', 'description', 'amount', 'quantity', 'account', 'tax']
+    extra = 0  # Number of empty forms displayed
+    autocomplete_fields = ['account']  # Improves FK selection performance
+    show_change_link = True  # Shows a link to edit the related model
 
 
 @admin.register(models.IncomingOrder, site=admin_site)
@@ -961,19 +969,21 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'date', 'display_category_type', 'description', 'display_supplier',
+        'nr', 'name', 'date', 'display_supplier',
         'display_price', 'category__currency', 'display_bank_account',
-        'status'
+        'status', 'display_cash_ctrl_url'
     )  + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT + FIELDS.C_DISPLAY_SHORT
     list_display_links = (
-        'date', 'display_category_type', 'description'
+        'nr', 'name'
     ) + CORE_FIELDS.LINK_ATTACHMENT
     readonly_fields = (
-        'display_category_type', 'display_bank_account'
+        'display_category_type', 'display_bank_account',
+        'display_cash_ctrl_url'
     ) + FIELDS.C_READ_ONLY
 
     # Search, filter
-    search_fields = ('nr', 'contract__associate__company', 'description')
+    search_fields = (
+        'nr', 'contract__associate__company', 'name', 'description')
     list_filter = ('category', 'status', 'date')
     autocomplete_fields = ['responsible_person']
 
@@ -984,8 +994,8 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'category', 'type', 'contract', 'status', 'description', 'date',
-                'price_incl_vat', 'due_days', 'reference',
+                'category', 'contract', 'status', 'name', 'description', 
+                'date', 'price_incl_vat', 'due_days', 'reference',
                 'responsible_person', 'display_bank_account'),
             'classes': ('expand',),
         }),
@@ -994,7 +1004,7 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.CASH_CTRL
     )
 
-    inlines = [AttachmentInline]
+    inlines = [AttachmentInline, IncomingItemsInline]
 
     @admin.display(description=_('Price (Incl. VAT)'))
     def display_price(self, obj):
@@ -1009,37 +1019,9 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     def display_supplier(self, obj):
         return obj.contract.associate
 
-
-# unregister @admin.register(models.IncomingBookEntry, site=admin_site)
-class IncomingBookEntry(TenantFilteringAdmin, BaseAdmin):
-    # Safeguards
-    protected_foreigns = [
-        'tenant', 'version', 'order'
-    ]
-
-    # Display these fields in the list view
-    list_display = (
-        'date', 'order'
-    )  + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
-    list_display_links = (
-        'date', 'order'
-    ) + CORE_FIELDS.LINK_ATTACHMENT
-    readonly_fields =  FIELDS.C_READ_ONLY
-
-    # Search, filter
-    search_fields = ('date',)
-    list_filter = ('date',)
-
-    #Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': ('date', 'order', 'template_id'),
-            'classes': ('expand',),
-        }),
-        FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING_TENANT,
-        FIELDSET.CASH_CTRL
-    )
+    @admin.display(description=_('url'))
+    def display_cash_ctrl_url(self, obj):
+        return Display.link(obj.url, '🧾', 'new')
 
 
 class OutgoingItemsInline(BaseTabularInline):  # or admin.StackedInline
@@ -1114,10 +1096,6 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     )
 
     inlines = [OutgoingItemsInline, AttachmentInline]
-
-    @admin.display(description=_('Supplier'))
-    def display_customer(self, obj):
-        return self.display_link_to_company(obj.contract.associate)
 
     @admin.display(description=_('url'))
     def display_cash_ctrl_url(self, obj):

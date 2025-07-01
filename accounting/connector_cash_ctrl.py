@@ -9,7 +9,7 @@ from django.utils.encoding import force_str
 from django.utils.translation import gettext_lazy as _
 
 from core.models import PersonBankAccount, PersonContact, PersonAddress
-from scerp.mixins import get_translations, primary_language
+from scerp.mixins import SafeDict, get_translations, primary_language
 from . import api_cash_ctrl, models
 from .api_cash_ctrl import convert_to_xml, prepare_dict
 from .api_cash_ctrl import PERSON_CATEGORY, TITLE
@@ -538,11 +538,13 @@ class OrderCategoryIncoming(OrderCategory):
         } for status in STATUS]
 
         # BookTemplates
+        STEP = instance.BOOKING_STEP
+
         # booking
         booking = {
             'accountId': data['account_id'],
-            'name': convert_to_xml(get_translations('Booking')),
-            'isAllowTax': False,  # no --> we specify tax in the item
+            'name': convert_to_xml(get_translations(STEP[STATUS.BOOKED])),
+            'isAllowTax': False,  # specify with order items
         }
 
         # payment
@@ -550,10 +552,10 @@ class OrderCategoryIncoming(OrderCategory):
         if payment_account.account and payment_account.account.c_id:
             payment = {
                 'accountId': payment_account.account.c_id,
-                'name': convert_to_xml(get_translations('Payment'))
+                'name': convert_to_xml(get_translations(STEP[STATUS.PAID]))
             }
         else:
-            raise ErrorValue("Bank account has no booking account assigned")
+            raise ValueError("Bank account has no booking account assigned")
 
         # assign
         data['book_templates'] = [booking, payment]
@@ -658,24 +660,6 @@ class OrderContract(Order):
         }]
 
 
-class BookEntry(CashCtrl):
-
-    def adjust_for_upload(self, instance, data, created=None):
-        self.make_base(instance, data)
-
-        # associate
-        if instance.associate:
-            person = instance.associate
-            data['associate_id'] = person.c_id if person else None
-
-        # Create one item with total price
-        data['items'] = [{
-            'accountId': instance.category.account.c_id,
-            'name': instance.description,
-            'unitPrice': float(instance.price_excl_vat)
-        }]
-
-
 class IncomingOrder(Order):
 
     def adjust_for_upload(self, instance, data, created=None):
@@ -688,24 +672,38 @@ class IncomingOrder(Order):
 
         # Create one item with total price
         category = instance.category
-        bank_account = PersonBankAccount.objects.filter(
+        instance.bank_account = PersonBankAccount.objects.filter(
             tenant=instance.tenant,
             person=instance.contract.associate,
             type=PersonBankAccount.TYPE.DEFAULT
         ).first()
 
-        if not bank_account:
+        if not instance.bank_account:
             raise ValueError(_("No bank account for creditor specified."))
 
-        data['items'] = [{
-            'accountId': instance.category.expense_account.c_id,
-            'name': instance.description,
-            'description': (
-                f"{PersonBankAccount._meta.verbose_name}: "
-                f"{bank_account.bic}, {bank_account.iban}"),
-            'unitPrice': float(instance.price_incl_vat),
-            'taxId': category.tax.c_id if category.tax else None
-        }]
+        # check IncomingItem
+        items = models.IncomingItem.objects.filter(
+            order=instance).order_by('id')
+        if items:
+            # split in positions
+            data['items'] = [{
+                'accountId': item.account.c_id,
+                'name': item.name,
+                'description': item.description,
+                'unitPrice': float(item.amount),
+                'taxId': item.tax.c_id if item.tax else None
+            } for item in items]
+
+            # overwrite price
+            # data.update['is_display_item_gross'] = True
+        else:
+            data['items'] = [{
+                'accountId': instance.category.expense_account.c_id,
+                'name': instance.name,
+                'description': instance.description,
+                'unitPrice': float(instance.price_incl_vat),
+                'taxId': category.tax.c_id if category.tax else None
+            }]
 
         # Rounding
         if getattr(instance.category, 'rounding', None):
@@ -714,6 +712,41 @@ class IncomingOrder(Order):
         # Due days
         if getattr(instance, 'due_days', None):
             data['due_days'] = instance.due_days
+
+    def post_save(self, instance):
+        # get and update order document
+        conn = api_cash_ctrl.OrderDocument(
+            instance.tenant.cash_ctrl_org_name,
+            instance.tenant.cash_ctrl_api_key)
+        document = self.api.read(instance.c_id)
+
+        # get location
+        location = instance.contract.category.org_location
+        org_address = (
+            f'{location.address}\n'
+            f'{location.zip} {location.city}')
+
+        # get recipient data
+        bank_account = instance.category.bank_account
+
+        # layout
+        header = instance.category.header or ''
+        header = header.format_map(SafeDict(
+            name=instance.name,
+            iban_paying=bank_account.iban,
+            iban_receiving=instance.bank_account.iban,
+        ))
+
+        # update document
+        document.update({
+            'org_location_id': location.c_id,
+            'org_address': org_address,
+            'org_bank_account_id': bank_account.c_id,
+            'header': convert_text_to_html(header),
+            'footer': convert_text_to_html(instance.category.footer)
+        })
+
+        response = conn.update(document)
 
     def upload_attachment(self, instance):
         '''
@@ -873,24 +906,6 @@ class OutgoingOrder(Order):
 
         response = conn.update(document)
 
-'''
-class IncomingBookEntry(CashCtrl):
-    api_class = api_cash_ctrl.OrderBookEntry
-    exclude = EXCLUDE_FIELDS + ['notes', 'is_inactive']
-
-    def adjust_for_upload(self, instance, data, created=None):
-        order = instance.order
-        category = order.category
-        data.update({
-            'order_ids': [order.c_id],
-            'amount': order.price_incl_vat,
-            'account_id': category.bank_account.c_id,
-            'tax_id': category.tax.c_id
-        })
-
-        if category.currency:
-            data['currency_id'] = category.currency.c_id
-'''
 
 class AssetCategory(CashCtrl):
     api_class = api_cash_ctrl.AssetCategory

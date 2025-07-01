@@ -707,6 +707,42 @@ def order_contract_pre_delete(sender, instance, **kwargs):
         api.delete(instance)
 
 
+# Incomingitem, related to IncomingOrder
+def incoming_order_save(instance, created=None):
+    # Gets called whenever something changes with IncomingOrder    
+    instance.sync_to_accounting = True
+    if sync(instance):
+        api = conn.IncomingOrder(instance)
+        api.save(instance, created)
+
+
+def incoming_order_related_delete(instance):
+    # Gets called whenever some deletes are in action
+    order_id = instance.order_id  # still valid
+
+    def sync_if_order_exists():
+        try:
+            order = models.IncomingOrder.objects.get(pk=order_id)
+        except models.IncomingOrder.DoesNotExist:
+            return  # IncomingOrder was deleted, do nothing
+        order.sync_to_accounting = True
+        if sync(order):
+            api = conn.IncomingOrder(order)
+            api.save(order)
+
+    transaction.on_commit(sync_if_order_exists)
+
+
+@receiver(post_save, sender=models.IncomingItem)
+def incoming_item_post_save(sender, instance, created, **kwargs):    
+    incoming_order_save(instance.order)
+
+
+@receiver(post_delete, sender=models.IncomingItem)
+def incoming_item_post_delete(sender, instance, **kwargs):
+    incoming_order_related_delete(instance)
+
+
 # IncomingOrder
 @receiver(post_save, sender=models.IncomingOrder)
 def incoming_order_post_save(sender, instance, created, **kwargs):
@@ -745,7 +781,7 @@ def outgoing_order_pre_delete(sender, instance, **kwargs):
 
 
 # OutgoingItem, related to OutgoingOrder
-def order_save(instance, created=None):
+def outgoing_order_save(instance, created=None):
     # Gets called whenever something changes with OutgoingOrder    
     instance.sync_to_accounting = True
     if sync(instance):
@@ -753,7 +789,7 @@ def order_save(instance, created=None):
         api.save(instance, created)
 
 
-def order_related_delete(instance):
+def outgoing_order_related_delete(instance):
     # Gets called whenever some deletes are in action
     order_id = instance.order_id  # still valid
 
@@ -772,30 +808,13 @@ def order_related_delete(instance):
 
 @receiver(post_save, sender=models.OutgoingItem)
 def outgoing_item_post_save(sender, instance, created, **kwargs):    
-    order_save(instance.order)
+    outgoing_order_save(instance.order)
 
 
 @receiver(post_delete, sender=models.OutgoingItem)
 def outgoing_item_post_delete(sender, instance, **kwargs):
-    order_related_delete(instance)
+    outgoing_order_related_delete(instance)
 
-
-""" do not use
-@receiver(post_save, sender=models.IncomingBookEntry)
-def incoming_book_entry_post_save(sender, instance, created, **kwargs):
-    '''Signal handler for post_save signals on IncomingBookEntry. '''
-    if sync(instance):
-        api = conn.IncomingBookEntry(sender)
-        api.save(instance, created)
-
-
-@receiver(pre_delete, sender=models.IncomingBookEntry)
-def incoming_book_entry_pre_delete(sender, instance, **kwargs):
-    '''Signal handler for pre_delete signals on IncomingBookEntry. '''
-    if sync_delete(instance):
-        api = conn.IncomingBookEntry(sender)
-        api.delete(instance)
-"""
 
 # Ledger ------------------------------------------------------------------
 @receiver(post_save, sender=models.LedgerBalance)

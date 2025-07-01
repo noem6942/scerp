@@ -811,8 +811,8 @@ class BankAccount(TenantAbstract):
     def clean(self):
         if (self.iban or self.qr_iban) and not self.bic:
             self.bic = get_bic(self.iban)
-            if not self.bic:
-                raise ValidationError(_("No BIC Code found."))
+            #if not self.bic:
+            #    raise ValidationError(_("No BIC Code found."))
         if not self.iban and not self.qr_iban:
             raise ValidationError(_("No IBAN given."))
 
