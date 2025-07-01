@@ -1666,15 +1666,9 @@ class OrderContract(Order):
     attachments = GenericRelation('core.Attachment')
 
     def __str__(self):
-        return f"{self.category.get_type_display()}: {self.associate.company}, {self.date}, {self.description}"
-
-    def clean(self):
-        if not PersonBankAccount.objects.filter(            
-                    person=self.associate,
-                    type=PersonBankAccount.TYPE.DEFAULT
-                ).exists():
-            raise ValidationError(_("IBAN of creditor missing."))
-        super().clean()
+        return (
+            f"{self.category.get_type_display()}: {self.associate.company}, "
+            f{self.date}, {self.description}")
 
     class Meta:
         verbose_name = _("Contract")
