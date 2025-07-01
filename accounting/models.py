@@ -1669,7 +1669,7 @@ class OrderContract(Order):
         return f"{self.category.get_type_display()}: {self.associate.company}, {self.date}, {self.description}"
 
     def clean(self):
-        if not category.bank_account.iban:
+        if not self.category.bank_account.iban:
             raise ValidationError(_("IBAN of creditor missing."))
         super().clean()
 
