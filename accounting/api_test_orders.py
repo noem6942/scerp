@@ -171,13 +171,13 @@ if __name__ == "__main__":
             'filter': [{
                 'comparison': 'eq',
                 'field': 'id',
-                'value': [192, 600]
+                'value': [643]
             }],
             'limit': 101,
-            'type': 'SALES',             
+            'type': 'PURCHASE',             
         })
         
-        print("*orders", len(data_list))
+        print("*orders", data_list[0])
        
         """       
         for data in data_list:

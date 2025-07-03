@@ -1668,7 +1668,7 @@ class OrderContract(Order):
     def __str__(self):
         return (
             f"{self.category.get_type_display()}: {self.associate.company}, "
-            f{self.date}, {self.description}")
+            f"{self.date}, {self.description}")
 
     class Meta:
         verbose_name = _("Contract")
