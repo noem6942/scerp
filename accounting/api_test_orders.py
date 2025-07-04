@@ -176,8 +176,13 @@ if __name__ == "__main__":
             'limit': 101,
             'type': 'PURCHASE',             
         })
-        
+                
         print("*orders", data_list[0])
+       
+        # Read again the order
+        order = data_list[0]
+        order_read = conn.read(order['id'])
+        print("*order_read", order_read)       
        
         """       
         for data in data_list:

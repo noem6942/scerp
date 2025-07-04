@@ -816,12 +816,7 @@ class Account(CashCtrl):
         url = self.BASE_DIR.format(
             org=self.org, url=self.url, params=params, action='balance')
         response = self.get(url, params)
-        content = getattr(response, '_content', None)
-
-        # Return content
-        if content:
-            return content.decode(DECODE)
-        raise Exception("response has no _content ")
+        return float(response.json())
 
     @property
     def standard_account(self):

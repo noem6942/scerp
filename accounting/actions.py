@@ -23,11 +23,13 @@ from .import_export import (
     LedgerBalanceImportExport, LedgerPLImportExport, LedgerICImportExport
 )
 from .models import (
-    FiscalPeriod,LedgerAccount, LedgerBalance, LedgerPL, LedgerIC
+    FiscalPeriod, LedgerAccount, LedgerBalance, LedgerPL, LedgerIC
 )
 
 from . import forms, models
 from . import api_cash_ctrl, connector_cash_ctrl as conn
+from .ledger import LoadLedgerBalance
+
 #from .signals_cash_ctrl import api_setup_post_save
 
 
@@ -62,46 +64,56 @@ def init_setup(modeladmin, request, queryset):
         messages.success(request, _("Accounting API initialized"))
     '''
 
-@admin.action(description=_('15 Get balances from accounting system'))
-def download_balances(modeladmin, request, queryset):
-    __ = modeladmin  # disable pylint warning
-    # Check
-    if action_check_nr_selected(request, queryset, min_count=1):
-        # Prepare
-        api_setup, module = get_api_setup(queryset)
-        ctrl = module.Account(api_setup)
-
-        # Perform
-        count = ctrl.download_balances(queryset)
-        msg = _("{count} balances downloaded.").format(count=count)
-        messages.success(request, msg)
-
 
 @action_with_form(
-    forms.ChartOfAccountsDateForm,
-    description=_(
-        '16 Get current balances from accounting system')
-)
+    forms.ChartOfAccountsDateForm, description=_('Get balances'))
 def get_balances(modeladmin, request, queryset, data):
     """
     Custom admin action to get balances of selected records.
     """
     # Check
     if action_check_nr_selected(request, queryset, min_count=1):
-        # Prepare
-        api_setup, module = get_api_setup(queryset)
-        ctrl = module.Account(api_setup)
+        # init
+        date =  data['date']
 
-        # Perform
-        count = ctrl.get_balances(queryset, data.get('date'))
+        # Load balances of underlying accounts
+        if modeladmin.model == LedgerBalance:
+            # load LedgerBalance
+            ledger = LoadLedgerBalance(modeladmin.model, request, queryset)
+            ledger.load(date)
+        elif modeladmin.model == LedgerPL:
+            # load LedgerPL
+            balance = {
+                'expense': {},
+                'revenue': {}
+            }
+            for item in queryset.exclude(account=None):
+                for key in balance.keys():
+                    category = (
+                        item.category_expense if key == 'expense'
+                        else item.category_revenue)
+                    if category and item.account.c_id:
+                        balance[key][item.hrm] = conn.get_balance(
+                            item.account.c_id, data['date'])
+                        item.closing_balance = balance[key][item.hrm]
+                        item.balance_updated = timezone.now()
+                        item.save()
+                    else:
+                        msg = _("{item} has no cashCtrl id.").format(item=item)
+                        messages.warning(request, msg)
 
-        # Perform
-        msg =  _("{count} positions updated.").format(count=count)
-        messages.success(request, msg)
-
-        # Download balances to doublecheck
-        download_balances(modeladmin, request, queryset)
-
+            # Calc balances for categories
+            for item in queryset.filter(account=None):
+                balance_sum = sum([
+                    value or 0
+                    for hrm, value in balance.items()
+                    if hrm.startswith(item.function)
+                ])
+                item.closing_balance = balance_sum
+                item.balance_updated = timezone.now()
+                item.save()
+        else:
+            print("*", modeladmin)
 
 @action_with_form(
     forms.ChartOfAccountsDateForm,

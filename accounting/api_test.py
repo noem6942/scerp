@@ -21,7 +21,7 @@ if __name__ == "__main__":
         data_list = conn.list()
         print("*", data_list)
 
-    if True:
+    if False:
         conn = Setting(org, api, convert_dt=False)
         data = conn.read()
         print("*", data)
@@ -151,3 +151,12 @@ if __name__ == "__main__":
         conn = File(org, api)
         conn = Person(org, api, convert_dt=False)
         conn.attach_files(26, [18])
+
+    if True:
+        conn = Account(org, api, convert_dt=False)
+        data_list = conn.list()
+        print("*", len(data_list))
+        data = data_list[0]
+        id = 1781  # data.get('id')
+        balance = conn.get_balance(id)
+        print("*", id, balance)

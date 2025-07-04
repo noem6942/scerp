@@ -154,7 +154,8 @@ class Subscription(TenantAbstract):
         verbose_name=_('Dossier'), related_name='%(class)s_dossier',
         help_text=_("main subscription if multiple counters"))
     address = models.ForeignKey(
-        AddressMunicipal, verbose_name=_('Building Address'), null=True,
+        AddressMunicipal, verbose_name=_('Building Address'), 
+        null=True, blank=True,
         on_delete=models.PROTECT, related_name='%(class)s_address',
         help_text=_("May be null at the beginning but must be entered later"))
     start = models.DateField(

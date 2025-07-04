@@ -465,240 +465,6 @@ class RouteCounterExport(RouteManagement):
     '''
     def __init__(
             self, modeladmin, request, route, responsible_user=None,
-            route_date=None, energy_type='W', key=None):
-        super().__init__(modeladmin, request, route)
-        self.username = responsible_user.username if responsible_user else None
-        self.name = f'{route.id}, {route.tenant.code}, {route.__str__()}'
-        self.route_date = route_date
-        self.energy_type = energy_type
-        self.key = key  # encryption
-
-    # Helpers
-    def data_check(self, show_multiple=False):
-        '''Check validity of addresses, counters
-        show_multiple: show if a subscriber has multiple counters
-        '''
-        # Check addresses
-        subs_without_address = Subscription.objects.filter(
-            tenant=self.tenant,
-            address=None,
-            start__lte=self.end,
-        ).filter(
-            Q(end__gte=self.start) | Q(end__isnull=True)
-        )
-        if subs_without_address:
-            messages.warning(
-                self.request,
-                _("Records having no address: %s") % subs_without_address
-            )
-
-        # Check counters
-        subs_without_counters = Subscription.objects.annotate(
-            counter_count=Count('counters')
-        ).filter(
-            tenant=self.tenant,
-            counter_count=0,
-            start__lte=self.end
-        ).filter(
-            Q(end__gte=self.start) | Q(end__isnull=True)
-        )
-        if subs_without_counters:
-            messages.warning(
-                self.request,
-                _("Records having no counters: %s") % subs_without_counters
-            )
-
-        if show_multiple:
-            subs_multiple_counters = Subscription.objects.annotate(
-                counter_count=Count('counters')
-            ).filter(
-                tenant=self.tenant,
-                counter_count__gte=1,
-                start__lte=self.end
-            ).filter(
-                Q(end__gte=self.start) | Q(end__isnull=True)
-            )
-            if subs_without_counters:
-                messages.warning(
-                    self.request,
-                    _("Records having multiple counters: %s") % (
-                        subs_multiple_counters)
-                )
-
-    def get_addresses(self):
-        # Filter Addresses
-        if self.route.addresses.exists():
-            addresses = self.route.addresses.all()
-        else:
-            queryset = AddressMunicipal.objects.filter(
-                tenant=self.tenant)
-            if self.route.areas.exists():
-                queryset = queryset.filter(area__in=areas)
-            addresses = queryset.all()
-
-        return addresses
-
-    def get_subscriptions(self, addresses):
-        # In scope
-        queryset = Subscription.objects.filter(
-            tenant=self.tenant,
-            address__in=addresses,
-            start__lte=self.end,
-        ).filter(
-            Q(end__gte=self.start) | Q(end__isnull=True)
-        )
-
-        return queryset.all()
-
-    def make_gft_meter(self, subscription, counter, excel):
-        ''' make meter dict for json / excel export
-        if excel we optimize data to our needs
-        redo !!!
-        '''
-        # last consumption
-        previous_measurement = self.get_previous_measurement(counter)
-        if previous_measurement:
-            value = previous_measurement.value or 0
-            consumption_previous = previous_measurement.consumption or 0
-        else:
-            value = 0
-            consumption_previous = 0
-
-        # Calc min, max
-        min, max = value, value
-        if consumption_previous:
-            min += consumption_previous * float(self.route.confidence_min)
-            max += consumption_previous * float(self.route.confidence_max)
-
-        # subscription
-        name = subscription.subscriber.__str__()
-        if subscription.partner:
-            name += ' & ' + subscription.partner.__str__()
-
-        # address
-        address = subscription.address
-        street = address.stn_label or ''
-        nr = address.adr_number or ''
-
-        # make record
-        if excel:
-            # Make record
-            meter = {
-                'counter_id': counter.number,
-                'address': f"{street} {nr}",
-                'subscriber': name,
-                'area': address.area,
-                'start': start,
-                'end': end,
-                'consumption_previous': consumption_previous,
-                'obiscode': counter.obiscode
-            }
-        else:
-            # current date
-            if self.route_date:
-                current_date = convert_datetime_to_date(self.route_date)
-            else:
-                current_date = None
-
-            # previous date
-            if self.route.period_previous:
-                previous_date = convert_datetime_to_date(
-                    self.route.period_previous.end)
-            else:
-                previous_date = None
-
-            # encryption
-            if self.key:
-                name = shift_encode(name, self.key)
-                nr = shift_encode(street, self.key)
-                street = shift_encode(nr, self.key)
-
-            meter = {
-                'id': counter.number,
-                'energytype': self.energy_type,
-                'number': counter.number,
-                'hint': json.dumps({
-                    'subscription_id': subscription.id,
-                    'address_id': address.id,
-                    'consumption_previous': round(consumption_previous, 1)
-                }),
-                'address': {
-                    'street': street,
-                    'housenr': nr,
-                    'city': address.city,
-                    'zip': address.zip,
-                    'hint': f'address_id: {address.id}',
-                },
-                'subscriber': {
-                    'name': name,
-                    'hint': subscription.subscriber.notes
-                },
-                'value': {
-                    'obiscode': counter.category.code,
-                    'dateOld': previous_date,
-                    'old': round(value, 1),
-                    'min': round(min, 1),
-                    'max': round(max, 1),
-                    'dateCur': current_date
-                }
-            }
-
-        return meter
-
-    # Methods, main
-    def get_counter_data_json(self, excel=False, show_multiple=False):
-        '''called to generate the json data for the export to GFT software
-        excel: output to excel, creates a much simpler meter data
-        show_multiple: show if a subscriber has multiple counters
-        '''
-        # Check validity of data
-        self.data_check(show_multiple)
-
-        # Update route
-        data = dict(METER.TEMPLATE)
-        data['billing_mde']['route'].update({
-            'name': self.name,
-            'user': self.username
-        })
-
-        # Get subscriptions
-        addresses = self.get_addresses()
-        subscriptions = self.get_subscriptions(addresses)
-        number_of_counters = 0
-
-        # Fill in meters
-        for subscription in subscriptions:
-            for counter in subscription.counters.all():
-                # make meter
-                meter = self.make_gft_meter(subscription, counter, excel)
-                data['billing_mde']['meter'].append(meter)
-
-                # add route to routes_out in Subscription
-                subscription.routes_out.add(self.route)
-                number_of_counters += 1
-
-        # Update route
-        self.route.number_of_addresses = len(addresses)
-        self.route.number_of_subscriptions = len(subscriptions)
-        self.route.number_of_counters = number_of_counters
-        self.route.status = Route.STATUS.COUNTER_EXPORTED
-        self.route.save()
-
-        # return data, if excel only meter records
-        return data['billing_mde']['meter'] if excel else data
-
-
-class RouteCounterExportNew(RouteManagement):
-    '''
-    use this class to
-    - get_counter_data_json:
-        create a json list that gets upload to GFT software
-
-    responsible_user: Brunnenmeister
-    key: decipher for JSON export
-    '''
-    def __init__(
-            self, modeladmin, request, route, responsible_user=None,
             route_date=None, key=None):
         super().__init__(modeladmin, request, route)
         self.username = responsible_user.username if responsible_user else None
@@ -739,8 +505,15 @@ class RouteCounterExportNew(RouteManagement):
 
         # address
         address = subscription.address
-        street = address.stn_label or ''
-        nr = address.adr_number or ''
+        if address:
+            street = address.stn_label or ''
+            nr = address.adr_number or ''
+        else:    
+            street = ''
+            nr = ''
+            msg = _("subscription {subscription} has no address.")
+            msg = msg.format(subscription=subscription)
+            messages.warning(self.request, msg)            
 
         # current date
         if self.route_date:
@@ -765,21 +538,17 @@ class RouteCounterExportNew(RouteManagement):
             'id': counter.number,
             'energytype': self._get_energy_type(counter),
             'number': counter.number,
-            'hint': json.dumps({
-                'subscription_id': subscription.id,
-                'address_id': address.id,
-                'consumption_previous': round(consumption_previous, 1)
-            }),
+            'hint': '',  # not used anymore
             'address': {
                 'street': street,
                 'housenr': nr,
                 'city': address.city,
                 'zip': address.zip,
-                'hint': f'address_id: {address.id}',
+                'hint': address.address_label or '',
             },
             'subscriber': {
                 'name': name,
-                'hint': subscription.subscriber.notes
+                'hint': subscription.description or ''
             },
             'value': {
                 'obiscode': counter.category.code,

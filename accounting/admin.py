@@ -1175,7 +1175,6 @@ class LedgerBaseAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Actions
     actions = [
-        a.download_balances,
         a.get_balances,
         a.upload_balances,
         a.add_excel_to_ledger
@@ -1235,7 +1234,7 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
         'display_function', 'display_hrm', 'display_account_name',
         'display_opening_balance', 'display_increase',
         'display_decrease', 'display_closing_balance',
-        'display_c_ids', 'notes'
+        'balance_updated', 'display_c_ids', 'notes'
     ) + FIELDS.C_DISPLAY_SHORT + CORE_FIELDS.ICON_DISPLAY
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
     #readonly_fields = ('closing_balance',)
@@ -1245,7 +1244,7 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
     autocomplete_fields = ['account']
 
     # Actions
-    actions = accounting_actions + [export_excel] + default_actions
+    actions = accounting_actions + [export_excel, a.get_balances] + default_actions
 
     #Fieldsets
     fieldsets = (

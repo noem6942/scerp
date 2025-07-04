@@ -7,8 +7,11 @@ import logging
 import time
 from decimal import Decimal
 
+from django.contrib import messages
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from . import api_cash_ctrl
 from .models import TOP_LEVEL_ACCOUNT, Account, AccountCategory, LedgerBalance
 
 # Set up logging
@@ -345,3 +348,51 @@ class LedgerPLUpdate(LedgerFunctionalUpdate):
 class LedgerICUpdate(LedgerFunctionalUpdate):
     top_level_expense = TOP_LEVEL_ACCOUNT.IS_EXPENSE.value  # '3.2'
     top_level_revenue = TOP_LEVEL_ACCOUNT.IS_REVENUE.value  # '4.2'
+
+
+# helpers for load balances
+class LoadBalance:
+    '''Load balances from cashCtrl
+    params:
+        model: LedgerBalance, LedgerPL, 
+        queryset: items of model to be updated
+    '''
+        
+    def __init__(self, model, request, queryset):
+        self.model = model
+        self.request = request
+        self.queryset = queryset
+        
+        # Init conn
+        tenant = queryset.first().tenant
+        self.conn = api_cash_ctrl.Account(
+            tenant.cash_ctrl_org_name, tenant.cash_ctrl_api_key)   
+ 
+ 
+class LoadLedgerBalance(LoadBalance):
+     
+    def load(self, date=None):
+        '''Load LedgerBalance
+        '''
+        balance = {}
+        for item in self.queryset.exclude(account=None):
+            if item.account.c_id:
+                balance[item.hrm] = self.conn.get_balance(
+                    item.account.c_id, date)
+                item.closing_balance = balance[item.hrm]
+                item.balance_updated = timezone.now()
+                item.save()
+            else:
+                msg = _("{item} has no cashCtrl id.").format(item=item)
+                messages.warning(request, msg)
+
+        # Calc balances for categories
+        for item in self.queryset.filter(account=None):
+            balance_sum = sum([
+                value or 0
+                for hrm, value in balance.items()
+                if hrm.startswith(item.function)
+            ])
+            item.closing_balance = balance_sum
+            item.balance_updated = timezone.now()
+            item.save()    

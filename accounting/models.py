@@ -1965,18 +1965,7 @@ class Ledger(AcctApp):
         verbose_name_plural = _('Ledger')
 
 
-class AcctLedger(AcctApp):
-    ledger = models.ForeignKey(
-        Ledger, verbose_name=_('Ledger'),
-        on_delete=models.CASCADE, related_name='%(class)s_ledger',
-        help_text=_("Ledger assigned to the fiscal period"))
-
-    class Meta:
-        ordering = ['function', 'hrm']
-        abstract = True
-
-
-class LedgerAccount(AcctLedger):
+class LedgerAccount(AcctApp):
     '''
     Used for HRM 2 account management:
     - type: leave empty to calculate later
@@ -1996,7 +1985,6 @@ class LedgerAccount(AcctLedger):
     class TYPE(models.TextChoices):
         CATEGORY = 'C', _('Category')
         ACCOUNT = 'A', _('Account')
-
     hrm = models.CharField(
          _('HRM 2'), max_length=8, null=True, blank=True,
         help_text=_('HRM 2 number, e.g. 3100.01'))
@@ -2005,6 +1993,10 @@ class LedgerAccount(AcctLedger):
     type = models.CharField(
         _('Type'), max_length=1, choices=TYPE, blank=True, null=True,
         help_text=_("Category or account"))
+    ledger = models.ForeignKey(
+        Ledger, verbose_name=_('Ledger'),
+        on_delete=models.CASCADE, related_name='%(class)s_ledger',
+        help_text=_("Ledger assigned to the fiscal period"))        
     parent = models.ForeignKey(
         'self', verbose_name=_('Parent'), blank=True, null=True,
         on_delete=models.SET_NULL, related_name='%(class)s_parent',
@@ -2024,6 +2016,9 @@ class LedgerAccount(AcctLedger):
         default=True, help_text=(
             "For import / export this is set to False so ledger.py uses "
             "last inserted category as parent instead of parent"))
+    balance_updated = models.DateTimeField(
+        _('Balance last update'), null=True, blank=True,
+        help_text=_('Date and time of last update of balance'))
 
     @property
     def cash_ctrl_ids(self):
