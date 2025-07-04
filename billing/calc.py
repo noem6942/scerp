@@ -544,11 +544,11 @@ class RouteCounterExport(RouteManagement):
                 'housenr': nr,
                 'city': address.city,
                 'zip': address.zip,
-                'hint': address.address_label or '',
+                'hint': subscription.description or ''
             },
             'subscriber': {
                 'name': name,
-                'hint': subscription.description or ''
+                'hint': '',  # not used anymore
             },
             'value': {
                 'obiscode': counter.category.code,
