@@ -275,11 +275,15 @@ class RouteBillingForm(AdminActionForm):
         route = queryset.first()
 
         # Get Subscribers
-        subscriptions = Subscription.objects.filter(
-            tenant=route.tenant,
-            is_inactive=False
-        ).order_by('address__zip', 'address__address_label', 'description')
-        self.fields['subscriptions'].queryset = subscriptions
+        if route.subscriptions.exists():
+            subscriptions = route.subscriptions.all()
+        else:
+            subscriptions = Subscription.objects.filter(
+                tenant=route.tenant,
+                is_inactive=False
+            ).all()
+        self.fields['subscriptions'].queryset = subscriptions.order_by(
+            'address__zip', 'address__address_label', 'description')
         
         # tags
         tags = list(set([x.tag for x in subscriptions.all()]))
