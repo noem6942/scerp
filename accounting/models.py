@@ -59,6 +59,9 @@ TOP_LEVEL_ACCOUNT_NRS = [x.value for x in TOP_LEVEL_ACCOUNT]
 
 
 # helpers
+def today():
+    return timezone.now().date()
+    
 def rank(nr):
     diff = 4 - nr
     return ' ' * (diff if diff > 0 else 0)
@@ -925,10 +928,76 @@ class ArticleCategory(AcctApp):
                 name='unique_tenant_article_category'
             )
         ]
-
         ordering = ['code']
         verbose_name = _("Debtor - Article Category")
         verbose_name_plural = _("Debtor - Article Categories")
+
+
+class JournalTemplate(AcctApp):
+    code = models.CharField(
+        _('Code'), max_length=200,
+        help_text=_("internal code"))
+    name = models.CharField(
+        _("Name"), max_length=250, help_text=_("Name of journal template"))        
+    credit_account = models.ForeignKey(
+        Account, on_delete=models.CASCADE,
+        related_name='%(class)s_credit_account',
+        verbose_name=_('Credit Account'),
+        help_text="Typically the default creditor account in case of a payment")
+    debit_account = models.ForeignKey(
+        Account, on_delete=models.CASCADE,
+        related_name='%(class)s_debit_account',
+        verbose_name=_('Debit Account'),
+        help_text="Typically an expense account in case of a payment")
+    currency = models.ForeignKey(
+        Currency, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='%(class)s_currency',
+        verbose_name=_('Currency'),
+        help_text=_("leave empty for default"))
+    is_opening_booking = models.BooleanField(
+        _('Is Opening Booking'), default=False,
+        help_text=_("Default false"),
+    )
+
+    def __str__(self):
+        return f"{self.code}: {self.name}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code'],
+                name='unique_journal_template'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Journal Template")
+        verbose_name_plural = _("Journal Templates")        
+
+
+class Journal(AcctApp):
+    title = models.CharField(
+        _("Title"), max_length=250, blank=True, null=True,
+        help_text=_("Title, leave empty if same as template name"))
+    template = models.ForeignKey(
+        JournalTemplate, on_delete=models.PROTECT,
+        related_name='%(class)s_template',
+        verbose_name=_('Journal Template'),
+        help_text="Journal Template")
+    amount = models.DecimalField(
+        _('Amount'), max_digits=11, decimal_places=2,
+        help_text=_("The amount of the book entry."))
+    date = models.DateField(_('Date'), default=today)
+    reference = models.CharField(
+        _("Reference"), max_length=100, blank=True, null=True,
+        help_text=_("An optional reference / receipt for the book entry."))
+        
+    def __str__(self):
+        return f"{self.template.code}: {self.date} {self.title}"
+
+    class Meta:
+        ordering = ['-date', 'title']
+        verbose_name = _("Journal")
+        verbose_name_plural = _("Journals")
 
 
 class Article(AcctApp):
@@ -1063,7 +1132,7 @@ class BookTemplate(AcctApp):
     debit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_debit_account',
-        verbose_name=_('Dedbt Account'),
+        verbose_name=_('Debit Account'),
         help_text="Typically an expense account in case of a payment")
     tax = models.ForeignKey(
         Tax, on_delete=models.CASCADE, blank=True, null=True,
@@ -1416,11 +1485,11 @@ class OrderCategoryIncoming(OrderCategory):
         STATUS.BOOKED: _('Booking'),
         STATUS.PAID: _('Payment')
     }
-    
+
     HEADER = (
         '{name}<br>\n'
         'Account Paying: {iban_paying}<br>\n'
-        'Account Receiving: {iban_receiving}'    
+        'Account Receiving: {iban_receiving}'
     )
 
     header = models.TextField(
@@ -1541,7 +1610,7 @@ class OrderCategoryOutgoing(OrderCategory):
         _("Header Text"), blank=True, null=True,
         help_text=_(
             "The text displayed above  the items list on the document used by "
-            "default for order objects"))    
+            "default for order objects"))
     debit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_debit_account',
@@ -1739,7 +1808,7 @@ class IncomingOrder(Order):
         # Check bank_accounts
         if not PersonBankAccount.objects.filter(
                 person=self.contract.associate).exclude(iban=None).exists():
-            raise ValidationError(_("No Iban specified for contract partner"))         
+            raise ValidationError(_("No Iban specified for contract partner"))
 
     class Meta:
         verbose_name = _("Creditor - Invoice")
@@ -1996,7 +2065,7 @@ class LedgerAccount(AcctApp):
     ledger = models.ForeignKey(
         Ledger, verbose_name=_('Ledger'),
         on_delete=models.CASCADE, related_name='%(class)s_ledger',
-        help_text=_("Ledger assigned to the fiscal period"))        
+        help_text=_("Ledger assigned to the fiscal period"))
     parent = models.ForeignKey(
         'self', verbose_name=_('Parent'), blank=True, null=True,
         on_delete=models.SET_NULL, related_name='%(class)s_parent',

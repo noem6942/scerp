@@ -915,6 +915,28 @@ class AssetCategory(CashCtrl):
         raise ValueError("AssetCategory are only edited in scerp")
 
 
+class Journal(CashCtrl):
+    api_class = api_cash_ctrl.Journal
+    exclude = EXCLUDE_FIELDS + ['template']
+
+    def adjust_for_upload(self, instance, data, created=None):
+        # Prepare credit_id, debit_id, currency
+        template = instance.template
+        if getattr(template, 'credit_account', None):
+            data['credit_id'] = template.credit_account.c_id
+        if getattr(template, 'debit_account', None):
+            data['debit_id'] = template.debit_account.c_id
+        if getattr(template, 'currency', None):
+            data['currency_id'] = template.currency.c_id
+
+        # title
+        if not instance.title:
+            data['title'] = template.name
+
+        # data
+        data['date_added'] = data.get('date')
+
+
 class Asset(CashCtrl):
     api_class = api_cash_ctrl.Asset
     exclude = EXCLUDE_FIELDS + [

@@ -588,6 +588,23 @@ def sequence_number_pre_delete(sender, instance, **kwargs):
         api.delete(instance)
 
 
+# Journal
+@receiver(post_save, sender=models.Journal)
+def journal_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Journal. '''
+    if sync(instance):
+        api = conn.Journal(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=models.Journal)
+def journal_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Journal. '''
+    if sync_delete(instance):
+        api = conn.Journal(sender)
+        api.delete(instance)
+
+
 # ArticleCategory
 @receiver(post_save, sender=models.ArticleCategory)
 def article_category_post_save(sender, instance, created, **kwargs):

@@ -23,7 +23,7 @@ class Ledger:
     '''
         Gets called before Ledger is saved
         updates category, parent and function
-        
+
         model: LedgerBalance, LedgerPL, LedgerIC
     '''
     def __init__(self, model, instance, **kwargs):
@@ -187,7 +187,7 @@ class LedgeUpdate:
                                 is_scerp=True
                             )
                         ))
-                    
+
                     # Ensure `pre_save` and `post_save` run and assign `c_id`
                     category.refresh_from_db()
 
@@ -325,18 +325,18 @@ class LedgerFunctionalUpdate(LedgeUpdate):
                 number=self.top_level_revenue).first()
         else:
             raise ValueError(f"{field_name}: not a valid field name")
-            
+
         if not parent:
             raise ValueError(
                 f"No top category found for {self.instance} / {field_name}. "
                 f"Did you run the account setup?")
-                    
+
         return create, parent
 
-    def get_account_category(self):        
+    def get_account_category(self):
         if (self.instance.hrm[0] in self.accounts_expense
-                or '9000.' in self.instance.hrm):            
-            return self.instance.parent.category_expense        
+                or '9000.' in self.instance.hrm):
+            return self.instance.parent.category_expense
         return self.instance.parent.category_revenue
 
 
@@ -354,24 +354,21 @@ class LedgerICUpdate(LedgerFunctionalUpdate):
 class LoadBalance:
     '''Load balances from cashCtrl
     params:
-        model: LedgerBalance, LedgerPL, 
+        model: LedgerBalance, LedgerPL,
         queryset: items of model to be updated
     '''
-        
+
     def __init__(self, model, request, queryset):
         self.model = model
         self.request = request
         self.queryset = queryset
-        
+
         # Init conn
         tenant = queryset.first().tenant
         self.conn = api_cash_ctrl.Account(
-            tenant.cash_ctrl_org_name, tenant.cash_ctrl_api_key)   
- 
- 
-class LoadLedgerBalance(LoadBalance):
-     
-    def load(self, date=None):
+            tenant.cash_ctrl_org_name, tenant.cash_ctrl_api_key)
+
+    def load_balance(self, date=None):
         '''Load LedgerBalance
         '''
         balance = {}
@@ -384,7 +381,7 @@ class LoadLedgerBalance(LoadBalance):
                 item.save()
             else:
                 msg = _("{item} has no cashCtrl id.").format(item=item)
-                messages.warning(request, msg)
+                messages.warning(self.request, msg)
 
         # Calc balances for categories
         for item in self.queryset.filter(account=None):
@@ -395,4 +392,42 @@ class LoadLedgerBalance(LoadBalance):
             ])
             item.closing_balance = balance_sum
             item.balance_updated = timezone.now()
-            item.save()    
+            item.save()
+
+    def load_pl_or_ic(self, date=None):
+        # Load balance from cashCtrl
+        balance = {
+            'expense': {},
+            'revenue': {}
+        }
+        for item in self.queryset.exclude(account=None):
+            for key in balance.keys():
+                if item.account.c_id:
+                    balance[key][item.function] = self.conn.get_balance(
+                        item.account.c_id, date)                    
+                    setattr(item, key, balance[key][item.function])
+                else:
+                    msg = _("{item} has no cashCtrl id.").format(item=item)
+                    print("*item.account.c_id", category, item.account.c_id)
+                    messages.warning(self.request, msg)
+
+                item.balance_updated = timezone.now()
+                item.save()
+
+        # Calc balances for categories
+        for item in self.queryset.filter(account=None):
+            for key in balance.keys():
+                balance_sum = sum([
+                    value or 0
+                    for function, value in balance[key].items()
+                    if function.startswith(item.function)
+                ])
+                setattr(item, key,balance_sum)
+            item.balance_updated = timezone.now()
+            item.save()
+
+    def load(self, date=None):
+        if self.model == LedgerBalance:
+            return self.load_balance(date)
+        else:
+            return self.load_pl_or_ic(date)

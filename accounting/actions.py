@@ -28,7 +28,7 @@ from .models import (
 
 from . import forms, models
 from . import api_cash_ctrl, connector_cash_ctrl as conn
-from .ledger import LoadLedgerBalance
+from .ledger import LoadBalance
 
 #from .signals_cash_ctrl import api_setup_post_save
 
@@ -73,47 +73,10 @@ def get_balances(modeladmin, request, queryset, data):
     """
     # Check
     if action_check_nr_selected(request, queryset, min_count=1):
-        # init
-        date =  data['date']
-
-        # Load balances of underlying accounts
-        if modeladmin.model == LedgerBalance:
-            # load LedgerBalance
-            ledger = LoadLedgerBalance(modeladmin.model, request, queryset)
-            ledger.load(date)
-        elif modeladmin.model == LedgerPL:
-            # load LedgerPL
-            balance = {
-                'expense': {},
-                'revenue': {}
-            }
-            for item in queryset.exclude(account=None):
-                for key in balance.keys():
-                    category = (
-                        item.category_expense if key == 'expense'
-                        else item.category_revenue)
-                    if category and item.account.c_id:
-                        balance[key][item.hrm] = conn.get_balance(
-                            item.account.c_id, data['date'])
-                        item.closing_balance = balance[key][item.hrm]
-                        item.balance_updated = timezone.now()
-                        item.save()
-                    else:
-                        msg = _("{item} has no cashCtrl id.").format(item=item)
-                        messages.warning(request, msg)
-
-            # Calc balances for categories
-            for item in queryset.filter(account=None):
-                balance_sum = sum([
-                    value or 0
-                    for hrm, value in balance.items()
-                    if hrm.startswith(item.function)
-                ])
-                item.closing_balance = balance_sum
-                item.balance_updated = timezone.now()
-                item.save()
-        else:
-            print("*", modeladmin)
+        # load balances from cashCtrl
+        ledger = LoadBalance(modeladmin.model, request, queryset) 
+        ledger.load(data['date'])
+        
 
 @action_with_form(
     forms.ChartOfAccountsDateForm,
@@ -237,15 +200,11 @@ def accounting_get_data(modeladmin, request, queryset, data):
     ''' load data '''
     model = modeladmin.model.__name__
     api = getattr(conn, model, None)
-    language = None  # i.e. English
+    language = None  # i.e. English    
     if api:
         handler = api(modeladmin.model, language=language)
         tenant = queryset.first().tenant
-        handler.get(
-            tenant, request.user,
-            overwrite_data=data['overwrite_data'],
-            delete_not_existing=data['delete_not_existing']
-        )
+        handler.get(tenant, request.user)
     else:
         messages.warning(request, _("Cannot retrieve data for this list"))
 

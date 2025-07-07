@@ -241,7 +241,7 @@ class BankAccountAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('code', 'name')
     list_filter = ('type',)
     autocomplete_fields = ['account']
-    
+
     # Actions
     actions = accounting_actions + default_actions
 
@@ -567,6 +567,72 @@ class AccountAdmin(TenantFilteringAdmin, BaseAdmin):
     )
 
 
+# Journal
+@admin.register(models.JournalTemplate, site=admin_site)
+class JournalTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = [
+        'tenant', 'version', 'credit_account', 'debit_account', 'currency']
+
+    # Display these fields in the list view
+    list_display = (
+        'code', 'name', 'credit_account', 'debit_account'
+    )
+    readonly_fields = FIELDS.C_READ_ONLY
+    list_display_links = ('code', 'name')
+
+    # Search, filter
+    search_fields = ('code', 'name')
+    list_filter = ('is_opening_booking',)
+    autocomplete_fields = ['credit_account', 'debit_account']
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', 'name', 'credit_account', 'debit_account', 'currency',
+                'is_opening_booking'),
+            'classes': ('expand',),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+    )
+
+
+@admin.register(models.Journal, site=admin_site)
+class JournalAdmin(TenantFilteringAdmin, BaseAdmin):
+    help_text=_("Create journals. See cashControl for results.")
+    # Safeguards
+    protected_foreigns = ['tenant', 'version', 'template']
+    
+    # Display these fields in the list view
+    list_display = (
+        'title', 'date', 'amount') + FIELDS.C_DISPLAY_SHORT
+    readonly_fields = FIELDS.C_READ_ONLY
+    list_display_links = ('title',)
+
+    # Search, filter
+    search_fields = ('title', 'amount')
+    list_filter = ('date',)
+    autocomplete_fields = ['template']
+
+    # Actions
+    actions = [a.de_sync_accounting, a.sync_accounting] + default_actions
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'title', 'template', 'amount', 'date', 'reference'
+            ),
+            'classes': ('expand',),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+        FIELDSET.CASH_CTRL
+    )
+
+
 # Inventory
 @admin.register(models.ArticleCategory, site=admin_site)
 class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
@@ -776,7 +842,7 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
                 'code', 'type',
                 *make_language_fields('name_singular'),
                 *make_language_fields('name_plural'),
-                'org_location', 'is_display_prices', 
+                'org_location', 'is_display_prices',
                 'layout', 'header', 'footer'
             ),
             'classes': ('expand',),
@@ -870,7 +936,7 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
                 'code',
                 *make_language_fields('name_singular'),
                 *make_language_fields('name_plural'),
-                'responsible_person', 
+                'responsible_person',
             ),
             'classes': ('expand',),
         }),
@@ -994,7 +1060,7 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'category', 'contract', 'status', 'name', 'description', 
+                'category', 'contract', 'status', 'name', 'description',
                 'date', 'price_incl_vat', 'due_days', 'reference',
                 'responsible_person', 'display_bank_account'),
             'classes': ('expand',),
@@ -1058,9 +1124,9 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     ) + FIELDS.C_READ_ONLY
 
     # Search, filter
-    search_fields = (        
-        'nr', 'associate__company', 'associate__first_name', 
-        'associate__last_name', 
+    search_fields = (
+        'nr', 'associate__company', 'associate__first_name',
+        'associate__last_name',
         'description')
     list_filter = ('category', 'status', 'date')
     autocomplete_fields = [
@@ -1071,7 +1137,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         a.order_status_update, a.order_get_status
     ]+ default_actions
 
-    #Fieldsets    
+    #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
@@ -1100,7 +1166,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     @admin.display(description=_('url'))
     def display_cash_ctrl_url(self, obj):
         return Display.link(obj.url, '🧾', 'new')
-    
+
     @admin.display(description=_('url'))
     def display_cash_ctrl_url_form(self, obj):
         if obj.url:
@@ -1311,7 +1377,8 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
     ]
 
     # Actions
-    actions = accounting_actions + default_actions
+    actions = (
+        accounting_actions + [export_excel, a.get_balances] + default_actions)
 
     #Fieldsets
     fieldsets = (
