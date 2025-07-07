@@ -639,7 +639,10 @@ class RouteCounterImport(RouteManagement):
     }
 
     def __init__(self, modeladmin, request, route):
-        super().__init__(modeladmin, request, route)
+        super().__init__(modeladmin, request, route)        
+        self.counters = [
+            subscription.counter for subscription in route.subscriptions.all()
+        ] if route.subscriptions.exists() else []        
 
     def create_measurement(self, meter):
         # Get counter
@@ -665,27 +668,18 @@ class RouteCounterImport(RouteManagement):
                 self.request, _(f"counter {code} has no measurement."))
             return None
 
-        # References
-        maintenance = json.loads(meter['hint'])
-
-        # Check address
-        address_id = maintenance['address_id']
-        address = AddressMunicipal.objects.filter(
-            tenant=self.tenant, id=address_id).first()
-        if not address:
-            messages.warning(
-                self.request, _(f"Address {maintenance['address_id']} wrong."))
-            return None
-
-        # Check subscription
-        subscription_id = maintenance['subscription_id']
+        # Get Subscription
         subscription = Subscription.objects.filter(
-            tenant=self.tenant, id=subscription_id).first()
+            tenant=self.tenant, counter=counter).first()
         if not subscription:
             messages.warning(
-                self.request, _(f"Subscription {subscription_id} wrong."))
+                self.request, _(f"subscription for {code} not found."))
             return None
-
+        if self.counters and counter not in self.counters:
+            messages.warning(
+                self.request, _(f"counter {code} not in route."))
+            return None            
+            
         # Check data
         reference_dt = convert_str_to_datetime(value['dateKey'])
         if not self.start <= reference_dt.date() <= self.end:
@@ -694,7 +688,6 @@ class RouteCounterImport(RouteManagement):
                 _(f"{code}: {reference_dt.date()} not in "
                   f"{self.route.start} to {self.route.end}")
             )
-            return None
 
         # Prepare Measurement data
         data = {
@@ -713,7 +706,7 @@ class RouteCounterImport(RouteManagement):
             'consumption_latest': data['value_latest'] - value['old'],
 
             # Efficiency analysis
-            'address': address,
+            'address': subscription.address,
             'period': self.route.period,
             'subscription': subscription,
 
