@@ -824,6 +824,7 @@ class RouteCounterInvoicing(RouteManagement):
         setup = route.setup
         start = self.start
         end = self.end
+        print("*start", start, end)
 
         # billing base
         invoice = {
