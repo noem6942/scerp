@@ -685,8 +685,8 @@ class RouteCounterImport(RouteManagement):
         if not self.start <= reference_dt.date() <= self.end:
             messages.warning(
                 self.request,
-                _(f"{code}: {reference_dt.date()} not in "
-                  f"{self.route.start} to {self.route.end}")
+                _(f"{code}: {reference_dt.date()} not in interval "
+                  f"{self.start} to {self.end}")
             )
 
         # Prepare Measurement data

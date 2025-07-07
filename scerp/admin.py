@@ -48,7 +48,7 @@ def format_big_number(value, thousand_separator=None, round_digits=None):
     # Round
     if round_digits:
         value = round(value, round_digits)
-
+    print("*value", value)
     # Format number
     if thousand_separator is None:
         thousand_separator = settings.THOUSAND_SEPARATOR
@@ -556,7 +556,7 @@ class BaseAdmin:
     def display_photo(self, obj):
         return Display.photo(obj.photo)
 
-    @admin.display(description='File')
+    @admin.display(description='Fi')
     def display_attachment_icon(self, obj):
         '''Displays a paperclip 📎 or folder 📂 icon if attachments exist.'''
         if obj.attachments.exists():  # ✅ Efficient query

@@ -169,10 +169,11 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     # Display these fields in the list view
     list_display = (
         'counter__code', 'datetime', 'address', 'display_value', 
-        'display_consumption', 'invoice', 'display_area', 'route'
+        'display_consumption', 'display_battery_level', 'invoice', 
+        'display_area', 'route'
     ) + FIELDS.ICON_DISPLAY
     list_display_links = ('counter__code', 'datetime')
-    readonly_fields = FIELDS.LOGGING_TENANT
+    readonly_fields = ('display_battery_level',) + FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = (
@@ -184,7 +185,8 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         filters.MeasurementPeriodFilter,
         filters.MeasurementRouteFilter,
         filters.MeasurementConsumptionFilter,
-        'datetime', 'notes')
+        'current_battery_level', 'datetime', 'notes'
+    )
     autocomplete_fields = ['counter', 'address', 'subscription']
 
     # Actions
@@ -242,6 +244,10 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
     def display_subscriber(self, obj):
         if obj.subscription:
             return obj.subscription.subscriber.__str__()[:40]
+
+    @admin.display(description=_('Battery Level'), ordering='consumption')
+    def display_battery_level(self, obj):
+        return Display.align_right(str(obj.current_battery_level))
 
     @admin.display(description=_('Consumption'), ordering='consumption')
     def display_consumption(self, obj):
