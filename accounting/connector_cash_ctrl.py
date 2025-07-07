@@ -774,7 +774,9 @@ class IncomingOrder(Order):
 
 
 class OutgoingOrder(Order):
-    exclude = EXCLUDE_FIELDS + ['recipient_address']
+    exclude = EXCLUDE_FIELDS + [
+        'recipient', 'recipient_address', 'header_description', 'start', 'end', 
+        'address']
 
     @staticmethod
     def correct_cash_ctrl_article_price(item):

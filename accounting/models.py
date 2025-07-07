@@ -1941,38 +1941,38 @@ class OutgoingOrder(Order):
         help_text=_("Start date of invoiced service."))
     end = models.DateField(
         _('Exit Date'), blank=True, null=True,
-        help_text=_("Start date of invoiced service."))
+        help_text=_("End date of invoiced service."))
 
     def __str__(self):
         return (f"{self.nr} {self.contract.associate.company}, {self.date}, "
                 f"{self.description}")
 
     def save(self, *args, **kwargs):
-        # Build city specific header
-        description = self.header_description or ''
+        if not self.header:
+            # no header given, fill in city specific header
 
-        # building / "Objekt"
-        building = (
-            f"{self.address.stn_label} {self.address.adr_number}"
-        ) if self.address else ''
-        building_notes = (
-            ', ' + self.address.notes
-        ) if self.address and self.address.notes else ''
+            # building / "Objekt"
+            building = (
+                f"{self.address.stn_label} {self.address.adr_number}"
+            ) if self.address else ''
+            building_notes = (
+                ', ' + self.address.notes
+            ) if self.address and self.address.notes else ''
 
-        # recipient_short_name
-        recipient_short_name = (
-            f", {self.recipient.short_name}" if self.recipient else '')
+            # recipient_short_name
+            recipient_short_name = (
+                f", {self.recipient.short_name}" if self.recipient else '')
 
-        # build
-        template = self.category.header or ''
-        self.header = template.format_map(SafeDict(
-            building=building,
-            building_notes=building_notes,
-            description=description,
-            recipient_short_name=recipient_short_name,
-            start=format_date(self.start),
-            end=format_date(self.end),
-        ))
+            # build                
+            template = self.category.header or ''
+            self.header = template.format_map(SafeDict(
+                building=building,
+                building_notes=building_notes,
+                description=self.header_description or '',
+                recipient_short_name=recipient_short_name,
+                start=format_date(self.start) if self.start else '',
+                end=format_date(self.end) if self.end else ''
+            ))
 
         super().save(*args, **kwargs)
 

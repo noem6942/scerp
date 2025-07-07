@@ -824,7 +824,6 @@ class RouteCounterInvoicing(RouteManagement):
         setup = route.setup
         start = self.start
         end = self.end
-        print("*start", start, end)
 
         # billing base
         invoice = {
@@ -992,15 +991,16 @@ class RouteCounterInvoicing(RouteManagement):
 
         # header, use SafeDict to avoid error of variable not in template
         template = setup.header
-        print("*start2", format_date(start), format_date(end))
+        start_formatted = format_date(start)
+        end_formatted = format_date(end)
         invoice['header'] = template.format_map(SafeDict(
             building=building,
             building_notes=building_notes,
             description=description,
             subscription_id=f"S-{subscription.id}",
             subscriber_short_name=subscriber_short_name,
-            start=format_date(start),
-            end=format_date(end),
+            start=start_formatted,
+            end=end_formatted,
             consumption=consumption,
             counter_id=counter_id,
             counter_new=value_new,
