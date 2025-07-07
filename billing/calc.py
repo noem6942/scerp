@@ -925,6 +925,7 @@ class RouteCounterInvoicing(RouteManagement):
                 # start
                 start = max(subscription.start or self.start, self.start)
                 end = min(subscription.end or self.end, self.end)
+                print("*day", start, end)
                 days = (end - start).days + 1
             else:
                 days = None
@@ -991,6 +992,7 @@ class RouteCounterInvoicing(RouteManagement):
 
         # header, use SafeDict to avoid error of variable not in template
         template = setup.header
+        print("*start", start, end)
         invoice['header'] = template.format_map(SafeDict(
             building=building,
             building_notes=building_notes,
