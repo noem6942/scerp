@@ -822,6 +822,8 @@ class RouteCounterInvoicing(RouteManagement):
         ''' get called from actions '''
         # init
         setup = route.setup
+        start = self.start
+        end = self.end
 
         # billing base
         invoice = {
