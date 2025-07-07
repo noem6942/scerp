@@ -992,7 +992,7 @@ class RouteCounterInvoicing(RouteManagement):
 
         # header, use SafeDict to avoid error of variable not in template
         template = setup.header
-        print("*start", start, end)
+        print("*start2", start, end)
         invoice['header'] = template.format_map(SafeDict(
             building=building,
             building_notes=building_notes,
