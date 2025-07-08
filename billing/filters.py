@@ -4,11 +4,12 @@ core/filters.py
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
+from asset.models import AssetCategory
 from core.safeguards import get_tenant_data
 from core.models import Area
 from scerp.filters import StepFilter
 from scerp.mixins import primary_language
-from .models import Period, Route
+from .models import Period, Route, Subscription
 
 
 # Custom Filters for Measurement
@@ -103,3 +104,38 @@ class MeasurementConsumptionFilter(StepFilter):
     unit = 'm³'
     steps = [0, 50, 100, 1000]
     step_max = max(steps)
+
+
+class SubscriptionCounterCategoryFilter(admin.SimpleListFilter):
+    title = _('Category')
+    parameter_name = 'category'
+
+    def lookups(self, request, model_admin):
+        '''Return categories filtered by tenant'''
+        tenant_id = get_tenant_data(request).get('id')
+        
+        # categories in scope
+        category_ids = set([
+            subscription.counter.category.id 
+            for subscription in Subscription.objects.filter(
+                tenant__id=tenant_id).exclude(counter=None)
+        ])
+
+        # category labels
+        categories = [
+            (category.id, primary_language(category.name))
+            for category in AssetCategory.objects.filter(tenant_id=tenant_id)
+            if category.id in category_ids
+        ]
+
+        return categories
+
+    def queryset(self, request, queryset):
+        tenant_id = get_tenant_data(request).get('id')
+
+        if self.value():
+            return queryset.filter(
+                tenant__id=tenant_id,  # Ensure tenant filter applies here too
+                counter__category=self.value()
+            )
+        return queryset

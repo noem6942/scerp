@@ -379,7 +379,7 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
         'address__stn_label', 'address__adr_number', 'address__bdg_egid',
         'description', 'notes', 'subscriber_number'
     )
-    list_filter = ('tag', 'end', 'is_inactive')
+    list_filter = ('tag', 'end', filters.SubscriptionCounterCategoryFilter)
     autocomplete_fields = [
         'dossier', 'subscriber', 'partner', 'recipient', 'address', 'counter']
 
