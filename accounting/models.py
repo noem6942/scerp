@@ -2107,7 +2107,7 @@ class LedgerAccount(AcctApp):
             raise ValidationError(_("No parent specified"))
 
     class Meta:
-        ordering = ['function', '-type', 'hrm']
+        ordering = ['function', 'hrm']
         abstract = True
 
 

@@ -1331,8 +1331,7 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
     #readonly_fields = ('closing_balance',)
 
     # Search, filter
-    list_filter = ('side', 'is_enabled_sync', 'type')
-    autocomplete_fields = ['account']
+    list_filter = ('side', 'is_enabled_sync', 'type')    
 
     # Actions
     actions = accounting_actions + [export_excel, a.get_balances] + default_actions
