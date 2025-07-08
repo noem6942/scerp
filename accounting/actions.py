@@ -343,18 +343,17 @@ def accounting_copy(modeladmin, request, queryset):
             setattr(instance, field, None)
         instance.sync_to_accounting = True
 
-        # Copy text fields      
-        for key in ['code', 'description']:
-            attr = getattr(instance, key, None)
-            if attr:
-                setattr(instance, key, attr + COPY)
-
-        # Copy language names        
-        for key in ['name', 'name_singular', 'name_plural']:
-            attr = getattr(instance, key, None)
-            if attr:
+        # Copy fields
+        fields = [
+            'code', 'name', 'description', 'name_singular', 'name_plural'
+        ]
+        for field in fields:
+            attr = getattr(instance, field, None)
+            if isinstance(attr, dict):
                 for lang, value in attr.items():
                     attr[lang] += COPY
+            elif isinstance(attr, str):
+                setattr(instance, field, attr + COPY)
 
         # save
         instance.save()
