@@ -420,10 +420,6 @@ def measurement_map(
             and measurement.address.lon is not None)
     ]
 
-    # Compute map center
-    avg_lat = sum(p['lat'] for p in points) / len(points)
-    avg_lng = sum(p['lng'] for p in points) / len(points)
-
     # Get params for map
     measurement_first = queryset.first()
     title = verbose_name_field(modeladmin.model, field_name)
@@ -434,8 +430,7 @@ def measurement_map(
         unit = primary_language(measurement_first.counter.category.unit.name)
 
     return map_display_response(
-        modeladmin, request, points, avg_lat, avg_lng, title, subtitle,
-        unit, zoom)
+        modeladmin, request, points, title, subtitle, unit, zoom)
 
 
 @admin.action(description=_("Map: Show Battery Levels"))
@@ -467,10 +462,6 @@ def subscription_map_address(modeladmin, request, queryset):
             and subscription.address.lon is not None)
     ]
 
-    # Compute map center
-    avg_lat = sum(p['lat'] for p in points) / len(points)
-    avg_lng = sum(p['lng'] for p in points) / len(points)
-
     # Get params for map
     subscription_first = queryset.first()
     title = verbose_name(modeladmin.model)
@@ -478,5 +469,4 @@ def subscription_map_address(modeladmin, request, queryset):
     zoom = get_zoom_from_instance(subscription_first)
     
     return map_display_response(
-        modeladmin, request, points, avg_lat, avg_lng, title, subtitle,
-        zoom=zoom)
+        modeladmin, request, points, title, subtitle, zoom=zoom)

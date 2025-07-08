@@ -130,8 +130,16 @@ def get_zoom_from_instance(instance, default=15):
 
 
 def map_display_response(
-        modeladmin, request, points, center_lat, center_lng, title, subtitle, 
+        modeladmin, request, points, title, subtitle, 
         unit='', zoom=15):
+    # calc centers        
+    # Compute map center
+    if points:
+        center_lat = sum(p['lat'] for p in points) / len(points)
+        center_lng = sum(p['lng'] for p in points) / len(points)
+    else:
+        center_lat, center_lng = 46.8011, 8.2266
+            
     context = {
         **modeladmin.admin_site.each_context(request),
         'data': points,
