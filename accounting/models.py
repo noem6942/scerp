@@ -1435,6 +1435,7 @@ class OrderCategoryContract(OrderCategory):
                 name='unique_order_category_contract'
             )
         ]
+        ordering = ['type', 'code']
         verbose_name = _("Contract - Category")
         verbose_name_plural = _("Contract - Categories")  # rank(2) +
 

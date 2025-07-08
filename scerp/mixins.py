@@ -21,8 +21,10 @@ from django.utils.timezone import make_aware
 from django.conf import settings
 from django.utils.translation import activate, get_language, gettext
 
-
 logger = logging.getLogger(__name__)  # Using the app name for logging
+
+# Const
+COPY = gettext(' <COPY>')
 
 # helpers, use this for all models in all apps
 current_timezone = timezone.get_current_timezone()

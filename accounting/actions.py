@@ -18,6 +18,7 @@ from core.models import PersonBankAccount
 from core.safeguards import save_logging
 from scerp.actions import action_check_nr_selected
 from scerp.exceptions import APIRequestError
+from scerp.mixins import COPY
 
 from .import_export import (
     LedgerBalanceImportExport, LedgerPLImportExport, LedgerICImportExport
@@ -74,9 +75,9 @@ def get_balances(modeladmin, request, queryset, data):
     # Check
     if action_check_nr_selected(request, queryset, min_count=1):
         # load balances from cashCtrl
-        ledger = LoadBalance(modeladmin.model, request, queryset) 
+        ledger = LoadBalance(modeladmin.model, request, queryset)
         ledger.load(data['date'])
-        
+
 
 @action_with_form(
     forms.ChartOfAccountsDateForm,
@@ -200,7 +201,7 @@ def accounting_get_data(modeladmin, request, queryset, data):
     ''' load data '''
     model = modeladmin.model.__name__
     api = getattr(conn, model, None)
-    language = None  # i.e. English    
+    language = None  # i.e. English
     if api:
         handler = api(modeladmin.model, language=language)
         tenant = queryset.first().tenant
@@ -326,3 +327,29 @@ def get_bank_data(modeladmin, request, queryset, data):
 
         if changed:
             bank_account.save()
+
+
+@admin.action(description=_("Make a copy"))
+def accounting_copy(modeladmin, request, queryset):
+    if action_check_nr_selected(request, queryset, count=1):
+        _model = modeladmin.model
+        instance = queryset.first()
+
+        # Init
+        fields_none = [
+            'pk', 'modified_at', 'created_at', 'c_id', 'last_received'
+        ]
+        for field in fields_none:
+            setattr(instance, field, None)
+        instance.sync_to_accounting = True
+
+        # Copy code and language names
+        instance.code += COPY
+        for key in ['name_singular', 'name_plural']:
+            attr = getattr(instance, key, None)
+            if attr:
+                for lang, value in attr.items():
+                    attr[lang] += COPY
+
+        # save
+        instance.save()

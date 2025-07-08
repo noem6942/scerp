@@ -86,8 +86,12 @@ class Ledger:
                 ).order_by('id').last()
 
         # function
-        if not instance.function:  # otherwise we keep the existing
+        if self.model == LedgerBalance:
+            # We always update function
             instance.function = self.make_function(instance.parent.hrm)
+        else:            
+            if not instance.function:  # otherwise we keep the existing
+                instance.function = self.make_function(instance.parent.hrm)
 
     def update_category(self, instance):
         # type

@@ -28,11 +28,12 @@ from .resources import (
 )
 
 
-accounting_actions = [
-    a.accounting_get_data,
+# Actions
+accounting_actions_write = [    
     a.de_sync_accounting,
     a.sync_accounting
 ]
+accounting_actions = [a.accounting_get_data] + accounting_actions_write
 
 
 @admin.register(models.CustomFieldGroup, site=admin_site)
@@ -835,6 +836,9 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = ('code', 'name_singular', 'name_plural')
 
+    # Actions
+    actions = accounting_actions_write + [a.accounting_copy]
+
     #Fieldsets
     fieldsets = (
         (None, {
@@ -882,6 +886,9 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('code', 'name')
     autocomplete_fields = ['credit_account', 'expense_account']
 
+    # Actions
+    actions = accounting_actions_write + [a.accounting_copy]
+
     #Fieldsets
     fieldsets = (
         (None, {
@@ -928,6 +935,9 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('code', 'name')
     autocomplete_fields = [
         'responsible_person', 'debit_account', 'bank_account']
+
+    # Actions
+    actions = accounting_actions_write + [a.accounting_copy]
 
     #Fieldsets
     fieldsets = (
@@ -990,6 +1000,9 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('nr', 'supplier__company', 'description')
     list_filter = ('category', 'status', 'date')
     autocomplete_fields = ['associate', 'responsible_person']
+
+    # Actions
+    actions = accounting_actions_write + [a.accounting_copy]
 
     #Fieldsets
     fieldsets = (
@@ -1054,7 +1067,8 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     autocomplete_fields = ['responsible_person']
 
     # Actions
-    actions = accounting_actions + [a.get_bank_data, a.incoming_order_approve]
+    actions = accounting_actions_write + [
+        a.get_bank_data, a.incoming_order_approve]
 
     #Fieldsets
     fieldsets = (
@@ -1133,7 +1147,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         'associate', 'responsible_person', 'address', 'recipient']
 
     # Actions
-    actions = accounting_actions + [
+    actions = accounting_actions_write + [
         a.order_status_update, a.order_get_status
     ]+ default_actions
 
@@ -1238,6 +1252,7 @@ class LedgerBaseAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('function', 'hrm', 'name')
+    autocomplete_fields = ['parent', 'account']
 
     # Actions
     actions = [
