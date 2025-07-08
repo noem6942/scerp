@@ -124,10 +124,6 @@ class Tenant(LogAbstract, NotesAbstract):
         help_text=_('api key'))
 
     # General accounting
-    language = models.CharField(
-        _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
-        help_text=_('The main language of the person. May be used for documents.')
-    )
     encode_numbers = models.BooleanField(
         _('Encode numbers in cashCtrl headings'), default=True,
         help_text=_(
@@ -215,11 +211,13 @@ class TenantSetup(LogAbstract, NotesAbstract):
     bdg_egids = models.JSONField(
         _('EGIDS to include'), default=list,
         help_text=_(
-            'Egids that belong to the tenant, e.g. [4617]. '
+            'Egids zip codes that belong to the tenant, e.g. [4617]. '
             'We use it for importing the building addresses. '))
     formats = models.JSONField(
         _('formats'), null=True, blank=True,
         help_text=_('Format definitions'))
+    zoom = models.PositiveSmallIntegerField(
+        _('Zoom'), default=15, help_text=_('Zoom for map'))        
     users = models.ManyToManyField(
         User, verbose_name=_('Users'),
         related_name='%(class)s_users',

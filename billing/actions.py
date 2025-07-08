@@ -6,20 +6,22 @@ from django.utils.translation import gettext as _
 from django.utils.safestring import mark_safe
 from django_admin_action_forms import action_with_form
 
-from scerp.actions import action_check_nr_selected
-from scerp.mixins import read_excel
-from . import forms
-from .calc import convert_str_to_datetime
-
 from accounting.models import OutgoingOrder
 from asset.models import AssetCategory, Device, EventLog
 from core.models import Attachment
+from scerp.admin import verbose_name, verbose_name_field
+from scerp.actions import (
+    action_check_nr_selected, map_display_response, get_zoom_from_instance)
+from scerp.mixins import primary_language, read_excel
+
+from . import forms
 from .calc import (
     PeriodCalc, RouteCounterExport,
     RouteCounterImport, RouteCounterInvoicing,
-    Measurement, MeasurementAnalyse
+    Measurement, MeasurementAnalyse, convert_str_to_datetime
 )
-from .models import Route, Subscription, Measurement
+from .models import (
+    SetupArticle, Route, Subscription, SubscriptionArticle, Measurement)
 
 
 ENCRYPTION_KEY = 3
@@ -28,9 +30,9 @@ ENCRYPTION_KEY = 3
 @action_with_form(
     forms.PeriodActionForm, description='1. ' + _('Create statistics'))
 def period_statistics(modeladmin, request, queryset, data):
-    if action_check_nr_selected(request, queryset, 1):        
+    if action_check_nr_selected(request, queryset, 1):
         period = queryset.first()
-        
+
         # Make statistics
         period = PeriodCalc(period)
         statistics = period.create_statistics()
@@ -124,7 +126,7 @@ def route_billing(modeladmin, request, queryset, data):
         invoice = RouteCounterInvoicing(
             modeladmin, request, route, data['status'], data['date'],
             is_enabled_sync)
-        count = 0         
+        count = 0
         for subscription in subscriptions:
             invoice_obj = invoice.bill(
                 subscription, route, data['check_measurement'])
@@ -376,3 +378,105 @@ def assign_measurement_archive(modeladmin, request, queryset):
             f"{counter_nok} missing counters, "
             f"{measurement_nok} missing measurements.")
         )
+
+
+@action_with_form(
+    forms.SubscriptionArticleForm, description=_('Create default articles'))
+def copy_default_articles(modeladmin, request, queryset, data):
+    if action_check_nr_selected(request, queryset, 1):
+        subscription = queryset.first()
+
+        # Make articles
+        setup_articles = SetupArticle.objects.filter(
+            setup=data['setup']).order_by('id')
+        for setup_article in setup_articles:
+            _obj, created = SubscriptionArticle.objects.get_or_create(
+                tenant=subscription.tenant,
+                subscription=subscription,
+                article=setup_article.article,
+                defaults=dict(
+                    quantity=setup_article.quantity,
+                    created_by=subscription.created_by)
+            )
+
+        msg = _('Created {count} articles.')
+        messages.info(request, msg.format(count=setup_articles.count()))
+
+
+def measurement_map(
+        modeladmin, request, queryset, field_name, round_digits=0, unit=None):
+    # calc points
+    points = [
+        {
+            'name': measurement.subscription.subscriber.short_name,
+            'address': measurement.subscription.__str__(),
+            'lat': measurement.address.lat,
+            'lng': measurement.address.lon,
+            'value': round(getattr(measurement, field_name, 0), round_digits)
+        }
+        for measurement in queryset
+        if (measurement.address
+            and measurement.address.lat is not None
+            and measurement.address.lon is not None)
+    ]
+
+    # Compute map center
+    avg_lat = sum(p['lat'] for p in points) / len(points)
+    avg_lng = sum(p['lng'] for p in points) / len(points)
+
+    # Get params for map
+    measurement_first = queryset.first()
+    title = verbose_name_field(modeladmin.model, field_name)
+    subtitle = primary_language(measurement_first.counter.category.name)
+    zoom = get_zoom_from_instance(measurement_first)
+    
+    if not unit:
+        unit = primary_language(measurement_first.counter.category.unit.name)
+
+    return map_display_response(
+        modeladmin, request, points, avg_lat, avg_lng, title, subtitle,
+        unit, zoom)
+
+
+@admin.action(description=_("Map: Show Battery Levels"))
+def measurement_map_battery(modeladmin, request, queryset):
+    return measurement_map(
+        modeladmin, request, queryset, 'current_battery_level',
+        unit=_('Periods'))
+
+
+@admin.action(description=_("Map: Show Consumption"))
+def measurement_map_consumption(modeladmin, request, queryset):
+    return measurement_map(modeladmin, request, queryset, 'consumption')
+
+
+@admin.action(description=_("Map: Show Subscription"))
+def subscription_map_address(modeladmin, request, queryset):
+    # calc points
+    points = [
+        {
+            'name': subscription.subscriber.short_name,
+            'address': subscription.__str__(),
+            'lat': subscription.address.lat,
+            'lng': subscription.address.lon,
+            'value': f"{subscription.start} - {subscription.end or ''}"
+        }
+        for subscription in queryset
+        if (subscription.address
+            and subscription.address.lat is not None
+            and subscription.address.lon is not None)
+    ]
+
+    # Compute map center
+    avg_lat = sum(p['lat'] for p in points) / len(points)
+    avg_lng = sum(p['lng'] for p in points) / len(points)
+
+    # Get params for map
+    subscription_first = queryset.first()
+    title = verbose_name(modeladmin.model)
+    subtitle = ''
+    zoom = get_zoom_from_instance(subscription_first)
+    
+    return map_display_response(
+        modeladmin, request, points, avg_lat, avg_lng, title, subtitle,
+        zoom=zoom)

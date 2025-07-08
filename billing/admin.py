@@ -13,10 +13,21 @@ from scerp.admin_site import admin_site
 
 from . import filters, actions as a
 from .models import (
-    Setup, Period, Route, Measurement, MeasurementArchive,
+    Setup, SetupArticle, Period, Route, Measurement, MeasurementArchive,
     Subscription, SubscriptionArticle, SubscriptionArchive
 )
 
+
+class SetupArticleInline(BaseTabularInline):  # or admin.StackedInline
+    # Safeguards
+    protected_foreigns = ['tenant', 'setup', 'article']
+
+    # Inline
+    model = SetupArticle
+    fields = ['quantity', 'article']  # Only show these fields
+    extra = 0  # Number of empty forms displayed
+    autocomplete_fields = ['article']  # Improves FK selection performance
+    show_change_link = False  # Shows a link to edit the related model
 
 
 @admin.register(Setup, site=admin_site)
@@ -48,6 +59,8 @@ class SetupAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
     )
 
+    # Inlines
+    inlines = [SetupArticleInline]
 
 
 @admin.register(Period, site=admin_site)
@@ -185,7 +198,8 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         filters.MeasurementPeriodFilter,
         filters.MeasurementRouteFilter,
         filters.MeasurementConsumptionFilter,
-        'current_battery_level', 'datetime', 'notes'
+        filters.MeasurementBatteryFilter,
+        'datetime'
     )
     autocomplete_fields = ['counter', 'address', 'subscription']
 
@@ -194,7 +208,9 @@ class MeasurementAdmin(TenantFilteringAdmin, BaseAdmin):
         a.analyse_measurement,
         a.anaylse_measurent_excel,
         a.measurement_calc_consumption,
-        a.measurement_update_invoiced
+        a.measurement_update_invoiced,
+        a.measurement_map_consumption,
+        a.measurement_map_battery
     ] + [export_excel] + default_actions
 
     #Fieldsets
@@ -305,7 +321,7 @@ class MeasurementArchiveAdmin(TenantFilteringAdmin, BaseAdmin):
     inlines = [AttachmentInline]
 
 
-class ArticleInline(BaseTabularInline):  # or admin.StackedInline
+class SubscriptionArticleInline(BaseTabularInline):  # or admin.StackedInline
     # Safeguards
     protected_foreigns = ['tenant', 'subscription', 'article']
 
@@ -381,10 +397,13 @@ class SubscriptionAdmin(TenantFilteringAdmin, BaseAdmin):
     )
 
     # Actions
-    actions = [export_excel] + default_actions
+    actions = [export_excel] + [
+        a.copy_default_articles,
+        a.subscription_map_address
+    ] + default_actions
 
     # Inlines
-    inlines = [ArticleInline, MeasurementInline]
+    inlines = [SubscriptionArticleInline, MeasurementInline]
 
     @admin.display(description=_('S-id'))
     def display_number(self, obj):

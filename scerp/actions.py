@@ -6,12 +6,13 @@ General actions used by all apps
 import json
 
 from django.contrib import admin, messages
+from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django_admin_action_forms import action_with_form
 
 from .admin import ExportExcel, ExportJSON
 from .forms import ExportExcelActionForm, ExportJSONActionForm
-
+from core.models import TenantSetup
 
 # Helpers
 def action_check_nr_selected(
@@ -119,3 +120,27 @@ def set_unprotected(modeladmin, request, queryset):
     messages.success(request, msg)
         
 default_actions = [_seperator, set_inactive, set_protected, set_unprotected]    
+
+
+# GIS Maps
+def get_zoom_from_instance(instance, default=15):
+    tenant = getattr(instance, 'tenant', None)
+    setup = TenantSetup.objects.filter(tenant=tenant).first()
+    return setup.zoom if setup else default
+
+
+def map_display_response(
+        modeladmin, request, points, center_lat, center_lng, title, subtitle, 
+        unit='', zoom=15):
+    context = {
+        **modeladmin.admin_site.each_context(request),
+        'data': points,
+        'center_lat': center_lat,
+        'center_lng': center_lng,
+        'zoom': zoom,
+        'title': title,
+        'subtitle': subtitle,
+        'unit': unit
+    }
+
+    return TemplateResponse(request, 'admin/map_view.html', context)

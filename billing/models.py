@@ -92,6 +92,32 @@ class Setup(TenantAbstract):
         verbose_name_plural = _('Setups')
 
 
+class SetupArticle(TenantAbstract):
+    setup = models.ForeignKey(
+        Setup, on_delete=models.CASCADE,
+        verbose_name=_('Setup'),
+        related_name='%(class)s_setup')
+    article = models.ForeignKey(
+        Article, on_delete=models.PROTECT, null=True,
+        verbose_name=_('Article'), related_name='%(class)s_article')
+    quantity = models.PositiveSmallIntegerField(
+        _('Quantity'), blank=True, null=True,
+        help_text=(
+            "Leave blank if unit is m3 / quantity derived from measurement")
+    )
+
+    def __str__(self):
+        return f'{self.setup}, {self.article}'
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'setup', 'article'],
+                name='unique_default_article'
+            )
+        ]
+
+
 class Period(TenantAbstract):
     code = models.CharField(
         _('Code'), max_length=50,

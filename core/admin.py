@@ -153,7 +153,7 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
         (None, {
             'fields': (
                 'canton', 'type', 'language', 'show_only_primary_language',
-                'zips', 'bdg_egids', 'display_users'
+                'zips', 'bdg_egids', 'zoom', 'display_users'
             ),  # Including the display method here is okay for readonly display
             'classes': ('expand',),
         }),

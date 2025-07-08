@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>{{ measurement }}</h2>
+<div id="map" style="height: 600px;"></div>
+
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView(
+    [{{ center_lat|safe }}, {{ center_lng|safe }}], 
+    {{ zoom|safe }});  // Default center in CH
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  const unit = '{{ unit }}';
+
+  const data = {{ data|safe }};
+  data.forEach(d => {
+    L.marker([d.lat, d.lng]).addTo(map)
+     .bindPopup(`${d.name}:<br>${d.address}<br>${d.value} ${unit}`);
+  });
+</script>
+{% endblock %}

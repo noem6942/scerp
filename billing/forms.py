@@ -11,7 +11,7 @@ from django_admin_action_forms import action_with_form, AdminActionForm
 
 from accounting.models import OrderCategoryOutgoing
 from core.models import UserProfile
-from .models import Period, Measurement, Subscription
+from .models import Setup, Period, Measurement, Subscription
 
 LABEL_BACK = _("Back")
 
@@ -288,3 +288,19 @@ class RouteBillingForm(AdminActionForm):
         # tags
         tags = list(set([x.tag for x in subscriptions.all()]))
         self.fields['tag'].choices = [(tag, tag if tag else '-') for tag in tags]
+
+
+class SubscriptionArticleForm(AdminActionForm):    
+    setup = forms.ModelChoiceField(
+        label=_('Setup'),
+        required=True,
+        queryset=Subscription.objects.none(),
+        help_text=_("Default articles are defined here.")
+    )
+    
+    def __post_init__(self, modeladmin, request, queryset):
+        subscription = queryset.first()
+
+        # Get Setups
+        self.fields['setup'].queryset = Setup.objects.filter(
+            tenant=subscription.tenant).order_by('code')
