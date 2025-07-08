@@ -24,7 +24,7 @@ from .import_export import (
     LedgerBalanceImportExport, LedgerPLImportExport, LedgerICImportExport
 )
 from .models import (
-    FiscalPeriod, LedgerAccount, LedgerBalance, LedgerPL, LedgerIC
+    Article, FiscalPeriod, LedgerAccount, LedgerBalance, LedgerPL, LedgerIC
 )
 
 from . import forms, models
@@ -332,7 +332,7 @@ def get_bank_data(modeladmin, request, queryset, data):
 @admin.action(description=_("Make a copy"))
 def accounting_copy(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, count=1):
-        _model = modeladmin.model
+        model = modeladmin.model
         instance = queryset.first()
 
         # Init
@@ -354,6 +354,9 @@ def accounting_copy(modeladmin, request, queryset):
                     attr[lang] += COPY
             elif isinstance(attr, str):
                 setattr(instance, field, attr + COPY)
+
+        if model == Article:
+            instance.nr += COPY  # article needs a number
 
         # save
         instance.save()
