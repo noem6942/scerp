@@ -139,7 +139,9 @@ def map_display_response(
         center_lng = sum(p['lng'] for p in points) / len(points)
     else:
         center_lat, center_lng = 46.8011, 8.2266
-            
+        zoom = 5
+        subtitle = _("No data to visualize")
+        
     context = {
         **modeladmin.admin_site.each_context(request),
         'data': points,
