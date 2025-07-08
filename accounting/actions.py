@@ -337,7 +337,7 @@ def accounting_copy(modeladmin, request, queryset):
 
         # Init
         fields_none = [
-            'pk', 'modified_at', 'created_at', 'c_id', 'last_received', 'nr'
+            'pk', 'modified_at', 'created_at', 'c_id', 'last_received'
         ]
         for field in fields_none:
             setattr(instance, field, None)
@@ -355,8 +355,12 @@ def accounting_copy(modeladmin, request, queryset):
             elif isinstance(attr, str):
                 setattr(instance, field, attr + COPY)
 
-        if model == Article:
-            instance.nr += COPY  # article needs a number
+        # 'nr'
+        if getattr(instance, 'nr', None):
+            if model == Article:
+                instance.nr += COPY  # article needs a number
+            else:
+                instance.nr = None
 
         # save
         instance.save()
