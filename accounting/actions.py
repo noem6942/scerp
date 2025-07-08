@@ -337,7 +337,7 @@ def accounting_copy(modeladmin, request, queryset):
 
         # Init
         fields_none = [
-            'pk', 'modified_at', 'created_at', 'c_id', 'last_received'
+            'pk', 'modified_at', 'created_at', 'c_id', 'last_received', 'nr'
         ]
         for field in fields_none:
             setattr(instance, field, None)
