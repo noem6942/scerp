@@ -656,8 +656,8 @@ class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('code', 'name')
     autocomplete_fields = ['purchase_account',  'sales_account']
 
-    # Actions
-    actions = accounting_actions + default_actions
+    # Actions    
+    actions = accounting_actions_write + [a.accounting_copy] + default_actions
 
     #Fieldsets
     fieldsets = (
@@ -702,9 +702,9 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('nr', 'name', 'unit__code', 'unit__name', 'sales_price')
     list_filter = ('category',)
 
-    # Actions
-    actions = accounting_actions + default_actions
-
+    # Actions    
+    actions = accounting_actions_write + [a.accounting_copy] + default_actions
+    
     #Fieldsets
     fieldsets = (
         (None, {
@@ -837,7 +837,7 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('code', 'name_singular', 'name_plural')
 
     # Actions
-    actions = accounting_actions_write + [a.accounting_copy]
+    actions = accounting_actions_write + [a.accounting_copy] + default_actions
 
     #Fieldsets
     fieldsets = (
@@ -887,7 +887,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
     autocomplete_fields = ['credit_account', 'expense_account']
 
     # Actions
-    actions = accounting_actions_write + [a.accounting_copy]
+    actions = accounting_actions_write + [a.accounting_copy] + default_actions
 
     #Fieldsets
     fieldsets = (
@@ -937,7 +937,7 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
         'responsible_person', 'debit_account', 'bank_account']
 
     # Actions
-    actions = accounting_actions_write + [a.accounting_copy]
+    actions = accounting_actions_write + [a.accounting_copy] + default_actions
 
     #Fieldsets
     fieldsets = (
@@ -1002,7 +1002,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     autocomplete_fields = ['associate', 'responsible_person']
 
     # Actions
-    actions = accounting_actions_write + [a.accounting_copy]
+    actions = accounting_actions_write + [a.accounting_copy] + default_actions
 
     #Fieldsets
     fieldsets = (

@@ -1011,9 +1011,7 @@ class Article(AcctApp):
          "BUG: currently nr is mandatory and must be unique"))
     name = models.JSONField(
         _('Name'),
-        help_text=_(
-            "The name of the article. For localized text, use XML format: "
-            "<values><de>German text</de><en>English text</en></values>."),
+        help_text=_("The name of the article."),
         null=True,
         blank=True,
     )
@@ -1033,8 +1031,7 @@ class Article(AcctApp):
     description = models.JSONField(
         _('Description'), null=True, blank=True,
         help_text=_(
-            "A description of the article. For localized text, use XML format: "
-            "<values><de>German text</de><en>English text</en></values>."))
+            "A description of the article on the invoice. Default: empty "))
     is_purchase_price_gross = models.BooleanField(
         _('Is Purchase Price Gross'), default=False,
         help_text=_("Defines the purchase price as gross (including tax). Defaults to false."),
@@ -1090,7 +1087,9 @@ class Article(AcctApp):
         verbose_name=_('Unit'))
 
     def __str__(self):
-        return f"{self.nr} {primary_language(self.name)}"
+        return (
+            f"{self.nr} {primary_language(self.name)}: "
+            f"{self.currency or 'CHF'} {self.sales_price}")
 
     class Meta:
         constraints = [
