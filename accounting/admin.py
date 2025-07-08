@@ -976,7 +976,7 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
 
 
 @admin.register(models.OrderContract, site=admin_site)
-class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
+class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):    
     # Safeguards
     protected_foreigns = [
         'tenant', 'version', 'associate', 'category', 'currency',
@@ -990,15 +990,15 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'date', 'category', 'description', 'associate__company',
+        'contract_date', 'category', 'description', 'associate__company',
         'price_excl_vat', 'currency', 'status'
     ) + FIELDS.C_DISPLAY_SHORT
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
-    list_display_links = ('date', 'description')
+    list_display_links = ('contract_date', 'description')
 
     # Search, filter
     search_fields = ('nr', 'supplier__company', 'description')
-    list_filter = ('category', 'status', 'date')
+    list_filter = ('category', 'status', 'contract_date')
     autocomplete_fields = ['associate', 'responsible_person']
 
     # Actions
@@ -1008,8 +1008,8 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'category', 'associate', 'status', 'description', 'date',
-                'price_excl_vat', 'currency'),
+                'category', 'associate', 'status', 'description', 
+                'contract_date', 'price_excl_vat', 'currency'),
             'classes': ('expand',),
         }),
         (_('Contractual'), {
@@ -1018,12 +1018,22 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
                 'responsible_person'),
             'classes': ('expand',),
         }),
+        (_('CashCtrl Date'), {
+            'fields': ('date',),
+            'classes': ('collapse',),
+        }),        
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
 
     inlines = [AttachmentInline]
+
+    def save_model(self, request, obj, form, change):
+        # cashCtrl needs date to be from actual period
+        if not obj.date:
+            obj.date = timezone.now().date()  # auto-fill 
+        super().save_model(request, obj, form, change)
 
 
 class IncomingItemsInline(BaseTabularInline):  # or admin.StackedInline

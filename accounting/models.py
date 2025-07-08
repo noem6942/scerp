@@ -1704,6 +1704,7 @@ class OrderContract(Order):
         ('valid_until', 'order_procurement_valid_until'),
         ('notice_period_month', 'order_procurement_notice')
     ]
+    contract_date = models.DateField(_('Contract Date'))
     associate = models.ForeignKey(
         # to be mapped to manytomany field in cashCtrl
         Person, on_delete=models.PROTECT,
@@ -1740,6 +1741,7 @@ class OrderContract(Order):
             f"{self.date}, {self.description}")
 
     class Meta:
+        ordering = ['category', 'associate__company', '-date']
         verbose_name = _("Contract")
         verbose_name_plural = _("Contracts")
 
