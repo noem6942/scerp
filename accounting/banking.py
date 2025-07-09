@@ -24,7 +24,7 @@ MOJIBAKE_MAP = {
     'ﾃﾈ': 'À',  'ﾃｨ': 'Î',  'ﾃｯ': 'Ç',
 
     # Mojibake from some Unix environments
-    '瓣': 'ä', '駑': 'ü', '馗': 'ö',
+    '瓣': 'ä', '羹': 'ü', '馗': 'ö',
 }
 
 
