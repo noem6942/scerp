@@ -21,9 +21,10 @@ MOJIBAKE_MAP = {
     'ﾃｼﾞ': 'Ü', 'ﾃｼﾞ': 'Ä', 'ﾃｵﾞ': 'Ö',
     'ﾃﾑ': 'É',  'ﾃﾚ': 'È',  'ﾃﾍ': 'Ê',
     'ﾃﾈ': 'À',  'ﾃｨ': 'Î',  'ﾃｯ': 'Ç',
-    # Add more as you encounter them
+    # Add more as you encounter them, UNIX
+    ('瓣', 'ä'), ('駑', 'ü'), ('馗', 'ö'),
 }
-MOJIBAKE_MAP = {}
+
 
 def fix_mojibake(text: str) -> str:
     for bad_seq, correct_char in MOJIBAKE_MAP.items():
