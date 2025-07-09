@@ -9,6 +9,11 @@ import numpy as np
 import cv2
 from pyzbar.pyzbar import decode
 
+try:
+    from .banking_swiss_dir import SWISS_BANKS
+except ImportError:
+    from banking_swiss_dir import SWISS_BANKS
+
 
 # Map common mojibake sequences to correct characters
 MOJIBAKE_MAP = {
@@ -108,6 +113,15 @@ def parse_swiss_qr(qr_payload: str):
         'additional_info': lines[29],
         'trailer': lines[30]
     }
+
+
+def get_bic(iban):
+    clearing = iban[4:9]
+    for x in SWISS_BANKS:
+        if x['clearing'] == clearing:
+            return x['bic']
+            
+    return None
 
 
 if __name__ == '__main__':
