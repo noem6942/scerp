@@ -12,7 +12,7 @@ from core.models import Attachment
 from scerp.admin import verbose_name, verbose_name_field
 from scerp.actions import (
     action_check_nr_selected, map_display_response, get_zoom_from_instance)
-from scerp.mixins import primary_language, read_excel
+from scerp.mixins import primary_language, read_excel, safe_round
 
 from . import forms
 from .calc import (
@@ -412,7 +412,8 @@ def measurement_map(
             'address': measurement.subscription.__str__(),
             'lat': measurement.address.lat,
             'lng': measurement.address.lon,
-            'value': round(getattr(measurement, field_name, 0), round_digits)
+            'value': safe_round(
+                getattr(measurement, field_name, None), round_digits)
         }
         for measurement in queryset
         if (measurement.address

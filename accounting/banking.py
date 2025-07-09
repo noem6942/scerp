@@ -1,110 +1,116 @@
 '''
 accounting/banking.py
 
+library for Zahlungsverkehr
+
 '''
-from decimal import Decimal
-# currently deactivated
-if False:
-    from pdf2image import convert_from_path  
-    import cv2
-    import numpy as np
-    from pyzbar.pyzbar import decode
-
-try:
-    from .banking_swiss_dir import SWISS_BANKS
-except:
-    from banking_swiss_dir import SWISS_BANKS
-
-# Set Poppler path for Windows (change this if needed)
-POPPLER_PATH = r"C:\Program Files\poppler-24.08.0\Library\bin"
+import fitz  # PyMuPDF
+import numpy as np
+import cv2
+from pyzbar.pyzbar import decode
 
 
-UMLAUTE = [
-    ('ﾃｼ', 'ü'),
-    ('ﾃ､', 'ä'),
-]
+# Map common mojibake sequences to correct characters
+MOJIBAKE_MAP = {
+    'ﾃｼ': 'ü',  'ﾃ､': 'ä',  'ﾃｵ': 'ö',
+    'ﾃｭ': 'ü',  'ﾃﾄ': 'ö',  'ﾃｬ': 'ä',
+    'ﾃﾞ': 'é',  'ﾃｲ': 'è',  'ﾃﾝ': 'ê',
+    'ﾃﾏ': 'à',  'ﾃｨ': 'î',  'ﾃｯ': 'ç',
+    'ﾃﾝﾄ': 'è', 'ﾃｶ': 'ù',
+    # Uppercase umlauts and accented letters
+    'ﾃｼﾞ': 'Ü', 'ﾃｼﾞ': 'Ä', 'ﾃｵﾞ': 'Ö',
+    'ﾃﾑ': 'É',  'ﾃﾚ': 'È',  'ﾃﾍ': 'Ê',
+    'ﾃﾈ': 'À',  'ﾃｨ': 'Î',  'ﾃｯ': 'Ç',
+    # Add more as you encounter them
+}
 
-
-def clean(text):
-    for source, destination in UMLAUTE:
-        text = text.replace(source, destination)
+def fix_mojibake(text: str) -> str:
+    for bad_seq, correct_char in MOJIBAKE_MAP.items():
+        text = text.replace(bad_seq, correct_char)
     return text
 
 
-def make_decimal(value):
-    try:
-        return Decimal(value)
-    except:
-        return None
-
-def format_qr_data(qr_data):
-    formatted_data = {
-        "creditor": {
-            "iban": qr_data[3],
-            "name": qr_data[5],
-            "address": f"{qr_data[6]}, {qr_data[8]} {qr_data[9]}",
-            "zip": qr_data[8],
-            "city": qr_data[9],
-            "country": qr_data[10]
-        },
-        "debtor": {
-            "name": qr_data[21],
-            "address": f"{qr_data[22]}, {qr_data[23]} {qr_data[24]}",
-            "zip": qr_data[24],
-            "city": qr_data[25],
-            "country": qr_data[26]
-        },
-        "amount": make_decimal(qr_data[18]),
-        "currency": qr_data[19],
-        "reference": qr_data[27],
-        "type": qr_data[2],
-        "payment Type": qr_data[30]
-    }
-    return formatted_data
-    
-
-def get_bic(iban):
-    clearing = iban[4:9]
-    for x in SWISS_BANKS:
-        if x['clearing'] == clearing:
-            return x['bic']
-            
-    return None
-
-# currently deactivated
-'''
 def extract_qr_from_pdf(pdf_path):
-    # Convert PDF to images (all pages)
-    images = convert_from_path(pdf_path, poppler_path=POPPLER_PATH)
+    doc = fitz.open(pdf_path)
 
-    if len(images) == 0:
-        print("No pages found in the PDF.")
-        return None
+    for page_num in range(len(doc)):
+        page = doc.load_page(page_num)
+        pix = page.get_pixmap(dpi=300)  # Try 300-600 for crisp render
+        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
 
-    # Loop through all pages to find the first QR code
-    for page_num, image in enumerate(images):
-        print(f"Processing page {page_num + 1}")
-        
-        # Convert PIL image to OpenCV format
-        open_cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        # Convert RGBA or grayscale to RGB
+        if pix.n == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+        elif pix.n == 1:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
-        # Detect and decode QR codes
-        decoded_objects = decode(open_cv_image)
+        # Grayscale (recommended for pyzbar)
+        img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-        # If QR code found, process it and return
-        if decoded_objects:
-            for obj in decoded_objects:
-                qr_data = clean(obj.data.decode("utf-8", errors="replace"))
-                lines = [x.strip() for x in qr_data.split('\n')]
-                data = format_qr_data(lines)
-                
-                # bic
-                iban = data['creditor']['iban']
-                data['bic'] = get_bic(iban)
-                
-                # Return the QR code data (first found)
-                return data
+        # --- First attempt: pyzbar
+        decoded = decode(img_gray)
+        if decoded:            
+            return fix_mojibake(decoded[0].data.decode('utf-8'))
 
-    return None
-'''
-    
+        # --- Fallback: OpenCV's QRCodeDetector
+        detector = cv2.QRCodeDetector()
+        data, _, _ = detector.detectAndDecode(img_gray)
+        if data:
+            return fix_mojibake(data)
+
+    return None  # No QR found
+
+
+def parse_swiss_qr(qr_payload: str):
+    lines = qr_payload.splitlines()
+
+    if len(lines) != 31:
+        raise ValueError(f'Expected 31 lines in QR payload but got {len(lines)}')
+
+    try:
+        amount = float(lines[18])
+    except:
+        raise ValueError(f'amount not valid: {lines[18]}')
+
+    return {
+        'qr_code': lines[0],
+        'version': lines[1],
+        'coding': lines[2], 
+        'iban': lines[3],
+        'creditor': {
+            'address_type': lines[4],
+            'name': lines[5],
+            'address': lines[6],
+            'nr': lines[7],
+            'postal_code': lines[8],
+            'city': lines[9],
+            'country': lines[10]
+        },
+        'amount': amount,
+        'currency': lines[19],
+        'debtor': {
+            'address_type': lines[20],
+            'name': lines[21],
+            'street': lines[22],
+            'nr': lines[23],
+            'postal_code': lines[24],
+            'city': lines[25],
+            'country': lines[26]
+        },
+        'reference': {
+            'type': lines[27],
+            'number': lines[28]
+        },
+        'additional_info': lines[29],
+        'trailer': lines[30]
+    }
+
+
+if __name__ == '__main__':
+    # Example usage    
+    qr_payload = extract_qr_from_pdf('fixtures/transfer ge_soft/1_PDFsam_Rechnungen Zahlungslauf.pdf')
+    print('QR Code:', qr_payload)
+
+    if qr_payload:
+        parsed = parse_swiss_qr(qr_payload)
+        print(parsed)

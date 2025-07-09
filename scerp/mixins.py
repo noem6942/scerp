@@ -113,6 +113,13 @@ def read_yaml_file(app_name, filename_yaml):
         return yaml.safe_load(file)
 
 
+def safe_round(val, digits):
+    try:
+        return round(float(val), int(digits))
+    except (TypeError, ValueError):
+        return val
+
+
 # A function to convert Swiss coordinates to WGS84 (latitude/longitude)
 def convert_ch1903_to_wgs84(easting, northing):
     try:
