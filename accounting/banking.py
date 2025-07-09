@@ -23,6 +23,7 @@ MOJIBAKE_MAP = {
     'ﾃﾈ': 'À',  'ﾃｨ': 'Î',  'ﾃｯ': 'Ç',
     # Add more as you encounter them
 }
+MOJIBAKE_MAP = {}
 
 def fix_mojibake(text: str) -> str:
     for bad_seq, correct_char in MOJIBAKE_MAP.items():
