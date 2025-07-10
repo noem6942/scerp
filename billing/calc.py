@@ -585,6 +585,8 @@ class RouteCounterExport(RouteManagement):
         else:
             query_subscriptions = Subscription.objects.filter(
                 tenant=self.tenant, is_inactive=False).all()
+        query_subscriptions = query_subscriptions.order_by(
+            'address__zip', 'address__address_label', 'description')
 
         for subscription in query_subscriptions:
             if subscription.counter:
