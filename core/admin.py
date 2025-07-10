@@ -119,7 +119,7 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
             'classes': ('expand',),
         }),
         ('cashCtrl', {
-            'fields': ('cash_ctrl_org_name', 'cash_ctrl_api_key', 'language'),
+            'fields': ('cash_ctrl_org_name', 'cash_ctrl_api_key'),
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,

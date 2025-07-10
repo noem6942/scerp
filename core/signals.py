@@ -1,5 +1,6 @@
 # core/signals.py
 import logging
+import mimetypes
 import os
 from datetime import date
 from PIL import Image
@@ -125,12 +126,12 @@ def tenant_setup_pre_save(sender, instance, **kwargs):
     MAX_RESOLUTION = (2500, 2500)
 
     # Logo
-    if instance.logo:  # Ensure a logo is uploaded before validation
-        # Validate that the uploaded file is of an allowed type.
+    if instance.logo:
+        mime_type, _ = mimetypes.guess_type(instance.logo.name)
         allowed_types = ['image/jpeg', 'image/png', 'image/gif']
-        if instance.logo.file.content_type not in allowed_types:
-            msg = _("Unsupported file type. Only JPG, GIF, and PNG are allowed.")
-            raise ValidationError(msg)
+        if mime_type not in allowed_types:
+            raise ValidationError(
+                "Invalid file type. Allowed types are JPEG, PNG, and GIF.")    
 
         # Validate that the file size does not exceed MAX_SIZE_KB.
         if instance.logo.size > MAX_SIZE_KB * 1024:
