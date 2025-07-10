@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction, IntegrityError
-from django.db.models import CharField
+from django.db.models import CharField, Max
 from django.db.models.functions import Cast
 from django.db.models.signals import post_save
 from django.utils import timezone
@@ -32,6 +32,34 @@ from . import api_cash_ctrl, connector_cash_ctrl as conn
 from .ledger import LoadBalance
 
 #from .signals_cash_ctrl import api_setup_post_save
+
+# helpers
+def make_unique_nr(instance):
+    if not getattr(instance, 'nr', None):
+        return
+
+    model = instance.__class__
+
+    base_nr = instance.nr
+    if model == Article:
+        # Look for existing similar numbers like 'ABC', 'ABC-COPY', 'ABC-COPY-2', etc.
+        existing = model.objects.filter(
+            nr__startswith=base_nr).values_list('nr', flat=True)
+        existing_set = set(existing)
+
+        if base_nr not in existing_set:
+            return  # no conflict
+
+        # Try incrementing suffixes
+        counter = 1
+        new_nr = f"{base_nr}-COPY"
+        while new_nr in existing_set:
+            counter += 1
+            new_nr = f"{base_nr}-COPY-{counter}"
+
+        instance.nr = new_nr
+    else:
+        instance.nr = None
 
 
 @admin.action(description=('Admin: Init setup'))
@@ -345,7 +373,7 @@ def accounting_copy(modeladmin, request, queryset):
 
         # Copy fields
         fields = [
-            'code', 'name', 'description', 'name_singular', 'name_plural'
+            'code', 'name', 'name_singular', 'name_plural'
         ]
         for field in fields:
             attr = getattr(instance, field, None)
@@ -358,7 +386,7 @@ def accounting_copy(modeladmin, request, queryset):
         # 'nr'
         if getattr(instance, 'nr', None):
             if model == Article:
-                instance.nr += COPY  # article needs a number
+                make_unique_nr(instance)
             else:
                 instance.nr = None
 
