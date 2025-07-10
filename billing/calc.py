@@ -580,13 +580,13 @@ class RouteCounterExport(RouteManagement):
         count = 0
 
         # get subscriptions
-        if self.route.subscriptions:
-            query_subscriptions = self.route.subscriptions
+        if self.route.subscriptions.exists():
+            query_subscriptions = self.route.subscriptions.all()
         else:
             query_subscriptions = Subscription.objects.filter(
-                tenant=self.tenant, is_inactive=False)
+                tenant=self.tenant, is_inactive=False).all()
 
-        for subscription in query_subscriptions.all():
+        for subscription in query_subscriptions:
             if subscription.counter:
                 # Check if measurement already existing
                 queryset = Measurement.objects.filter(
@@ -822,8 +822,6 @@ class RouteCounterInvoicing(RouteManagement):
         ''' get called from actions '''
         # init
         setup = route.setup
-        start = self.start
-        end = self.end
 
         # billing base
         invoice = {
@@ -924,7 +922,6 @@ class RouteCounterInvoicing(RouteManagement):
                 # start
                 start = max(subscription.start or self.start, self.start)
                 end = min(subscription.end or self.end, self.end)
-                print("*day", start, end)
                 days = (end - start).days + 1
             else:
                 days = None
@@ -991,16 +988,14 @@ class RouteCounterInvoicing(RouteManagement):
 
         # header, use SafeDict to avoid error of variable not in template
         template = setup.header
-        start_formatted = format_date(start)
-        end_formatted = format_date(end)
         invoice['header'] = template.format_map(SafeDict(
             building=building,
             building_notes=building_notes,
             description=description,
             subscription_id=f"S-{subscription.id}",
             subscriber_short_name=subscriber_short_name,
-            start=start_formatted,
-            end=end_formatted,
+            start=format_date(start),
+            end=format_date(end),
             consumption=consumption,
             counter_id=counter_id,
             counter_new=value_new,
