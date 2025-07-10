@@ -1,6 +1,7 @@
 '''
 accounting/connector_cash_ctrl_2.py
 '''
+import os
 import re
 from django.db.models import Q
 from django.forms.models import model_to_dict
@@ -656,7 +657,7 @@ class OrderContract(Order):
         data['items'] = [{
             'accountId': instance.category.account.c_id,
             'name': description,
-            'unitPrice': float(instance.price_excl_vat)
+            'unitPrice': float(instance.price_excl_vat or 0)
         }]
 
 
@@ -701,7 +702,7 @@ class IncomingOrder(Order):
                 'accountId': instance.category.expense_account.c_id,
                 'name': instance.name,
                 'description': instance.description,
-                'unitPrice': float(instance.price_incl_vat),
+                'unitPrice': float(instance.price_incl_vat or 0),
                 'taxId': category.tax.c_id if category.tax else None
             }]
 
@@ -746,36 +747,44 @@ class IncomingOrder(Order):
             'footer': convert_text_to_html(instance.category.footer)
         })
 
+        # reference
+        if instance.reference:
+            document['custom_reference'] = instance.reference
+
+        # recipient_address
+        if instance.recipient_address:
+            document['recipient_address'] = instance.recipient_address
+
         response = conn.update(document)
 
-    def upload_attachment(self, instance):
+    def upload_attachment(self, instance, attachment):
         '''
         Attach file, currently not in use
         '''
-        # get the full record to update status
-        for attachment in instance.attachments.all():
-            # upload file
-            conn = api_cash_ctrl.File(
-                instance.tenant.cash_ctrl_org_name,
-                instance.tenant.cash_ctrl_api_key)
-            data = {
-                'name': attachment.file.name,
-                'category_id': 1,
-            }
-            file_id, _path = conn.upload(attachment.file.path, data)
+        # upload file
+        conn = api_cash_ctrl.File(
+            instance.tenant.cash_ctrl_org_name,
+            instance.tenant.cash_ctrl_api_key)
+        data = {
+            'name': os.path.basename(attachment.file.name),
+            'category_id': 1,
+        }
+        file_id, _path = conn.upload(attachment.file.path, data)
 
-            # update OrderDocument
-            conn = api_cash_ctrl.OrderDocument(
-                instance.tenant.cash_ctrl_org_name,
-                instance.tenant.cash_ctrl_api_key)
-            document = self.api.read(instance.c_id)
-            document['file_id'] = file_id
-            response = conn.update(document)
+        # assign file
+        conn = api_cash_ctrl.OrderDocument(
+            instance.tenant.cash_ctrl_org_name,
+            instance.tenant.cash_ctrl_api_key)        
+        document = conn.read(instance.c_id)
+        document['file_id'] = None  # file_id
+        print("*document", document)
+        response = conn.update(document)
+        print("*response", response, attachment.file.name)
 
 
 class OutgoingOrder(Order):
     exclude = EXCLUDE_FIELDS + [
-        'recipient', 'recipient_address', 'header_description', 'start', 'end', 
+        'recipient', 'recipient_address', 'header_description', 'start', 'end',
         'address']
 
     @staticmethod

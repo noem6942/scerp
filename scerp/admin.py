@@ -48,7 +48,7 @@ def format_big_number(value, thousand_separator=None, round_digits=None):
     # Round
     if round_digits:
         value = round(value, round_digits)
-    print("*value", value)
+
     # Format number
     if thousand_separator is None:
         thousand_separator = settings.THOUSAND_SEPARATOR
@@ -561,6 +561,15 @@ class BaseAdmin:
         '''Displays a paperclip 📎 or folder 📂 icon if attachments exist.'''
         if obj.attachments.exists():  # ✅ Efficient query
             url = obj.get_attachment_link(nr=1)
+            link = f'<a href="{url}" target="_blank">📎</a>'
+            return mark_safe(link)
+        return ' '  # No icon if no attachments'
+
+    @admin.display(description='Fi')
+    def display_attachment_icon_simple(self, obj):
+        '''Displays a paperclip 📎 or folder 📂 icon if attachments exist.'''
+        if obj.attachment:  # ✅ Efficient query
+            url = obj.attachment.url
             link = f'<a href="{url}" target="_blank">📎</a>'
             return mark_safe(link)
         return ' '  # No icon if no attachments'

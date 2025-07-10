@@ -226,7 +226,7 @@ def person_post_save(sender, instance, created, **kwargs):
 
     We need handle_sync because we want to delay that the add operations to
     manytomany fields are done
-    '''    
+    '''
     if sync(instance):
         api = conn.Person(sender)
         api.save(instance, created)
@@ -235,7 +235,7 @@ def person_post_save(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=Person)
 def person_pre_delete(sender, instance, **kwargs):
     '''Signal handler for pre_delete signals on Person. '''
-    if sync_delete(instance):      
+    if sync_delete(instance):
         api = conn.Person()
         api.delete(instance)
         instance._predeleted = True
@@ -243,7 +243,7 @@ def person_pre_delete(sender, instance, **kwargs):
 
 # Person-related entities
 def person_save(instance, created=None):
-    # Gets called whenever something changes with person    
+    # Gets called whenever something changes with person
     instance.sync_to_accounting = True
     if sync(instance):
         api = conn.Person(instance)
@@ -268,7 +268,7 @@ def person_related_delete(instance):
 
 
 @receiver(post_save, sender=PersonAddress)
-def person_address_post_save(sender, instance, created, **kwargs):    
+def person_address_post_save(sender, instance, created, **kwargs):
     person_save(instance.person)
 
 
@@ -283,7 +283,7 @@ def person_contact_post_save(sender, instance, created, **kwargs):
 
 
 @receiver(post_delete, sender=PersonContact)
-def person_contact_post_delete(sender, instance, **kwargs):    
+def person_contact_post_delete(sender, instance, **kwargs):
     person_related_delete(instance)
 
 
@@ -294,7 +294,7 @@ def person_bank_account_post_save(sender, instance, created, **kwargs):
 
 
 @receiver(post_delete, sender=PersonBankAccount)
-def person_bank_account_post_delete(sender, instance, **kwargs):    
+def person_bank_account_post_delete(sender, instance, **kwargs):
     person_related_delete(instance)
 
 
@@ -304,7 +304,7 @@ def person_bank_account_post_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=Unit)
 def unit_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on Unit. '''
-    if sync(instance):        
+    if sync(instance):
         api = conn.Unit(sender)
         api.save(instance, created)
 
@@ -726,7 +726,7 @@ def order_contract_pre_delete(sender, instance, **kwargs):
 
 # Incomingitem, related to IncomingOrder
 def incoming_order_save(instance, created=None):
-    # Gets called whenever something changes with IncomingOrder    
+    # Gets called whenever something changes with IncomingOrder
     instance.sync_to_accounting = True
     if sync(instance):
         api = conn.IncomingOrder(instance)
@@ -751,7 +751,7 @@ def incoming_order_related_delete(instance):
 
 
 @receiver(post_save, sender=models.IncomingItem)
-def incoming_item_post_save(sender, instance, created, **kwargs):    
+def incoming_item_post_save(sender, instance, created, **kwargs):
     incoming_order_save(instance.order)
 
 
@@ -799,7 +799,7 @@ def outgoing_order_pre_delete(sender, instance, **kwargs):
 
 # OutgoingItem, related to OutgoingOrder
 def outgoing_order_save(instance, created=None):
-    # Gets called whenever something changes with OutgoingOrder    
+    # Gets called whenever something changes with OutgoingOrder
     instance.sync_to_accounting = True
     if sync(instance):
         api = conn.OutgoingOrder(instance)
@@ -824,7 +824,7 @@ def outgoing_order_related_delete(instance):
 
 
 @receiver(post_save, sender=models.OutgoingItem)
-def outgoing_item_post_save(sender, instance, created, **kwargs):    
+def outgoing_item_post_save(sender, instance, created, **kwargs):
     outgoing_order_save(instance.order)
 
 

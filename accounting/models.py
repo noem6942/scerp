@@ -61,7 +61,7 @@ TOP_LEVEL_ACCOUNT_NRS = [x.value for x in TOP_LEVEL_ACCOUNT]
 # helpers
 def today():
     return timezone.now().date()
-    
+
 def rank(nr):
     diff = 4 - nr
     return ' ' * (diff if diff > 0 else 0)
@@ -938,7 +938,7 @@ class JournalTemplate(AcctApp):
         _('Code'), max_length=200,
         help_text=_("internal code"))
     name = models.CharField(
-        _("Name"), max_length=250, help_text=_("Name of journal template"))        
+        _("Name"), max_length=250, help_text=_("Name of journal template"))
     credit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_credit_account',
@@ -971,7 +971,7 @@ class JournalTemplate(AcctApp):
         ]
         ordering = ['code']
         verbose_name = _("Journal Template")
-        verbose_name_plural = _("Journal Templates")        
+        verbose_name_plural = _("Journal Templates")
 
 
 class Journal(AcctApp):
@@ -990,7 +990,7 @@ class Journal(AcctApp):
     reference = models.CharField(
         _("Reference"), max_length=100, blank=True, null=True,
         help_text=_("An optional reference / receipt for the book entry."))
-        
+
     def __str__(self):
         return f"{self.template.code}: {self.date} {self.title}"
 
@@ -1666,7 +1666,6 @@ class OrderCategoryOutgoing(OrderCategory):
                 name='unique_order_category_outgoing'
             )
         ]
-
         verbose_name = _("Debtor - Invoice Category")
         verbose_name_plural = _("Debtor - Invoice Categories")  # rank(2) + _("Creditors - Categories")
 
@@ -1719,7 +1718,8 @@ class OrderContract(Order):
         _('Description'), max_length=200, blank=True, null=True,
         help_text=_("e.g. Office contract from Jan 2022 to Dec. 2028 "))
     price_excl_vat = models.DecimalField(
-        _('Price (Excl. VAT)'), max_digits=11, decimal_places=2)
+        _('Price (Excl. VAT)'), max_digits=11, decimal_places=2,
+        null=True, blank=True)
     currency = models.ForeignKey(
         Currency, on_delete=models.PROTECT, null=True, blank=True,
         verbose_name=_('Currency'))
@@ -1778,7 +1778,7 @@ class IncomingOrder(Order):
         _('Description'), blank=True, null=True,
         help_text=_("e.g. late delivery"))
     price_incl_vat = models.DecimalField(
-        _('Price'), max_digits=11, decimal_places=2,
+        _('Price'), max_digits=11, decimal_places=2, null=True, blank=True,
         help_text=_('incl. VAT'))
     status = models.CharField(
         _('Status'), max_length=50,
@@ -1790,10 +1790,18 @@ class IncomingOrder(Order):
         Person, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Clerk'), related_name='%(class)s_person',
         help_text=_('Clerk'))
-    attachments = GenericRelation('core.Attachment')
+    attachment = models.FileField(
+        _('Invoice File'), blank=True, null=True,
+        upload_to=Attachment.get_attachment_upload_path,
+        help_text=_('Invoice in PDF incl. QR Code'))
     reference = models.CharField(
         _('QR Reference'), max_length=50, blank=True, null=True,
         help_text=_('Reference in invoice'))
+    recipient_address = models.TextField(
+        _('Recipient address'), max_length=255, blank=True, null=True,
+        help_text=_(
+            "The recipient address in the banking instruction formatted "
+            "with line breaks."))
 
     @property
     def supplier_bank_account(self):
@@ -1806,11 +1814,23 @@ class IncomingOrder(Order):
         return (f"{self.contract.associate.company}, {self.date}, "
                 f"{self.description}")
 
-    def clean(self):
-        # Check bank_accounts
+    def clean(self):        
         if not PersonBankAccount.objects.filter(
                 person=self.contract.associate).exclude(iban=None).exists():
+            # Check bank_accounts
             raise ValidationError(_("No Iban specified for contract partner"))
+        
+        if self.attachment:
+            # Check file extension
+            if not self.attachment.name.lower().endswith('.pdf'):
+                raise ValidationError(
+                    {'attachment': _("Only PDF files are allowed.")})
+
+            # Check MIME type if available (works if uploaded via form)
+            content_type = getattr(self.attachment.file, 'content_type', None)
+            if content_type and content_type != 'application/pdf':
+                raise ValidationError({'attachment': _(
+                    "Uploaded file is not recognized as a valid PDF.")})
 
     class Meta:
         verbose_name = _("Creditor - Invoice")
@@ -1965,7 +1985,7 @@ class OutgoingOrder(Order):
             recipient_short_name = (
                 f", {self.recipient.short_name}" if self.recipient else '')
 
-            # build                
+            # build
             template = self.category.header or ''
             self.header = template.format_map(SafeDict(
                 building=building,

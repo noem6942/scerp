@@ -1008,8 +1008,8 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'category', 'associate', 'status', 'description', 
-                'contract_date', 'price_excl_vat', 'currency'),
+                'category', 'associate', 'status', 'contract_date', 
+                'description', 'price_excl_vat', 'currency'),
             'classes': ('expand',),
         }),
         (_('Contractual'), {
@@ -1060,14 +1060,14 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     list_display = (
         'nr', 'name', 'date', 'display_supplier',
         'display_price', 'category__currency', 'display_bank_account',
-        'status', 'display_cash_ctrl_url'
-    )  + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT + FIELDS.C_DISPLAY_SHORT
+        'status', 'display_cash_ctrl_url', 'display_attachment_icon_simple'
+    )  + CORE_FIELDS.ICON_DISPLAY + FIELDS.C_DISPLAY_SHORT
     list_display_links = (
         'nr', 'name'
-    ) + CORE_FIELDS.LINK_ATTACHMENT
-    readonly_fields = (
+    ) 
+    readonly_fields = (    
         'display_category_type', 'display_bank_account',
-        'display_cash_ctrl_url'
+        'display_cash_ctrl_url',
     ) + FIELDS.C_READ_ONLY
 
     # Search, filter
@@ -1086,7 +1086,8 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (
                 'category', 'contract', 'status', 'name', 'description',
                 'date', 'price_incl_vat', 'due_days', 'reference',
-                'responsible_person', 'display_bank_account'),
+                'responsible_person', 'recipient_address',
+                'display_bank_account', 'attachment'),
             'classes': ('expand',),
         }),
         FIELDSET.NOTES_AND_STATUS,
@@ -1094,7 +1095,7 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.CASH_CTRL
     )
 
-    inlines = [AttachmentInline, IncomingItemsInline]
+    inlines = [IncomingItemsInline]
 
     @admin.display(description=_('Price (Incl. VAT)'))
     def display_price(self, obj):
