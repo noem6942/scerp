@@ -347,6 +347,8 @@ def outgoing_order_installments(modeladmin, request, queryset, data):
             order = queryset.first()
             make_installment_payment(
                 order, request.user, nr_of_installments, data['date'], 
-                data['header'], data['fee_quantity'])
+                data['header'], data['due_days'], data['fee_quantity'], 
+                data['due_days_first']
+            )
         else:
             messages.error(request, _("Enter at least 2 installments."))

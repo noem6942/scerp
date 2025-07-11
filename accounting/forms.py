@@ -255,22 +255,29 @@ class OutgoingOrderInstallmentForm(AdminActionForm):
         label=_('Installments'),
         required=True, initial=4,        
         help_text=_('Number of installments, e.g. 4')
-    )
-    installment_interval = forms.IntegerField(
+    )  
+    due_days = forms.IntegerField(
         label=_('Interval'),
-        required=True, initial=30,
+        required=True, 
         help_text=_('Installment interval in days, e.g. 30')
     )
     fee_quantity = forms.IntegerField(
         required=False,
         label=_('Fee')
     )
+    due_days_first = forms.IntegerField(
+        label=_('Due Date'),
+        required=False, 
+        help_text=_('Due date for first installment if different, e.g. 20')
+    )      
 
     def __post_init__(self, modeladmin, request, queryset):        
         order = queryset.first()
         self.fields['fee_quantity'].help_text = (
             _("Quantity of") + f" {order.category.installment_article}")
         self.fields['date'].initial = now().date()  
+        self.fields['due_days'].initial = (
+            order.due_days if order.due_days else order.category.due_days)        
         self.fields['header'].initial = (
             order.category.header_installment)
 

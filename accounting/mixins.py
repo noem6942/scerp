@@ -198,7 +198,8 @@ def copy_entity(instance):
 
 
 def make_installment_payment(
-        order, user, nr_of_installments, date, header, fee_quantity=None):
+        order, user, nr_of_installments, date, header, due_days, 
+        fee_quantity=None, due_days_first=None):
     ''' make installment payments
     '''
     # Check nr_of_installments
@@ -209,9 +210,9 @@ def make_installment_payment(
     outgoing_items = OutgoingItem.objects.filter(
         order=order).order_by('id')
 
-    # Get due date
-    due_days = (
-        order.due_days if order.due_days else order.category.due_days)
+    # Get due date    
+    if not due_days_first:
+        due_days_first = due_days
 
     # Make copies
     for nr in range(1, nr_of_installments + 1):
@@ -239,7 +240,7 @@ def make_installment_payment(
 
         # others
         order_new.date = date
-        order_new.due_days = due_days * nr
+        order_new.due_days = due_days_first + due_days * (nr - 1)
         order_new.save()
 
         # Copy outgoingItem
