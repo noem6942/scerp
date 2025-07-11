@@ -462,7 +462,8 @@ class OrderLayout(CashCtrl):
 
 class OrderCategory(CashCtrl):
     api_class = api_cash_ctrl.OrderCategory
-    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive', 'status_data']
+    exclude = EXCLUDE_FIELDS + [
+        'code', 'notes', 'is_inactive', 'status_data', 'header_installment']
     abstract = True
 
     def make_base(self, instance, data, created):
@@ -806,6 +807,12 @@ class OutgoingOrder(Order):
         return primary_language(item.article.description)
 
     @staticmethod
+    def get_discount_percentage(item):
+        if item.discount_percentage is None:
+            return None
+        return float(item.discount_percentage)
+
+    @staticmethod
     def get_unit(item):
         if item.article.unit:
             name = primary_language(item.article.unit.name)
@@ -858,6 +865,7 @@ class OutgoingOrder(Order):
             'description': self.get_description(item),
             'quantity': float(item.quantity),
             'unitPrice': self.correct_cash_ctrl_article_price(item),
+            'discountPercentage': self.get_discount_percentage(item),
             'unitId': self.get_unit(item),
             'taxId': (
                 item.article.category.tax.c_id

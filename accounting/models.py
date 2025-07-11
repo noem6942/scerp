@@ -1611,6 +1611,12 @@ class OrderCategoryOutgoing(OrderCategory):
         help_text=_(
             "The text displayed above  the items list on the document used by "
             "default for order objects"))
+    header_installment = models.TextField(
+        _("Text Installment"), 
+        default=_("Ratenzahlung {nr}/{total} von {invoice_nr}"),
+        help_text=_(
+            "The text displayed above  the items list on the document used by "
+            "default for order objects"))            
     debit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_debit_account',
@@ -1628,6 +1634,11 @@ class OrderCategoryOutgoing(OrderCategory):
         related_name='%(class)s_currency',
         verbose_name=_('Currency'),
         help_text=_("Leave empty for CHF"))
+    installment_article = models.ForeignKey(
+        Article, on_delete=models.PROTECT, blank=True, null=True,
+        related_name='%(class)s_article',
+        verbose_name=_('Installment Fee'),
+        help_text=_("article for installment fees, leave empty if none"))
     due_days = models.PositiveSmallIntegerField(
         _('Default due days'), default=30, null=True, blank=True)
     address_type = models.CharField(
@@ -1641,7 +1652,10 @@ class OrderCategoryOutgoing(OrderCategory):
         Person, on_delete=models.PROTECT,
         verbose_name=_('Responsible'), related_name='%(class)s_person',
         help_text=_('Contact person mentioned in invoice.'))
-
+    block_update = models.BooleanField(
+        default=False, help_text=(
+            "Do not update to cashCtrl this time. (Admin only)"))
+            
     @property
     def sequence_number(self):
         return self.get_sequence_number('RE')
@@ -1814,12 +1828,12 @@ class IncomingOrder(Order):
         return (f"{self.contract.associate.company}, {self.date}, "
                 f"{self.description}")
 
-    def clean(self):        
+    def clean(self):
         if not PersonBankAccount.objects.filter(
                 person=self.contract.associate).exclude(iban=None).exists():
             # Check bank_accounts
             raise ValidationError(_("No Iban specified for contract partner"))
-        
+
         if self.attachment:
             # Check file extension
             if not self.attachment.name.lower().endswith('.pdf'):
@@ -1927,6 +1941,9 @@ class OutgoingOrder(Order):
         Person, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Clerk'), related_name='%(class)s_person',
         help_text=_('Clerk, leave empty if defined in category'))
+    discount_percentage = models.DecimalField(
+        _('Discount'), max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text=_('The discount percentage for the entire order.'))
     attachments = GenericRelation('core.Attachment')
 
     # custom
@@ -2013,6 +2030,9 @@ class OutgoingItem(AcctApp):
     description = models.CharField(
         _('Description'), max_length=200, blank=True, null=True,
         help_text=_("Custom description for article, leave empty for default"))
+    discount_percentage = models.DecimalField(
+        _('Discount'), max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text=_('The discount percentage for position.'))        
     order = models.ForeignKey(
         OutgoingOrder, on_delete=models.CASCADE,
         related_name='%(class)s_order',

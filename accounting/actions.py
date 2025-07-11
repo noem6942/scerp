@@ -23,6 +23,7 @@ from scerp.mixins import COPY
 from .import_export import (
     LedgerBalanceImportExport, LedgerPLImportExport, LedgerICImportExport
 )
+from .mixins import copy_entity, make_installment_payment
 from .models import (
     Article, FiscalPeriod, LedgerAccount, LedgerBalance, LedgerPL, LedgerIC
 )
@@ -30,36 +31,6 @@ from .models import (
 from . import forms, models
 from . import api_cash_ctrl, connector_cash_ctrl as conn
 from .ledger import LoadBalance
-
-#from .signals_cash_ctrl import api_setup_post_save
-
-# helpers
-def make_unique_nr(instance):
-    if not getattr(instance, 'nr', None):
-        return
-
-    model = instance.__class__
-
-    base_nr = instance.nr
-    if model == Article:
-        # Look for existing similar numbers like 'ABC', 'ABC-COPY', 'ABC-COPY-2', etc.
-        existing = model.objects.filter(
-            nr__startswith=base_nr).values_list('nr', flat=True)
-        existing_set = set(existing)
-
-        if base_nr not in existing_set:
-            return  # no conflict
-
-        # Try incrementing suffixes
-        counter = 1
-        new_nr = f"{base_nr}-COPY"
-        while new_nr in existing_set:
-            counter += 1
-            new_nr = f"{base_nr}-COPY-{counter}"
-
-        instance.nr = new_nr
-    else:
-        instance.nr = None
 
 
 @admin.action(description=('Admin: Init setup'))
@@ -360,35 +331,22 @@ def get_bank_data(modeladmin, request, queryset, data):
 @admin.action(description=_("Make a copy"))
 def accounting_copy(modeladmin, request, queryset):
     if action_check_nr_selected(request, queryset, count=1):
-        model = modeladmin.model
         instance = queryset.first()
+        copy_entity(instance)
 
-        # Init
-        fields_none = [
-            'pk', 'modified_at', 'created_at', 'c_id', 'last_received'
-        ]
-        for field in fields_none:
-            setattr(instance, field, None)
-        instance.sync_to_accounting = True
 
-        # Copy fields
-        fields = [
-            'code', 'name', 'name_singular', 'name_plural'
-        ]
-        for field in fields:
-            attr = getattr(instance, field, None)
-            if isinstance(attr, dict):
-                for lang, value in attr.items():
-                    attr[lang] += COPY
-            elif isinstance(attr, str):
-                setattr(instance, field, attr + COPY)
-
-        # 'nr'
-        if getattr(instance, 'nr', None):
-            if model == Article:
-                make_unique_nr(instance)
-            else:
-                instance.nr = None
-
-        # save
-        instance.save()
+@action_with_form(
+    forms.OutgoingOrderInstallmentForm, description=_('Make installments')
+)
+def outgoing_order_installments(modeladmin, request, queryset, data):
+    ''' update is_enabled_sync to False '''
+    if action_check_nr_selected(request, queryset, count=1):
+        # Check nr_of_installments
+        nr_of_installments = data['quantity']
+        if nr_of_installments > 1:
+            order = queryset.first()
+            make_installment_payment(
+                order, request.user, nr_of_installments, data['date'], 
+                data['header'], data['fee_quantity'])
+        else:
+            messages.error(request, _("Enter at least 2 installments."))

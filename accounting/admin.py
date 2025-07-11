@@ -934,7 +934,8 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
     # Search, filter
     search_fields = ('code', 'name')
     autocomplete_fields = [
-        'responsible_person', 'debit_account', 'bank_account']
+        'responsible_person', 'debit_account', 'bank_account',
+        'installment_article']
 
     # Actions
     actions = accounting_actions_write + [a.accounting_copy] + default_actions
@@ -946,13 +947,13 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
                 'code',
                 *make_language_fields('name_singular'),
                 *make_language_fields('name_plural'),
-                'responsible_person',
+                'responsible_person', 'installment_article'
             ),
             'classes': ('expand',),
         }),
         (_('Layout'), {
             'fields': (
-                'layout', 'header', 'footer'
+                'layout', 'header', 'footer', 'header_installment',                
             ),
             'classes': ('expand',),
         }),
@@ -973,6 +974,19 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = list(super().get_fieldsets(request, obj))
+        
+        if request.user.is_superuser:
+            fieldsets.append(
+                (_('Admin Only'), {
+                    'fields': ('block_update',),
+                    'classes': ('collapse',),
+                        }
+                )
+            )
+        return fieldsets
 
 
 @admin.register(models.OrderContract, site=admin_site)
@@ -1138,7 +1152,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'date', 'nr', 'description', 'category', 'associate',
+        'nr', 'date', 'description', 'category', 'associate',
         'status', 'display_cash_ctrl_url'
     )  + FIELDS.C_DISPLAY_SHORT + CORE_FIELDS.ICON_DISPLAY + CORE_FIELDS.LINK_ATTACHMENT
     list_display_links = (
@@ -1159,7 +1173,8 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Actions
     actions = accounting_actions_write + [
-        a.order_status_update, a.order_get_status
+        a.order_status_update, a.order_get_status, 
+        a.outgoing_order_installments
     ]+ default_actions
 
     #Fieldsets
@@ -1168,7 +1183,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
             'fields': (
                 'nr', 'category', 'contract', 'status', 'description', 'date',
                 'associate', 'due_days', 'responsible_person', 'dossier',
-                'display_cash_ctrl_url_form'),
+                'discount_percentage', 'display_cash_ctrl_url_form'),
             'classes': ('expand',),
         }),
         (_('Details'), {

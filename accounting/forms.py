@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.forms import SelectMultiple
 from django.utils.html import format_html
+from django.utils.timezone import now
 from django.utils.translation import gettext as _
 
 from django_admin_action_forms import action_with_form, AdminActionForm
@@ -64,7 +65,7 @@ class CostCenterAdminForm(MultilanguageForm):
 
 class AccountCategoryAdminForm(MultilanguageForm):
     multi_lang_fields = ['name']
-    
+
     class Meta:
         model = AccountCategory
         fields = '__all__'
@@ -236,6 +237,42 @@ class AccountingUpdateForm(AdminActionForm):
         required=False,
         help_text=_('Delete items that do not exist in accounting system.')
     )
+
+
+class OutgoingOrderInstallmentForm(AdminActionForm):
+    header = forms.CharField(
+        label=_('Installment text'),
+        disabled=True,
+        required=False
+    )
+    date = forms.DateField(
+        label=_('Date'),
+        required=True,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        help_text=_('Invoice Date')
+    )    
+    quantity = forms.IntegerField(
+        label=_('Installments'),
+        required=True, initial=4,        
+        help_text=_('Number of installments, e.g. 4')
+    )
+    installment_interval = forms.IntegerField(
+        label=_('Interval'),
+        required=True, initial=30,
+        help_text=_('Installment interval in days, e.g. 30')
+    )
+    fee_quantity = forms.IntegerField(
+        required=False,
+        label=_('Fee')
+    )
+
+    def __post_init__(self, modeladmin, request, queryset):        
+        order = queryset.first()
+        self.fields['fee_quantity'].help_text = (
+            _("Quantity of") + f" {order.category.installment_article}")
+        self.fields['date'].initial = now().date()  
+        self.fields['header'].initial = (
+            order.category.header_installment)
 
 
 class IncomingOrderForm(AdminActionForm):
@@ -574,6 +611,6 @@ class OrderUpdateForm(AdminActionForm):
         choices=[], required=True,
         help_text=_("New Status"))
 
-    def __post_init__(self, modeladmin, request, queryset):        
+    def __post_init__(self, modeladmin, request, queryset):
         self.fields['status'].choices = [
             (x.value, x.label) for x in queryset.first().category.STATUS]

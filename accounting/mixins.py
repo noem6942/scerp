@@ -7,6 +7,9 @@ pylint checked 2024-12-25
 '''
 from django.utils.translation import get_language, gettext_lazy as _
 
+from scerp.mixins import COPY, SafeDict
+from .models import OutgoingItem
+
 DIGITS_FUNCTIONAL = 4, 0
 DIGITS_ACCOUNT = 5, 2
 
@@ -37,7 +40,7 @@ def account_position_calc_number(
     '''calc number with pattern:
         AFFFFCNNNNN.NN
         A .. ACCOUNT_TYPE
-        FFFF .. function with leading zeros, 
+        FFFF .. function with leading zeros,
         C .. 1 if is_category else 0
         NNNNN.NN .. account number with leading zeros and 2 commas
 
@@ -79,26 +82,26 @@ class AccountPositionCheck():
     def __init__(self, query_positions):
         query_positions = query_positions.order_by(
             'function', '-is_category', 'account_number')
-        # Check levels    
+        # Check levels
         self.positions = [x for x in query_positions]
 
-    def get_parent(self, position): 
+    def get_parent(self, position):
         # Init
         level_check = position.level - 1
         nr = self.positions.index(position)
-            
-        # Check   
+
+        # Check
         for pos in reversed(self.positions[:nr]):
             if position.is_category:
-                c1 = pos.account_number[:level_check] 
+                c1 = pos.account_number[:level_check]
                 c2 = position.account_number[:level_check]
                 if c1 == c2:
                     return pos
             elif pos.function == position.function:
                 return pos
             else:
-                print("*", pos.function, position.function) 
-        return None                 
+                print("*", pos.function, position.function)
+        return None
 
     def check(self):
         # Check is only upper
@@ -106,17 +109,17 @@ class AccountPositionCheck():
             if position.name.isupper():
                 msg = _("'{number} {name}' only contains upper letters").format(
                     number=position.account_number, name=position.name)
-                raise ValueError(msg)                
-        
+                raise ValueError(msg)
+
         # Check if every position has a parent
         for position in self.positions:
             if position == self.positions[0]:
                 if position.level != 1:
-                    raise ValueError(_("Positions not starting with level 1")) 
+                    raise ValueError(_("Positions not starting with level 1"))
             elif not self.get_parent(position):
                 msg = _("Positions '{number} {name}' has no parents").format(
                     number=position.account_number, name=position.name)
-                raise ValueError(msg)                
+                raise ValueError(msg)
         return True
 
     def convert_upper_case(self):
@@ -126,6 +129,147 @@ class AccountPositionCheck():
                 position.name = position.name.title()
                 position.save()
                 change_list.append(position)
-           
+
         return change_list
-        
+
+
+def _make_unique_nr(instance):
+    if not getattr(instance, 'nr', None):
+        return
+
+    model = instance.__class__
+
+    base_nr = instance.nr
+    if model == Article:
+        # Look for existing similar numbers like 'ABC', 'ABC-COPY', 'ABC-COPY-2', etc.
+        existing = model.objects.filter(
+            nr__startswith=base_nr).values_list('nr', flat=True)
+        existing_set = set(existing)
+
+        if base_nr not in existing_set:
+            return  # no conflict
+
+        # Try incrementing suffixes
+        counter = 1
+        new_nr = f"{base_nr}-COPY"
+        while new_nr in existing_set:
+            counter += 1
+            new_nr = f"{base_nr}-COPY-{counter}"
+
+        instance.nr = new_nr
+    else:
+        instance.nr = None
+
+
+def copy_entity(instance):
+    ''' copy an accounting instance
+    '''    
+    instance = queryset.first()
+
+    # Init
+    fields_none = [
+        'pk', 'modified_at', 'created_at', 'c_id', 'last_received'
+    ]
+    for field in fields_none:
+        setattr(instance, field, None)
+    instance.sync_to_accounting = True
+
+    # Copy fields
+    fields = [
+        'code', 'name', 'name_singular', 'name_plural'
+    ]
+    for field in fields:
+        attr = getattr(instance, field, None)
+        if isinstance(attr, dict):
+            for lang, value in attr.items():
+                attr[lang] += COPY
+        elif isinstance(attr, str):
+            setattr(instance, field, attr + COPY)
+
+    # 'nr'
+    if getattr(instance, 'nr', None):
+        if model == Article:
+            _make_unique_nr(instance)
+        else:
+            instance.nr = None
+
+    # save
+    instance.save()
+
+
+def make_installment_payment(
+        order, user, nr_of_installments, date, header, fee_quantity=None):
+    ''' make installment payments
+    '''
+    # Check nr_of_installments
+    if nr_of_installments < 2:
+        raise ValueError("Enter at least 2 installments.")
+
+    # Get Outgoing Items
+    outgoing_items = OutgoingItem.objects.filter(
+        order=order).order_by('id')
+
+    # Get due date
+    due_days = (
+        order.due_days if order.due_days else order.category.due_days)
+
+    # Make copies
+    for nr in range(1, nr_of_installments + 1):
+        # Prepare duplicate by fetching fresh copy or cloning again
+        order_new = order.__class__.objects.get(pk=order.pk)
+        # copy and init
+        fields_none = [
+            'pk', 'modified_at', 'created_at', 'c_id', 'last_received',
+            'nr'
+        ]
+        for field in fields_none:
+            setattr(order_new, field, None)
+
+        # header
+        template = header.format_map(SafeDict(
+            nr=nr,
+            total=nr_of_installments,
+            invoice_nr=order.nr
+        ))
+        order_new.header = template + '<br>' + order_new.header
+        order_new.description = order_new.description + '; ' + template
+
+        # discount
+        discount = discount_percentage = 100 - 100 / nr_of_installments
+
+        # others
+        order_new.date = date
+        order_new.due_days = due_days * nr
+        order_new.save()
+
+        # Copy outgoingItem
+        for item in outgoing_items:
+            obj = OutgoingItem.objects.create(
+                tenant=order.tenant,
+                created_by=user,
+                article=item.article,
+                quantity=item.quantity,
+                discount_percentage=discount,
+                order=order_new
+            )
+
+        # Installment Fee
+        if fee_quantity:
+            article = order.category.installment_article
+            obj = OutgoingItem.objects.create(
+                tenant=order.tenant,
+                created_by=user,
+                article=article,
+                quantity=fee_quantity,
+                discount_percentage=0,
+                order=order_new
+            )
+
+    # Update old    
+    disclaimer = _('Replaced by {count} installment payments').format(
+        count=nr_of_installments)
+    order.description += "; " + disclaimer
+    order.header = disclaimer + '<br>' + order.header
+    order.discount_percentage = 100
+    order.sync_to_accounting = True
+    order.save()

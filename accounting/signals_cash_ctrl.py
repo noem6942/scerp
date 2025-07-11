@@ -694,7 +694,12 @@ def order_category_incoming_post_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.OrderCategoryOutgoing)
 def order_category_outgoing_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on OrderCategoryOutgoing. '''
-    if sync(instance):
+    if instance.block_update:
+        # do not update
+        instance.sync_to_accounting = False
+        instance.block_update = False  # reset
+        instance.save()
+    elif sync(instance):
         api = conn.OrderCategoryOutgoing(sender)
         api.save(instance, created)
 
