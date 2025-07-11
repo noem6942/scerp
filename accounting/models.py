@@ -1393,7 +1393,11 @@ class OrderCategoryContract(OrderCategory):
         help_text=_(
             "The text displayed above  the items list on the document used by "
             "default for order objects"))
-
+    block_update = models.BooleanField(
+        # used to change categories with existing entities in cashCtrl
+        _("Block update"), default=False, 
+        help_text=("Do not update to cashCtrl this time. (Admin only)"))
+            
     @property
     def account(self):
         ''' needed for cashCtrl so we take the first credit account '''
@@ -1652,9 +1656,6 @@ class OrderCategoryOutgoing(OrderCategory):
         Person, on_delete=models.PROTECT,
         verbose_name=_('Responsible'), related_name='%(class)s_person',
         help_text=_('Contact person mentioned in invoice.'))
-    block_update = models.BooleanField(
-        default=False, help_text=(
-            "Do not update to cashCtrl this time. (Admin only)"))
             
     @property
     def sequence_number(self):

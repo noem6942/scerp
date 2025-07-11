@@ -660,7 +660,12 @@ def order_layout_contract_post_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.OrderCategoryContract)
 def order_category_contract_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on OrderCategoryContract. '''
-    if sync(instance):
+    if instance.block_update:
+        # do not update
+        instance.sync_to_accounting = False
+        instance.block_update = False  # reset
+        instance.save()
+    elif sync(instance):
         api = conn.OrderCategoryContract(sender)
         api.save(instance, created)
 
@@ -677,7 +682,12 @@ def order_category_contract_post_pre_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=models.OrderCategoryIncoming)
 def order_category_incoming_post_save(sender, instance, created, **kwargs):
     '''Signal handler for post_save signals on OrderCategoryIncoming. '''
-    if sync(instance):
+    if instance.block_update:
+        # do not update
+        instance.sync_to_accounting = False
+        instance.block_update = False  # reset
+        instance.save()
+    elif sync(instance):
         api = conn.OrderCategoryIncoming(sender)
         api.save(instance, created)
 

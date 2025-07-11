@@ -816,8 +816,24 @@ class BookTemplateAdmin(TenantFilteringAdmin, BaseAdmin):
     )
 '''
 
+class OrderCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
+    ''' use this fieldset for every category '''
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = list(super().get_fieldsets(request, obj))
+        
+        if request.user.is_superuser:
+            fieldsets.append(
+                (_('Admin Only'), {
+                    'fields': ('block_update',),
+                    'classes': ('collapse',),
+                        }
+                )
+            )
+        return fieldsets
+
+
 @admin.register(models.OrderCategoryContract, site=admin_site)
-class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
+class OrderCategoryContractAdmin(OrderCategoryAdmin):
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'layout']
 
@@ -864,7 +880,7 @@ class OrderCategoryContractAdmin(TenantFilteringAdmin, BaseAdmin):
 
 
 @admin.register(models.OrderCategoryIncoming, site=admin_site)
-class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
+class OrderCategoryIncomingAdmin(OrderCategoryAdmin):
     # Safeguards
     protected_foreigns = [
         'tenant', 'version', 'credit_account', 'expense_account',
@@ -914,7 +930,7 @@ class OrderCategoryIncomingAdmin(TenantFilteringAdmin, BaseAdmin):
 
 
 @admin.register(models.OrderCategoryOutgoing, site=admin_site)
-class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
+class OrderCategoryOutgoingAdmin(OrderCategoryAdmin):
     # Safeguards
     protected_foreigns = [
         'tenant', 'version', 'debit_account', 'bank_account',
@@ -974,19 +990,6 @@ class OrderCategoryOutgoingAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
-
-    def get_fieldsets(self, request, obj=None):
-        fieldsets = list(super().get_fieldsets(request, obj))
-        
-        if request.user.is_superuser:
-            fieldsets.append(
-                (_('Admin Only'), {
-                    'fields': ('block_update',),
-                    'classes': ('collapse',),
-                        }
-                )
-            )
-        return fieldsets
 
 
 @admin.register(models.OrderContract, site=admin_site)
