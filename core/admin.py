@@ -72,34 +72,6 @@ class MessageAdmin(TenantFilteringAdmin, BaseAdmin):
         return ", ".join([tenant.name for tenant in obj.recipients.all()])
 
 
-@admin.register(models.UserProfile, site=admin_site)
-class UserProfileAdmin(TenantFilteringAdmin, BaseAdmin):
-    # Display these fields in the list view
-    list_display = ('user__username', 'person_photo', 'group_names')
-    readonly_fields = ('user', 'group_names') + FIELDS.LOGGING
-
-    # Search, filter
-    search_fields = ('user__username',)
-
-    # Fieldsets
-    fieldsets = (
-        (None, {
-            'fields': ('user', 'person', 'group_names'),
-            'classes': ('expand',),
-        }),
-        FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING,
-    )
-
-    @admin.display(description=_('Groups'))
-    def group_names(self, obj):
-        return Display.list([x.name for x in obj.groups])
-
-    @admin.display(description=_('Photo'))
-    def person_photo(self, obj):
-        return Display.photo(obj.person.photo)
-
-
 @admin.register(models.TenantUser, site=admin_site)
 class TenantUserAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
@@ -208,22 +180,18 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'tenant', 'display_users', 'group_names', 'zips', 'bdg_egids',
-        'display_apps', 'created_at')
-    readonly_fields = ('display_users', ) + FIELDS.LOGGING_TENANT
+        'tenant', 'zips', 'bdg_egids', 'display_apps', 'created_at')
+    readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
     search_fields = ('tenant',)
-
-    # Actions
-    actions = [a.tenant_setup_create_user]
 
     #Fieldsets
     fieldsets = (
         (None, {
             'fields': (
                 'canton', 'type', 'language', 'show_only_primary_language',
-                'zips', 'bdg_egids', 'zoom', 'display_users'
+                'zips', 'bdg_egids', 'zoom', 
             ),  # Including the display method here is okay for readonly display
             'classes': ('expand',),
         }),
@@ -235,16 +203,6 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
     def display_apps(self, obj):
         return Display.list(
             sorted([x.verbose_name for x in obj.tenant.apps.all()]))
-
-    @admin.display(description=_('Users'))
-    def display_users(self, obj):
-        # Custom method to display users as a read-only field in the admin
-        users = [x.username for x in obj.users.all()]
-        return Display.list(users)
-
-    @admin.display(description=_('Groups'))
-    def group_names(self, obj):
-        return Display.list(sorted([x.name for x in obj.groups]))
 
 
 @admin.register(models.TenantLogo, site=admin_site)

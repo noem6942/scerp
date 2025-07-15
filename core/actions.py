@@ -10,7 +10,7 @@ from django_admin_action_forms import action_with_form
 from accounting.signals_cash_ctrl import tenant_accounting_post_save
 from scerp.actions import action_check_nr_selected
 from . import forms
-from .models import Person, PersonContact, UserProfile
+from .models import Person, PersonContact
 from .safeguards import get_tenant_data
 from .signals import tenant_post_save
 
@@ -58,52 +58,6 @@ def tenant_user_assign_groups(modeladmin, request, queryset, data):
         # Replace the user's groups with the selected groups
         user.groups.set(data['groups'])
         user.save()        
-
-
-@action_with_form(
-    forms.CreateUserForm, description=_("Create a User"))
-def tenant_setup_create_user(modeladmin, request, queryset, data):
-    __ = modeladmin  # disable pylint warning
-    if action_check_nr_selected(request, queryset, 1):
-        tenant_data = get_tenant_data(request)
-        tenant_id = tenant_data.get('id')
-        person = data['person']
-
-        user = User.objects.filter(username=data['username']).first()
-        if user:
-            messages.warning(request, _("User already existing"))
-        else:
-            # create user
-            groups = [group for group in data.pop('groups')]
-            password = generate_random_password()
-            email = PersonContact.objects.filter(person=person).first()
-            user = User.objects.create_user(
-                username=data['username'],
-                password=password,
-                first_name=person.first_name,
-                last_name=person.last_name,
-                email=email,
-                is_staff=data.get('is_staff', False)
-            )
-
-        # Add user to tenant_setup
-        tenant_setup = queryset.first()
-        tenant_setup.users.add(user)
-
-        # Add Profile
-        profile, created = UserProfile.objects.get_or_create(
-            user=user,
-            defaults=dict(
-                person=data['person'],
-                created_by=request.user
-            )
-        )
-
-        # Add Groups
-        user.groups.add(*groups)
-        msg = _("Created {user} with password {password}").format(
-            user=data['username'], password=password)
-        messages.info(request, msg)
 
 
 @action_with_form(

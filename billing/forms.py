@@ -10,7 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from django_admin_action_forms import action_with_form, AdminActionForm
 
 from accounting.models import OrderCategoryOutgoing
-from core.models import UserProfile
+from core.models import TenantUser
 from .models import Setup, Period, Measurement, Subscription
 
 LABEL_BACK = _("Back")
@@ -58,7 +58,7 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
     responsible_user = forms.ModelChoiceField(
         label=_('Employee responsible'),
         required=True,
-        queryset=UserProfile.objects.none()
+        queryset=TenantUser.objects.none()
     )
     filename = forms.CharField(
         label=_('Filename'),
@@ -92,9 +92,8 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
             self.Meta.confirm_button_text = LABEL_BACK
             self.fields['responsible_user'].required = False
 
-        employees = UserProfile.objects.filter(
-            person__tenant=tenant).order_by(
-                'user__last_name', 'user__first_name')
+        employees = TenantUser.objects.filter(
+            tenant=tenant).order_by('user__last_name', 'user__first_name')
         self.fields['responsible_user'].queryset = employees
         self.fields['route_date'].initial = datetime.date.today
         self.fields['energy_type'].initial = 'W'
@@ -110,7 +109,7 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
     responsible_user = forms.ModelChoiceField(
         label=_('Employee responsible'),
         required=True,
-        queryset=UserProfile.objects.none()
+        queryset=TenantUser.objects.none()
     )
     filename = forms.CharField(
         label=_('Filename'),
@@ -144,9 +143,9 @@ class RouteMeterExportJSONActionForm(AdminActionForm):
             self.Meta.confirm_button_text = LABEL_BACK
             self.fields['responsible_user'].required = False
 
-        employees = UserProfile.objects.filter(
-            person__tenant=tenant).order_by(
-                'user__last_name', 'user__first_name')
+        employees = TenantUser.objects.filter(
+            tenant=tenant
+        ).order_by('user__last_name', 'user__first_name')
         self.fields['responsible_user'].queryset = employees
         self.fields['route_date'].initial = datetime.date.today
         self.fields['energy_type'].initial = 'W'

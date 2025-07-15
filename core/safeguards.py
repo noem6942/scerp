@@ -30,7 +30,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
 
-from core.models import Tenant, TenantSetup, UserProfile
+from core.models import Tenant, TenantSetup, TenantUser
 
 
 # Security mixins
@@ -50,14 +50,14 @@ def get_available_tenants(request, recheck_from_db=False):
             'name': tenant.name
         } for tenant in queryset]
     else:
-        queryset = TenantSetup.objects.filter(
-            users=request.user).order_by('tenant__name')
+        queryset = TenantUser.objects.filter(
+            user=request.user).order_by('tenant__name')
         available_tenants = [{
-            'id': setup.tenant.id,
-            'name': setup.tenant.name
-        } for setup in queryset]
+            'id': user.tenant.id,
+            'name': user.tenant.name
+        } for user in queryset]
 
-    # Store available tenants
+    # Store available tenants    
     request.session['available_tenants'] = available_tenants
     return available_tenants
 
@@ -94,14 +94,25 @@ def set_tenant(request, tenant_id):
     '''set tenant data on request.session
     '''
     # Recheck if allowed
-    queryset = TenantSetup.objects.filter(tenant__id=tenant_id)
-    if not request.user.is_superuser or not getattr(
-            settings, 'ADMIN_ACCESS_ALL', False):
-        queryset = queryset.filter(users=request.user)
+    if request.user.is_superuser and getattr(
+            settings, 'ADMIN_ACCESS_ALL', False):                
+        tenant_setup = TenantSetup.objects.filter(tenant__id=tenant_id).first()
+    else:        
+        # Check if user belongs to the tenant (allowed to access)
+        allowed = TenantUser.objects.filter(
+            tenant__id=tenant_id,
+            user=request.user
+        ).exists()
+
+        if not allowed:
+            # User is NOT allowed — handle permission denied
+            raise PermissionDenied("You do not have access to this tenant.")
+
+        # If allowed, fetch TenantSetup safely
+        tenant_setup = TenantSetup.objects.filter(tenant__id=tenant_id).first()
 
     # Save
-    if queryset:
-        tenant_setup = queryset.first()
+    if tenant_setup:
         request.session['tenant'] = {
             'id': tenant_id,
             'setup_id': tenant_setup.id,

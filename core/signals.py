@@ -16,7 +16,7 @@ from asset.models import Unit, AssetCategory
 from billing.models import Period
 from core.models import Title, PersonCategory
 
-from .models import App, Tenant, TenantSetup, TenantLogo, UserProfile, Country
+from .models import App, Tenant, TenantSetup, TenantLogo, Country
 from scerp.mixins import is_url_friendly, read_yaml_file
 
 logger = logging.getLogger(__name__)  # Using the app name for logging

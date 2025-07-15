@@ -16,8 +16,7 @@ from django.db import models
 from django.db.models import Max
 from django.utils.translation import get_language, gettext_lazy as _
 
-from core.models import (
-    LogAbstract, NotesAbstract,  TenantAbstract, UserProfile)
+from core.models import LogAbstract, NotesAbstract,  TenantAbstract
 
 # Mandatory working hours (e.g., 8 hours per day)
 MANDATORY_HOURS = 8

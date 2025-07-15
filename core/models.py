@@ -324,10 +324,6 @@ class TenantSetup(TenantAbstract):
         help_text=_('Format definitions'))
     zoom = models.PositiveSmallIntegerField(
         _('Zoom'), default=15, help_text=_('Zoom for map'))
-    users = models.ManyToManyField(
-        User, verbose_name=_('Users'),
-        related_name='%(class)s_users',
-        help_text=_('users subscribed'))
 
     def __str__(self):
         return self.tenant.name
@@ -339,14 +335,6 @@ class TenantSetup(TenantAbstract):
         if logo:
             return logo.logo
         return None
-
-    @property
-    def groups(self):
-        groups = set()
-        for user in self.users.all():
-            for group in user.groups.all():
-                groups.add(group)
-        return groups
 
     def save(self, *args, **kwargs):
         if not self.bdg_egids:
@@ -1188,30 +1176,6 @@ class PersonContact(Contact):
         Person, on_delete=models.CASCADE,
         related_name='%(class)s_person',
         verbose_name=_('Address'))
-
-
-class UserProfile(LogAbstract, NotesAbstract):
-    user = models.OneToOneField(
-        User, verbose_name=_('User'), on_delete=models.CASCADE,
-        related_name='profile',
-        help_text=_(
-            "Registered User. Click the 'pencil' to assign the user to groups"))
-    person = models.OneToOneField(
-        Person, verbose_name=_('User Details'), on_delete=models.CASCADE,
-        related_name='%(class)s_person',
-        help_text=_("Details and photo of person"))
-
-    def __str__(self):
-        return f'{self.user.last_name.upper()}, {self.user.first_name}'
-
-    @property
-    def groups(self):
-        return self.user.groups.all().order_by('name')
-
-    class Meta:
-        ordering = ['user__last_name', 'user__first_name']
-        verbose_name = _('User')
-        verbose_name_plural =  _('Users') + ' (Scerp)'
 
 
 class TenantUser(TenantAbstract):
