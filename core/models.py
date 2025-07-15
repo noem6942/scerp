@@ -1243,14 +1243,14 @@ class TenantUser(TenantAbstract):
         return f'{self.user}'   
 
     def save(self, *args, **kwargs):
-        user = User.objects.filter(username=self.username).first()
+        self.user = User.objects.filter(username=self.username).first()
         if not self.pk:
             # Check user                        
-            if user:
+            if self.user:
                 # update is_staff is necessary
-                if self.is_staff and not user.is_staff:
-                    user.is_staff = True
-                    user.save()
+                if self.is_staff and not self.user.is_staff:
+                    self.user.is_staff = True
+                    self.user.save()
             else:    
                 email = PersonContact.objects.filter(
                     person=self.person).first()
