@@ -166,7 +166,7 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
 
     # Get AccountCategory
     api = conn.AccountCategory(models.AccountCategory)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get Account
     api = conn.Account(models.Account)
