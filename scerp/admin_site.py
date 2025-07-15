@@ -27,7 +27,7 @@ class Site(AdminSite):
     site_header = APP_CONFIG['site_header']  # Default site header
     site_title = APP_CONFIG['site_title']  # Default site title
     index_title = APP_CONFIG['index_title']  # Default index title
-    
+
     # Side Menu
     current_app = None  # assign from path
     app_setup = {}  # assign in _get_ordered_app_list
@@ -35,12 +35,12 @@ class Site(AdminSite):
     # Order and seperators
     DEFAULT_ORDER = '\u00A0'  # Non-visible space character for late-order apps
     SEPARATOR_APP = '. '
-    SEPARATOR_MODEL = '. '    
+    SEPARATOR_MODEL = '. '
 
     # Handle requests
     def index(self, request, extra_context=None):
-        ''' this gets called with every page view 
-        '''        
+        ''' this gets called with every page view
+        '''
         # Handle tenant selection
         if request.method == 'POST':
             # Handle the form submission when a tenant is selected
@@ -49,28 +49,28 @@ class Site(AdminSite):
                 try:
                     # Set request.session
                     _tenant = set_tenant(request, tenant_id)
-                    # Redirect to admin page after selection                    
+                    # Redirect to admin page after selection
                     return redirect(request.path)  # Reload the same page
                 except Tenant.DoesNotExist:
                     return HttpResponseForbidden(
                         _("Tenant not found or access denied."))
             else:
-                return HttpResponseForbidden(_("No tenant selected."))            
-            
+                return HttpResponseForbidden(_("No tenant selected."))
+
         # Handle GET request: Get the current tenant and available tenants
-        tenant_data = get_tenant_data(request)  # get_tenant        
+        tenant_data = get_tenant_data(request)  # get_tenant
         available_tenants = get_available_tenants(request)
         if not tenant_data and len(available_tenants):
             tenant_data = available_tenants[0]
-            tenant = set_tenant(request, tenant_data['id'])          
-        
+            tenant = set_tenant(request, tenant_data['id'])
+
         # Pass available tenants and selected tenant ID to the template
         extra_context = extra_context or {}
         extra_context.update({
             'available_tenants': available_tenants,
             'tenant': tenant_data
         })
-        
+
         # Render the regular admin index page
         return super().index(request, extra_context=extra_context)
 
@@ -115,18 +115,18 @@ class Site(AdminSite):
         '''Generate an ordered list of all apps.'''
         ordered_app_list = []
         tenant = get_tenant_data(request)
-        
+
         # Builds App Setup
         app_setup = dict(APP_MODEL_ORDER)
         if self.current_app and self.current_app in app_setup:
             current_app = {self.current_app: app_setup.pop(self.current_app)}
         else:
-            current_app = {}            
+            current_app = {}
         self.app_setup = {**current_app, **app_setup}
 
         # Make Menu
         for app_label, app_info in self.app_setup.items():
-            if not app_info.get('needs_tenant', True) or tenant:                
+            if not app_info.get('needs_tenant', True) or tenant:
                 app = self._find_app(app_list, app_label)
                 if app:
                     self._process_app(app, app_info, tenant)
@@ -140,8 +140,8 @@ class Site(AdminSite):
                 and (not app_info.get('needs_tenant', True) or tenant)
             )
         ]
-        ordered_app_list.extend(remaining_apps)    
-        
+        ordered_app_list.extend(remaining_apps)
+
         return ordered_app_list
 
     def _get_app_detail_list(self, app_list, app_label):
@@ -182,7 +182,7 @@ class Site(AdminSite):
             )
         )
         '''
-        for model in app['models']:            
+        for model in app['models']:
             order, postfix = model_order_dict.get(
                 model['object_name'], (self.DEFAULT_ORDER, None)
             )
