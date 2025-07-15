@@ -15,7 +15,8 @@ from django.utils.translation import get_language, gettext_lazy as _
 
 from accounting.banking import get_bic
 from scerp.locales import CANTON_CHOICES
-from scerp.mixins import primary_language, convert_ch1903_to_wgs84
+from scerp.mixins import (
+    primary_language, convert_ch1903_to_wgs84, generate_random_password)
 
 
 # Base ----------------------------------------------------------------------
@@ -177,90 +178,6 @@ class Tenant(LogAbstract, NotesAbstract):
         verbose_name_plural = '_' + _('Tenants')
 
 
-class TenantSetup(LogAbstract, NotesAbstract):
-    '''used for assign technical stuff
-        gets automatically created after a Tenant has been created,
-    '''
-    class TYPE(models.TextChoices):
-        CITIZEN = ('B', _('Bürgergemeinde'))
-        INHABITANTS = ('E', _('Einwohnergemeinde'))
-        MUNICIPITY = ('G', _('Gemeinde'))
-        CHURCH = ('K', _('Kirchgemeinde'))
-        CITY = ('S', _('Stadt'))
-        CORPORATION = ('Z', _('Zweckverband'))
-        CANTON = ('C', _('Bürgergemeinde'))
-        FEDERATION = ('F', _('Bund'))
-        TRUSTEE = ('T', _('Trustee'))
-
-    tenant = models.OneToOneField(
-        Tenant, verbose_name=_('tenant'), on_delete=models.CASCADE,
-        related_name='%(class)s_tenant',
-        help_text=_('assignment of tenant / client'))
-    canton = models.CharField(
-         _('canton'), max_length=2, choices=CANTON_CHOICES,
-         null=True, blank=True)
-    language = models.CharField(
-        _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
-        help_text=_('The main language of the person. May be used for documents.')
-    )
-    show_only_primary_language = models.BooleanField(
-        _('Show only primary language'), default=True,
-        help_text=_('Show only primary language in forms')
-    )
-    type = models.CharField(
-         _('Type'), max_length=1, choices=TYPE.choices,
-        null=True, blank=True,
-        help_text=_('Type, add new one of no match'))
-    zips = models.JSONField(
-        _('municipality zips'), default=list,
-        help_text=_(
-            'Zips that belong to the tenant, e.g. [4617]. '
-            'We use it for importing the building addresses. '))
-    bdg_egids = models.JSONField(
-        _('EGIDS to include'), blank=True, null=True,
-        help_text=_(
-            'Egids zip codes that belong to the tenant, e.g. [4617]. '
-            'We use it for importing the building addresses. '))
-    formats = models.JSONField(
-        _('formats'), null=True, blank=True,
-        help_text=_('Format definitions'))
-    zoom = models.PositiveSmallIntegerField(
-        _('Zoom'), default=15, help_text=_('Zoom for map'))
-    users = models.ManyToManyField(
-        User, verbose_name=_('Users'),
-        related_name='%(class)s_users',
-        help_text=_('users subscribed'))
-
-    def __str__(self):
-        return self.tenant.name
-
-    @property
-    def logo(self):
-        logo = TenantLogo.objects.filter(
-            tenant=self.tenant, type=TenantLogo.Type.MAIN).first()
-        if logo:
-            return logo.logo
-        return None
-
-    @property
-    def groups(self):
-        groups = set()
-        for user in self.users.all():
-            for group in user.groups.all():
-                groups.add(group)
-        return groups
-
-    def save(self, *args, **kwargs):
-        if not self.bdg_egids:
-            self.bdg_egids = []
-        super().save(*args, **kwargs)
-
-    class Meta:
-        ordering = ['tenant__name']
-        verbose_name = _('tenant setup')
-        verbose_name_plural =  _('tenant setups')
-
-
 class Message(LogAbstract, NotesAbstract):
     '''only admin and trustees are allowed to create Tenants
         sends signals after creation!
@@ -360,6 +277,87 @@ class Attachment(LogAbstract):
         return cls.objects.filter(
             content_type=content_type, object_id=instance.pk
         ).order_by('-object_id')
+
+
+class TenantSetup(TenantAbstract):
+    '''used for assign technical stuff
+        gets automatically created after a Tenant has been created,
+    '''
+    class TYPE(models.TextChoices):
+        CITIZEN = ('B', _('Bürgergemeinde'))
+        INHABITANTS = ('E', _('Einwohnergemeinde'))
+        MUNICIPITY = ('G', _('Gemeinde'))
+        CHURCH = ('K', _('Kirchgemeinde'))
+        CITY = ('S', _('Stadt'))
+        CORPORATION = ('Z', _('Zweckverband'))
+        CANTON = ('C', _('Bürgergemeinde'))
+        FEDERATION = ('F', _('Bund'))
+        TRUSTEE = ('T', _('Trustee'))
+
+    canton = models.CharField(
+         _('canton'), max_length=2, choices=CANTON_CHOICES,
+         null=True, blank=True)
+    language = models.CharField(
+        _('Language'), max_length=2, choices=settings.LANGUAGES, default='de',
+        help_text=_('The main language of the person. May be used for documents.')
+    )
+    show_only_primary_language = models.BooleanField(
+        _('Show only primary language'), default=True,
+        help_text=_('Show only primary language in forms')
+    )
+    type = models.CharField(
+         _('Type'), max_length=1, choices=TYPE.choices,
+        null=True, blank=True,
+        help_text=_('Type, add new one of no match'))
+    zips = models.JSONField(
+        _('municipality zips'), default=list,
+        help_text=_(
+            'Zips that belong to the tenant, e.g. [4617]. '
+            'We use it for importing the building addresses. '))
+    bdg_egids = models.JSONField(
+        _('EGIDS to include'), blank=True, null=True,
+        help_text=_(
+            'Egids zip codes that belong to the tenant, e.g. [4617]. '
+            'We use it for importing the building addresses. '))
+    formats = models.JSONField(
+        _('formats'), null=True, blank=True,
+        help_text=_('Format definitions'))
+    zoom = models.PositiveSmallIntegerField(
+        _('Zoom'), default=15, help_text=_('Zoom for map'))
+    users = models.ManyToManyField(
+        User, verbose_name=_('Users'),
+        related_name='%(class)s_users',
+        help_text=_('users subscribed'))
+
+    def __str__(self):
+        return self.tenant.name
+
+    @property
+    def logo(self):
+        logo = TenantLogo.objects.filter(
+            tenant=self.tenant, type=TenantLogo.Type.MAIN).first()
+        if logo:
+            return logo.logo
+        return None
+
+    @property
+    def groups(self):
+        groups = set()
+        for user in self.users.all():
+            for group in user.groups.all():
+                groups.add(group)
+        return groups
+
+    def save(self, *args, **kwargs):
+        if not self.bdg_egids:
+            self.bdg_egids = []
+        super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['tenant__name']
+        verbose_name = _('tenant setup')
+        verbose_name_plural =  _('tenant setups')
+
 
 
 class TenantLogo(TenantAbstract):
@@ -1214,6 +1212,63 @@ class UserProfile(LogAbstract, NotesAbstract):
         ordering = ['user__last_name', 'user__first_name']
         verbose_name = _('User')
         verbose_name_plural =  _('Users') + ' (Scerp)'
+
+
+class TenantUser(TenantAbstract):
+    username = models.EmailField(
+        _('User name'), max_length=150, blank=True, null=True,
+        help_text=_(
+            "Create or assign a user with this name, format e.g. "
+            "max.muster@firma.ch"))
+    init_password = models.CharField(
+        _('Password'), max_length=150, blank=True, null=True,
+        default=generate_random_password,
+        help_text=_("Init password, share secretly on a second channel"))
+    user = models.ForeignKey(
+        User, verbose_name=_('User'), on_delete=models.CASCADE,
+        related_name='%(class)s_user',
+        help_text=_(
+            "Registered User. Click the 'pencil' to assign the user to groups"))
+    person = models.OneToOneField(
+        Person, verbose_name=_('Person'), on_delete=models.CASCADE,
+        related_name='%(class)s_person',
+        help_text=_("Details of person"))
+    is_staff = models.BooleanField(
+        _('is staff'), default=True,
+        help_text=_('Check if user is allowed to use GUI.'))
+
+    def __str__(self):
+        return f'{self.user}'   
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            # Check user            
+            user = User.objects.filter(username=self.username).first()
+            if user:
+                # update is_staff is necessary
+                if self.is_staff and not user.is_staff:
+                    user.is_staff = True
+                    user.save()
+            else:    
+                email = PersonContact.objects.filter(
+                    person=self.person).first()
+                self.user = User.objects.create_user(
+                    username=self.username,
+                    password=self.init_password,
+                    first_name=self.person.first_name,
+                    last_name=self.person.last_name,
+                    email=email,
+                    is_staff=self.is_staff
+                )
+            self.user_name = None
+            self.init_password = None
+
+        super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['user__last_name', 'user__first_name']
+        verbose_name = _('User')
+        verbose_name_plural =  _('Users')
 
 
 # Buildings, Rooms

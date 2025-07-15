@@ -53,6 +53,11 @@ class CreateUserForm(AdminActionForm):
         required=True,
         widget=SelectMultiple(attrs={'size': '20'}),
         help_text=_("Select the appropriate groups for user."))
+    is_staff = forms.BooleanField(
+        label=_('Use GUI'),
+        required=False, initial=True,
+        help_text=_("Is allowed to work in the admin.py GUI")
+    )        
 
     class Meta:
         help_text = _("Add a user")
@@ -65,6 +70,26 @@ class CreateUserForm(AdminActionForm):
                 PersonCategory.CODE.EMPLOYEE, 
                 PersonCategory.CODE.EMPLOYEE_EXTERNAL
             ]).order_by('last_name', 'first_name')
+
+
+class TenantUserGroupForm(AdminActionForm):
+    '''assign groups
+    '''
+    
+    username = forms.CharField(
+        label=_('Username'), disabled=True, )
+    groups = forms.ModelMultipleChoiceField(
+        label=_('Groups'),
+        queryset = Group.objects.all().order_by('name'),
+        required=True,
+        widget=SelectMultiple(attrs={'size': '20'}),
+        help_text=_("Select the appropriate groups for user."))    
+
+    def __post_init__(self, modeladmin, request, queryset):
+        tenant = queryset.first().tenant
+        self.fields['username'].initial = queryset.first().user.username
+        user = queryset.first().user
+        self.fields['groups'].initial = user.groups.values_list('id', flat=True)
 
 
 class AssignTitleForm(AdminActionForm):

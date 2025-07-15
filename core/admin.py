@@ -100,6 +100,66 @@ class UserProfileAdmin(TenantFilteringAdmin, BaseAdmin):
         return Display.photo(obj.person.photo)
 
 
+@admin.register(models.TenantUser, site=admin_site)
+class TenantUserAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = ['tenant']
+
+    # Display these fields in the list view
+    list_display = (
+        'user__last_name', 'user__first_name', 'user', 'group_names',
+        'person_photo')
+
+    # Search, filter
+    search_fields = (
+        'user__username', 'person__last_name', 'person__first_name')
+    autocomplete_fields = ['person']
+
+    # Actions
+    actions = [a.tenant_user_assign_groups] + default_actions
+
+    # Readonly
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = (
+            'user', 'group_names', 'person_photo') + FIELDS.LOGGING
+        if obj:  # obj exists => editing mode
+            return readonly_fields + ('username', )
+        return readonly_fields + ('init_password', )
+
+    # Fieldset
+    def get_fieldsets(self, request, obj=None):
+        # Base field list for the first fieldset
+        if obj:
+            # Edit mode: remove username + init_password
+            base_fields = ['person', 'user', 'is_staff', 'group_names']
+        else:
+            # Create mode: remove user + group_names
+            base_fields = ['username', 'person', 'init_password', 'is_staff']
+
+        return (
+            (None, {
+                'fields': base_fields,
+                'classes': ('expand',),
+            }),
+            FIELDSET.NOTES_AND_STATUS,
+            FIELDSET.LOGGING,
+        )
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        if not obj:
+            form.base_fields['username'].required = True
+        return form
+
+    @admin.display(description=_('Groups'))
+    def group_names(self, obj):
+        return Display.list([x.name for x in obj.user.groups.all()])
+
+    @admin.display(description=_('Photo'))
+    def person_photo(self, obj):
+        return Display.photo(obj.person.photo)
+
+
 @admin.register(models.Tenant, site=admin_site)
 class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
     # helptext
