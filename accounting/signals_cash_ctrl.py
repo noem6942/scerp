@@ -96,6 +96,7 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
             obj.is_enabled_sync = True
             obj.sync_to_accounting = True
             obj.save()
+            logger.info(f"saved {obj}")
 
     # Open yaml
     init_data = read_yaml_file('accounting', ACCOUNT_SETUP_YAML)
@@ -105,6 +106,7 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
         setup_data_add_logging(tenant, data)
         _obj, _created = models.CustomFieldGroup.objects.update_or_create(
             tenant=tenant, code=data.pop('code'), defaults=data)
+    logger.info(f"saved CustomFieldGroups")
 
     # Create CustomFields
     for data in init_data['CustomField']:
@@ -115,24 +117,28 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
         setup_data_add_logging(tenant, data)
         _obj, _created = models.CustomField.objects.update_or_create(
             tenant=tenant, code=data.pop('code'), defaults=data)
+    logger.info(f"saved CustomFieldGroups")
 
     # Create ArticleCategory
     for data in init_data['ArticleCategory']:
         setup_data_add_logging(tenant, data)
         _obj, _created = models.ArticleCategory.objects.update_or_create(
             tenant=tenant, code=data.pop('code'), defaults=data)
+    logger.info(f"saved CustomFieldGroups")
 
     # Create FileCategory
     for data in init_data['FileCategory']:
         setup_data_add_logging(tenant, data)
         _obj, _created = models.FileCategory.objects.update_or_create(
             tenant=tenant, code=data.pop('code'), defaults=data)
+    logger.info(f"saved FileCategory")
 
     # Create Order Layout
     for data in init_data['OrderLayout']:
         setup_data_add_logging(tenant, data)
         _obj, _created = models.OrderLayout.objects.update_or_create(
             tenant=tenant, name=data.pop('name'), defaults=data)
+    logger.info(f"saved OrderLayout")
 
     # Get Location
     api = conn.Location(models.Location)
@@ -189,6 +195,7 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
             number=data.pop('parent_number')).first()
         _obj, _created = models.AccountCategory.objects.update_or_create(
             tenant=tenant, number=data.pop('number'), defaults=data)
+    logger.info(f"saved AccountCategory")
 
     # Update tenant
     instance.is_initialized = True
