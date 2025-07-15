@@ -106,10 +106,10 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
     help_text = _(
         "When you create a new tenant, login / logout to get the new tenant "
         "in the selection.")
-    
+
     # Display these fields in the list view
     list_display = (
-        'code', 'name', 'cash_ctrl_org_name', 'is_initialized', 
+        'code', 'name', 'cash_ctrl_org_name', 'is_initialized',
         'is_initialized_accounting', 'created_at')
     readonly_fields = FIELDS.LOGGING + (
         'is_initialized', 'is_initialized_accounting')
@@ -238,8 +238,8 @@ class TicketAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
-    
-    inlines = [AttachmentInline]    
+
+    inlines = [AttachmentInline]
 
 
 @admin.register(models.TicketAdminView, site=admin_site)
@@ -266,8 +266,8 @@ class TicketOverviewAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
     )
-    
-    inlines = [AttachmentInline]    
+
+    inlines = [AttachmentInline]
 
 
 
@@ -279,7 +279,7 @@ class AddressMunicipalAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_zip', 'city', 'display_address', 'bdg_egid', 'bdg_category', 
+        'display_zip', 'city', 'display_address', 'bdg_egid', 'bdg_category',
         'adr_status', 'area')
     list_display_links = ('display_zip', 'city', 'display_address')
     readonly_fields = (
@@ -335,7 +335,7 @@ class AreaAdmin(TenantFilteringAdmin, BaseAdmin):
     readonly_fields = FIELDS.LOGGING_TENANT
 
     # Search, filter
-    search_fields = ('code', 'name')    
+    search_fields = ('code', 'name')
 
     #Fieldsets
     fieldsets = (
@@ -385,13 +385,13 @@ class TitleAdmin(TenantFilteringAdmin, BaseAdmin):
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
     )
-    
+
     @admin.display(description=_('Sentence'))
     def display_sentence(self, obj):
         try:
             return primary_language(obj.sentence)
         except:
-            return ' '    
+            return ' '
 
 
 @admin.register(models.PersonCategory, site=admin_site)
@@ -572,5 +572,5 @@ class PersonAddressAdmin(TenantFilteringAdmin, BaseAdmin):
             ),
         }),
         FIELDSET.NOTES_AND_STATUS,
-        FIELDSET.LOGGING_TENANT        
+        FIELDSET.LOGGING_TENANT
     )

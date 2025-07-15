@@ -125,12 +125,12 @@ class Tenant(LogAbstract, NotesAbstract):
 
     # Initialized
     is_initialized = models.BooleanField(
-        _('is initialized'), default=False, 
-        help_text=_('True if tenant is initialized'))    
+        _('is initialized'), default=False,
+        help_text=_('True if tenant is initialized'))
     is_initialized_accounting = models.BooleanField(
-        _('is initialized accountin'), default=False, 
-        help_text=_('True if accounting is initialized'))    
-        
+        _('is initialized accountin'), default=False,
+        help_text=_('True if accounting is initialized'))
+
     # General accounting
     encode_numbers = models.BooleanField(
         _('Encode numbers in cashCtrl headings'), default=True,
@@ -217,7 +217,7 @@ class TenantSetup(LogAbstract, NotesAbstract):
             'Zips that belong to the tenant, e.g. [4617]. '
             'We use it for importing the building addresses. '))
     bdg_egids = models.JSONField(
-        _('EGIDS to include'), default=list,
+        _('EGIDS to include'), blank=True, null=True,
         help_text=_(
             'Egids zip codes that belong to the tenant, e.g. [4617]. '
             'We use it for importing the building addresses. '))
@@ -225,7 +225,7 @@ class TenantSetup(LogAbstract, NotesAbstract):
         _('formats'), null=True, blank=True,
         help_text=_('Format definitions'))
     zoom = models.PositiveSmallIntegerField(
-        _('Zoom'), default=15, help_text=_('Zoom for map'))        
+        _('Zoom'), default=15, help_text=_('Zoom for map'))
     users = models.ManyToManyField(
         User, verbose_name=_('Users'),
         related_name='%(class)s_users',
@@ -249,6 +249,11 @@ class TenantSetup(LogAbstract, NotesAbstract):
             for group in user.groups.all():
                 groups.add(group)
         return groups
+
+    def save(self, *args, **kwargs):
+        if not self.bdg_egids:
+            self.bdg_egids = []
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['tenant__name']
@@ -668,7 +673,7 @@ class AddressMunicipal(TenantAbstract):
     address_label = models.CharField(
         max_length=255, blank=True, null=True,
         help_text="Address label for sorting - automatically filled out."
-    )    
+    )
     area = models.ForeignKey(
         Area, on_delete=models.PROTECT, blank=True, null=True,
         verbose_name=_('Area'), related_name="%(class)s_area",
@@ -680,7 +685,7 @@ class AddressMunicipal(TenantAbstract):
         # append number to be sortable, e.g. '123'.rjust(5) → ' 123'
         length = 5 if self.adr_number and self.adr_number[-1].isalpha() else 4
         self.address_label += (self.adr_number or '').rjust(length)
-        
+
         # Automatically calculate latitude and longitude if missing
         if self.adr_easting and self.adr_northing and (
                 self.lat is None or self.lon is None):
@@ -1033,7 +1038,7 @@ class Person(AcctApp):
     def short_name(self):
         ''' output company name or lastname, firstname '''
         if self.company:
-            return self.company 
+            return self.company
         return f"{self.last_name}, {self.first_name}"
 
     def clean(self, *args, **kwargs):
