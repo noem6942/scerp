@@ -102,9 +102,17 @@ class UserProfileAdmin(TenantFilteringAdmin, BaseAdmin):
 
 @admin.register(models.Tenant, site=admin_site)
 class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
+    # helptext
+    help_text = _(
+        "When you create a new tenant, login / logout to get the new tenant "
+        "in the selection.")
+    
     # Display these fields in the list view
-    list_display = ('code', 'name', 'cash_ctrl_org_name', 'created_at')
-    readonly_fields = FIELDS.LOGGING
+    list_display = (
+        'code', 'name', 'cash_ctrl_org_name', 'is_initialized', 
+        'is_initialized_accounting', 'created_at')
+    readonly_fields = FIELDS.LOGGING + (
+        'is_initialized', 'is_initialized_accounting')
 
     # Search, filter
     search_fields = ('name', 'code')
@@ -115,7 +123,9 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
     # Fieldsets
     fieldsets = (
         (None, {
-            'fields': ('name', 'code', 'is_app_time_trustee'),
+            'fields': (
+                'name', 'code', 'is_app_time_trustee', 'is_initialized',
+                'is_initialized_accounting'),
             'classes': ('expand',),
         }),
         ('cashCtrl', {

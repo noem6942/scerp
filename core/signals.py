@@ -11,7 +11,6 @@ from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
-from django.contrib import messages
 
 from asset.models import Unit, AssetCategory
 from billing.models import Period
@@ -42,8 +41,17 @@ def tenant_pre_save(sender, instance, **kwargs):
 def tenant_post_save(sender, instance, created, **kwargs):
     """Perform follow-up actions when a new Tenant is created."""
     __ = sender  # not used
-    if not created and not kwargs.get('init'):
-        return  # No action
+    if created:
+        # create also tenant setup
+        _obj, _created = TenantSetup.objects.get_or_create(
+            tenant=instance,
+            defaults=dict(created_by=instance.created_by)
+        )
+        return  # no action, first we want the user to select the tenant
+    elif instance.is_initialized:    
+        return  # no action, tenant already initialized
+    elif not kwargs.get('init'):
+        return  # no action, if tenant setup not manually set
 
     # Intro ---------------------------------------------------------------
 
@@ -118,6 +126,10 @@ def tenant_post_save(sender, instance, created, **kwargs):
             defaults=data)
         logger.info(f"created {obj}")                  
 
+    # Update tenant
+    instance.is_initialized = True
+    instance.save()
+    
 
 @receiver(pre_save, sender=TenantSetup)
 def tenant_setup_pre_save(sender, instance, **kwargs):

@@ -64,14 +64,23 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
     '''Post action for Tenant
     '''
     # Check no action
-    tenant = instance
-    if not created and not kwargs.get('init'):
-        return
-    if not tenant.cash_ctrl_org_name:
-        return
+    __ = sender  # not used
+    if created:
+        return  # no action, first we want the user to select the tenant
+    elif instance.is_initialized_accounting:    
+        return  # no action, already initialized
+    elif not kwargs.get('init'):
+        return  # no action, if tenant setup not manually set    
+    elif not instance.cash_ctrl_org_name:
+        raise ValueError("Tenant has no cashCtrl org_name")
+        return 
+    elif not instance.cash_ctrl_api_key:
+        raise ValueError("Tenant has no cashCtrl api key")
+        return 
 
     # Intro ---------------------------------------------------------------
-
+    tenant = instance
+    
     # shift core data to accounting
     core_models = (
         Title,
@@ -180,6 +189,10 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
             number=data.pop('parent_number')).first()
         _obj, _created = models.AccountCategory.objects.update_or_create(
             tenant=tenant, number=data.pop('number'), defaults=data)
+
+    # Update tenant
+    instance.is_initialized = True
+    instance.save()
 
 
 # core.models ----------------------------------------------------------

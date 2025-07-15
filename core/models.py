@@ -123,6 +123,14 @@ class Tenant(LogAbstract, NotesAbstract):
         _('api key'), max_length=100,  blank=True, null=True,
         help_text=_('api key'))
 
+    # Initialized
+    is_initialized = models.BooleanField(
+        _('is initialized'), default=False, 
+        help_text=_('True if tenant is initialized'))    
+    is_initialized_accounting = models.BooleanField(
+        _('is initialized accountin'), default=False, 
+        help_text=_('True if accounting is initialized'))    
+        
     # General accounting
     encode_numbers = models.BooleanField(
         _('Encode numbers in cashCtrl headings'), default=True,
