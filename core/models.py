@@ -1223,7 +1223,9 @@ class TenantUser(TenantAbstract):
     init_password = models.CharField(
         _('Password'), max_length=150, blank=True, null=True,
         default=generate_random_password,
-        help_text=_("Init password, share secretly on a second channel"))
+        help_text=_(
+            "Init password if user is not in the system yet. " 
+            "Share secretly via a second channel"))
     user = models.ForeignKey(
         User, verbose_name=_('User'), on_delete=models.CASCADE,
         related_name='%(class)s_user',
@@ -1241,9 +1243,9 @@ class TenantUser(TenantAbstract):
         return f'{self.user}'   
 
     def save(self, *args, **kwargs):
+        user = User.objects.filter(username=self.username).first()
         if not self.pk:
-            # Check user            
-            user = User.objects.filter(username=self.username).first()
+            # Check user                        
             if user:
                 # update is_staff is necessary
                 if self.is_staff and not user.is_staff:
