@@ -169,8 +169,8 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
     api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get Account
-    api = conn.Account(models.Account, delete_not_existing=False)
-    api.get(tenant, tenant.created_by)
+    api = conn.Account(models.Account)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get Rounding
     api = conn.Rounding(models.Rounding)
