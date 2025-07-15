@@ -182,11 +182,11 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
 
     # Get Tax
     api = conn.Tax(models.Tax)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get BankAccount
     api = conn.BankAccount(models.BankAccount)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Create AccountCategory, ER / IR categories like 3.1, 4.1 etc.
     for data in init_data['AccountCategory']:
