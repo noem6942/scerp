@@ -33,38 +33,6 @@ from . import api_cash_ctrl, connector_cash_ctrl as conn
 from .ledger import LoadBalance
 
 
-@admin.action(description=('Admin: Init setup'))
-def init_setup(modeladmin, request, queryset):
-    pass
-    '''
-    # Check
-    if action_check_nr_selected(request, queryset, 1):
-        instance = queryset.first()
-
-        # Only perform actions if there are no errors
-        with transaction.atomic():
-            api_setup_post_save(
-                modeladmin.model, instance, init=True, request=request)
-        return
-        try:
-            # Wrap the database operation in an atomic block
-            with transaction.atomic():
-                api_setup_post_save(
-                    modeladmin.model, instance, init=True, request=request)
-        except IntegrityError as e:
-            if "Duplicate entry" in str(e):
-                msg = _("Unique constraints violated")
-                messages.error(request, f"{msg}: {e}")
-            else:
-                messages.error(request, f"An error occurred: {str(e)}")
-        except APIRequestError as e:
-            # Catch the custom exception and show a user-friendly message
-            messages.error(request, f"APIRequestError: {str(e)}")
-
-        messages.success(request, _("Accounting API initialized"))
-    '''
-
-
 @action_with_form(
     forms.ChartOfAccountsDateForm, description=_('Get balances'))
 def get_balances(modeladmin, request, queryset, data):
