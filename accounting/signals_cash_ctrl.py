@@ -142,7 +142,7 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
 
     # Get Location
     api = conn.Location(models.Location)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get FiscalPeriod
     api = conn.FiscalPeriod(models.FiscalPeriod)
