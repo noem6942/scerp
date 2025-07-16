@@ -650,7 +650,6 @@ class Account(AcctApp):
                 name='unique_tenant_account'
             )
         ]
-
         ordering = ['function', 'hrm', 'number']
         verbose_name = ('Ledger - Setup Account')
         verbose_name_plural = _('Ledger - Setup Accounts')
@@ -1310,7 +1309,11 @@ class OrderCategory(AcctApp):
         help_text=_(
             "The text displayed below the items list on the document used by "
             "default for order objects"))
-
+    block_update = models.BooleanField(
+        # used to change categories with existing entities in cashCtrl
+        _("Block update"), default=False,
+        help_text=("Do not update to cashCtrl this time. (Admin only)"))
+        
     @property
     def book_type(self):
         return (
@@ -1403,10 +1406,6 @@ class OrderCategoryContract(OrderCategory):
         help_text=_(
             "The text displayed above  the items list on the document used by "
             "default for order objects"))
-    block_update = models.BooleanField(
-        # used to change categories with existing entities in cashCtrl
-        _("Block update"), default=False,
-        help_text=("Do not update to cashCtrl this time. (Admin only)"))
 
     @property
     def account(self):
