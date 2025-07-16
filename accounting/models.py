@@ -2064,7 +2064,7 @@ class Ledger(AcctApp):
         _('Name'), default=dict, help_text="The name of the ledger.")
     period = models.ForeignKey(
         FiscalPeriod, verbose_name=_('Fiscal Period'),
-        on_delete=models.CASCADE, related_name='%(class)s_period',
+        on_delete=models.PROTECT, related_name='%(class)s_period',
         help_text=_("Fiscal period"))
 
     def __str__(self):
@@ -2115,7 +2115,7 @@ class LedgerAccount(AcctApp):
         help_text=_("Category or account"))
     ledger = models.ForeignKey(
         Ledger, verbose_name=_('Ledger'),
-        on_delete=models.CASCADE, related_name='%(class)s_ledger',
+        on_delete=models.PROTECT, related_name='%(class)s_ledger',
         help_text=_("Ledger assigned to the fiscal period"))
     parent = models.ForeignKey(
         'self', verbose_name=_('Parent'), blank=True, null=True,

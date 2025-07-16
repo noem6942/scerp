@@ -139,30 +139,34 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
         _obj, _created = models.OrderLayout.objects.update_or_create(
             tenant=tenant, name=data.pop('name'), defaults=data)
     logger.info(f"saved OrderLayout")
-
-    # Get Location
+  
+    # Get data from cashCtrl
+    # for the get we use delete_not_existing=False not to accidentially
+    # delete data
+    
+    # Get Location  
     api = conn.Location(models.Location)
     api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get FiscalPeriod
     api = conn.FiscalPeriod(models.FiscalPeriod)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get Currency
     api = conn.Currency(models.Currency)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get SequenceNumber
     api = conn.SequenceNumber(models.SequenceNumber)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get CostCenterCategory
     api = conn.CostCenterCategory(models.CostCenterCategory)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get CostCenter
     api = conn.CostCenter(models.CostCenter)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get AccountCategory
     api = conn.AccountCategory(models.AccountCategory)
@@ -174,11 +178,11 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
 
     # Get Rounding
     api = conn.Rounding(models.Rounding)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get Setting
     api = conn.Setting(models.Setting)
-    api.get(tenant, tenant.created_by)
+    api.get(tenant, tenant.created_by, delete_not_existing=False)
 
     # Get Tax
     api = conn.Tax(models.Tax)
