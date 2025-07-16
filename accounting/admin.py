@@ -1225,9 +1225,6 @@ class LedgerAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Helpers
     form = forms.LedgerAdminForm
-    help_text = _(
-        "Fill out only Ledger, HRM, Name, Function - rest is calculated by "
-        "system.")
     
     # Display these fields in the list view
     list_display = (
@@ -1428,12 +1425,12 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
 
     #Fieldsets
     fieldsets = (
-        (_('Classification'), {
+        (_('Classification (use this first)'), {
             'fields': (
-                'ledger', *make_language_fields('name'), 'function', 'hrm'),
+                'ledger', *make_language_fields('name'), 'hrm', 'function'),
             'classes': ('expand',),
         }),
-        (_('Optional'), {
+        (_('Optional (leave empty in most cases)'), {
             'fields': (
                 'type', 'parent', 'account',
                 'category_expense', 'category_revenue',),

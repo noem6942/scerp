@@ -18,7 +18,7 @@ from .models import TOP_LEVEL_ACCOUNT, Account, AccountCategory, LedgerBalance
 logger = logging.getLogger(__name__)
 
 
-# Ledger to cashCtrl Mapper, called by  signals_ ----------------------------
+# Ledger to cashCtrl Mapper, called by signals ----------------------------
 class Ledger:
     '''
         Gets called before Ledger is saved
@@ -61,27 +61,15 @@ class Ledger:
             if self.model == LedgerBalance:
                 # derive from hrm
                 instance.parent = self.model.objects.filter(
-                    tenant=instance.tenant,
+                    ledger=instance.ledger,
                     type=self.model.TYPE.CATEGORY,
                     hrm__lte=hrm
                 ).order_by('hrm').last()
-            elif self.instance.manual_creation:
-                # try same level
-                sibling = self.model.objects.filter(
-                    tenant=instance.tenant,
-                    type=self.model.TYPE.ACCOUNT,
-                    hrm__lte=hrm
-                ).order_by('hrm').last()
-
-                if sibling:
-                    instance.parent = sibling.parent
-                else:
-                    raise ValueError(
-                        f"Could not derive parent. Please specify! ")
             else:
-                # take last ("best guess")
+                # take function
                 instance.parent = self.model.objects.filter(
-                    tenant=instance.tenant,
+                    ledger=instance.ledger,
+                    function=instance.function,
                     type=self.model.TYPE.CATEGORY
                 ).order_by('id').last()
 
@@ -101,7 +89,7 @@ class Ledger:
         hrm_parent = instance.hrm[:-1]  # Removes the last character
         if not instance.parent:
             instance.parent = self.model.objects.filter(
-                tenant=instance.tenant,
+                ledger=instance.ledger,
                 type=self.model.TYPE.CATEGORY,
                 hrm=hrm_parent
             ).order_by('hrm').last()

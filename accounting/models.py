@@ -805,7 +805,7 @@ class BankAccount(AcctApp):
         _('BIC Code'), max_length=11,
         help_text=_("The BIC (Business Identifier Code) of the person's bank."))
     iban = models.CharField(
-        _('IBAN'), max_length=32, 
+        _('IBAN'), max_length=32,
         help_text=('The IBAN (International Bank Account Number) of the person.')
     )
     qr_first_digits = models.PositiveIntegerField(
@@ -1401,9 +1401,9 @@ class OrderCategoryContract(OrderCategory):
             "default for order objects"))
     block_update = models.BooleanField(
         # used to change categories with existing entities in cashCtrl
-        _("Block update"), default=False, 
+        _("Block update"), default=False,
         help_text=("Do not update to cashCtrl this time. (Admin only)"))
-            
+
     @property
     def account(self):
         ''' needed for cashCtrl so we take the first credit account '''
@@ -1622,11 +1622,11 @@ class OrderCategoryOutgoing(OrderCategory):
             "The text displayed above  the items list on the document used by "
             "default for order objects"))
     header_installment = models.TextField(
-        _("Text Installment"), 
+        _("Text Installment"),
         default=_("Ratenzahlung {nr}/{total} von {invoice_nr}"),
         help_text=_(
             "The text displayed above  the items list on the document used by "
-            "default for order objects"))            
+            "default for order objects"))
     debit_account = models.ForeignKey(
         Account, on_delete=models.CASCADE,
         related_name='%(class)s_debit_account',
@@ -1662,7 +1662,7 @@ class OrderCategoryOutgoing(OrderCategory):
         Person, on_delete=models.PROTECT,
         verbose_name=_('Responsible'), related_name='%(class)s_person',
         help_text=_('Contact person mentioned in invoice.'))
-            
+
     @property
     def sequence_number(self):
         return self.get_sequence_number('RE')
@@ -2039,7 +2039,7 @@ class OutgoingItem(AcctApp):
         help_text=_("Custom description for article, leave empty for default"))
     discount_percentage = models.DecimalField(
         _('Discount'), max_digits=5, decimal_places=2, null=True, blank=True,
-        help_text=_('The discount percentage for position.'))        
+        help_text=_('The discount percentage for position.'))
     order = models.ForeignKey(
         OutgoingOrder, on_delete=models.CASCADE,
         related_name='%(class)s_order',
@@ -2126,16 +2126,11 @@ class LedgerAccount(AcctApp):
     function = models.CharField(
          _('Function'), max_length=5, null=True, blank=True,
         help_text=_(
-            'Function code, e.g. 071, leave empty for Balance positions, as '
-            'it gets filled automatically.' ))
+            'Function code, e.g. 071, leave empty for Balance positions' ))
     account = models.ForeignKey(
         Account, verbose_name=_('Account'), null=True, blank=True,
         on_delete=models.PROTECT, related_name='%(class)s_account',
         help_text="The underlying account. Empty for categories.")
-    manual_creation = models.BooleanField(
-        default=True, help_text=(
-            "For import / export this is set to False so ledger.py uses "
-            "last inserted category as parent instead of parent"))
     balance_updated = models.DateTimeField(
         _('Balance last update'), null=True, blank=True,
         help_text=_('Date and time of last update of balance'))
@@ -2154,6 +2149,10 @@ class LedgerAccount(AcctApp):
         if False and not self.parent and self.manual_creation:
             # disabled
             raise ValidationError(_("No parent specified"))
+        if self.hrm:
+            self.hrm = self.hrm.strip()
+        if self.function:
+            self.function = self.function.strip()
 
     class Meta:
         ordering = ['function', 'hrm']
