@@ -801,10 +801,10 @@ class BankAccount(AcctApp):
         verbose_name=_('Currency'),
         help_text=_("Leave empty for CHF"))
     bic = models.CharField(
-        _('BIC Code'), max_length=11, blank=True, null=True,
+        _('BIC Code'), max_length=11,
         help_text=_("The BIC (Business Identifier Code) of the person's bank."))
     iban = models.CharField(
-        _('IBAN'), max_length=32, blank=True, null=True,
+        _('IBAN'), max_length=32, 
         help_text=('The IBAN (International Bank Account Number) of the person.')
     )
     qr_first_digits = models.PositiveIntegerField(
