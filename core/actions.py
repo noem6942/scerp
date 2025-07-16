@@ -33,7 +33,7 @@ def init_setup(modeladmin, request, queryset):
 def init_accounting_setup(modeladmin, request, queryset):
     # Check
     if action_check_nr_selected(request, queryset, 1):
-        tenant = queryset.first()
+        tenant = queryset.first().tenant
         tenant_accounting_post_save(
             modeladmin.model, tenant, created=False, init=True,
             request=request)

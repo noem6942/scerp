@@ -16,7 +16,8 @@ from django.utils.translation import get_language, gettext_lazy as _
 from accounting.banking import get_bic
 from scerp.locales import CANTON_CHOICES
 from scerp.mixins import (
-    primary_language, convert_ch1903_to_wgs84, generate_random_password)
+    primary_language, convert_ch1903_to_wgs84, is_url_friendly,
+    generate_random_password)
 
 
 # Base ----------------------------------------------------------------------
@@ -154,7 +155,8 @@ class Tenant(LogAbstract, NotesAbstract):
     def clean(self):
         # Ensure that both org_name and api_key are either both provided
         # or both not provided
-        # cashCtrl
+        
+        # Check cashCtrl
         if self.cash_ctrl_org_name:
             # Only check uniqueness if org_name is set
             if Tenant.objects.filter(
@@ -167,6 +169,14 @@ class Tenant(LogAbstract, NotesAbstract):
         if self.cash_ctrl_org_name or self.cash_ctrl_api_key:
             if not self.cash_ctrl_org_name or not self.cash_ctrl_api_key:
                 raise ValidationError(_("cashCtrl need Org Name and api-key"))
+
+        # Check code
+        if not is_url_friendly(self.code):
+            msg = _("Code cannot be displayed in an url.")
+            raise ValidationError(msg)
+        elif self.code != self.code.lower():
+            msg = _("Code contains upper letters")
+            raise ValidationError(msg)
 
     def save(self, *args, **kwargs):
         self.clean()  # Ensure validation before saving

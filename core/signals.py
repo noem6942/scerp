@@ -17,24 +17,12 @@ from billing.models import Period
 from core.models import Title, PersonCategory
 
 from .models import App, Tenant, TenantSetup, TenantLogo, Country
-from scerp.mixins import is_url_friendly, read_yaml_file
+from scerp.mixins import read_yaml_file
 
 logger = logging.getLogger(__name__)  # Using the app name for logging
 
 
 YAML_FILENAME = 'init_tenant.yaml'
-
-
-@receiver(pre_save, sender=Tenant)
-def tenant_pre_save(sender, instance, **kwargs):
-    """Check before new Tenant is created."""
-    __ = sender  # not used
-    if not is_url_friendly(instance.code):
-        msg = _("Code cannot be displayed in an url.")
-        raise ValidationError(msg)
-    elif instance.code != instance.code.lower():
-        msg = _("Code contains upper letters")
-        raise ValidationError(msg)
 
 
 @receiver(post_save, sender=Tenant)
@@ -48,7 +36,7 @@ def tenant_post_save(sender, instance, created, **kwargs):
             defaults=dict(created_by=instance.created_by)
         )
         return  # no action, first we want the user to select the tenant
-    elif instance.is_initialized:    
+    elif instance.is_initialized:
         return  # no action, tenant already initialized
     elif not kwargs.get('init'):
         return  # no action, if tenant setup not manually set
@@ -73,14 +61,14 @@ def tenant_post_save(sender, instance, created, **kwargs):
     for data in init_data['Title']:
         data.update({
             'created_by': instance.created_by,
-            'is_enabled_sync': False  # do not synchronize            
+            'is_enabled_sync': False  # do not synchronize
         })
         obj, _created = Title.objects.get_or_create(
-            tenant=instance,            
+            tenant=instance,
             code=data.pop('code'),
             defaults=data)
         logger.info(f"created {obj}")
-    
+
     # PersonCategory
     for data in init_data['PersonCategory']:
         data.update({
@@ -105,16 +93,16 @@ def tenant_post_save(sender, instance, created, **kwargs):
             code=data.pop('code'),
             defaults=data)
         units.append(obj)
-        logger.info(f"created {obj}")    
-        
+        logger.info(f"created {obj}")
+
     for data in init_data['AssetCategory']:
         # Get unit
         unit = next(
             (x for x in units if x.code == data['unit']), None)
         if not unit:
             raise ValidationError(_(f"{data} has no valid unit."))
-            
-        # Assign    
+
+        # Assign
         data.update({
             'unit': unit,
             'created_by': instance.created_by,
@@ -124,12 +112,24 @@ def tenant_post_save(sender, instance, created, **kwargs):
             tenant=instance,
             code=data.pop('code'),
             defaults=data)
-        logger.info(f"created {obj}")                  
+        logger.info(f"created {obj}")
 
     # Update tenant
     instance.is_initialized = True
     instance.save()
-    
+
+
+@receiver(post_save, sender=TenantLogo)
+def tenant_logo(sender, instance, created, **kwargs):
+    """Perform follow-up actions when a new Logo is created."""
+    __ = created  # always perform check
+    LOGO_TYPE = TenantLogo.Type
+    if instance.type == LOGO_TYPE.MAIN:
+        # Ensure only only one Main
+        TenantLogo.objects.exclude(id=instance.id).filter(
+            tenant=instance.tenant, type=LOGO_TYPE.MAIN
+        ).update(type=LOGO_TYPE.OTHER)
+
 
 @receiver(pre_save, sender=TenantSetup)
 def tenant_setup_pre_save(sender, instance, **kwargs):
@@ -143,7 +143,7 @@ def tenant_setup_pre_save(sender, instance, **kwargs):
         allowed_types = ['image/jpeg', 'image/png', 'image/gif']
         if mime_type not in allowed_types:
             raise ValidationError(
-                "Invalid file type. Allowed types are JPEG, PNG, and GIF.")    
+                "Invalid file type. Allowed types are JPEG, PNG, and GIF.")
 
         # Validate that the file size does not exceed MAX_SIZE_KB.
         if instance.logo.size > MAX_SIZE_KB * 1024:
@@ -158,15 +158,3 @@ def tenant_setup_pre_save(sender, instance, **kwargs):
                       f"{MAX_RESOLUTION[0]} * {MAX_RESOLUTION[1]} pixels."))
         except Exception:
             raise ValidationError(_("Invalid image file."))
-
-
-@receiver(post_save, sender=TenantLogo)
-def tenant_logo(sender, instance, created, **kwargs):
-    """Perform follow-up actions when a new Logo is created."""
-    __ = created  # always perform check
-    LOGO_TYPE = TenantLogo.Type
-    if instance.type == LOGO_TYPE.MAIN:
-        # Ensure only only one Main
-        TenantLogo.objects.exclude(id=instance.id).filter(
-            tenant=instance.tenant, type=LOGO_TYPE.MAIN
-        ).update(type=LOGO_TYPE.OTHER)

@@ -150,7 +150,7 @@ class TenantAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('name', 'code')
 
     # Actions
-    actions = [a.init_setup, a.init_accounting_setup] + default_actions
+    actions = [a.init_setup] + default_actions
 
     # Fieldsets
     fieldsets = (
@@ -185,6 +185,9 @@ class TenantSetupAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Search, filter
     search_fields = ('tenant',)
+    
+    # Actions
+    actions = [a.init_accounting_setup] + default_actions    
 
     #Fieldsets
     fieldsets = (

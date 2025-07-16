@@ -995,6 +995,12 @@ class Journal(AcctApp):
         return f"{self.template.code}: {self.date} {self.title}"
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'c_id'],
+                name='unique_journal'
+            )
+        ]
         ordering = ['-date', 'title']
         verbose_name = _("Journal")
         verbose_name_plural = _("Journals")
@@ -1242,7 +1248,6 @@ class OrderLayout(AcctApp):
                 name='unique_order_layout'
             )
         ]
-
         ordering = ['name']
         verbose_name = _("Order Settings - Layout")
         verbose_name_plural = _("Order Settings - Layout")
@@ -2067,7 +2072,7 @@ class Ledger(AcctApp):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['period', 'code'],
+                fields=['tenant', 'period', 'code'],
                 name='unique_ledger'
             )
         ]
@@ -2194,7 +2199,7 @@ class LedgerBalance(LedgerAccount):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['ledger', 'hrm'],
+                fields=['tenant', 'ledger', 'hrm'],
                 name='unique_balance'
             )
         ]
