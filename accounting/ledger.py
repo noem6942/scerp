@@ -25,6 +25,10 @@ class Ledger:
         updates category, parent and function
 
         model: LedgerBalance, LedgerPL, LedgerIC
+        
+        use function for functions
+        use hrm for accounts
+        
     '''
     def __init__(self, model, instance, **kwargs):
         self.model = model
@@ -32,7 +36,7 @@ class Ledger:
 
         # validate hrm
         try:
-            __ = float(instance.hrm)
+            __ = float(instance.hrm) if instance.hrm else None
         except:
             msg = _("{hrm} not a valid hrm").format(hrm=instance.hrm)
             raise ValueError(msg)
@@ -55,52 +59,35 @@ class Ledger:
         # type
         instance.type = self.model.TYPE.ACCOUNT
 
-        # parent
-        hrm = instance.hrm
+        # parent        
         if not instance.parent:
-            if self.model == LedgerBalance:
-                # derive from hrm
-                instance.parent = self.model.objects.filter(
-                    ledger=instance.ledger,
-                    type=self.model.TYPE.CATEGORY,
-                    hrm__lte=hrm
-                ).order_by('hrm').last()
-            else:
-                # take function
-                instance.parent = self.model.objects.filter(
-                    ledger=instance.ledger,
-                    function=instance.function,
-                    type=self.model.TYPE.CATEGORY
-                ).order_by('id').last()
-
-        # function
-        if self.model == LedgerBalance:
-            # We always update function
-            instance.function = self.make_function(instance.parent.hrm)
-        else:            
-            if not instance.function:  # otherwise we keep the existing
-                instance.function = self.make_function(instance.parent.hrm)
+            # derive from function
+            instance.parent = self.model.objects.filter(
+                ledger=instance.ledger,
+                function=instance.function,
+                type=self.model.TYPE.CATEGORY
+            ).order_by('id').last()
 
     def update_category(self, instance):
         # type
         instance.type = self.model.TYPE.CATEGORY
 
         # parent
-        hrm_parent = instance.hrm[:-1]  # Removes the last character
+        function_parent = instance.function[:-1]  # Removes the last character
         if not instance.parent:
             instance.parent = self.model.objects.filter(
                 ledger=instance.ledger,
                 type=self.model.TYPE.CATEGORY,
-                hrm=hrm_parent
+                function=function_parent
             ).order_by('hrm').last()
 
         # function
-        instance.function = self.make_function(instance.hrm)
+        instance.hrm = instance.function
 
     def update(self):
         # Init
         instance = self.instance
-        instance.hrm = instance.hrm.strip()
+        instance.hrm = instance.hrm.strip() if instance.hrm else instance.hrm
 
         if self.model == LedgerBalance:
             try:
@@ -109,7 +96,11 @@ class Ledger:
                 instance.side = None
 
         # Calc
-        if '.' in instance.hrm:
+        if instance.type == self.model.TYPE.ACCOUNT:
+            self.update_account(instance)
+        elif instance.type == self.model.TYPE.CATEGORY:
+            self.update_category(instance)
+        elif instance.hrm and '.' in instance.hrm:
             self.update_account(instance)
         else:
             self.update_category(instance)
@@ -396,7 +387,7 @@ class LoadBalance:
             for key in balance.keys():
                 if item.account.c_id:
                     balance[key][item.function] = self.conn.get_balance(
-                        item.account.c_id, date)                    
+                        item.account.c_id, date)
                     setattr(item, key, balance[key][item.function])
                 else:
                     msg = _("{item} has no cashCtrl id.").format(item=item)

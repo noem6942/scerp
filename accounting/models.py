@@ -625,7 +625,7 @@ class Account(AcctApp):
     hrm = models.CharField(
          _('HRM 2'), max_length=8, null=True, blank=True,
         help_text=_(
-            'HRM 2 number, e.g. 3100.01, also use for functions e.g. 076'))
+            'HRM 2 number, e.g. 3100.01, leave empty for functions / headings'))
     budget = models.DecimalField(
         _('Budget'),
         max_digits=20, decimal_places=2, blank=True, null=True,
@@ -638,6 +638,10 @@ class Account(AcctApp):
         elif self.function:
             function = self.function + ' '
         return f"{function}{self.hrm} {primary_language(self.name)}"
+
+    def clean(self):
+        if self.function and '.' not in hrm:
+            raise ValidationError(_("hrm numbers must contain '.'"))
 
     class Meta:
         constraints = [
@@ -2103,11 +2107,14 @@ class LedgerAccount(AcctApp):
     class TYPE(models.TextChoices):
         CATEGORY = 'C', _('Category')
         ACCOUNT = 'A', _('Account')
+    function = models.CharField(
+         _('Function'), max_length=5, null=True, blank=True,
+        help_text=_('Function code, e.g. 071' ))        
     hrm = models.CharField(
          _('HRM 2'), max_length=8, null=True, blank=True,
         help_text=_(
-            "HRM 2 number, e.g. 3100.01 for an account position "
-            "or 076 for a functional position"))
+            "HRM 2 number, e.g. 3100.01, leave empty for functions"
+            " / categories"))
     name = models.JSONField(
         _('Name'), default=dict, help_text="The name of the account.")
     type = models.CharField(
@@ -2123,10 +2130,6 @@ class LedgerAccount(AcctApp):
         help_text=_(
             "The parent category. Specify if it cannot be derived from the "
             "HRM 2 code. Empty if top category (asset or functional)."))
-    function = models.CharField(
-         _('Function'), max_length=5, null=True, blank=True,
-        help_text=_(
-            'Function code, e.g. 071, leave empty for Balance positions' ))
     account = models.ForeignKey(
         Account, verbose_name=_('Account'), null=True, blank=True,
         on_delete=models.PROTECT, related_name='%(class)s_account',

@@ -534,10 +534,10 @@ class AccountAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = (
-        'display_number', 'function', 'hrm', 'display_name', 'category'
+        'function', 'hrm', 'number', 'display_name', 'category'
     ) + FIELDS.C_DISPLAY_SHORT
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
-    list_display_links = ('display_number', 'function', 'hrm', 'display_name',)
+    list_display_links = ('function', 'hrm', 'number', 'display_name',)
     # readonly_fields = ('display_name', 'function', 'hrm') + FIELDS.C_READ_ONLY
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
     ordering = ['function', 'hrm', 'number']
@@ -835,7 +835,7 @@ class OrderCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
 @admin.register(models.OrderCategoryContract, site=admin_site)
 class OrderCategoryContractAdmin(OrderCategoryAdmin):
     # Safeguards
-    protected_foreigns = ['tenant', 'version', 'layout']
+    protected_foreigns = ['tenant', 'version', 'org_location', 'layout']
 
     # Helpers
     form = forms.OrderCategoryContractAdminForm
@@ -1357,10 +1357,14 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
 
     #Fieldsets
     fieldsets = (
-        (None, {
+        (_('Classification (use this first)'), {
             'fields': (
-                'ledger', 'hrm', *make_language_fields('name'), 'type',
-                'parent', 'category', 'account'),
+                'ledger', *make_language_fields('name'), 'function', 'hrm'),
+            'classes': ('expand',),
+        }),
+        (_('Optional (leave empty in most cases)'), {
+            'fields': (
+                'type', 'parent', 'account', 'category'),
             'classes': ('expand',),
         }),
         ('Balances', {
@@ -1427,7 +1431,7 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
     fieldsets = (
         (_('Classification (use this first)'), {
             'fields': (
-                'ledger', *make_language_fields('name'), 'hrm', 'function'),
+                'ledger', *make_language_fields('name'), 'function', 'hrm'),
             'classes': ('expand',),
         }),
         (_('Optional (leave empty in most cases)'), {
