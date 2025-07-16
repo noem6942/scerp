@@ -624,7 +624,8 @@ class Account(AcctApp):
         help_text=_('Function code, e.g. 071'))
     hrm = models.CharField(
          _('HRM 2'), max_length=8, null=True, blank=True,
-        help_text=_('HRM 2 number, e.g. 3100.01'))
+        help_text=_(
+            'HRM 2 number, e.g. 3100.01, also use for functions e.g. 076'))
     budget = models.DecimalField(
         _('Budget'),
         max_digits=20, decimal_places=2, blank=True, null=True,
@@ -2104,7 +2105,9 @@ class LedgerAccount(AcctApp):
         ACCOUNT = 'A', _('Account')
     hrm = models.CharField(
          _('HRM 2'), max_length=8, null=True, blank=True,
-        help_text=_('HRM 2 number, e.g. 3100.01'))
+        help_text=_(
+            "HRM 2 number, e.g. 3100.01 for an account position "
+            "or 076 for a functional position"))
     name = models.JSONField(
         _('Name'), default=dict, help_text="The name of the account.")
     type = models.CharField(
