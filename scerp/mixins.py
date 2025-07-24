@@ -64,7 +64,7 @@ def read_excel(file_path, header_nr=1, string_cols=[]):
     """
     Reads an Excel file and returns a list of rows as dictionaries.
     Columns listed in `string_cols` will be coerced to strings (to preserve leading zeros, etc).
-    
+
     :param file_path: Path to the .xlsx file
     :param header_nr: Row number containing headers (1-based)
     :param string_cols: List of column names to force as strings
@@ -157,9 +157,9 @@ def is_url_friendly(name):
     # Check if the slugified name is non-empty and identical to the original, lowercased name
     return slugified_name == name.lower() and bool(slugified_name)
 
-    
+
 def show_hidden(key):
-    return '*' * len(key)  
+    return '*' * len(key)
 
 
 def generate_random_password(length=settings.PASSWORD_LENGTH):
@@ -310,3 +310,24 @@ def init_yaml_data(
 
         # Re-raise the exception to propagate it further
         raise  # This will raise the same exception that was caught
+
+
+def find_first_match_in_nested_dict(data, key, value):
+    '''find a dict in a nested dict, e.g.
+    data: complex dict
+    key: 'accoundId'
+    value: 125
+    '''
+    if isinstance(data, dict):
+        if data.get(key) == value:
+            return data
+        for v in data.values():
+            result = find_first_match_in_nested_dict(v, key, value)
+            if result:
+                return result
+    elif isinstance(data, list):
+        for item in data:
+            result = find_first_match_in_nested_dict(item, key, value)
+            if result:
+                return result
+    return None

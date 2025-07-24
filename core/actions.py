@@ -29,10 +29,17 @@ def init_setup(modeladmin, request, queryset):
             messages.error(request, _('Unexpected error: ') + str(e))
 
 
-@admin.action(description=('Admin: Run accounting setup'))
-def init_accounting_setup(modeladmin, request, queryset):
+@action_with_form(
+    forms.TenantSetupInitAccountingForm,
+    description=_("Admin: Run accounting setup"))
+def init_accounting_setup(modeladmin, request, queryset, data):
     # Check
     if action_check_nr_selected(request, queryset, 1):
+        # Check if OK
+        if not data['init']:
+            return
+
+        # Process
         tenant = queryset.first().tenant
         tenant_accounting_post_save(
             modeladmin.model, tenant, created=False, init=True,
@@ -53,11 +60,11 @@ def init_accounting_setup(modeladmin, request, queryset):
 def tenant_user_assign_groups(modeladmin, request, queryset, data):
     __ = modeladmin  # disable pylint warning
     if action_check_nr_selected(request, queryset, 1):
-        user = queryset.first().user     
+        user = queryset.first().user
 
         # Replace the user's groups with the selected groups
         user.groups.set(data['groups'])
-        user.save()        
+        user.save()
 
 
 @action_with_form(

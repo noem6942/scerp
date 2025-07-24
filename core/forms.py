@@ -18,21 +18,21 @@ class PersonContactForm(forms.ModelForm):
         }
 
 
-class TitleAdminForm(MultilanguageForm):        
+class TitleAdminForm(MultilanguageForm):
     class Meta:
         model = Title
         fields = '__all__'
 
-    multi_lang_fields = ['name', 'sentence']  
+    multi_lang_fields = ['name', 'sentence']
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
-class PersonCategoryAdminForm(MultilanguageForm):        
+class PersonCategoryAdminForm(MultilanguageForm):
     class Meta:
         model = PersonCategory
         fields = '__all__'
 
-    multi_lang_fields = ['name']  
+    multi_lang_fields = ['name']
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
 
 
@@ -57,7 +57,7 @@ class CreateUserForm(AdminActionForm):
         label=_('Use GUI'),
         required=False, initial=True,
         help_text=_("Is allowed to work in the admin.py GUI")
-    )        
+    )
 
     class Meta:
         help_text = _("Add a user")
@@ -67,7 +67,7 @@ class CreateUserForm(AdminActionForm):
         self.fields['person'].queryset = Person.objects.filter(
             tenant=tenant,
             category__code__in=[
-                PersonCategory.CODE.EMPLOYEE, 
+                PersonCategory.CODE.EMPLOYEE,
                 PersonCategory.CODE.EMPLOYEE_EXTERNAL
             ]).order_by('last_name', 'first_name')
 
@@ -75,7 +75,6 @@ class CreateUserForm(AdminActionForm):
 class TenantUserGroupForm(AdminActionForm):
     '''assign groups
     '''
-    
     username = forms.CharField(
         label=_('Username'), disabled=True, )
     groups = forms.ModelMultipleChoiceField(
@@ -83,7 +82,7 @@ class TenantUserGroupForm(AdminActionForm):
         queryset = Group.objects.all().order_by('name'),
         required=True,
         widget=SelectMultiple(attrs={'size': '20'}),
-        help_text=_("Select the appropriate groups for user."))    
+        help_text=_("Select the appropriate groups for user."))
 
     def __post_init__(self, modeladmin, request, queryset):
         tenant = queryset.first().tenant
@@ -92,9 +91,21 @@ class TenantUserGroupForm(AdminActionForm):
         self.fields['groups'].initial = user.groups.values_list('id', flat=True)
 
 
+class TenantSetupInitAccountingForm(AdminActionForm):
+    init = forms.BooleanField(
+        label='Init', required=False,
+        help_text=''
+    )
+
+    def __post_init__(self, modeladmin, request, queryset):
+        tenant = queryset.first().tenant
+        self.fields['init'].help_text = (
+            f"Are you sure you want to re-setup the accounting for {tenant}?")
+
+
 class AssignTitleForm(AdminActionForm):
     '''needs some update for tenant restriction
-    '''    
+    '''
     title = forms.ModelChoiceField(
         label=_('Title'),
         queryset=Title.objects.none(),  # default empty, override in __post_init__

@@ -28,32 +28,27 @@ from scerp.mixins import (
 from .api_cash_ctrl import (
     URL_ROOT, FIELD_TYPE, DATA_TYPE, ROUNDING, TEXT_TYPE, COLOR, BOOK_TYPE,
     CALCULATION_BASE, ORDER_TYPE, PERSON_TYPE, BANK_ACCOUNT_TYPE,
-    FISCAL_PERIOD_TYPE, ACCOUNT_CATEGORY_ID)
+    FISCAL_PERIOD_TYPE, ELEMENT_TYPE, ACCOUNT_CATEGORY_ID)
 
 
 # Definitions
-class APPLICATION(models.TextChoices):
-    CASH_CTRL = 'CC', 'Cash Control'
-
-
-class TOP_LEVEL_ACCOUNT(models.TextChoices):
-    ''' choices do not support float '''
+class TOP_LEVEL_ACCOUNT(Enum):
     # CachCtrl + OWN
-    ASSET = '1', _('ASSET')
-    LIABILITY = '2', _('Liability')
+    ASSET = '1'
+    LIABILITY = '2'
 
     # Expense
-    EXPENSE = '3', _('Expense')
-    PL_EXPENSE = '3.1', _('IV - Aufwand')
-    IS_EXPENSE = '3.2', _('IV - Ausgaben')
+    EXPENSE = '3'
+    PL_EXPENSE = '3.1'
+    IS_EXPENSE = '3.2'
 
     # Revene
-    REVENUE = '4', _('Revenue')
-    PL_REVENUE = '4.1', _('Ertrag')
-    IS_REVENUE = '4.2', _('Einnahmen')
+    REVENUE = '4'
+    PL_REVENUE = '4.1'
+    IS_REVENUE = '4.2'
 
     # Balance
-    BALANCE = '5', _('Balance')
+    BALANCE = '5'
 
 TOP_LEVEL_ACCOUNT_NRS = [x.value for x in TOP_LEVEL_ACCOUNT]
 
@@ -1313,7 +1308,7 @@ class OrderCategory(AcctApp):
         # used to change categories with existing entities in cashCtrl
         _("Block update"), default=False,
         help_text=("Do not update to cashCtrl this time. (Admin only)"))
-        
+
     @property
     def book_type(self):
         return (
@@ -2056,6 +2051,78 @@ class OutgoingItem(AcctApp):
         verbose_name_plural = _("Articles")
 
 
+# Reporting
+class Collection(AcctApp):
+    code = models.CharField(
+        _('Code'), max_length=50, null=True, blank=True,
+        help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('Name'), help_text="The name of the collection.")
+    config =  models.JSONField(
+        _('Configuration'), blank=True, null=True,
+        help_text=_("see API description"))
+    text = models.TextField(
+        _('Text'), null=True, blank=True,
+        help_text=_('Text / description for the report collection.'))
+
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code', 'c_id'],
+                name='unique_collection'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Report - Collection")
+        verbose_name_plural = _("Report - Collections")
+
+
+class Element(AcctApp):
+    ELEMENT_TYPE = [(x.value, x.value) for x in ELEMENT_TYPE]
+
+    code = models.CharField(
+        _('Code'), max_length=50, null=True, blank=True,
+        help_text='Internal code for scerp')
+    name = models.JSONField(
+        _('Name'), help_text="The name of the element.")
+    type = models.CharField(
+        _('Type'), max_length=50, choices=ELEMENT_TYPE,
+        help_text=_("The type of the report element"))
+    collection = models.ForeignKey(
+        Collection, verbose_name=_('Collection'), null=True, blank=True,
+        on_delete=models.PROTECT, related_name='%(class)s_collection',
+        help_text=_("Collection element belongs to"))
+    config =  models.JSONField(
+        _('Configuration'), blank=True, null=True,
+        help_text=_(
+            '''get defaults via read api, e.g.
+            - BALANCE_LIST:
+                'accounts': '1:99999',  # take all
+                'is_hide_zero': False
+            '''))
+
+    def __str__(self):
+        return self.code
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # runs model field + choices validation
+        super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'code', 'c_id'],
+                name='unique_element'
+            )
+        ]
+        ordering = ['code']
+        verbose_name = _("Report - Element")
+        verbose_name_plural = _("Report - Elements")
+
+
 # scerp entities with foreign key to Ledger ---------------------------------
 class Ledger(AcctApp):
     '''
@@ -2071,7 +2138,7 @@ class Ledger(AcctApp):
         help_text=_("Fiscal period"))
 
     def __str__(self):
-        return get_code_w_name(self)
+        return self.code
 
     class Meta:
         constraints = [
@@ -2106,9 +2173,15 @@ class LedgerAccount(AcctApp):
     class TYPE(models.TextChoices):
         CATEGORY = 'C', _('Category')
         ACCOUNT = 'A', _('Account')
+
+    class HRM_CATEGORY(Enum):
+        BALANCE = [1, 2]  # hrm starting with 1 or 2
+        EXPENSE = [3, 5, 9]  # hrm starting with 3 or 5 or 9
+        REVENUE = [4, 6]  # hrm starting with 4 or 6
+
     function = models.CharField(
          _('Function'), max_length=5, null=True, blank=True,
-        help_text=_('Function code, e.g. 071' ))        
+        help_text=_('Function code, e.g. 071' ))
     hrm = models.CharField(
          _('HRM 2'), max_length=8, null=True, blank=True,
         help_text=_(
@@ -2138,6 +2211,16 @@ class LedgerAccount(AcctApp):
         help_text=_('Date and time of last update of balance'))
 
     @property
+    def hrm_category(self):
+        ''' return matching HRM_CATEGORY '''
+        if self.hrm:
+            praefix = int(self.hrm[0])
+            for category in self.HRM_CATEGORY:
+                if praefix in category.value:
+                    return category
+        return None
+
+    @property
     def cash_ctrl_ids(self):
         fields = [
             'account', 'category', 'category_expense', 'category_revenue']
@@ -2148,13 +2231,19 @@ class LedgerAccount(AcctApp):
         ]
 
     def clean(self):
-        if False and not self.parent and self.manual_creation:
-            # disabled
-            raise ValidationError(_("No parent specified"))
+        # disabled
+        # if not self.parent and self.manual_creation:
+        #   raise ValidationError(_("No parent specified"))
+        # hrm, function
         if self.hrm:
             self.hrm = self.hrm.strip()
         if self.function:
             self.function = self.function.strip()
+
+        # Do not allow upper name
+        for lang, value in self.name.items():
+            if value and value == value.upper():
+                self.name[lang] = value.title()
 
     class Meta:
         ordering = ['function', 'hrm']

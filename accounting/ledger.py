@@ -11,8 +11,13 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from scerp.mixins import find_first_match_in_nested_dict
 from . import api_cash_ctrl
-from .models import TOP_LEVEL_ACCOUNT, Account, AccountCategory, LedgerBalance
+from .connector_cash_ctrl import Element as ConnElement
+from .models import (
+    TOP_LEVEL_ACCOUNT, Account, AccountCategory, LedgerAccount, LedgerBalance,
+    Element
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -25,10 +30,10 @@ class Ledger:
         updates category, parent and function
 
         model: LedgerBalance, LedgerPL, LedgerIC
-        
+
         use function for functions
         use hrm for accounts
-        
+
     '''
     def __init__(self, model, instance, **kwargs):
         self.model = model
@@ -59,7 +64,7 @@ class Ledger:
         # type
         instance.type = self.model.TYPE.ACCOUNT
 
-        # parent        
+        # parent
         if not instance.parent:
             # derive from function
             instance.parent = self.model.objects.filter(
@@ -334,7 +339,7 @@ class LedgerICUpdate(LedgerFunctionalUpdate):
 
 
 # helpers for load balances
-class LoadBalance:
+class LoadBalanceFromAccount:
     '''Load balances from cashCtrl
     params:
         model: LedgerBalance, LedgerPL,
@@ -414,3 +419,129 @@ class LoadBalance:
             return self.load_balance(date)
         else:
             return self.load_pl_or_ic(date)
+
+
+class LoadBalance:
+    '''Load balances from cashCtrl
+    params:
+        model: LedgerBalance, LedgerPL,
+        queryset: items of model to be updated
+    '''
+
+    def __init__(self, model, request, queryset):
+        self.model = model
+        self.request = request
+        self.queryset = queryset
+
+    def _get_data(self, element_code):
+        # Init
+        tenant = self.queryset.first().tenant
+        period = self.queryset.first().ledger.period
+        conn = ConnElement(Element)
+
+        # Balance
+        element = Element.objects.filter(
+            tenant=tenant, code=element_code).first()
+        if not element:
+            raise ValueError("No report element found for balance.")
+
+        data = conn.get_element_data(element, period)
+        return data
+
+    def _update_positions(self, updated_objects, field_names):
+        # Update balance
+        self.model.objects.bulk_update(updated_objects, field_names)
+
+
+class LoadLedgerBalance(LoadBalance):
+
+    def load(self, _date=None):
+        updated_objects = []
+        data = self._get_data('balance')
+
+        # Update accounts
+        for ledger_position in self.queryset:
+            if ledger_position.type == self.model.TYPE.ACCOUNT:
+                key = 'accountId'
+                value = ledger_position.account.c_id
+            elif getattr(ledger_position, 'category', None):
+                # Make key, value as cashCtrl report is e.g. id: 'category-985'
+                key = 'id'
+                value = f'category-{ledger_position.category.c_id}'
+            else:
+                msg = _("no category for {category}.").format(
+                    category=ledger_position)
+                messages.warning(self.request, msg)
+                continue
+
+            # Get result
+            result = find_first_match_in_nested_dict(data, key, value)
+            if not result:
+                msg = _("no result for {position}.").format(
+                    position=ledger_position)
+                messages.warning(self.request, msg)
+                continue
+
+            # Assign result
+            ledger_position.closing_balance = result.get('endAmount')
+            ledger_position.balance_updated=timezone.now()
+            updated_objects.append(ledger_position)
+
+        # Update balance
+        self._update_positions(
+            updated_objects, ['closing_balance', 'balance_updated'])
+
+
+class LoadFunctionalLedger(LoadBalance):
+
+    HRM_CATEGORY_MAPPING = {
+        # e.g. 5031.01 -> expense as starting with 5
+        'expense': LedgerAccount.HRM_CATEGORY.EXPENSE,
+        'revenue': LedgerAccount.HRM_CATEGORY.REVENUE
+    }
+
+    def load(self, _date=None):
+        updated_objects = []
+        data = self._get_data('pls')
+
+        # Update expense accounts
+        for update_field in ('expense', 'revenue'):
+            # Init
+            category_field = f'category_{update_field}'
+            hrm_category = self.HRM_CATEGORY_MAPPING[update_field]
+
+            # Parse
+            for ledger_position in self.queryset:
+                if ledger_position.type == self.model.TYPE.ACCOUNT:
+                    if ledger_position.hrm_category != hrm_category:
+                        continue
+                    key = 'accountId'
+                    value = ledger_position.account.c_id
+                elif getattr(ledger_position, category_field, None):
+                    # Make key, value as cashCtrl report is e.g. id: 'category-985'
+                    key = 'id'
+                    category = getattr(ledger_position, category_field)
+                    value = f'category-{category.c_id}'
+                else:
+                    msg = _("no category for {category}.").format(
+                        category=ledger_position)
+                    messages.warning(self.request, msg)
+                    continue
+
+                # Get result
+                result = find_first_match_in_nested_dict(data, key, value)
+                if not result:
+                    msg = _("no result for {position}.").format(
+                        position=ledger_position)
+                    messages.warning(self.request, msg)
+                    continue
+
+                # Assign result
+                setattr(ledger_position, update_field, result.get('endAmount'))
+                ledger_position.balance_updated=timezone.now()
+
+                updated_objects.append(ledger_position)
+
+        # Update balance
+        self._update_positions(
+            updated_objects, ['expense', 'revenue', 'balance_updated'])

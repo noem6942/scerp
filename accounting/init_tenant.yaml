@@ -245,31 +245,31 @@ ArticleCategory:
       de: Archive
       en: Archive
       fr: Archive
-      it: Archive   
+      it: Archive
   - code: fee
     name:
       de: Gebühren
       en: Fees
       fr: Fees
-      it: Fees         
+      it: Fees
   - code: water_cold
     name:
       de: Kaltwasser
       en: Water
       fr: Water
-      it: Water   
+      it: Water
   - code: water_waste
     name:
       de: Abwasser
       en: Waste Water
       fr: Waste Water
-      it: Waste Water   
+      it: Waste Water
   - code: water_hot
     name:
       de: Warmwasser
       en: Hot Water
       fr: Hot Water
-      it: Hot Water         
+      it: Hot Water
 
 
 FileCategory:
@@ -314,11 +314,11 @@ OrderLayout:
     logo_height: 2
     page_size: A4
 
-  - name: Debitoren (Standard)    
+  - name: Debitoren (Standard)
     elements:
     - css: "/**********************************************************************\r\n * PAGE\r\n **********************************************************************/\r\n\r\nbody, table td, table th {\r\n    font: 9pt OpenSansRegular;\r\n}\r\n\r\n.page {\r\n    padding: 0 1cm 0 2cm;\r\n    position: relative;\r\n}\r\n\r\n/**********************************************************************\r\n * HEADER / FOOTER\r\n **********************************************************************/\r\n\r\nheader img.logo {\r\n    position: absolute;\r\n    top: 1.5cm;\r\n    left: 2cm;\r\n}\r\n\r\nfooter {\r\n    position: relative;\r\n    height: 3cm;\r\n    width: 100%;\r\n}\r\n\r\nfooter .text {\r\n    position: absolute;\r\n    bottom: 1cm;\r\n    left: 0;\r\n    padding: 0 2cm;\r\n    width: 100%;\r\n}\r\n\r\nfooter .paging {\r\n    position: absolute;\r\n    bottom: 1cm;\r\n    right: 1cm;\r\n    background: white;\r\n}\r\n\r\n/**********************************************************************\r\n * ADDRESS WINDOW\r\n **********************************************************************/\r\n\r\ndiv.window {\r\n    position: absolute;\r\n    top: 0;\r\n    left: 12cm;\r\n    width: 8cm;\r\n}\r\n\r\ndiv.org {\r\n    font-size: 7pt;\r\n    padding-bottom: 3pt;\r\n    border-bottom: 1pt solid #999;\r\n    margin-bottom: 5pt;\r\n}\r\n\r\ndiv.org.hidden {\r\n    display: block;\r\n    color: transparent;\r\n    border-color: transparent;\r\n}\r\n\r\n/**********************************************************************\r\n * DOCUMENT INFO TABLE\r\n **********************************************************************/\r\n\r\ndiv.docinfo {\r\n    position: absolute;\r\n    top: 0;\r\n    left: 2cm;\r\n}\r\n\r\ndiv.docinfo table td {\r\n    white-space: nowrap;\r\n}\r\n\r\ndiv.docinfo table td:first-child {\r\n    font-size: 7pt;\r\n    text-align: right;\r\n    padding-right: 5pt;\r\n}\r\n\r\n/**********************************************************************\r\n * DOCUMENT TITLE\r\n **********************************************************************/\r\n\r\nh1 {\r\n    font: 13pt OpenSansBold;\r\n    margin-top: 3.5cm;\r\n    margin-bottom: 0.5cm;\r\n}\r\n\r\nh1 .nr {\r\n    font-family: OpenSansLight;\r\n}\r\n\r\n/**********************************************************************\r\n * ITEMS TABLE\r\n **********************************************************************/\r\n\r\ntable.items {\r\n    width: 100%;\r\n    page-break-before: avoid;\r\n    page-break-inside: auto;\r\n}\r\n\r\ntable.items th, table.items td {\r\n    padding: 3pt 4pt;\r\n    border-bottom: 1pt solid #999;\r\n}\r\n\r\ntable.items th.right, table.items td.right {\r\n    text-align: right;\r\n}\r\n\r\ntable.items th {\r\n    font-family: ArialBold;\r\n    color: #000;\r\n    vertical-align: bottom;\r\n    text-align: left;\r\n    white-space: nowrap;\r\n    background: #EFEFEF;\r\n}\r\n\r\ntable.items td {\r\n    vertical-align: top;\r\n}\r\n\r\ntable.items td .description {\r\n    font-size: 7pt;\r\n    padding-top: 3pt;\r\n}\r\n\r\ntable.items td.quantity {\r\n    white-space: nowrap;\r\n}\r\n\r\ntable.items tr.totals td,\r\ntable.items tr.tax td {\r\n    border-bottom: 0;\r\n}\r\n\r\ntable.items tr.totals td {\r\n    font-family: ArialBold;\r\n    padding: 4pt;\r\n}\r\n\r\ntable.items tr.subtotal td {\r\n    font-family: ArialBold;\r\n    font-size: 7.5pt;\r\n    padding-bottom: 0.4cm;\r\n    border-bottom: none;\r\n}\r\n\r\ntable.items tr.title td {\r\n    font-family: ArialBold;\r\n}\r\n\r\ntable.items tr.text td {\r\n    padding: 4pt 4pt 6pt 4pt;\r\n}\r\n\r\ntable.items tr.small td {\r\n    font-size: 7pt;\r\n}\r\n\r\ntable.items tr.tax td {\r\n    padding: 1pt 4pt;\r\n}\r\n\r\ntable.items tr.tax.first td {\r\n    padding: 3pt 4pt 1pt 4pt;\r\n}\r\n\r\n/**********************************************************************\r\n * TEXT ABOVE / BELOW\r\n **********************************************************************/\r\n\r\ndiv.text-above {\r\n    margin-bottom: 12pt;\r\n}\r\n\r\ndiv.text-below {\r\n    margin-top: 12pt;\r\n}\r\n\r\ni, em {\r\n    font-family: ArialItalic;\r\n}\r\n\r\nstrong, b {\r\n    font-family: ArialBold;\r\n}\r\n\r\ni strong, i b, em strong, em b, strong i, strong em, b i, b em {\r\n    font-family: ArialBoldItalic;\r\n}\r\n\r\nul, ol, div ul, div ol {\r\n    padding-top: 6pt;\r\n    padding-bottom: 6pt;\r\n    padding-left: 0.7cm;\r\n}\r\n\r\nul li, ol li, div ul li, div ol li {\r\n    padding: 1pt 1pt 1pt 2pt;\r\n}\r\n"
       elementId: LEGACY
-      html: "#########\r\n## HEADER\r\n<header height=\"4.5cm\">\r\n    $logo\r\n</header>\r\n\r\n#########\r\n## FOOTER\r\n<footer height=\"3cm\">\r\n    <div class=\"text\">$footer</div>\r\n    <div class=\"paging $pagingCls\">$i18n.page $pageNumber $i18n.of $pageCount</div>\r\n</footer>\r\n\r\n<div class=\"page\">\r\n\r\n    #################\r\n    ## ADDRESS WINDOW\r\n    <div class=\"window\">\r\n        <div class=\"org $orgFullAddressCsvCls\">$orgFullAddressCsv</div>\r\n        <div class=\"recipient\">$recipientAddress</div>\r\n    </div>\r\n\r\n    ######################\r\n    ## DOCUMENT INFO TABLE\r\n    <div class=\"docinfo\">\r\n        <table>\r\n            <tr class=\"$recipientNrCls\">\r\n                <td>$recipientNrLabel</td>\r\n                <td>$recipientNr</td>\r\n            </tr>\r\n            <tr>\r\n                <td>$i18n.date</td>\r\n                <td>$date</td>\r\n            </tr>\r\n            <tr class=\"$dueDateCls\">\r\n                <td>$i18n.due</td>\r\n                <td>$dueDate</td>\r\n            </tr>\r\n            <tr class=\"$previousCls\">\r\n                <td>$previousDocumentName</td>\r\n                <td>$previousDateAndNr</td>\r\n            </tr>\r\n            <tr class=\"$uidCls\">\r\n                <td>$i18n.tax_code</td>\r\n                <td>$uid</td>\r\n            </tr>\r\n            <tr class=\"$rpCls\">\r\n                <td>$i18n.responsible_person_abbr</td>\r\n                <td>$rpFullName</td>\r\n            </tr>\r\n        </table>\r\n    </div>\r\n\r\n    #################\r\n    ## DOCUMENT TITLE\r\n    <h1><span class=\"$documentNameCls\">$documentName <span class=\"nr\">$nr</span></span></h1>\r\n\r\n    #############\r\n    ## TEXT ABOVE\r\n    <div class=\"text-above\">$textAbove</div>\r\n\r\n    ##############\r\n    ## ITEMS TABLE\r\n    <table class=\"items $itemsCls\">\r\n        #thead()\r\n        #foreach($item in $items)\r\n\r\n            ###############\r\n            ## ARTICLE ITEM\r\n            #if ($item.type == \"ARTICLE\")\r\n                <tr class=\"article\">\r\n                    #if ($displayPosNr) <td>$item.pos</td> #end\r\n                    #if ($displayNr) <td>$item.nr</td> #end\r\n                    <td>\r\n                        $item.name\r\n                        <div class=\"description\">$item.description</div>\r\n                    </td>\r\n                    <td class=\"quantity right\">$item.quantity #if ($displayItemUnit) $item.unit #end</td>\r\n                    #if ($displayPrices)\r\n                        #if ($displayItemTax) <td>$item.taxRate</td> #end\r\n                        <td class=\"right\">#if($displayItemGross)$item.unitPrice#{else}$item.netUnitPrice#end</td>\r\n                        #if ($displayDiscount) <td class=\"right\">$item.discount</td> #end\r\n                        <td class=\"right\">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>\r\n                    #end\r\n                </tr>\r\n            #end\r\n\r\n            ############\r\n            ## TEXT ITEM\r\n            #if ($item.type == \"TEXT\")\r\n                <tr class=\"text\">\r\n                    #if ($displayPosNr) <td>&nbsp;</td> #end\r\n                    #if ($displayNr) <td>&nbsp;</td> #end\r\n                    <td colspan=\"2\">$item.description</td>\r\n                    #if ($displayPrices)\r\n                        #if ($displayItemTax) <td>&nbsp;</td> #end\r\n                        <td>&nbsp;</td>\r\n                        #if ($displayDiscount) <td>&nbsp;</td> #end\r\n                        <td>&nbsp;</td>\r\n                    #end\r\n                </tr>\r\n            #end\r\n\r\n            ############\r\n            ## TITLE ITEM\r\n            #if ($item.type == \"TITLE\")\r\n                <tr class=\"title\"><td colspan=\"$itemFullColspan\">$item.title</td></tr>\r\n            #end\r\n\r\n            ################\r\n            ## SUBTOTAL ITEM\r\n            #if (($item.type == \"SUBTOTAL\" or $item.type == \"OPTIONTOTAL\") and $displayPrices)\r\n                <tr class=\"subtotal\">\r\n                    #if ($displayPosNr) <td>&nbsp;</td> #end\r\n                    #if ($displayNr) <td>&nbsp;</td> #end\r\n                    #if ($displayItemTax) <td>&nbsp;</td> #end\r\n                    <td colspan=\"3\" class=\"right\">$item.name</td>\r\n                    #if ($displayDiscount) <td class=\"right\">&nbsp;</td> #end\r\n                    <td class=\"right\">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>\r\n                </tr>\r\n            #end\r\n\r\n            ##################\r\n            ## PAGE BREAK ITEM\r\n            #if ($item.type == \"PAGEBREAK\")\r\n                </table>\r\n                <page-break/>\r\n                <table class=\"items\">\r\n                    #thead()\r\n            #end\r\n        #end\r\n\r\n        ###################\r\n        ## TAXES AND TOTALS\r\n        #if ($displayPrices)\r\n            #foreach($row in $taxesAndTotals)\r\n                <tr class=\"$row.cls\">\r\n                    <td colspan=\"$row.colspan\" class=\"right\">$row.name</td>\r\n                    <td class=\"right\">$row.currency</td>\r\n                    <td class=\"right\">$row.amount</td>\r\n                </tr>\r\n            #end\r\n        #end\r\n    </table>\r\n\r\n    #############\r\n    ## TEXT BELOW\r\n    #if ($textBelow && !$textBelow.empty)\r\n        <div class=\"text-below\">$textBelow</div>\r\n    #end\r\n</div>\r\n\r\n#############\r\n## TABLE HEAD\r\n#macro(thead)\r\n    <tr>\r\n        #if ($displayPosNr) <th>#&nbsp;&nbsp;</th> #end\r\n        #if ($displayNr) <th>$i18n.article_nr</th> #end\r\n        <th>$i18n.description</th>\r\n        <th class=\"right\">$i18n.quantity</th>\r\n        #if ($displayPrices)\r\n            #if ($displayItemTax) <th>$i18n.tax</th> #end\r\n            <th class=\"right\">$i18n.price</th>\r\n            #if ($displayDiscount) <th class=\"right\">$i18n.discount</th> #end\r\n            <th class=\"right\">$i18n.total</th>\r\n        #end\r\n    </tr>\r\n#end\r\n"    
+      html: "#########\r\n## HEADER\r\n<header height=\"4.5cm\">\r\n    $logo\r\n</header>\r\n\r\n#########\r\n## FOOTER\r\n<footer height=\"3cm\">\r\n    <div class=\"text\">$footer</div>\r\n    <div class=\"paging $pagingCls\">$i18n.page $pageNumber $i18n.of $pageCount</div>\r\n</footer>\r\n\r\n<div class=\"page\">\r\n\r\n    #################\r\n    ## ADDRESS WINDOW\r\n    <div class=\"window\">\r\n        <div class=\"org $orgFullAddressCsvCls\">$orgFullAddressCsv</div>\r\n        <div class=\"recipient\">$recipientAddress</div>\r\n    </div>\r\n\r\n    ######################\r\n    ## DOCUMENT INFO TABLE\r\n    <div class=\"docinfo\">\r\n        <table>\r\n            <tr class=\"$recipientNrCls\">\r\n                <td>$recipientNrLabel</td>\r\n                <td>$recipientNr</td>\r\n            </tr>\r\n            <tr>\r\n                <td>$i18n.date</td>\r\n                <td>$date</td>\r\n            </tr>\r\n            <tr class=\"$dueDateCls\">\r\n                <td>$i18n.due</td>\r\n                <td>$dueDate</td>\r\n            </tr>\r\n            <tr class=\"$previousCls\">\r\n                <td>$previousDocumentName</td>\r\n                <td>$previousDateAndNr</td>\r\n            </tr>\r\n            <tr class=\"$uidCls\">\r\n                <td>$i18n.tax_code</td>\r\n                <td>$uid</td>\r\n            </tr>\r\n            <tr class=\"$rpCls\">\r\n                <td>$i18n.responsible_person_abbr</td>\r\n                <td>$rpFullName</td>\r\n            </tr>\r\n        </table>\r\n    </div>\r\n\r\n    #################\r\n    ## DOCUMENT TITLE\r\n    <h1><span class=\"$documentNameCls\">$documentName <span class=\"nr\">$nr</span></span></h1>\r\n\r\n    #############\r\n    ## TEXT ABOVE\r\n    <div class=\"text-above\">$textAbove</div>\r\n\r\n    ##############\r\n    ## ITEMS TABLE\r\n    <table class=\"items $itemsCls\">\r\n        #thead()\r\n        #foreach($item in $items)\r\n\r\n            ###############\r\n            ## ARTICLE ITEM\r\n            #if ($item.type == \"ARTICLE\")\r\n                <tr class=\"article\">\r\n                    #if ($displayPosNr) <td>$item.pos</td> #end\r\n                    #if ($displayNr) <td>$item.nr</td> #end\r\n                    <td>\r\n                        $item.name\r\n                        <div class=\"description\">$item.description</div>\r\n                    </td>\r\n                    <td class=\"quantity right\">$item.quantity #if ($displayItemUnit) $item.unit #end</td>\r\n                    #if ($displayPrices)\r\n                        #if ($displayItemTax) <td>$item.taxRate</td> #end\r\n                        <td class=\"right\">#if($displayItemGross)$item.unitPrice#{else}$item.netUnitPrice#end</td>\r\n                        #if ($displayDiscount) <td class=\"right\">$item.discount</td> #end\r\n                        <td class=\"right\">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>\r\n                    #end\r\n                </tr>\r\n            #end\r\n\r\n            ############\r\n            ## TEXT ITEM\r\n            #if ($item.type == \"TEXT\")\r\n                <tr class=\"text\">\r\n                    #if ($displayPosNr) <td>&nbsp;</td> #end\r\n                    #if ($displayNr) <td>&nbsp;</td> #end\r\n                    <td colspan=\"2\">$item.description</td>\r\n                    #if ($displayPrices)\r\n                        #if ($displayItemTax) <td>&nbsp;</td> #end\r\n                        <td>&nbsp;</td>\r\n                        #if ($displayDiscount) <td>&nbsp;</td> #end\r\n                        <td>&nbsp;</td>\r\n                    #end\r\n                </tr>\r\n            #end\r\n\r\n            ############\r\n            ## TITLE ITEM\r\n            #if ($item.type == \"TITLE\")\r\n                <tr class=\"title\"><td colspan=\"$itemFullColspan\">$item.title</td></tr>\r\n            #end\r\n\r\n            ################\r\n            ## SUBTOTAL ITEM\r\n            #if (($item.type == \"SUBTOTAL\" or $item.type == \"OPTIONTOTAL\") and $displayPrices)\r\n                <tr class=\"subtotal\">\r\n                    #if ($displayPosNr) <td>&nbsp;</td> #end\r\n                    #if ($displayNr) <td>&nbsp;</td> #end\r\n                    #if ($displayItemTax) <td>&nbsp;</td> #end\r\n                    <td colspan=\"3\" class=\"right\">$item.name</td>\r\n                    #if ($displayDiscount) <td class=\"right\">&nbsp;</td> #end\r\n                    <td class=\"right\">#if($displayItemGross)$item.grossTotal#{else}$item.netTotal#end</td>\r\n                </tr>\r\n            #end\r\n\r\n            ##################\r\n            ## PAGE BREAK ITEM\r\n            #if ($item.type == \"PAGEBREAK\")\r\n                </table>\r\n                <page-break/>\r\n                <table class=\"items\">\r\n                    #thead()\r\n            #end\r\n        #end\r\n\r\n        ###################\r\n        ## TAXES AND TOTALS\r\n        #if ($displayPrices)\r\n            #foreach($row in $taxesAndTotals)\r\n                <tr class=\"$row.cls\">\r\n                    <td colspan=\"$row.colspan\" class=\"right\">$row.name</td>\r\n                    <td class=\"right\">$row.currency</td>\r\n                    <td class=\"right\">$row.amount</td>\r\n                </tr>\r\n            #end\r\n        #end\r\n    </table>\r\n\r\n    #############\r\n    ## TEXT BELOW\r\n    #if ($textBelow && !$textBelow.empty)\r\n        <div class=\"text-below\">$textBelow</div>\r\n    #end\r\n</div>\r\n\r\n#############\r\n## TABLE HEAD\r\n#macro(thead)\r\n    <tr>\r\n        #if ($displayPosNr) <th>#&nbsp;&nbsp;</th> #end\r\n        #if ($displayNr) <th>$i18n.article_nr</th> #end\r\n        <th>$i18n.description</th>\r\n        <th class=\"right\">$i18n.quantity</th>\r\n        #if ($displayPrices)\r\n            #if ($displayItemTax) <th>$i18n.tax</th> #end\r\n            <th class=\"right\">$i18n.price</th>\r\n            #if ($displayDiscount) <th class=\"right\">$i18n.discount</th> #end\r\n            <th class=\"right\">$i18n.total</th>\r\n        #end\r\n    </tr>\r\n#end\r\n"
     is_default: true
     is_display_document_name: true
     is_display_item_article_nr: true
@@ -349,7 +349,7 @@ OrderLayout:
     # value: Abwasser - schriftlich innert 10 Tagen an den Einwohnergemeinderat Gunzgen
 
 
-# Categories 
+# Categories
 AccountCategory:
   - number: 3.1
     parent_number: 3  # EXPENSE
@@ -379,3 +379,55 @@ AccountCategory:
       en: "Revenue (IC)"
       fr: "Revenus (CI)"
       it: "Entrate (CI)"
+
+# Reporting
+Collection:
+  - code: scerp
+    name:
+      de: SC-ERP
+      en: SC-ERP
+      fr: SC-ERP
+      it: SC-ERP
+
+Element:
+  - code: balance
+    name:
+      de: Bilanz
+      en: Balance
+      fr: Balance
+      it: Balance
+    collection_ref: scerp
+    type: BALANCE
+    config:
+      accounts: '1:99999'
+      is_hide_zero: false
+  - code: pls
+    name:
+      de: Erfolgsrechnung
+      en: Profit/Loss
+      fr: Profit/Loss
+      it: Profit/Loss
+    collection_ref: scerp
+    type: PLS
+    config:
+      is_hide_zero: false    
+  - code: statement_balance
+    name:
+      de: Journal (Bilanz)
+      en: Journal (Balance)
+      fr: Journal (Balance)
+      it: Journal (Balance)
+    collection_ref: scerp
+    type: STATEMENTS
+    config:
+      accounts: '1:99999'
+      is_hide_empty: false
+  - code: vat
+    name:
+      de: Mehrwertsteuer
+      en: VAT
+      fr: VAT
+      it: VAT
+    collection_ref: scerp
+    type: SALES_TAX
+    config: {}

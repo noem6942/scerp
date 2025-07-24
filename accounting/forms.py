@@ -25,8 +25,8 @@ from .models import (
     ChartOfAccounts, AccountPosition, Currency, CostCenterCategory,
     CostCenter, Rounding, AccountCategory, Account, BankAccount, Allocation,
     Tax, BookTemplate, OrderCategoryContract, OrderCategoryIncoming,
-    OrderCategoryOutgoing,
-    ArticleCategory, Article, Ledger, LedgerBalance, LedgerPL, LedgerIC
+    OrderCategoryOutgoing, Collection, Element,
+    ArticleCategory, Article, Ledger, LedgerBalance, LedgerPL, LedgerIC,
 )
 
 LABEL_BACK = _("Back")
@@ -160,6 +160,26 @@ class ArticleAdminForm(MultilanguageForm):
         fields = '__all__'
 
     make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
+
+
+class CollectionAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    class Meta:
+        model = Collection
+        fields = '__all__'
+
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)
+    
+    
+class ElementAdminForm(MultilanguageForm):
+    multi_lang_fields = ['name']
+
+    class Meta:
+        model = Element
+        fields = '__all__'
+
+    make_multilanguage_form(locals(), Meta.model, multi_lang_fields)    
 
 
 class LedgerAdminForm(MultilanguageForm):

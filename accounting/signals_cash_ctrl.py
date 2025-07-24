@@ -66,21 +66,19 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
     # Check no action
     __ = sender  # not used
     if created:
-        return  # no action, first we want the user to select the tenant
-    elif instance.is_initialized_accounting:    
-        return  # no action, already initialized
+        return  # no action, first we want the user to select the tenant    
     elif not kwargs.get('init'):
-        return  # no action, if tenant setup not manually set    
+        return  # no action, if tenant setup not manually set
     elif not instance.cash_ctrl_org_name:
         raise ValueError("Tenant has no cashCtrl org_name")
-        return 
+        return
     elif not instance.cash_ctrl_api_key:
         raise ValueError("Tenant has no cashCtrl api key")
-        return 
+        return
 
     # Intro ---------------------------------------------------------------
     tenant = instance
-    
+
     # shift core data to accounting
     core_models = (
         Title,
@@ -139,12 +137,12 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
         _obj, _created = models.OrderLayout.objects.update_or_create(
             tenant=tenant, name=data.pop('name'), defaults=data)
     logger.info(f"saved OrderLayout")
-  
+
     # Get data from cashCtrl
     # for the get we use delete_not_existing=False not to accidentially
     # delete data
-    
-    # Get Location  
+
+    # Get Location
     api = conn.Location(models.Location)
     api.get(tenant, tenant.created_by, delete_not_existing=False)
 
@@ -182,7 +180,7 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
 
     # Get Setting
     api = conn.Setting(models.Setting)
-    api.get(tenant, tenant.created_by, delete_not_existing=False)
+    api.get(tenant, tenant.created_by)
 
     # Get Tax
     api = conn.Tax(models.Tax)
@@ -201,8 +199,26 @@ def tenant_accounting_post_save(sender, instance, created=False, **kwargs):
             tenant=tenant, number=data.pop('number'), defaults=data)
     logger.info(f"saved AccountCategory")
 
+    # Create Reporting
+    for data in init_data['Collection']:
+        setup_data_add_logging(tenant, data)
+        _obj, _created = models.Collection.objects.update_or_create(
+            tenant=tenant, code=data.pop('code'), defaults=data)
+    logger.info(f"saved Collection")
+
+    # Create Elements
+    for data in init_data['Element']:
+        data['collection'] = models.Collection.objects.filter(
+            tenant=tenant, code=data.pop('collection_ref')).first()
+        if not data['collection']:
+            raise ValueError(f"{data}: no collection given")
+        setup_data_add_logging(tenant, data)
+        _obj, _created = models.Element.objects.update_or_create(
+            tenant=tenant, code=data.pop('code'), defaults=data)
+    logger.info(f"saved Elements")
+
     # Update tenant
-    instance.is_initialized = True
+    instance.is_initialized_accounting = True
     instance.save()
 
 
@@ -870,6 +886,39 @@ def outgoing_item_post_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=models.OutgoingItem)
 def outgoing_item_post_delete(sender, instance, **kwargs):
     outgoing_order_related_delete(instance)
+
+
+# Reporting
+@receiver(post_save, sender=models.Collection)
+def collection_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Collection. '''
+    if sync(instance):
+        api = conn.Collection(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=models.Collection)
+def collection_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Collection. '''
+    if sync_delete(instance):
+        api = conn.Collection(sender)
+        api.delete(instance)
+
+
+@receiver(post_save, sender=models.Element)
+def element_post_save(sender, instance, created, **kwargs):
+    '''Signal handler for post_save signals on Element. '''
+    if sync(instance):
+        api = conn.Element(sender)
+        api.save(instance, created)
+
+
+@receiver(pre_delete, sender=models.Element)
+def element_pre_delete(sender, instance, **kwargs):
+    '''Signal handler for pre_delete signals on Element. '''
+    if sync_delete(instance):
+        api = conn.Element(sender)
+        api.delete(instance)
 
 
 # Ledger ------------------------------------------------------------------

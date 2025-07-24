@@ -1,5 +1,5 @@
 '''
-accounting/connector_cash_ctrl_2.py
+accounting/connector_cash_ctrl.py
 '''
 import os
 import re
@@ -775,7 +775,7 @@ class IncomingOrder(Order):
         # assign file
         conn = api_cash_ctrl.OrderDocument(
             instance.tenant.cash_ctrl_org_name,
-            instance.tenant.cash_ctrl_api_key)        
+            instance.tenant.cash_ctrl_api_key)
         document = conn.read(instance.c_id)
         document['file_id'] = None  # file_id
         print("*document", document)
@@ -1126,3 +1126,40 @@ class Person(CashCtrl):
 
     def get(self, *args, **kwargs):
         raise ValueError("Persons are only edited in scerp.")
+
+
+# Reporting
+class Collection(CashCtrl):
+    api_class = api_cash_ctrl.Collection
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
+
+
+class Element(CashCtrl):
+    api_class = api_cash_ctrl.Element
+    exclude = EXCLUDE_FIELDS + ['code', 'notes', 'is_inactive']
+
+    def adjust_for_upload(self, instance, data, created=None):
+        # Collection
+        if getattr(instance, 'collection', None):
+            data['collection_id'] = instance.collection.c_id
+            
+        # config is JSON    
+        if not instance.config:
+            data.pop('config')
+
+    def get_element_data(self, element, period=None):
+        '''
+        get actaul values from cashCtrl
+        see https://app.cashctrl.com/static/help/en/api/index.html#/report/element/data.json
+        '''
+        # Init
+        api = super()._get_api(element.tenant)
+        params = {
+            'elementId': element.c_id
+        }
+        if period:
+            params['fiscal_period'] = period.c_id
+
+        # Get data from API
+        data_list = api.data_json(params)
+        return data_list

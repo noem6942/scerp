@@ -196,7 +196,7 @@ class TITLE(Enum):
     MRS = 2  # Frau
 
 
-class ELEMENT_TYPE:
+class ELEMENT_TYPE(Enum):
     '''see public api desc'''
     JOURNAL = 'JOURNAL'
     BALANCE = 'BALANCE'
@@ -440,13 +440,13 @@ class CashCtrl():
         if params.get('filter'):
             params['filter'] = json.dumps(params['filter'])
         response = requests.get(
-            url, params=params, auth=self.auth, timeout=timeout)        
+            url, params=params, auth=self.auth, timeout=timeout)
 
         for attempt in range(self.MAX_TRIES):
             try:
                 response = requests.get(
                     url, params=params, auth=self.auth, timeout=timeout
-                )                
+                )
 
                 if response.status_code == 429:
                     logging.info("GET rate limit hit. Retrying...")
@@ -607,7 +607,7 @@ class CashCtrl():
 
     # REST API mine: list, read, create, update, delete, data
     def list(self, params={}):
-        ''' cash_ctrl list '''        
+        ''' cash_ctrl list '''
         url = self.BASE.format(
             org=self.org, url=self.url, params=params, action='list')
         response = self.get(url, params)
@@ -619,16 +619,17 @@ class CashCtrl():
 
     def read(self, id=None, params=None):
         """ Fetch a single entry by ID. """
-        if params is None:
-            params = {}
-
+        # Init params
+        params = params or {}
         if id:
-            params["id"] = id  # Ensure ID is included
+            params['id'] = id  # Ensure ID is included
 
+        # Get
         url = self.BASE.format(
             org=self.org, url=self.url, params=params, action="read")
         response = self.get(url, params)
 
+        # Process
         if response.status_code == 200:
             data = response.json()
             if id:
@@ -636,11 +637,41 @@ class CashCtrl():
                 if data.get('success', False):
                     data = data.get('data')
                 else:
-                    data = None
+                    raise ValueError(data.get('errorMessage'))                    
 
             return clean_dict(data, self.convert_dt, self.timezone)
 
         return response
+
+    def data_json(self, params={}):
+        '''
+        get json data, params keys in sentence letters (not camel!)
+        see e.g. https://app.cashctrl.com/static/help/en/api/index.html#/report/element/data.json
+        '''
+        url = self.BASE.format(
+            org=self.org, url=self.url, params=prepare_dict(params),
+            action='data')
+        response = self.get(url, params)
+        self.data = [
+            clean_dict(x, self.convert_dt, self.timezone)
+            for x in response.json()['data']
+        ]
+        return self.data
+
+    def tree_json(self, params={}):
+        '''
+        get json tree, params should be {}
+        see e.g. https://app.cashctrl.com/static/help/en/api/index.html#/report
+        '''
+        url = self.BASE.format(
+            org=self.org, url=self.url, params=params, action='tree')
+        response = self.get(url, params)
+        self.data = [
+            clean_dict(x, self.convert_dt, self.timezone)
+            for x in response.json()['data']
+        ]
+        return self.data
+
 
     def create(self, data=None, params={}):
         ''' cash_ctrl create '''
@@ -672,6 +703,20 @@ class CashCtrl():
         '''
         Attach files with id file_ids to object id,
         see https://app.cashctrl.com/static/help/en/api/index.html#examples
+        '''
+        data = {
+            "id": id,
+            "file_ids": ",".join(map(str, file_ids))  # Convert list to comma-separated string
+        }
+        url = self.BASE.format(
+            org=self.org, url=self.url, data=data, action='update_attachments')
+        response = self.post(url, data=data)
+        return response
+
+    def get_data(self, action='data.json', **params):
+        '''
+        get json data,
+        e.g. see https://app.cashctrl.com/static/help/en/api/index.html#/report/element/data.json
         '''
         data = {
             "id": id,
@@ -1067,8 +1112,30 @@ class PersonTitle(CashCtrl):
     url = 'person/title/'
     actions = ['list']
 
-# Element
+# Reporting
+class Report(CashCtrl):
+    '''see public api desc - not working!'''
+    url = 'report/'
+    actions = ['tree_json']
+
+
+class Collection(CashCtrl):
+    '''see public api desc'''
+    url = 'report/collection/'
+    actions = ['list', 'create']
+
+    def create(self, data, params={}):
+        if 'config' in data:
+            data['config'] = json.dumps(prepare_dict(data['config']))
+        return super().create(data, params)
+
+
 class Element(CashCtrl):
     '''see public api desc'''
     url = 'report/element/'
-    actions = ['list', 'create']
+    actions = ['list', 'create', 'read_json']
+
+    def create(self, data, params={}):
+        if 'config' in data:
+            data['config'] = json.dumps(prepare_dict(data['config']))
+        return super().create(data, params)

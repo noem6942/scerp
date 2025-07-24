@@ -1,5 +1,6 @@
 from django.conf import settings
 from decimal import Decimal
+import json
 import yaml
 
 from api_cash_ctrl import *
@@ -152,7 +153,7 @@ if __name__ == "__main__":
         conn = Person(org, api, convert_dt=False)
         conn.attach_files(26, [18])
 
-    if True:
+    if False:
         conn = Account(org, api, convert_dt=False)
         data_list = conn.list()
         print("*", len(data_list))
@@ -160,3 +161,69 @@ if __name__ == "__main__":
         id = 1781  # data.get('id')
         balance = conn.get_balance(id)
         print("*", id, balance)
+
+    if False:
+        conn = Element(org, api, convert_dt=False)
+        data = {
+            'name': 'Balance List',  # we take list so we are faster
+            'type': ELEMENT_TYPE.BALANCE_LIST,
+            'config': {
+                'accounts': '1:99999',  # take all
+                'is_hide_zero': False
+            }
+        }
+        response = conn.create(data)
+        print("*response", response)  # we have now element_id_c = 1036
+
+    if False:
+        conn = Collection(org, api, convert_dt=False)
+        data = {
+            'name': 'SC-ERP'
+        }
+        response = conn.create(data)
+        print("*response", response)  # we have now collection_id_c = 1002
+
+    if False:
+        conn = Element(org, api, convert_dt=False)
+        data = {
+            'name': 'Journal 1',  # we take list so we are faster
+            'type': ELEMENT_TYPE.JOURNAL,
+            #'collection_id': 1002,
+        }
+        response = conn.create(data)
+        print("*response", response)  # we have now element_id_c = 1043
+        data = conn.read(response['insert_id'])
+        print("*response", data)  # we have now period_id_c = 13
+
+    if False:
+        conn = Report(org, api, convert_dt=False)
+        data_list = conn.tree_json()
+        print("*response", data_list)
+        
+    if False:
+        conn = FiscalPeriod(org, api, convert_dt=False)
+        data_list = conn.list()
+        print("*response", data_list[-1])  # we have now period_id_c = 13
+
+    if True:
+        conn = Element(org, api, convert_dt=False)
+        element_id_c = 1061
+        response = conn.read(element_id_c)
+        print("*response", response)
+        #response = conn.delete(element_id_c)
+        #print("*response", response)
+        
+    if False:
+        conn = Element(org, api, convert_dt=False)
+        element_id_c = 1041
+        period_id_c = 13
+
+        params = {
+            'element_id': element_id_c,
+            'fiscal_period': period_id_c
+        }
+
+        data_list = conn.data_json(params)
+
+        print("*data_list", data_list)
+

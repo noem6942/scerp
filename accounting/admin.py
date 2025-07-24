@@ -29,7 +29,7 @@ from .resources import (
 
 
 # Actions
-accounting_actions_write = [    
+accounting_actions_write = [
     a.de_sync_accounting,
     a.sync_accounting
 ]
@@ -605,7 +605,7 @@ class JournalAdmin(TenantFilteringAdmin, BaseAdmin):
     help_text=_("Create journals. See cashControl for results.")
     # Safeguards
     protected_foreigns = ['tenant', 'version', 'template']
-    
+
     # Display these fields in the list view
     list_display = (
         'title', 'date', 'amount') + FIELDS.C_DISPLAY_SHORT
@@ -656,7 +656,7 @@ class ArticleCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('code', 'name')
     autocomplete_fields = ['purchase_account',  'sales_account']
 
-    # Actions    
+    # Actions
     actions = accounting_actions_write + [a.accounting_copy] + default_actions
 
     #Fieldsets
@@ -702,9 +702,9 @@ class ArticleAdmin(TenantFilteringAdmin, BaseAdmin):
     search_fields = ('nr', 'name', 'unit__code', 'unit__name', 'sales_price')
     list_filter = ('category',)
 
-    # Actions    
+    # Actions
     actions = accounting_actions_write + [a.accounting_copy] + default_actions
-    
+
     #Fieldsets
     fieldsets = (
         (None, {
@@ -743,7 +743,7 @@ class OrderLayoutAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Display these fields in the list view
     list_display = ('name', 'is_default') + FIELDS.C_DISPLAY_SHORT
-    readonly_fields = FIELDS.C_READ_ONLY
+    readonly_fields = FIELDS.C_READ_ONLY +('display_name', )
 
     # Search, filter
     search_fields = ('name',)
@@ -820,7 +820,7 @@ class OrderCategoryAdmin(TenantFilteringAdmin, BaseAdmin):
     ''' use this fieldset for every category '''
     def get_fieldsets(self, request, obj=None):
         fieldsets = list(super().get_fieldsets(request, obj))
-        
+
         if request.user.is_superuser:
             fieldsets.append(
                 (_('Admin Only'), {
@@ -969,7 +969,7 @@ class OrderCategoryOutgoingAdmin(OrderCategoryAdmin):
         }),
         (_('Layout'), {
             'fields': (
-                'layout', 'header', 'footer', 'header_installment',                
+                'layout', 'header', 'footer', 'header_installment',
             ),
             'classes': ('expand',),
         }),
@@ -993,7 +993,7 @@ class OrderCategoryOutgoingAdmin(OrderCategoryAdmin):
 
 
 @admin.register(models.OrderContract, site=admin_site)
-class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):    
+class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     # Safeguards
     protected_foreigns = [
         'tenant', 'version', 'associate', 'category', 'currency',
@@ -1025,7 +1025,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     fieldsets = (
         (None, {
             'fields': (
-                'category', 'associate', 'status', 'contract_date', 
+                'category', 'associate', 'status', 'contract_date',
                 'description', 'price_excl_vat', 'currency'),
             'classes': ('expand',),
         }),
@@ -1038,7 +1038,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
         (_('CashCtrl Date'), {
             'fields': ('date',),
             'classes': ('collapse',),
-        }),        
+        }),
         FIELDSET.NOTES_AND_STATUS,
         FIELDSET.LOGGING_TENANT,
         FIELDSET.CASH_CTRL
@@ -1049,7 +1049,7 @@ class OrderContractAdmin(TenantFilteringAdmin, BaseAdmin):
     def save_model(self, request, obj, form, change):
         # cashCtrl needs date to be from actual period
         if not obj.date:
-            obj.date = timezone.now().date()  # auto-fill 
+            obj.date = timezone.now().date()  # auto-fill
         super().save_model(request, obj, form, change)
 
 
@@ -1081,8 +1081,8 @@ class IncomingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
     )  + CORE_FIELDS.ICON_DISPLAY + FIELDS.C_DISPLAY_SHORT
     list_display_links = (
         'nr', 'name'
-    ) 
-    readonly_fields = (    
+    )
+    readonly_fields = (
         'display_category_type', 'display_bank_account',
         'display_cash_ctrl_url',
     ) + FIELDS.C_READ_ONLY
@@ -1176,7 +1176,7 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Actions
     actions = accounting_actions_write + [
-        a.order_status_update, a.order_get_status, 
+        a.order_status_update, a.order_get_status,
         a.outgoing_order_installments
     ]+ default_actions
 
@@ -1217,6 +1217,72 @@ class OutgoingOrderAdmin(TenantFilteringAdmin, BaseAdmin):
         return '-'
 
 
+# Reporting
+@admin.register(models.Collection, site=admin_site)
+class CollectionAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = ['tenant', 'version']
+
+    # Helpers
+    form = forms.CollectionAdminForm
+
+    # Display these fields in the list view
+    list_display = ('code', 'display_name') + FIELDS.C_DISPLAY_SHORT
+    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
+
+    # Search, filter
+    search_fields = ('code', 'name', 'text')
+
+    # Actions
+    actions = accounting_actions_write + default_actions
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', *make_language_fields('name'), 'config', 'text'
+            ),
+            'classes': ('expand',),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+        FIELDSET.CASH_CTRL
+    )
+
+
+@admin.register(models.Element, site=admin_site)
+class ElementAdmin(TenantFilteringAdmin, BaseAdmin):
+    # Safeguards
+    protected_foreigns = ['tenant', 'version', 'collection']
+
+    # Helpers
+    form = forms.ElementAdminForm
+
+    # Display these fields in the list view
+    list_display = ('code', 'display_name') + FIELDS.C_DISPLAY_SHORT
+    readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY
+
+    # Search, filter
+    search_fields = ('code', 'name')
+
+    # Actions
+    actions = accounting_actions_write + default_actions
+
+    #Fieldsets
+    fieldsets = (
+        (None, {
+            'fields': (
+                'code', *make_language_fields('name'), 'type', 'collection',
+                'config'
+            ),
+            'classes': ('expand',),
+        }),
+        FIELDSET.NOTES_AND_STATUS,
+        FIELDSET.LOGGING_TENANT,
+        FIELDSET.CASH_CTRL
+    )
+
+
 # Ledger -------------------------------------------------------------------
 @admin.register(models.Ledger, site=admin_site)
 class LedgerAdmin(TenantFilteringAdmin, BaseAdmin):
@@ -1225,7 +1291,7 @@ class LedgerAdmin(TenantFilteringAdmin, BaseAdmin):
 
     # Helpers
     form = forms.LedgerAdminForm
-    
+
     # Display these fields in the list view
     list_display = (
         'code', 'display_name', 'period',
@@ -1274,6 +1340,9 @@ class LedgerAdmin(TenantFilteringAdmin, BaseAdmin):
 
 
 class LedgerBaseAdmin(TenantFilteringAdmin, BaseAdmin):
+    '''
+    ledger filter not implemented yet!
+    '''
     # Display
     list_display_links = ('display_account_name',)
     list_per_page = 1000  # Show 1000 i.e. most probably all results per page
@@ -1350,7 +1419,7 @@ class LedgerBalanceAdmin(ExportActionMixin, LedgerBaseAdmin):
     #readonly_fields = ('closing_balance',)
 
     # Search, filter
-    list_filter = ('side', 'is_enabled_sync', 'type')    
+    list_filter = ('side', 'is_enabled_sync', 'type')
 
     # Actions
     actions = accounting_actions + [export_excel, a.get_balances] + default_actions
@@ -1411,7 +1480,7 @@ class LedgerFunctional(ExportActionMixin, LedgerBaseAdmin):
     list_display = (
         'display_function', 'display_hrm', 'display_account_name',
         'expense', 'revenue', 'expense_budget', 'revenue_budget',
-        'expense_previous', 'revenue_previous',
+        'expense_previous', 'revenue_previous', 'balance_updated',
         'display_c_ids', 'notes'
     ) + FIELDS.C_DISPLAY_SHORT
     readonly_fields = ('display_name',) + FIELDS.C_READ_ONLY

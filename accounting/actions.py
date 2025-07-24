@@ -30,7 +30,7 @@ from .models import (
 
 from . import forms, models
 from . import api_cash_ctrl, connector_cash_ctrl as conn
-from .ledger import LoadBalance
+from .ledger import LoadLedgerBalance, LoadFunctionalLedger
 
 
 @action_with_form(
@@ -42,7 +42,11 @@ def get_balances(modeladmin, request, queryset, data):
     # Check
     if action_check_nr_selected(request, queryset, min_count=1):
         # load balances from cashCtrl
-        ledger = LoadBalance(modeladmin.model, request, queryset)
+        model = modeladmin.model
+        if model == LedgerBalance:
+            ledger = LoadLedgerBalance(model, request, queryset)
+        else:
+            ledger = LoadFunctionalLedger(model, request, queryset)
         ledger.load(data['date'])
 
 
